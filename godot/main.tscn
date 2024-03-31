@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3 uid="uid://db7wn7w2f7gvs"]
+
+[ext_resource type="Script" path="res://layer0_manager.gd" id="1_x4xk8"]
+[ext_resource type="Script" path="res://layer1_manager.gd" id="2_k40cn"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_4uyxe"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_b18wo"]
+
+[node name="Root" type="Node2D"]
+y_sort_enabled = true
+
+[node name="Layer0Manager" type="Node2D" parent="."]
+script = ExtResource("1_x4xk8")
+mesh = SubResource("QuadMesh_4uyxe")
+
+[node name="Layer1Manager" type="Node2D" parent="."]
+y_sort_enabled = true
+script = ExtResource("2_k40cn")
+mesh = SubResource("QuadMesh_b18wo")
