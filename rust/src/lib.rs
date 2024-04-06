@@ -7,71 +7,99 @@ unsafe impl ExtensionLibrary for Extension {}
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
-struct TileSetDescItem {
-    #[export]
-    name: GString,
-    #[export]
-    image: Gd<godot::engine::Image>,
-}
-
-#[derive(GodotClass)]
-#[class(init, base=Resource)]
-struct TileSetDesc {
+struct AtlasDesc {
     #[export]
     image_size: u32,
     #[export]
     max_page_size: u32,
     #[export]
-    items: Array<Gd<TileSetDescItem>>,
+    images: Array<Gd<godot::engine::Image>>,
 }
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct TileSetCoord {
-    #[export]
+struct AtlasTexcoord {
     page: u32,
-    #[export]
     min_x: f32,
-    #[export]
     min_y: f32,
-    #[export]
     max_x: f32,
-    #[export]
     max_y: f32,
 }
 
+#[godot_api]
+impl AtlasTexcoord {
+    #[func]
+    fn page(&self) -> u32 {
+        self.page
+    }
+
+    #[func]
+    fn min_x(&self) -> f32 {
+        self.min_x
+    }
+    #[func]
+    fn min_y(&self) -> f32 {
+        self.min_y
+    }
+
+    #[func]
+    fn max_x(&self) -> f32 {
+        self.max_x
+    }
+
+    #[func]
+    fn max_y(&self) -> f32 {
+        self.max_y
+    }
+}
+
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct TileSet {
-    #[export]
+struct Atlas {
     image_size: u32,
-    #[export]
     page_size: u32,
-    #[export]
     images: Array<Gd<godot::engine::Image>>,
-    #[export]
-    texcoords: Array<Gd<TileSetCoord>>,
+    texcoords: Array<Gd<AtlasTexcoord>>,
 }
 
 #[godot_api]
-impl TileSet {
+impl Atlas {
     #[func]
-    fn from_desc(desc: Gd<TileSetDesc>) -> Gd<Self> {
+    fn image_size(&self) -> u32 {
+        self.image_size
+    }
+
+    #[func]
+    fn page_size(&self) -> u32 {
+        self.page_size
+    }
+
+    #[func]
+    fn images(&self) -> Array<Gd<godot::engine::Image>> {
+        self.images.clone()
+    }
+
+    #[func]
+    fn texcoords(&self) -> Array<Gd<AtlasTexcoord>> {
+        self.texcoords.clone()
+    }
+
+    #[func]
+    fn from_desc(desc: Gd<AtlasDesc>) -> Gd<Self> {
         let desc = desc.bind();
 
         let images = desc
-            .items
+            .images
             .iter_shared()
-            .map(|item| {
-                let src_image = &item.bind().image;
-                let width = src_image.get_width() as u32;
-                let height = src_image.get_height() as u32;
+            .map(|image| {
+                let width = image.get_width() as u32;
+                let height = image.get_height() as u32;
 
                 let mut dst_image = image::RgbaImage::new(width, height);
 
-                for y in 0..src_image.get_height() {
-                    for x in 0..src_image.get_width() {
-                        let rgba = src_image.get_pixel(x, y);
+                for y in 0..image.get_height() {
+                    for x in 0..image.get_width() {
+                        let rgba = image.get_pixel(x, y);
                         let rgba = image::Rgba([rgba.r8(), rgba.g8(), rgba.b8(), rgba.a8()]);
                         dst_image.put_pixel(x as u32, y as u32, rgba);
                     }
@@ -119,7 +147,7 @@ impl TileSet {
             .map(|texcoord| {
                 let texcoord = texcoord.to_f32();
 
-                Gd::from_init_fn(|_| TileSetCoord {
+                Gd::from_init_fn(|_| AtlasTexcoord {
                     page: texcoord.page,
                     min_x: texcoord.min_x,
                     min_y: texcoord.min_y,
