@@ -1,20 +1,20 @@
-[gd_scene load_steps=5 format=3 uid="uid://db7wn7w2f7gvs"]
+[gd_scene load_steps=4 format=3 uid="uid://dwy0soa82f5eo"]
 
-[ext_resource type="Script" path="res://layer0_manager.gd" id="1_x4xk8"]
-[ext_resource type="Script" path="res://layer1_manager.gd" id="2_k40cn"]
+[ext_resource type="Script" path="res://scripts/layer0_manager.gd" id="1_x4xk8"]
 
-[sub_resource type="QuadMesh" id="QuadMesh_4uyxe"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8ikjy"]
+shading_mode = 0
 
-[sub_resource type="QuadMesh" id="QuadMesh_b18wo"]
+[sub_resource type="QuadMesh" id="QuadMesh_vi6xw"]
+material = SubResource("StandardMaterial3D_8ikjy")
 
-[node name="Root" type="Node2D"]
-y_sort_enabled = true
+[node name="Root" type="Node3D"]
 
-[node name="Layer0Manager" type="Node2D" parent="."]
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
+projection = 1
+size = 10.0
+
+[node name="Layer0Manager" type="Node3D" parent="."]
 script = ExtResource("1_x4xk8")
-mesh = SubResource("QuadMesh_4uyxe")
-
-[node name="Layer1Manager" type="Node2D" parent="."]
-y_sort_enabled = true
-script = ExtResource("2_k40cn")
-mesh = SubResource("QuadMesh_b18wo")
+mesh = SubResource("QuadMesh_vi6xw")
