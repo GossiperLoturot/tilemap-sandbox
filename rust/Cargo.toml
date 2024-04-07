@@ -9,4 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 godot = { git = "https://github.com/godot-rust/gdext" }
 image = "0.25"
-image-atlas = "0.4"
+image-atlas = { git = "https://github.com/gossiperloturot/image-atlas" }

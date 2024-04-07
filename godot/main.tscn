@@ -1,12 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://dwy0soa82f5eo"]
-
-[ext_resource type="Script" path="res://scripts/layer0_manager.gd" id="1_x4xk8"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8ikjy"]
-shading_mode = 0
-
-[sub_resource type="QuadMesh" id="QuadMesh_vi6xw"]
-material = SubResource("StandardMaterial3D_8ikjy")
+[gd_scene format=3 uid="uid://dwy0soa82f5eo"]
 
 [node name="Root" type="Node3D"]
 
@@ -14,7 +6,3 @@ material = SubResource("StandardMaterial3D_8ikjy")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
 projection = 1
 size = 10.0
-
-[node name="Layer0Manager" type="Node3D" parent="."]
-script = ExtResource("1_x4xk8")
-mesh = SubResource("QuadMesh_vi6xw")

@@ -125,9 +125,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cc"
-version = "1.0.90"
+version = "1.0.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cd6604a82acf3039f1144f54b8eb34e91ffba622051189e71b781822d5ee1f5"
+checksum = "1fd97381a8cc6493395a5afc4c691c1084b3768db713b73aa215217aa245d153"
 dependencies = [
  "jobserver",
  "libc",
@@ -265,9 +265,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
+checksum = "a06fddc2749e0528d2813f95e050e87e52c8cbbae56223b9babf73b3e53b0cc6"
 dependencies = [
  "cfg-if",
  "libc",
@@ -293,7 +293,7 @@ checksum = "9e05e7e6723e3455f4818c7b26e855439f7546cf617ef669d1adedb8669e5cb9"
 [[package]]
 name = "godot"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "godot-core",
  "godot-macros",
@@ -302,7 +302,7 @@ dependencies = [
 [[package]]
 name = "godot-bindings"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "godot4-prebuilt",
 ]
@@ -310,12 +310,12 @@ dependencies = [
 [[package]]
 name = "godot-cell"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 
 [[package]]
 name = "godot-codegen"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "godot-bindings",
  "godot-fmt",
@@ -329,7 +329,7 @@ dependencies = [
 [[package]]
 name = "godot-core"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "glam",
  "godot-bindings",
@@ -341,7 +341,7 @@ dependencies = [
 [[package]]
 name = "godot-ffi"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "gensym",
  "godot-bindings",
@@ -352,7 +352,7 @@ dependencies = [
 [[package]]
 name = "godot-fmt"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "proc-macro2",
 ]
@@ -360,7 +360,7 @@ dependencies = [
 [[package]]
 name = "godot-macros"
 version = "0.1.0"
-source = "git+https://github.com/godot-rust/gdext#55b60fbbb80ad8e199a23ac659ba8194f61e6060"
+source = "git+https://github.com/godot-rust/gdext#18147d1439d64ecd64ef648eb9854379d8ca7795"
 dependencies = [
  "godot-bindings",
  "proc-macro2",
@@ -375,9 +375,9 @@ source = "git+https://github.com/godot-rust/godot4-prebuilt?branch=4.2#3328a4cde
 
 [[package]]
 name = "half"
-version = "2.4.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eceaaeec696539ddaf7b333340f1af35a5aa87ae3e4f3ead0532f72affab2e"
+checksum = "6dd08c532ae367adf81c312a4580bc67f1d0fe8bc9c460520283f4c0ff277888"
 dependencies = [
  "cfg-if",
  "crunchy",
@@ -426,9 +426,8 @@ dependencies = [
 
 [[package]]
 name = "image-atlas"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c304446685d02c9c0c21f32ef2f0c86c6eafe1e5cc092917a5051f3694e1ade"
+version = "0.4.1"
+source = "git+https://github.com/gossiperloturot/image-atlas#b0056dec0b82d304e4c901d8a266205cac1d9f2d"
 dependencies = [
  "image",
  "rectangle-pack",
@@ -964,9 +963,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.57"
+version = "2.0.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11a6ae1e52eb25aab8f3fb9fca13be982a373b8f1157ca14b897a825ba4a2d35"
+checksum = "44cfb93f38070beee36b3fef7d4f5a16f27751d94b187b666a5cc5e9b0d30687"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1094,8 +1093,9 @@ dependencies = [
 
 [[package]]
 name = "venial"
-version = "0.5.0"
-source = "git+https://github.com/PoignardAzur/venial?rev=32ade31408eb0ffba4ce7b02d3cdb2e78b496644#32ade31408eb0ffba4ce7b02d3cdb2e78b496644"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6816bc32f30bf8dd1b3adb04de8406c7bf187d2f923bd9e4c0b99365d012613f"
 dependencies = [
  "proc-macro2",
  "quote",
