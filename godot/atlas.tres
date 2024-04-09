@@ -18,6 +18,6 @@
 [ext_resource type="Image" uid="uid://cgc2582nmm7j" path="res://images/surface_stone.png" id="16_q1m3s"]
 
 [resource]
-image_size = 2048
+output_image_size = 2048
 max_page_size = 8
 images = Array[Image]([ExtResource("1_i4ar6"), ExtResource("2_uibg4"), ExtResource("3_pxoay"), ExtResource("4_s2030"), ExtResource("5_6tg61"), ExtResource("6_iqua3"), ExtResource("7_tbkpe"), ExtResource("8_8syfi"), ExtResource("9_o4wra"), ExtResource("10_aimkd"), ExtResource("11_idbel"), ExtResource("12_4bxxm"), ExtResource("13_46vx0"), ExtResource("14_vw45f"), ExtResource("15_o3inr"), ExtResource("16_q1m3s")])

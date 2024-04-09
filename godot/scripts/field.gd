@@ -6,22 +6,18 @@ extends MultiMeshInstance3D
 
 
 func _ready():
-	var atlas = Atlas.from_desc(atlas_desc)
+	var tile_field = TileField.new_from(atlas_desc)
 	
-	var textures = Texture2DArray.new()
-	textures.create_from_images(atlas.images())
-	
-	var material: ShaderMaterial = mesh.surface_get_material(0)
-	material.set_shader_parameter("textures", textures)
-	
-	var field = TileField.new()
-	for y in range(32):
-		for x in range(32):
-			field.add_tile(Tile.from(12, x, y))
+	var material = mesh.surface_get_material(0)
+	material.set_shader_parameter("textures", tile_field.get_texture_array())
 	
 	multimesh = MultiMesh.new()
 	multimesh.mesh = mesh
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.instance_count = 32 * 32
 	
-	field.update_buffer(multimesh, material, atlas)
+	for y in range(32):
+		for x in range(32):
+			tile_field.add_tile(Tile.new_from(12, x, y))
+	
+	tile_field.update_buffer(multimesh.get_rid(), material.get_rid())
