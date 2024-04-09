@@ -1,6 +1,7 @@
 use godot::prelude::*;
 
 mod atlas;
+mod field;
 
 struct Extension;
 

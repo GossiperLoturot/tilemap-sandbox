@@ -7,6 +7,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+ahash = "0.8"
 godot = { git = "https://github.com/godot-rust/gdext" }
+half = "2.4"
 image = "0.25"
 image-atlas = { git = "https://github.com/gossiperloturot/image-atlas" }
+slab = "0.4"

@@ -1,19 +1,25 @@
 shader_type spatial;
 render_mode unshaded;
 
-uniform sampler2D texture0;
-// uniform sampler2D texture1;
-// uniform sampler2D texture2;
-// uniform sampler2D texture3;
-// uniform sampler2D texture4;
-// uniform sampler2D texture5;
-// uniform sampler2D texture6;
-// uniform sampler2D texture7;
+#define BUFFER_SIZE 1024
+
+uniform float[BUFFER_SIZE] page_buffer;
+uniform vec4[BUFFER_SIZE] texcoord_buffer;
+
+uniform sampler2DArray textures: filter_nearest;
+
+varying flat float page;
 
 void vertex() {
-	// Called for every vertex the material is visible on.
+	page = page_buffer[INSTANCE_ID];
+	
+	vec2 offset = texcoord_buffer[INSTANCE_ID].xy;
+	vec2 scale = texcoord_buffer[INSTANCE_ID].zw;
+	UV = UV * scale + offset;
 }
 
 void fragment() {
-	ALBEDO = texture(texture0, UV).rgb;
+	vec4 col = texture(textures, vec3(UV, page));
+	ALBEDO = col.rgb;
+	ALPHA = col.a;
 }

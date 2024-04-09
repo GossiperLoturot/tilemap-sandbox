@@ -1,8 +1,29 @@
-[gd_scene format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=7 format=3 uid="uid://dwy0soa82f5eo"]
+
+[ext_resource type="Script" path="res://scripts/field.gd" id="1_b2r8a"]
+[ext_resource type="AtlasDesc" uid="uid://bkamsmreaow8j" path="res://atlas.tres" id="2_d3mey"]
+[ext_resource type="Shader" path="res://shader.gdshader" id="3_ns33c"]
+
+[sub_resource type="Texture2DArrayRD" id="Texture2DArrayRD_l6xyl"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mnhq0"]
+render_priority = 0
+shader = ExtResource("3_ns33c")
+shader_parameter/page_buffer = null
+shader_parameter/texcoord_buffer = null
+shader_parameter/textures = SubResource("Texture2DArrayRD_l6xyl")
+
+[sub_resource type="QuadMesh" id="QuadMesh_vu8h4"]
+material = SubResource("ShaderMaterial_mnhq0")
 
 [node name="Root" type="Node3D"]
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 16, 10)
 projection = 1
-size = 10.0
+size = 32.0
+
+[node name="MultiMeshInstance3D" type="MultiMeshInstance3D" parent="."]
+script = ExtResource("1_b2r8a")
+atlas_desc = ExtResource("2_d3mey")
+mesh = SubResource("QuadMesh_vu8h4")
