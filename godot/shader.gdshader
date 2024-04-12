@@ -3,10 +3,9 @@ render_mode unshaded;
 
 #define BUFFER_SIZE 1024
 
+uniform sampler2DArray texture_array: filter_nearest;
 uniform float[BUFFER_SIZE] page_buffer;
 uniform vec4[BUFFER_SIZE] texcoord_buffer;
-
-uniform sampler2DArray textures: filter_nearest;
 
 varying flat float page;
 
@@ -19,7 +18,7 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 col = texture(textures, vec3(UV, page));
+	vec4 col = texture(texture_array, vec3(UV, page));
 	ALBEDO = col.rgb;
 	ALPHA = col.a;
 }

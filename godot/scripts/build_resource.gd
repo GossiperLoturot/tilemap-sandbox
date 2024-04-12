@@ -18,9 +18,9 @@ func _run():
 		# print("image name: %s" % file_stem)
 		images.append(image)
 	
-	var desc = AtlasDesc.new()
-	desc.image_size = 2048
-	desc.max_page_size = 8
+	var desc = TileFieldDesc.new()
+	desc.output_image_size = 2048
+	desc.max_page_size = 64
 	desc.images = images
 	
-	ResourceSaver.save(desc, "res://atlas.tres")
+	ResourceSaver.save(desc, "res://tile_field.tres")

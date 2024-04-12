@@ -65,13 +65,15 @@ mod inner {
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
-struct AtlasDesc {
+struct TileFieldDesc {
     #[export]
     output_image_size: u32,
     #[export]
     max_page_size: u32,
     #[export]
     images: Array<Gd<godot::engine::Image>>,
+    #[export]
+    shader: Gd<godot::engine::Shader>,
 }
 
 #[derive(GodotClass)]
@@ -108,14 +110,18 @@ impl Tile {
 #[class(no_init, base=RefCounted)]
 struct TileField {
     inner: inner::TileField,
-    texture_array: Gd<godot::engine::Texture2DArray>,
     texcoords: Vec<image_atlas::Texcoord32>,
+    material: Rid,
+    multimesh: Rid,
+    instance: Rid,
 }
 
 #[godot_api]
 impl TileField {
+    const MAX_INSTANCE_COUNT: usize = 1024;
+
     #[func]
-    fn new_from(desc: Gd<AtlasDesc>) -> Gd<Self> {
+    fn new_from(desc: Gd<TileFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
         let desc = desc.bind();
 
         let entries = desc
@@ -166,8 +172,11 @@ impl TileField {
             })
             .collect::<Vec<_>>();
 
-        let mut texture_array = godot::engine::Texture2DArray::new_gd();
-        texture_array.create_from_images(Array::from(gd_images.as_slice()));
+        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        let texture_array = rendering_server.texture_2d_layered_create(
+            Array::from(gd_images.as_slice()),
+            godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
+        );
 
         let texcoords = atlas
             .texcoords
@@ -175,10 +184,73 @@ impl TileField {
             .map(|texcoord| texcoord.to_f32())
             .collect::<Vec<_>>();
 
+        let shader = desc.shader.get_rid();
+        let gd_mesh_data = {
+            let mut data = VariantArray::new();
+            data.resize(
+                godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
+                &Variant::nil(),
+            );
+            data.set(
+                godot::engine::rendering_server::ArrayType::VERTEX.ord() as usize,
+                PackedVector3Array::from(&[
+                    Vector3::new(0.0, 0.0, 0.0),
+                    Vector3::new(0.0, 1.0, 1.0),
+                    Vector3::new(1.0, 1.0, 1.0),
+                    Vector3::new(1.0, 0.0, 0.0),
+                ])
+                .to_variant(),
+            );
+            data.set(
+                godot::engine::rendering_server::ArrayType::TEX_UV.ord() as usize,
+                PackedVector2Array::from(&[
+                    Vector2::new(0.0, 0.0),
+                    Vector2::new(0.0, 1.0),
+                    Vector2::new(1.0, 1.0),
+                    Vector2::new(1.0, 0.0),
+                ])
+                .to_variant(),
+            );
+            data.set(
+                godot::engine::rendering_server::ArrayType::INDEX.ord() as usize,
+                PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
+            );
+            data
+        };
+
+        let material = rendering_server.material_create();
+        rendering_server.material_set_shader(material, shader);
+        rendering_server.material_set_param(
+            material,
+            "texture_array".into(),
+            texture_array.to_variant(),
+        );
+
+        let mesh = rendering_server.mesh_create();
+        rendering_server.mesh_add_surface_from_arrays(
+            mesh,
+            godot::engine::rendering_server::PrimitiveType::TRIANGLES,
+            gd_mesh_data,
+        );
+        rendering_server.mesh_surface_set_material(mesh, 0, material);
+
+        let multimesh = rendering_server.multimesh_create();
+        rendering_server.multimesh_set_mesh(multimesh, mesh);
+        rendering_server.multimesh_allocate_data(
+            multimesh,
+            Self::MAX_INSTANCE_COUNT as i32,
+            godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
+        );
+
+        let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
+        rendering_server.instance_set_visible(instance, false);
+
         Gd::from_init_fn(|_| Self {
-            texture_array,
-            texcoords,
             inner: Default::default(),
+            texcoords,
+            material,
+            multimesh,
+            instance,
         })
     }
 
@@ -205,50 +277,62 @@ impl TileField {
     }
 
     #[func]
-    fn get_texture_array(&self) -> Gd<godot::engine::Texture2DArray> {
-        self.texture_array.clone()
-    }
+    fn spawn(&mut self) {
+        let mut instance_buffer = vec![0.0; Self::MAX_INSTANCE_COUNT * 12];
+        let mut texcoord_buffer = vec![0.0; Self::MAX_INSTANCE_COUNT * 4];
+        let mut page_buffer = vec![0.0; Self::MAX_INSTANCE_COUNT];
 
-    #[func]
-    fn update_buffer(&self, multimesh: Rid, material: Rid) {
-        let mut instance_buffer = vec![];
-        let mut texcoord_buffer = vec![];
-        let mut page_buffer = vec![];
+        for (i, tile) in self
+            .inner
+            .tiles()
+            .take(Self::MAX_INSTANCE_COUNT)
+            .enumerate()
+        {
+            instance_buffer[i * 12 + 0] = 1.0;
+            instance_buffer[i * 12 + 1] = 0.0;
+            instance_buffer[i * 12 + 2] = 0.0;
+            instance_buffer[i * 12 + 3] = tile.x() as f32;
 
-        for tile in self.inner.tiles() {
-            instance_buffer.push(1.0);
-            instance_buffer.push(0.0);
-            instance_buffer.push(0.0);
-            instance_buffer.push(tile.x() as f32);
+            instance_buffer[i * 12 + 4] = 0.0;
+            instance_buffer[i * 12 + 5] = 1.0;
+            instance_buffer[i * 12 + 6] = 0.0;
+            instance_buffer[i * 12 + 7] = tile.y() as f32;
 
-            instance_buffer.push(0.0);
-            instance_buffer.push(1.0);
-            instance_buffer.push(0.0);
-            instance_buffer.push(tile.y() as f32);
-
-            instance_buffer.push(0.0);
-            instance_buffer.push(0.0);
-            instance_buffer.push(1.0);
-            instance_buffer.push(0.0);
+            instance_buffer[i * 12 + 8] = 0.0;
+            instance_buffer[i * 12 + 9] = 0.0;
+            instance_buffer[i * 12 + 10] = 1.0;
+            instance_buffer[i * 12 + 11] = 0.0;
 
             let texcoord = self.texcoords[tile.id() as usize];
-            texcoord_buffer.push(texcoord.min_x);
-            texcoord_buffer.push(texcoord.min_y);
-            texcoord_buffer.push(texcoord.max_x - texcoord.min_x);
-            texcoord_buffer.push(texcoord.max_y - texcoord.min_y);
+            texcoord_buffer[i * 4 + 0] = texcoord.min_x;
+            texcoord_buffer[i * 4 + 1] = texcoord.min_y;
+            texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
+            texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
 
-            page_buffer.push(texcoord.page as f32);
+            page_buffer[i] = texcoord.page as f32;
         }
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
+        rendering_server.multimesh_set_buffer(
+            self.multimesh,
+            PackedFloat32Array::from(instance_buffer.as_slice()),
+        );
+        rendering_server.material_set_param(
+            self.material,
+            "texcoord_buffer".into(),
+            PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
+        );
+        rendering_server.material_set_param(
+            self.material,
+            "page_buffer".into(),
+            PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
+        );
+        rendering_server.instance_set_visible(self.instance, true);
+    }
 
-        let buffer = PackedFloat32Array::from(instance_buffer.as_slice());
-        rendering_server.multimesh_set_buffer(multimesh, buffer);
-
-        let buffer = PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant();
-        rendering_server.material_set_param(material, "texcoord_buffer".into(), buffer);
-
-        let buffer = PackedFloat32Array::from(page_buffer.as_slice()).to_variant();
-        rendering_server.material_set_param(material, "page_buffer".into(), buffer);
+    #[func]
+    fn kill(&mut self) {
+        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        rendering_server.instance_set_visible(self.instance, false);
     }
 }
