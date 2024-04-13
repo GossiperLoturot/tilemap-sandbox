@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode unshaded;
 
 #define BUFFER_SIZE 1024
+#define ALPHA_THRESHOLD 0.5
 
 uniform sampler2DArray texture_array: filter_nearest;
 uniform float[BUFFER_SIZE] page_buffer;
@@ -19,6 +20,10 @@ void vertex() {
 
 void fragment() {
 	vec4 col = texture(texture_array, vec3(UV, page));
+	
+	if (col.a < ALPHA_THRESHOLD) {
+		discard;
+	}
+	
 	ALBEDO = col.rgb;
-	ALPHA = col.a;
 }

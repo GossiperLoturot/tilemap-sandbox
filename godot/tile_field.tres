@@ -1,16 +1,5 @@
-[gd_resource type="TileFieldDesc" load_steps=18 format=3 uid="uid://cj2shpxp8h65o"]
+[gd_resource type="TileFieldDesc" load_steps=12 format=3 uid="uid://cj2shpxp8h65o"]
 
-[ext_resource type="Image" uid="uid://b1mhhd644disf" path="res://images/birch_tree.png" id="1_tcl8h"]
-[ext_resource type="Image" uid="uid://b58m71oivdsuy" path="res://images/dandelion.png" id="2_e6h0p"]
-[ext_resource type="Image" uid="uid://brpym4033xgiw" path="res://images/dying_tree.png" id="3_nnaf4"]
-[ext_resource type="Image" uid="uid://dafsg0heevc7l" path="res://images/fallen_branch.png" id="4_1n6ew"]
-[ext_resource type="Image" uid="uid://balsecqlqjgln" path="res://images/fallen_leaves.png" id="5_epkj2"]
-[ext_resource type="Image" uid="uid://bf7ed1fo30u0v" path="res://images/fallen_tree.png" id="6_qejow"]
-[ext_resource type="Image" uid="uid://dvrp7wa2ynml0" path="res://images/frame.png" id="7_tlasf"]
-[ext_resource type="Image" uid="uid://slklmrbmfvsk" path="res://images/mix_grass.png" id="8_kgvhp"]
-[ext_resource type="Image" uid="uid://ktg0hbndxkw7" path="res://images/mix_pebbles.png" id="9_7wpcc"]
-[ext_resource type="Image" uid="uid://vc8hgriavudp" path="res://images/mix_rock.png" id="10_6ynpt"]
-[ext_resource type="Image" uid="uid://bq6vir6fh4isd" path="res://images/oak_tree.png" id="11_dwt65"]
 [ext_resource type="Image" uid="uid://b0isjjv7hmxer" path="res://images/surface_dirt.png" id="12_rodah"]
 [ext_resource type="Image" uid="uid://2jjp665h50te" path="res://images/surface_grass.png" id="13_mf4jf"]
 [ext_resource type="Image" uid="uid://db3jlgx4u6owi" path="res://images/surface_gravel.png" id="14_x38ok"]
@@ -18,8 +7,21 @@
 [ext_resource type="Image" uid="uid://cgc2582nmm7j" path="res://images/surface_stone.png" id="16_ndam6"]
 [ext_resource type="Shader" path="res://shader.gdshader" id="17_5m7tt"]
 
+[sub_resource type="TileFieldDescEntry" id="TileFieldDescEntry_umeeq"]
+image = ExtResource("12_rodah")
+
+[sub_resource type="TileFieldDescEntry" id="TileFieldDescEntry_nr4xg"]
+image = ExtResource("13_mf4jf")
+
+[sub_resource type="TileFieldDescEntry" id="TileFieldDescEntry_ck15y"]
+image = ExtResource("14_x38ok")
+
+[sub_resource type="TileFieldDescEntry" id="TileFieldDescEntry_1nvcp"]
+image = ExtResource("15_aoqbp")
+
+[sub_resource type="TileFieldDescEntry" id="TileFieldDescEntry_xxk21"]
+image = ExtResource("16_ndam6")
+
 [resource]
-output_image_size = 2048
-max_page_size = 64
-images = Array[Image]([ExtResource("1_tcl8h"), ExtResource("2_e6h0p"), ExtResource("3_nnaf4"), ExtResource("4_1n6ew"), ExtResource("5_epkj2"), ExtResource("6_qejow"), ExtResource("7_tlasf"), ExtResource("8_kgvhp"), ExtResource("9_7wpcc"), ExtResource("10_6ynpt"), ExtResource("11_dwt65"), ExtResource("12_rodah"), ExtResource("13_mf4jf"), ExtResource("14_x38ok"), ExtResource("15_aoqbp"), ExtResource("16_ndam6")])
+entries = Array[TileFieldDescEntry]([SubResource("TileFieldDescEntry_umeeq"), SubResource("TileFieldDescEntry_nr4xg"), SubResource("TileFieldDescEntry_ck15y"), SubResource("TileFieldDescEntry_1nvcp"), SubResource("TileFieldDescEntry_xxk21")])
 shader = ExtResource("17_5m7tt")
