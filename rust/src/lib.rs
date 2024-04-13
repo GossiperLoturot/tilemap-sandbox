@@ -101,7 +101,7 @@ impl TileField {
     const MAX_BUFFER_SIZE: u32 = 1024;
 
     #[constant]
-    const CHUNK_SIZE: u32 = inner::TileField::CHUNK_SIZE;
+    const CHUNK_SIZE: u32 = 32;
 
     #[func]
     fn new_from(desc: Gd<TileFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
@@ -238,8 +238,10 @@ impl TileField {
             })
             .collect::<Vec<_>>();
 
+        let inner = inner::TileField::new(Self::CHUNK_SIZE);
+
         Gd::from_init_fn(|_| Self {
-            inner: Default::default(),
+            inner,
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
@@ -247,30 +249,36 @@ impl TileField {
     }
 
     #[func]
-    fn add_tile(&mut self, tile: Gd<Tile>) {
+    fn insert(&mut self, tile: Gd<Tile>) {
         let tile = tile.bind().inner.clone();
-        self.inner.add_tile(tile);
+        self.inner.insert(tile);
     }
 
     #[func]
-    fn remove_tile(&mut self, key: Vector2i) {
+    fn remove(&mut self, key: Vector2i) {
         let key = (key.x, key.y);
-        self.inner.remove_tile(key);
+        self.inner.remove(key);
     }
 
     #[func]
-    fn get_tile(&self, key: Vector2i) -> Option<Gd<Tile>> {
+    fn get(&self, key: Vector2i) -> Option<Gd<Tile>> {
         let key = (key.x, key.y);
         self.inner
-            .get_tile(key)
+            .get(key)
             .cloned()
             .map(|inner| Gd::from_init_fn(|_| Tile { inner }))
     }
 
     #[func]
-    fn add_view(&mut self, key: Vector2i) {
+    fn insert_view(&mut self, key: Vector2i) {
         let key = (key.x, key.y);
-        let chunk = self.down_chunks.pop().unwrap();
+        if self.up_chunks.contains_key(&key) {
+            return;
+        }
+
+        let Some(chunk) = self.down_chunks.pop() else {
+            return;
+        };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
@@ -281,7 +289,9 @@ impl TileField {
     #[func]
     fn remove_view(&mut self, key: Vector2i) {
         let key = (key.x, key.y);
-        let chunk = self.up_chunks.remove(&key).unwrap();
+        let Some(chunk) = self.up_chunks.remove(&key) else {
+            return;
+        };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
@@ -291,8 +301,12 @@ impl TileField {
 
     #[func]
     fn update_view(&mut self) {
-        for (key, chunk) in self.up_chunks.iter() {
-            if chunk.serial >= self.inner.serial_by_chunk(*key) {
+        for (key, up_chunk) in &mut self.up_chunks {
+            let Some(chunk) = self.inner.get_chunk(*key) else {
+                continue;
+            };
+
+            if chunk.serial <= up_chunk.serial {
                 continue;
             }
 
@@ -300,9 +314,10 @@ impl TileField {
             let mut texcoord_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 4];
             let mut page_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize];
 
-            for (i, tile) in self
-                .inner
-                .tiles_by_chunk(*key)
+            for (i, tile) in chunk
+                .tiles
+                .iter()
+                .map(|(_, tile)| tile)
                 .take(Self::MAX_BUFFER_SIZE as usize)
                 .enumerate()
             {
@@ -332,19 +347,21 @@ impl TileField {
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
             rendering_server.multimesh_set_buffer(
-                chunk.multimesh,
+                up_chunk.multimesh,
                 PackedFloat32Array::from(instance_buffer.as_slice()),
             );
             rendering_server.material_set_param(
-                chunk.material,
+                up_chunk.material,
                 "texcoord_buffer".into(),
                 PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
             );
             rendering_server.material_set_param(
-                chunk.material,
+                up_chunk.material,
                 "page_buffer".into(),
                 PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
             );
+
+            up_chunk.serial = chunk.serial;
         }
     }
 }

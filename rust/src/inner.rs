@@ -12,24 +12,31 @@ pub struct TileChunk {
     pub tiles: slab::Slab<Tile>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TileField {
+    chunk_size: u32,
     chunks: ahash::AHashMap<IVec2, TileChunk>,
     spatial_ref: ahash::AHashMap<IVec2, (IVec2, u32)>,
 }
 
 impl TileField {
-    pub const CHUNK_SIZE: u32 = 32;
+    pub fn new(chunk_size: u32) -> Self {
+        Self {
+            chunk_size,
+            chunks: Default::default(),
+            spatial_ref: Default::default(),
+        }
+    }
 
-    pub fn add_tile(&mut self, tile: Tile) -> Option<IVec2> {
+    pub fn insert(&mut self, tile: Tile) -> Option<IVec2> {
         let location = tile.location;
         if self.spatial_ref.contains_key(&location) {
             return None;
         }
 
         let chunk_key = {
-            let x = location.0.div_euclid(Self::CHUNK_SIZE as i32);
-            let y = location.1.div_euclid(Self::CHUNK_SIZE as i32);
+            let x = location.0.div_euclid(self.chunk_size as i32);
+            let y = location.1.div_euclid(self.chunk_size as i32);
             (x, y)
         };
         let chunk = self.chunks.entry(chunk_key).or_default();
@@ -41,37 +48,26 @@ impl TileField {
         Some(location)
     }
 
-    pub fn remove_tile(&mut self, location: IVec2) -> Option<Tile> {
-        let (chunk_key, tile_key) = self.spatial_ref.remove(&location)?;
+    pub fn remove(&mut self, location: IVec2) -> Option<Tile> {
+        let (chunk_key, tile_key) = *self.spatial_ref.get(&location)?;
 
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         chunk.serial += 1;
         let tile = chunk.tiles.remove(tile_key as usize);
 
+        self.spatial_ref.remove(&location);
+
         Some(tile)
     }
 
-    pub fn get_tile(&self, location: IVec2) -> Option<&Tile> {
-        let (chunk_key, tile_key) = self.spatial_ref.get(&location)?;
+    pub fn get(&self, location: IVec2) -> Option<&Tile> {
+        let (chunk_key, tile_key) = *self.spatial_ref.get(&location)?;
 
-        let tile = &self.chunks[chunk_key].tiles[*tile_key as usize];
+        let tile = &self.chunks[&chunk_key].tiles[tile_key as usize];
         Some(tile)
     }
 
-    pub fn serial_by_chunk(&self, chunk_key: IVec2) -> u32 {
-        self.chunks
-            .get(&chunk_key)
-            .into_iter()
-            .map(|chunk| chunk.serial)
-            .next()
-            .unwrap_or_default()
-    }
-
-    pub fn tiles_by_chunk(&self, chunk_key: IVec2) -> impl Iterator<Item = &Tile> {
-        self.chunks
-            .get(&chunk_key)
-            .into_iter()
-            .flat_map(|chunk| chunk.tiles.iter())
-            .map(|(_, tile)| tile)
+    pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&TileChunk> {
+        self.chunks.get(&chunk_key)
     }
 }

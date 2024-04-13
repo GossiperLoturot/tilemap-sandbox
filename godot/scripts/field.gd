@@ -10,11 +10,11 @@ func _ready():
 	
 	for y in range(64):
 		for x in range(64):
-			_tile_field.add_tile(Tile.new_from(randi_range(12, 15), Vector2i(x, y)))
+			_tile_field.insert(Tile.new_from(randi_range(12, 15), Vector2i(x, y)))
 	
 	for y in range(4):
 		for x in range(4):
-			_tile_field.add_view(Vector2i(x, y))
+			_tile_field.insert_view(Vector2i(x, y))
 
 
 func _process(_delta):
