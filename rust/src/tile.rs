@@ -1,3 +1,5 @@
+use std::hash::Hasher;
+
 use crate::inner;
 use godot::prelude::*;
 
@@ -327,20 +329,25 @@ impl TileField {
                 .take(Self::MAX_BUFFER_SIZE as usize)
                 .enumerate()
             {
-                instance_buffer[i * 12 + 0] = 1.0;
+                instance_buffer[i * 12 + 0] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = tile.location.0 as f32;
+                instance_buffer[i * 12 + 3] = tile.location.0 as f32 - 0.5;
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = 1.0;
+                instance_buffer[i * 12 + 5] = 2.0;
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = tile.location.1 as f32;
+                instance_buffer[i * 12 + 7] = tile.location.1 as f32 - 0.5;
 
+                let mut hasher = ahash::AHasher::default();
+                hasher.write_i32(tile.location.0);
+                hasher.write_i32(tile.location.1);
+                let hash = hasher.finish() as u16;
+                let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625; // -2^{-4} <= z <= 0
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = 1.0;
-                instance_buffer[i * 12 + 11] = 0.0;
+                instance_buffer[i * 12 + 11] = z_offset;
 
                 let texcoord = self.texcoords[tile.id as usize];
                 texcoord_buffer[i * 4 + 0] = texcoord.min_x;

@@ -358,12 +358,12 @@ impl EntityField {
                 instance_buffer[i * 12 + 0] = spec.view_size.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = entity.location.0 as f32 + spec.view_offset.0;
+                instance_buffer[i * 12 + 3] = entity.location.0 + spec.view_offset.0;
 
                 instance_buffer[i * 12 + 4] = 0.0;
                 instance_buffer[i * 12 + 5] = spec.view_size.1;
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = entity.location.1 as f32 + spec.view_offset.1;
+                instance_buffer[i * 12 + 7] = entity.location.1 + spec.view_offset.1;
 
                 let z_scale = spec.view_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
