@@ -172,3 +172,75 @@ impl BlockField {
         self.chunks.get(&chunk_key)
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct EntitySpec {
+    pub size: Vec2,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Entity {
+    pub id: u32,
+    pub location: Vec2,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EntityChunk {
+    pub serial: u32,
+    pub entities: slab::Slab<Entity>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EntityField {
+    chunk_size: u32,
+    chunks: ahash::AHashMap<IVec2, EntityChunk>,
+    index_ref: slab::Slab<(IVec2, u32)>,
+}
+
+impl EntityField {
+    pub fn new(chunk_size: u32) -> Self {
+        Self {
+            chunk_size,
+            chunks: Default::default(),
+            index_ref: Default::default(),
+        }
+    }
+
+    pub fn insert(&mut self, entity: Entity) -> Option<u32> {
+        let location = entity.location;
+
+        let chunk_key = {
+            let x = location.0.div_euclid(self.chunk_size as f32) as i32;
+            let y = location.1.div_euclid(self.chunk_size as f32) as i32;
+            (x, y)
+        };
+        let chunk = self.chunks.entry(chunk_key).or_default();
+        chunk.serial += 1;
+        let block_key = chunk.entities.insert(entity) as u32;
+
+        let index = self.index_ref.insert((chunk_key, block_key)) as u32;
+
+        Some(index)
+    }
+
+    pub fn remove(&mut self, index: u32) -> Option<Entity> {
+        let (chunk_key, entity_key) = self.index_ref[index as usize];
+
+        let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+        chunk.serial += 1;
+        let entity = chunk.entities.remove(entity_key as usize);
+
+        Some(entity)
+    }
+
+    pub fn get(&self, index: u32) -> Option<&Entity> {
+        let (chunk_key, entity_key) = *self.index_ref.get(index as usize)?;
+
+        let entity = &self.chunks[&chunk_key].entities[entity_key as usize];
+        Some(entity)
+    }
+
+    pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&EntityChunk> {
+        self.chunks.get(&chunk_key)
+    }
+}

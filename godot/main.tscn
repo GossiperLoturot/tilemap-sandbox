@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=5 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" path="res://scripts/field.gd" id="1_b2r8a"]
 [ext_resource type="TileFieldDesc" uid="uid://cj2shpxp8h65o" path="res://tile_field.tres" id="2_8gebx"]
 [ext_resource type="BlockFieldDesc" uid="uid://bvg4v8ufvni8o" path="res://block_field.tres" id="3_1qtlw"]
+[ext_resource type="EntityFieldDesc" uid="uid://djvldykrptcfg" path="res://entity_field.tres" id="4_oyfkl"]
 
 [node name="Root" type="Node3D"]
 
@@ -15,3 +16,4 @@ size = 32.0
 script = ExtResource("1_b2r8a")
 tile_field_desc = ExtResource("2_8gebx")
 block_field_desc = ExtResource("3_1qtlw")
+entity_field_desc = ExtResource("4_oyfkl")

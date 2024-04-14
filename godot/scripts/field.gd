@@ -3,13 +3,17 @@ extends Node3D
 
 @export var tile_field_desc: TileFieldDesc
 @export var block_field_desc: BlockFieldDesc
+@export var entity_field_desc: EntityFieldDesc
+
 var _tile_field: TileField
 var _block_field: BlockField
+var _entity_field: EntityField
 
 
 func _ready():
 	_tile_field = TileField.new_from(tile_field_desc, get_world_3d())
 	_block_field = BlockField.new_from(block_field_desc, get_world_3d())
+	_entity_field = EntityField.new_from(entity_field_desc, get_world_3d())
 	
 	for y in range(64):
 		for x in range(64):
@@ -20,12 +24,16 @@ func _ready():
 		var y = randf_range(0, 64)
 		_block_field.insert(Block.new_from(randi_range(0, 9), Vector2i(x, y)))
 	
+	_entity_field.insert(Entity.new_from(0, Vector2(1.2, 3.4)))
+	
 	for y in range(4):
 		for x in range(4):
 			_tile_field.insert_view(Vector2i(x, y))
 			_block_field.insert_view(Vector2i(x, y))
+			_entity_field.insert_view(Vector2i(x, y))
 
 
 func _process(_delta):
 	_tile_field.update_view()
 	_block_field.update_view()
+	_entity_field.update_view()

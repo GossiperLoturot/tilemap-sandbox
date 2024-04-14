@@ -1,0 +1,14 @@
+[gd_resource type="EntityFieldDesc" load_steps=4 format=3 uid="uid://djvldykrptcfg"]
+
+[ext_resource type="Image" uid="uid://dvrp7wa2ynml0" path="res://images/frame.png" id="1_n8vle"]
+[ext_resource type="Shader" path="res://shader.gdshader" id="2_cnctb"]
+
+[sub_resource type="EntityFieldDescEntry" id="EntityFieldDescEntry_k277h"]
+image = ExtResource("1_n8vle")
+view_size = Vector2(1, 2)
+view_offset = Vector2(-0.5, 0)
+z_along_y = true
+
+[resource]
+entries = Array[EntityFieldDescEntry]([SubResource("EntityFieldDescEntry_k277h")])
+shader = ExtResource("2_cnctb")

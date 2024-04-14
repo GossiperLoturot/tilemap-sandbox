@@ -3,12 +3,9 @@ use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
-struct BlockFieldDescEntry {
+struct EntityFieldDescEntry {
     #[export]
     image: Gd<godot::engine::Image>,
-    #[export]
-    #[init(default = Vector2i::new(1, 1))]
-    size: Vector2i,
     #[export]
     #[init(default = Vector2::new(1.0, 1.0))]
     view_size: Vector2,
@@ -20,7 +17,7 @@ struct BlockFieldDescEntry {
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
-struct BlockFieldDesc {
+struct EntityFieldDesc {
     #[export]
     #[init(default = 2048)]
     output_image_size: u32,
@@ -28,23 +25,23 @@ struct BlockFieldDesc {
     #[init(default = 64)]
     max_page_size: u32,
     #[export]
-    entries: Array<Gd<BlockFieldDescEntry>>,
+    entries: Array<Gd<EntityFieldDescEntry>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
 }
 
 #[derive(GodotClass)]
 #[class(init, base=RefCounted)]
-struct Block {
-    inner: inner::Block,
+struct Entity {
+    inner: inner::Entity,
 }
 
 #[godot_api]
-impl Block {
+impl Entity {
     #[func]
-    fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
+    fn new_from(id: u32, location: Vector2) -> Gd<Self> {
         let location = (location.x, location.y);
-        let inner = inner::Block { id, location };
+        let inner = inner::Entity { id, location };
         Gd::from_init_fn(|_| Self { inner })
     }
 
@@ -54,28 +51,28 @@ impl Block {
     }
 
     #[func]
-    fn get_location(&self) -> Vector2i {
+    fn get_location(&self) -> Vector2 {
         let location = self.inner.location;
-        Vector2i::new(location.0, location.1)
+        Vector2::new(location.0, location.1)
     }
 }
 
 #[derive(Debug, Clone)]
-struct BlockSpec {
+struct EntitySpec {
     view_size: inner::Vec2,
     view_offset: inner::Vec2,
     z_along_y: bool,
 }
 
 #[derive(Debug, Clone)]
-struct BlockChunkDown {
+struct EntityChunkDown {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
 }
 
-impl From<BlockChunkUp> for BlockChunkDown {
-    fn from(chunk: BlockChunkUp) -> Self {
+impl From<EntityChunkUp> for EntityChunkDown {
+    fn from(chunk: EntityChunkUp) -> Self {
         Self {
             material: chunk.material,
             multimesh: chunk.multimesh,
@@ -85,15 +82,15 @@ impl From<BlockChunkUp> for BlockChunkDown {
 }
 
 #[derive(Debug, Clone)]
-struct BlockChunkUp {
+struct EntityChunkUp {
     serial: u32,
     material: Rid,
     multimesh: Rid,
     instance: Rid,
 }
 
-impl From<BlockChunkDown> for BlockChunkUp {
-    fn from(chunk: BlockChunkDown) -> Self {
+impl From<EntityChunkDown> for EntityChunkUp {
+    fn from(chunk: EntityChunkDown) -> Self {
         Self {
             serial: 0,
             material: chunk.material,
@@ -105,16 +102,16 @@ impl From<BlockChunkDown> for BlockChunkUp {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct BlockField {
-    inner: inner::BlockField,
-    specs: Vec<BlockSpec>,
+struct EntityField {
+    inner: inner::EntityField,
+    specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
-    down_chunks: Vec<BlockChunkDown>,
-    up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
+    down_chunks: Vec<EntityChunkDown>,
+    up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
 }
 
 #[godot_api]
-impl BlockField {
+impl EntityField {
     #[constant]
     const MAX_INSTANCE_SIZE: u32 = 256;
 
@@ -125,28 +122,17 @@ impl BlockField {
     const CHUNK_SIZE: u32 = 32;
 
     #[func]
-    fn new_from(desc: Gd<BlockFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
+    fn new_from(desc: Gd<EntityFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
         let desc = desc.bind();
 
-        let inner_specs = desc
-            .entries
-            .iter_shared()
-            .map(|entry| {
-                let entry = entry.bind();
-                inner::BlockSpec {
-                    size: (entry.size.x, entry.size.y),
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let inner = inner::BlockField::new(Self::CHUNK_SIZE, inner_specs);
+        let inner = inner::EntityField::new(Self::CHUNK_SIZE);
 
         let specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
-                BlockSpec {
+                EntitySpec {
                     view_size: (entry.view_size.x, entry.view_size.y),
                     view_offset: (entry.view_offset.x, entry.view_offset.y),
                     z_along_y: entry.z_along_y,
@@ -279,7 +265,7 @@ impl BlockField {
                 let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
-                BlockChunkDown {
+                EntityChunkDown {
                     material,
                     multimesh,
                     instance,
@@ -297,24 +283,22 @@ impl BlockField {
     }
 
     #[func]
-    fn insert(&mut self, block: Gd<Block>) {
-        let block = block.bind().inner.clone();
-        self.inner.insert(block);
+    fn insert(&mut self, entity: Gd<Entity>) {
+        let entity = entity.bind().inner.clone();
+        self.inner.insert(entity);
     }
 
     #[func]
-    fn remove(&mut self, key: Vector2i) {
-        let key = (key.x, key.y);
+    fn remove(&mut self, key: u32) {
         self.inner.remove(key);
     }
 
     #[func]
-    fn get(&self, key: Vector2i) -> Option<Gd<Block>> {
-        let key = (key.x, key.y);
+    fn get(&self, key: u32) -> Option<Gd<Entity>> {
         self.inner
             .get(key)
             .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Block { inner }))
+            .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
     }
 
     #[func]
@@ -362,23 +346,23 @@ impl BlockField {
             let mut texcoord_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 4];
             let mut page_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize];
 
-            for (i, block) in chunk
-                .blocks
+            for (i, entity) in chunk
+                .entities
                 .iter()
-                .map(|(_, block)| block)
+                .map(|(_, entity)| entity)
                 .take(Self::MAX_BUFFER_SIZE as usize)
                 .enumerate()
             {
-                let spec = &self.specs[block.id as usize];
+                let spec = &self.specs[entity.id as usize];
                 instance_buffer[i * 12 + 0] = spec.view_size.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = block.location.0 as f32 + spec.view_offset.0;
+                instance_buffer[i * 12 + 3] = entity.location.0 as f32 + spec.view_offset.0;
 
                 instance_buffer[i * 12 + 4] = 0.0;
                 instance_buffer[i * 12 + 5] = spec.view_size.1;
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = block.location.1 as f32 + spec.view_offset.1;
+                instance_buffer[i * 12 + 7] = entity.location.1 as f32 + spec.view_offset.1;
 
                 let z_scale = spec.view_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
@@ -386,7 +370,7 @@ impl BlockField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let texcoord = self.texcoords[block.id as usize];
+                let texcoord = self.texcoords[entity.id as usize];
                 texcoord_buffer[i * 4 + 0] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
