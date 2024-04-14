@@ -5,7 +5,7 @@ use godot::prelude::*;
 #[class(init, base=Resource)]
 struct BlockFieldDescEntry {
     #[export]
-    image: Gd<godot::engine::Image>,
+    image: Option<Gd<godot::engine::Image>>,
     #[export]
     #[init(default = Vector2i::new(1, 1))]
     size: Vector2i,
@@ -30,7 +30,7 @@ struct BlockFieldDesc {
     #[export]
     entries: Array<Gd<BlockFieldDescEntry>>,
     #[export]
-    shader: Gd<godot::engine::Shader>,
+    shader: Option<Gd<godot::engine::Shader>>,
 }
 
 #[derive(GodotClass)]
@@ -159,6 +159,7 @@ impl BlockField {
             .iter_shared()
             .map(|entry| {
                 let gd_image = &entry.bind().image;
+                let gd_image = gd_image.as_ref().unwrap();
 
                 let width = gd_image.get_width() as u32;
                 let height = gd_image.get_height() as u32;
@@ -216,7 +217,7 @@ impl BlockField {
             .map(|texcoord| texcoord.to_f32())
             .collect::<Vec<_>>();
 
-        let shader = desc.shader.get_rid();
+        let shader = desc.shader.as_ref().unwrap().get_rid();
         let gd_mesh_data = {
             let mut data = VariantArray::new();
             data.resize(
