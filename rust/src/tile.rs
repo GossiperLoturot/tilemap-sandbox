@@ -178,7 +178,7 @@ impl TileField {
             .collect::<Vec<_>>();
 
         let shader = desc.shader.as_ref().unwrap().get_rid();
-        let gd_mesh_data = {
+        let mesh_data = {
             let mut data = VariantArray::new();
             data.resize(
                 godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
@@ -225,7 +225,7 @@ impl TileField {
                 rendering_server.mesh_add_surface_from_arrays(
                     mesh,
                     godot::engine::rendering_server::PrimitiveType::TRIANGLES,
-                    gd_mesh_data.clone(),
+                    mesh_data.clone(),
                 );
                 rendering_server.mesh_surface_set_material(mesh, 0, material);
 
@@ -318,9 +318,9 @@ impl TileField {
                 continue;
             }
 
-            let mut instance_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 12];
-            let mut texcoord_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 4];
-            let mut page_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize];
+            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
+            let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
+            let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
 
             for (i, tile) in chunk
                 .tiles

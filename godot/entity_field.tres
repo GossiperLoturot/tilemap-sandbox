@@ -5,8 +5,10 @@
 
 [sub_resource type="EntityFieldDescEntry" id="EntityFieldDescEntry_k277h"]
 image = ExtResource("1_n8vle")
-view_size = Vector2(1, 2)
-view_offset = Vector2(-0.5, 0)
+render_size = Vector2(1, 2)
+render_offset = Vector2(-0.5, 0)
+physics_size = Vector2(1, 1)
+physics_offset = Vector2(-0.5, 0)
 z_along_y = true
 
 [resource]

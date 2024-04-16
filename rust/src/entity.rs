@@ -8,9 +8,13 @@ struct EntityFieldDescEntry {
     image: Option<Gd<godot::engine::Image>>,
     #[export]
     #[init(default = Vector2::new(1.0, 1.0))]
-    view_size: Vector2,
+    render_size: Vector2,
     #[export]
-    view_offset: Vector2,
+    render_offset: Vector2,
+    #[export]
+    physics_size: Vector2,
+    #[export]
+    physics_offset: Vector2,
     #[export]
     z_along_y: bool,
 }
@@ -59,8 +63,10 @@ impl Entity {
 
 #[derive(Debug, Clone)]
 struct EntitySpec {
-    view_size: inner::Vec2,
-    view_offset: inner::Vec2,
+    render_size: inner::Vec2,
+    render_offset: inner::Vec2,
+    physics_size: inner::Vec2,
+    physics_offset: inner::Vec2,
     z_along_y: bool,
 }
 
@@ -69,6 +75,7 @@ struct EntityChunkDown {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
+    physics_body: Rid,
 }
 
 impl From<EntityChunkUp> for EntityChunkDown {
@@ -77,6 +84,7 @@ impl From<EntityChunkUp> for EntityChunkDown {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
+            physics_body: chunk.physics_body,
         }
     }
 }
@@ -87,6 +95,7 @@ struct EntityChunkUp {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
+    physics_body: Rid,
 }
 
 impl From<EntityChunkDown> for EntityChunkUp {
@@ -96,6 +105,7 @@ impl From<EntityChunkDown> for EntityChunkUp {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
+            physics_body: chunk.physics_body,
         }
     }
 }
@@ -108,6 +118,7 @@ struct EntityField {
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
+    physics_shape: Rid,
 }
 
 #[godot_api]
@@ -133,8 +144,10 @@ impl EntityField {
             .map(|entry| {
                 let entry = entry.bind();
                 EntitySpec {
-                    view_size: (entry.view_size.x, entry.view_size.y),
-                    view_offset: (entry.view_offset.x, entry.view_offset.y),
+                    render_size: (entry.render_size.x, entry.render_size.y),
+                    render_offset: (entry.render_offset.x, entry.render_offset.y),
+                    physics_size: (entry.physics_size.x, entry.physics_size.y),
+                    physics_offset: (entry.physics_offset.x, entry.physics_offset.y),
                     z_along_y: entry.z_along_y,
                 }
             })
@@ -204,7 +217,7 @@ impl EntityField {
             .collect::<Vec<_>>();
 
         let shader = desc.shader.as_ref().unwrap().get_rid();
-        let gd_mesh_data = {
+        let mesh_data = {
             let mut data = VariantArray::new();
             data.resize(
                 godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
@@ -237,6 +250,10 @@ impl EntityField {
             data
         };
 
+        let mut physics_server = godot::engine::PhysicsServer3D::singleton();
+        let physics_shape = physics_server.box_shape_create();
+        physics_server.shape_set_data(physics_shape, Vector3::new(0.5, 0.5, 0.5).to_variant());
+
         let down_chunks = (0..Self::MAX_INSTANCE_SIZE)
             .map(|_| {
                 let material = rendering_server.material_create();
@@ -251,7 +268,7 @@ impl EntityField {
                 rendering_server.mesh_add_surface_from_arrays(
                     mesh,
                     godot::engine::rendering_server::PrimitiveType::TRIANGLES,
-                    gd_mesh_data.clone(),
+                    mesh_data.clone(),
                 );
                 rendering_server.mesh_surface_set_material(mesh, 0, material);
 
@@ -266,10 +283,24 @@ impl EntityField {
                 let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
+                let physics_body = physics_server.body_create();
+                physics_server.body_set_mode(
+                    physics_body,
+                    godot::engine::physics_server_3d::BodyMode::STATIC,
+                );
+                physics_server.body_set_space(physics_body, world.get_space());
+                physics_server.body_set_state(
+                    physics_body,
+                    godot::engine::physics_server_3d::BodyState::TRANSFORM,
+                    Transform3D::IDENTITY.to_variant(),
+                );
+                physics_server.body_set_ray_pickable(physics_body, true);
+
                 EntityChunkDown {
                     material,
                     multimesh,
                     instance,
+                    physics_body,
                 }
             })
             .collect::<Vec<_>>();
@@ -280,6 +311,7 @@ impl EntityField {
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
+            physics_shape,
         })
     }
 
@@ -343,9 +375,10 @@ impl EntityField {
                 continue;
             }
 
-            let mut instance_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 12];
-            let mut texcoord_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize * 4];
-            let mut page_buffer = vec![0.0; Self::MAX_BUFFER_SIZE as usize];
+            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
+            let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
+            let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+            let mut physics_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
 
             for (i, entity) in chunk
                 .entities
@@ -355,17 +388,17 @@ impl EntityField {
                 .enumerate()
             {
                 let spec = &self.specs[entity.id as usize];
-                instance_buffer[i * 12 + 0] = spec.view_size.0;
+                instance_buffer[i * 12 + 0] = spec.render_size.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = entity.location.0 + spec.view_offset.0;
+                instance_buffer[i * 12 + 3] = entity.location.0 + spec.render_offset.0;
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = spec.view_size.1;
+                instance_buffer[i * 12 + 5] = spec.render_size.1;
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = entity.location.1 + spec.view_offset.1;
+                instance_buffer[i * 12 + 7] = entity.location.1 + spec.render_offset.1;
 
-                let z_scale = spec.view_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
+                let z_scale = spec.render_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = z_scale;
@@ -378,6 +411,11 @@ impl EntityField {
                 texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
 
                 page_buffer[i] = texcoord.page as f32;
+
+                physics_buffer[i * 4 + 0] = spec.physics_size.0;
+                physics_buffer[i * 4 + 1] = spec.physics_size.1;
+                physics_buffer[i * 4 + 2] = entity.location.0 + spec.physics_offset.0;
+                physics_buffer[i * 4 + 3] = entity.location.1 + spec.physics_offset.1;
             }
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
@@ -395,6 +433,28 @@ impl EntityField {
                 "page_buffer".into(),
                 PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
             );
+
+            let mut physics_server = godot::engine::PhysicsServer3D::singleton();
+            let size = usize::min(chunk.entities.len(), Self::MAX_BUFFER_SIZE as usize);
+            for i in 0..size {
+                let u = physics_buffer[i * 4 + 0];
+                let v = physics_buffer[i * 4 + 1];
+                let x = physics_buffer[i * 4 + 2];
+                let y = physics_buffer[i * 4 + 3];
+
+                if u * v == 0.0 {
+                    continue;
+                }
+
+                let transform = Transform3D::IDENTITY
+                    .scaled(Vector3::new(u, v, 1.0))
+                    .translated(Vector3::new(x + u * 0.5, y + v * 0.5, 0.5));
+
+                physics_server
+                    .body_add_shape_ex(up_chunk.physics_body, self.physics_shape)
+                    .transform(transform)
+                    .done();
+            }
 
             up_chunk.serial = chunk.serial;
         }
