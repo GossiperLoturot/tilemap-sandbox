@@ -35,7 +35,7 @@ struct Tile {
 impl Tile {
     #[func]
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
-        let location = (location.x, location.y);
+        let location = [location.x, location.y];
         let inner = inner::Tile { id, location };
         Gd::from_init_fn(|_| Self { inner })
     }
@@ -48,7 +48,7 @@ impl Tile {
     #[func]
     fn get_location(&self) -> Vector2i {
         let location = self.inner.location;
-        Vector2i::new(location.0, location.1)
+        Vector2i::new(location[0], location[1])
     }
 }
 
@@ -267,7 +267,7 @@ impl TileField {
 
     #[func]
     fn remove(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         if self.inner.remove(key).is_none() {
             return false;
         }
@@ -276,7 +276,7 @@ impl TileField {
 
     #[func]
     fn get(&self, key: Vector2i) -> Option<Gd<Tile>> {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         self.inner
             .get(key)
             .cloned()
@@ -285,7 +285,7 @@ impl TileField {
 
     #[func]
     fn insert_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         if self.up_chunks.contains_key(&key) {
             return false;
         }
@@ -304,7 +304,7 @@ impl TileField {
 
     #[func]
     fn remove_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         let Some(chunk) = self.up_chunks.remove(&key) else {
             return false;
         };
@@ -342,16 +342,16 @@ impl TileField {
                 instance_buffer[i * 12 + 0] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = tile.location.0 as f32 - 0.5;
+                instance_buffer[i * 12 + 3] = tile.location[0] as f32 - 0.5;
 
                 instance_buffer[i * 12 + 4] = 0.0;
                 instance_buffer[i * 12 + 5] = 2.0;
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = tile.location.1 as f32 - 0.5;
+                instance_buffer[i * 12 + 7] = tile.location[1] as f32 - 0.5;
 
                 let mut hasher = ahash::AHasher::default();
-                hasher.write_i32(tile.location.0);
-                hasher.write_i32(tile.location.1);
+                hasher.write_i32(tile.location[0]);
+                hasher.write_i32(tile.location[1]);
                 let hash = hasher.finish() as u16;
                 let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625; // -2^{-4} <= z <= 0
                 instance_buffer[i * 12 + 8] = 0.0;

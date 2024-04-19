@@ -1,5 +1,5 @@
-pub type Vec2 = (f32, f32);
-pub type IVec2 = (i32, i32);
+pub type Vec2 = [f32; 2];
+pub type IVec2 = [i32; 2];
 
 #[derive(Debug, Clone, Default)]
 pub struct Tile {
@@ -36,9 +36,9 @@ impl TileField {
         }
 
         let chunk_key = {
-            let x = location.0.div_euclid(self.chunk_size as i32);
-            let y = location.1.div_euclid(self.chunk_size as i32);
-            (x, y)
+            let x = location[0].div_euclid(self.chunk_size as i32);
+            let y = location[1].div_euclid(self.chunk_size as i32);
+            [x, y]
         };
         let chunk = self.chunks.entry(chunk_key).or_default();
         chunk.serial += 1;
@@ -112,30 +112,30 @@ impl BlockField {
         let size = self.specs[block.id as usize].size;
 
         let location = block.location;
-        for x in 0..size.0 {
-            for y in 0..size.1 {
-                let x = location.0 + x;
-                let y = location.1 + y;
-                if self.spatial_ref.contains_key(&(x, y)) {
+        for x in 0..size[0] {
+            for y in 0..size[1] {
+                let x = location[0] + x;
+                let y = location[1] + y;
+                if self.spatial_ref.contains_key(&[x, y]) {
                     return None;
                 }
             }
         }
 
         let chunk_key = {
-            let x = location.0.div_euclid(self.chunk_size as i32);
-            let y = location.1.div_euclid(self.chunk_size as i32);
-            (x, y)
+            let x = location[0].div_euclid(self.chunk_size as i32);
+            let y = location[1].div_euclid(self.chunk_size as i32);
+            [x, y]
         };
         let chunk = self.chunks.entry(chunk_key).or_default();
         chunk.serial += 1;
         let block_key = chunk.blocks.insert(block) as u32;
 
-        for x in 0..size.0 {
-            for y in 0..size.1 {
-                let x = location.0 + x;
-                let y = location.1 + y;
-                self.spatial_ref.insert((x, y), (chunk_key, block_key));
+        for x in 0..size[0] {
+            for y in 0..size[1] {
+                let x = location[0] + x;
+                let y = location[1] + y;
+                self.spatial_ref.insert([x, y], (chunk_key, block_key));
             }
         }
 
@@ -150,11 +150,11 @@ impl BlockField {
         let block = chunk.blocks.remove(block_key as usize);
 
         let size = self.specs[block.id as usize].size;
-        for x in 0..size.0 {
-            for y in 0..size.1 {
-                let x = block.location.0 + x;
-                let y = block.location.1 + y;
-                self.spatial_ref.remove(&(x, y));
+        for x in 0..size[0] {
+            for y in 0..size[1] {
+                let x = block.location[0] + x;
+                let y = block.location[1] + y;
+                self.spatial_ref.remove(&[x, y]);
             }
         }
 
@@ -210,9 +210,9 @@ impl EntityField {
         let location = entity.location;
 
         let chunk_key = {
-            let x = location.0.div_euclid(self.chunk_size as f32) as i32;
-            let y = location.1.div_euclid(self.chunk_size as f32) as i32;
-            (x, y)
+            let x = location[0].div_euclid(self.chunk_size as f32) as i32;
+            let y = location[1].div_euclid(self.chunk_size as f32) as i32;
+            [x, y]
         };
         let chunk = self.chunks.entry(chunk_key).or_default();
         chunk.serial += 1;

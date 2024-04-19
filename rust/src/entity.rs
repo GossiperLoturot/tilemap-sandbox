@@ -44,7 +44,7 @@ struct Entity {
 impl Entity {
     #[func]
     fn new_from(id: u32, location: Vector2) -> Gd<Self> {
-        let location = (location.x, location.y);
+        let location = [location.x, location.y];
         let inner = inner::Entity { id, location };
         Gd::from_init_fn(|_| Self { inner })
     }
@@ -57,7 +57,7 @@ impl Entity {
     #[func]
     fn get_location(&self) -> Vector2 {
         let location = self.inner.location;
-        Vector2::new(location.0, location.1)
+        Vector2::new(location[0], location[1])
     }
 }
 
@@ -138,8 +138,8 @@ impl EntityField {
             .map(|entry| {
                 let entry = entry.bind();
                 physics::EntitySpec {
-                    size: (entry.physics_size.x, entry.physics_size.y),
-                    offset: (entry.physics_offset.x, entry.physics_offset.y),
+                    size: [entry.physics_size.x, entry.physics_size.y],
+                    offset: [entry.physics_offset.x, entry.physics_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -153,8 +153,8 @@ impl EntityField {
                 let entry = entry.bind();
                 EntitySpec {
                     z_along_y: entry.z_along_y,
-                    render_size: (entry.render_size.x, entry.render_size.y),
-                    render_offset: (entry.render_offset.x, entry.render_offset.y),
+                    render_size: [entry.render_size.x, entry.render_size.y],
+                    render_offset: [entry.render_offset.x, entry.render_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -338,7 +338,7 @@ impl EntityField {
 
     #[func]
     fn insert_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         if self.up_chunks.contains_key(&key) {
             return false;
         }
@@ -357,7 +357,7 @@ impl EntityField {
 
     #[func]
     fn remove_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         let Some(chunk) = self.up_chunks.remove(&key) else {
             return false;
         };
@@ -393,17 +393,17 @@ impl EntityField {
                 .enumerate()
             {
                 let spec = &self.specs[entity.id as usize];
-                instance_buffer[i * 12 + 0] = spec.render_size.0;
+                instance_buffer[i * 12 + 0] = spec.render_size[0];
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = entity.location.0 + spec.render_offset.0;
+                instance_buffer[i * 12 + 3] = entity.location[0] + spec.render_offset[0];
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = spec.render_size.1;
+                instance_buffer[i * 12 + 5] = spec.render_size[1];
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = entity.location.1 + spec.render_offset.1;
+                instance_buffer[i * 12 + 7] = entity.location[1] + spec.render_offset[1];
 
-                let z_scale = spec.render_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
+                let z_scale = spec.render_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = z_scale;
@@ -442,13 +442,13 @@ impl EntityField {
 
     #[func]
     fn intersects_with_point(&self, point: Vector2) -> bool {
-        let point = (point.x, point.y);
+        let point = [point.x, point.y];
         self.physics.get_by_point(point).is_some()
     }
 
     #[func]
     fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Entity>> {
-        let point = (point.x, point.y);
+        let point = [point.x, point.y];
         self.physics
             .get_by_point(point)
             .map(|key| self.inner.get(key).unwrap())
@@ -458,20 +458,20 @@ impl EntityField {
 
     #[func]
     fn intersects_with_rect(&self, rect: Rect2) -> bool {
-        let p0 = (rect.position.x, rect.position.y);
-        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
-        self.physics.get_by_rect((p0, p1)).next().is_some()
+        self.physics.get_by_rect([p0, p1]).next().is_some()
     }
 
     #[func]
     fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
-        let p0 = (rect.position.x, rect.position.y);
-        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
         let iter = self
             .physics
-            .get_by_rect((p0, p1))
+            .get_by_rect([p0, p1])
             .map(|key| self.inner.get(key).unwrap())
             .cloned()
             .map(|inner| Gd::from_init_fn(|_| Entity { inner }));

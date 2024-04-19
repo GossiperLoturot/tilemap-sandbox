@@ -32,14 +32,14 @@ impl BlockFieldPhysics {
 
         let spec = &self.specs[block.id as usize];
 
-        let p0 = (
-            block.location.0 as f32 + spec.offset.0,
-            block.location.1 as f32 + spec.offset.1,
-        );
-        let p1 = (
-            block.location.0 as f32 + spec.offset.0 + spec.size.0,
-            block.location.1 as f32 + spec.offset.1 + spec.size.1,
-        );
+        let p0 = [
+            block.location[0] as f32 + spec.offset[0],
+            block.location[1] as f32 + spec.offset[1],
+        ];
+        let p1 = [
+            block.location[0] as f32 + spec.offset[0] + spec.size[0],
+            block.location[1] as f32 + spec.offset[1] + spec.size[1],
+        ];
 
         let rect = rstar::primitives::Rectangle::from_corners(p0, p1);
         let node = rstar::primitives::GeomWithData::new(rect, block.location);
@@ -66,9 +66,9 @@ impl BlockFieldPhysics {
             .map(|node| node.data)
     }
 
-    pub fn get_by_rect(&self, rect: (Vec2, Vec2)) -> impl Iterator<Item = IVec2> + '_ {
+    pub fn get_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = IVec2> + '_ {
         self.spartial_ref
-            .locate_in_envelope(&rstar::AABB::from_corners(rect.0, rect.1))
+            .locate_in_envelope(&rstar::AABB::from_corners(rect[0], rect[1]))
             .map(|node| node.data)
     }
 }
@@ -102,14 +102,14 @@ impl EntityFieldPhysics {
 
         let spec = &self.specs[entity.id as usize];
 
-        let p0 = (
-            entity.location.0 + spec.offset.0,
-            entity.location.1 + spec.offset.1,
-        );
-        let p1 = (
-            entity.location.0 + spec.offset.0 + spec.size.0,
-            entity.location.1 + spec.offset.1 + spec.size.1,
-        );
+        let p0 = [
+            entity.location[0] + spec.offset[0],
+            entity.location[1] + spec.offset[1],
+        ];
+        let p1 = [
+            entity.location[0] + spec.offset[0] + spec.size[0],
+            entity.location[1] + spec.offset[1] + spec.size[1],
+        ];
 
         let rect = rstar::primitives::Rectangle::from_corners(p0, p1);
         let node = rstar::primitives::GeomWithData::new(rect, entity.id);
@@ -136,9 +136,9 @@ impl EntityFieldPhysics {
             .map(|node| node.data)
     }
 
-    pub fn get_by_rect(&self, rect: (Vec2, Vec2)) -> impl Iterator<Item = u32> + '_ {
+    pub fn get_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         self.spartial_ref
-            .locate_in_envelope(&rstar::AABB::from_corners(rect.0, rect.1))
+            .locate_in_envelope(&rstar::AABB::from_corners(rect[0], rect[1]))
             .map(|node| node.data)
     }
 }

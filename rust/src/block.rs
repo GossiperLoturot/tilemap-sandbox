@@ -47,7 +47,7 @@ struct Block {
 impl Block {
     #[func]
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
-        let location = (location.x, location.y);
+        let location = [location.x, location.y];
         let inner = inner::Block { id, location };
         Gd::from_init_fn(|_| Self { inner })
     }
@@ -60,7 +60,7 @@ impl Block {
     #[func]
     fn get_location(&self) -> Vector2i {
         let location = self.inner.location;
-        Vector2i::new(location.0, location.1)
+        Vector2i::new(location[0], location[1])
     }
 }
 
@@ -139,7 +139,7 @@ impl BlockField {
             .map(|entry| {
                 let entry = entry.bind();
                 inner::BlockSpec {
-                    size: (entry.size.x, entry.size.y),
+                    size: [entry.size.x, entry.size.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -152,8 +152,8 @@ impl BlockField {
             .map(|entry| {
                 let entry = entry.bind();
                 physics::BlockSpec {
-                    size: (entry.physics_size.x, entry.physics_size.y),
-                    offset: (entry.physics_offset.x, entry.physics_offset.y),
+                    size: [entry.physics_size.x, entry.physics_size.y],
+                    offset: [entry.physics_offset.x, entry.physics_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -167,8 +167,8 @@ impl BlockField {
                 let entry = entry.bind();
                 BlockSpec {
                     z_along_y: entry.z_along_y,
-                    render_size: (entry.render_size.x, entry.render_size.y),
-                    render_offset: (entry.render_offset.x, entry.render_offset.y),
+                    render_size: [entry.render_size.x, entry.render_size.y],
+                    render_offset: [entry.render_offset.x, entry.render_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -331,7 +331,7 @@ impl BlockField {
 
     #[func]
     fn remove(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         if self.inner.remove(key).is_none() {
             return false;
         }
@@ -343,7 +343,7 @@ impl BlockField {
 
     #[func]
     fn get(&self, key: Vector2i) -> Option<Gd<Block>> {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         self.inner
             .get(key)
             .cloned()
@@ -354,7 +354,7 @@ impl BlockField {
 
     #[func]
     fn insert_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         if self.up_chunks.contains_key(&key) {
             return false;
         }
@@ -373,7 +373,7 @@ impl BlockField {
 
     #[func]
     fn remove_view(&mut self, key: Vector2i) -> bool {
-        let key = (key.x, key.y);
+        let key = [key.x, key.y];
         let Some(chunk) = self.up_chunks.remove(&key) else {
             return false;
         };
@@ -409,17 +409,17 @@ impl BlockField {
                 .enumerate()
             {
                 let spec = &self.specs[block.id as usize];
-                instance_buffer[i * 12 + 0] = spec.render_size.0;
+                instance_buffer[i * 12 + 0] = spec.render_size[0];
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = block.location.0 as f32 + spec.render_offset.0;
+                instance_buffer[i * 12 + 3] = block.location[0] as f32 + spec.render_offset[0];
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = spec.render_size.1;
+                instance_buffer[i * 12 + 5] = spec.render_size[1];
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = block.location.1 as f32 + spec.render_offset.1;
+                instance_buffer[i * 12 + 7] = block.location[1] as f32 + spec.render_offset[1];
 
-                let z_scale = spec.render_size.1 * if spec.z_along_y { 1.0 } else { 0.0 };
+                let z_scale = spec.render_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = z_scale;
@@ -458,13 +458,13 @@ impl BlockField {
 
     #[func]
     fn intersects_with_point(&self, point: Vector2) -> bool {
-        let point = (point.x, point.y);
+        let point = [point.x, point.y];
         self.physics.get_by_point(point).is_some()
     }
 
     #[func]
     fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Block>> {
-        let point = (point.x, point.y);
+        let point = [point.x, point.y];
         self.physics
             .get_by_point(point)
             .map(|key| self.inner.get(key).unwrap())
@@ -474,20 +474,20 @@ impl BlockField {
 
     #[func]
     fn intersects_with_rect(&self, rect: Rect2) -> bool {
-        let p0 = (rect.position.x, rect.position.y);
-        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
-        self.physics.get_by_rect((p0, p1)).next().is_some()
+        self.physics.get_by_rect([p0, p1]).next().is_some()
     }
 
     #[func]
     fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Block>> {
-        let p0 = (rect.position.x, rect.position.y);
-        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
         let iter = self
             .physics
-            .get_by_rect((p0, p1))
+            .get_by_rect([p0, p1])
             .map(|key| self.inner.get(key).unwrap())
             .cloned()
             .map(|inner| Gd::from_init_fn(|_| Block { inner }));
