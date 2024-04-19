@@ -257,15 +257,21 @@ impl TileField {
     }
 
     #[func]
-    fn insert(&mut self, tile: Gd<Tile>) {
+    fn insert(&mut self, tile: Gd<Tile>) -> bool {
         let tile = tile.bind().inner.clone();
-        self.inner.insert(tile);
+        if self.inner.insert(tile).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
-    fn remove(&mut self, key: Vector2i) {
+    fn remove(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
-        self.inner.remove(key);
+        if self.inner.remove(key).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
@@ -278,33 +284,37 @@ impl TileField {
     }
 
     #[func]
-    fn insert_view(&mut self, key: Vector2i) {
+    fn insert_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         if self.up_chunks.contains_key(&key) {
-            return;
+            return false;
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
+
+        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) {
+    fn remove_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
         self.down_chunks.push(chunk.into());
+
+        true
     }
 
     #[func]

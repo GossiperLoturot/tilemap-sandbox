@@ -1,14 +1,16 @@
-use crate::inner;
+use crate::{inner, physics};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
 struct BlockFieldDescEntry {
     #[export]
-    image: Option<Gd<godot::engine::Image>>,
-    #[export]
     #[init(default = Vector2i::new(1, 1))]
     size: Vector2i,
+    #[export]
+    image: Option<Gd<godot::engine::Image>>,
+    #[export]
+    z_along_y: bool,
     #[export]
     #[init(default = Vector2::new(1.0, 1.0))]
     render_size: Vector2,
@@ -18,8 +20,6 @@ struct BlockFieldDescEntry {
     physics_size: Vector2,
     #[export]
     physics_offset: Vector2,
-    #[export]
-    z_along_y: bool,
 }
 
 #[derive(GodotClass)]
@@ -66,11 +66,9 @@ impl Block {
 
 #[derive(Debug, Clone)]
 struct BlockSpec {
+    z_along_y: bool,
     render_size: inner::Vec2,
     render_offset: inner::Vec2,
-    physics_size: inner::Vec2,
-    physics_offset: inner::Vec2,
-    z_along_y: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -78,7 +76,6 @@ struct BlockChunkDown {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
-    physics_body: Rid,
 }
 
 impl From<BlockChunkUp> for BlockChunkDown {
@@ -87,7 +84,6 @@ impl From<BlockChunkUp> for BlockChunkDown {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
-            physics_body: chunk.physics_body,
         }
     }
 }
@@ -98,7 +94,6 @@ struct BlockChunkUp {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
-    physics_body: Rid,
 }
 
 impl From<BlockChunkDown> for BlockChunkUp {
@@ -108,7 +103,6 @@ impl From<BlockChunkDown> for BlockChunkUp {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
-            physics_body: chunk.physics_body,
         }
     }
 }
@@ -117,11 +111,11 @@ impl From<BlockChunkDown> for BlockChunkUp {
 #[class(no_init, base=RefCounted)]
 struct BlockField {
     inner: inner::BlockField,
+    physics: physics::BlockFieldPhysics,
     specs: Vec<BlockSpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
-    physics_shape: Rid,
 }
 
 #[godot_api]
@@ -152,17 +146,29 @@ impl BlockField {
 
         let inner = inner::BlockField::new(Self::CHUNK_SIZE, inner_specs);
 
+        let physics_specs = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let entry = entry.bind();
+                physics::BlockSpec {
+                    size: (entry.physics_size.x, entry.physics_size.y),
+                    offset: (entry.physics_offset.x, entry.physics_offset.y),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let physics = physics::BlockFieldPhysics::new(physics_specs);
+
         let specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
                 BlockSpec {
+                    z_along_y: entry.z_along_y,
                     render_size: (entry.render_size.x, entry.render_size.y),
                     render_offset: (entry.render_offset.x, entry.render_offset.y),
-                    physics_size: (entry.physics_size.x, entry.physics_size.y),
-                    physics_offset: (entry.physics_offset.x, entry.physics_offset.y),
-                    z_along_y: entry.z_along_y,
                 }
             })
             .collect::<Vec<_>>();
@@ -264,10 +270,6 @@ impl BlockField {
             data
         };
 
-        let mut physics_server = godot::engine::PhysicsServer3D::singleton();
-        let physics_shape = physics_server.box_shape_create();
-        physics_server.shape_set_data(physics_shape, Vector3::new(0.5, 0.5, 0.5).to_variant());
-
         let down_chunks = (0..Self::MAX_INSTANCE_SIZE)
             .map(|_| {
                 let material = rendering_server.material_create();
@@ -297,48 +299,46 @@ impl BlockField {
                 let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
-                let physics_body = physics_server.body_create();
-                physics_server.body_set_mode(
-                    physics_body,
-                    godot::engine::physics_server_3d::BodyMode::STATIC,
-                );
-                physics_server.body_set_space(physics_body, world.get_space());
-                physics_server.body_set_state(
-                    physics_body,
-                    godot::engine::physics_server_3d::BodyState::TRANSFORM,
-                    Transform3D::IDENTITY.to_variant(),
-                );
-                physics_server.body_set_ray_pickable(physics_body, true);
-
                 BlockChunkDown {
                     material,
                     multimesh,
                     instance,
-                    physics_body,
                 }
             })
             .collect::<Vec<_>>();
 
         Gd::from_init_fn(|_| Self {
             inner,
+            physics,
             specs,
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
-            physics_shape,
         })
     }
 
     #[func]
-    fn insert(&mut self, block: Gd<Block>) {
+    fn insert(&mut self, block: Gd<Block>) -> bool {
         let block = block.bind().inner.clone();
-        self.inner.insert(block);
+        if self.inner.insert(block.clone()).is_none() {
+            return false;
+        }
+        if self.physics.insert(&block).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
-    fn remove(&mut self, key: Vector2i) {
+    fn remove(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
-        self.inner.remove(key);
+        if self.inner.remove(key).is_none() {
+            return false;
+        }
+        if self.physics.remove(key).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
@@ -350,37 +350,40 @@ impl BlockField {
             .map(|inner| Gd::from_init_fn(|_| Block { inner }))
     }
 
+    // Rendering features
+
     #[func]
-    fn insert_view(&mut self, key: Vector2i) {
+    fn insert_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         if self.up_chunks.contains_key(&key) {
-            return;
+            return false;
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
+
+        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) {
+    fn remove_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
-        let mut physics_server = godot::engine::PhysicsServer3D::singleton();
-        physics_server.body_clear_shapes(chunk.physics_body);
-
         self.down_chunks.push(chunk.into());
+
+        true
     }
 
     #[func]
@@ -397,7 +400,6 @@ impl BlockField {
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
             let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
             let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
-            let mut physics_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
 
             for (i, block) in chunk
                 .blocks
@@ -430,11 +432,6 @@ impl BlockField {
                 texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
 
                 page_buffer[i] = texcoord.page as f32;
-
-                physics_buffer[i * 4 + 0] = spec.physics_size.0;
-                physics_buffer[i * 4 + 1] = spec.physics_size.1;
-                physics_buffer[i * 4 + 2] = block.location.0 as f32 + spec.physics_offset.0;
-                physics_buffer[i * 4 + 3] = block.location.1 as f32 + spec.physics_offset.1;
             }
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
@@ -453,29 +450,48 @@ impl BlockField {
                 PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
             );
 
-            let mut physics_server = godot::engine::PhysicsServer3D::singleton();
-            let size = usize::min(chunk.blocks.len(), Self::MAX_BUFFER_SIZE as usize);
-            for i in 0..size {
-                let u = physics_buffer[i * 4 + 0];
-                let v = physics_buffer[i * 4 + 1];
-                let x = physics_buffer[i * 4 + 2];
-                let y = physics_buffer[i * 4 + 3];
-
-                if u * v == 0.0 {
-                    continue;
-                }
-
-                let transform = Transform3D::IDENTITY
-                    .scaled(Vector3::new(u, v, 1.0))
-                    .translated(Vector3::new(x + u * 0.5, y + v * 0.5, 0.5));
-
-                physics_server
-                    .body_add_shape_ex(up_chunk.physics_body, self.physics_shape)
-                    .transform(transform)
-                    .done();
-            }
-
             up_chunk.serial = chunk.serial;
         }
+    }
+
+    // Physics features
+
+    #[func]
+    fn intersects_with_point(&self, point: Vector2) -> bool {
+        let point = (point.x, point.y);
+        self.physics.get_by_point(point).is_some()
+    }
+
+    #[func]
+    fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Block>> {
+        let point = (point.x, point.y);
+        self.physics
+            .get_by_point(point)
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Block { inner }))
+    }
+
+    #[func]
+    fn intersects_with_rect(&self, rect: Rect2) -> bool {
+        let p0 = (rect.position.x, rect.position.y);
+        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+
+        self.physics.get_by_rect((p0, p1)).next().is_some()
+    }
+
+    #[func]
+    fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Block>> {
+        let p0 = (rect.position.x, rect.position.y);
+        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+
+        let iter = self
+            .physics
+            .get_by_rect((p0, p1))
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Block { inner }));
+
+        Array::from_iter(iter)
     }
 }

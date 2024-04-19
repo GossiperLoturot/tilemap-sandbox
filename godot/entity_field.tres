@@ -4,12 +4,12 @@
 [ext_resource type="Shader" path="res://shader.gdshader" id="2_cnctb"]
 
 [sub_resource type="EntityFieldDescEntry" id="EntityFieldDescEntry_k277h"]
+z_along_y = true
 image = ExtResource("1_n8vle")
 render_size = Vector2(1, 2)
 render_offset = Vector2(-0.5, 0)
 physics_size = Vector2(1, 1)
 physics_offset = Vector2(-0.5, 0)
-z_along_y = true
 
 [resource]
 entries = Array[EntityFieldDescEntry]([SubResource("EntityFieldDescEntry_k277h")])

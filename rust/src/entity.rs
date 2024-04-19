@@ -1,9 +1,11 @@
-use crate::inner;
+use crate::{inner, physics};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
 struct EntityFieldDescEntry {
+    #[export]
+    z_along_y: bool,
     #[export]
     image: Option<Gd<godot::engine::Image>>,
     #[export]
@@ -15,8 +17,6 @@ struct EntityFieldDescEntry {
     physics_size: Vector2,
     #[export]
     physics_offset: Vector2,
-    #[export]
-    z_along_y: bool,
 }
 
 #[derive(GodotClass)]
@@ -63,11 +63,9 @@ impl Entity {
 
 #[derive(Debug, Clone)]
 struct EntitySpec {
+    z_along_y: bool,
     render_size: inner::Vec2,
     render_offset: inner::Vec2,
-    physics_size: inner::Vec2,
-    physics_offset: inner::Vec2,
-    z_along_y: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -75,7 +73,6 @@ struct EntityChunkDown {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
-    physics_body: Rid,
 }
 
 impl From<EntityChunkUp> for EntityChunkDown {
@@ -84,7 +81,6 @@ impl From<EntityChunkUp> for EntityChunkDown {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
-            physics_body: chunk.physics_body,
         }
     }
 }
@@ -95,7 +91,6 @@ struct EntityChunkUp {
     material: Rid,
     multimesh: Rid,
     instance: Rid,
-    physics_body: Rid,
 }
 
 impl From<EntityChunkDown> for EntityChunkUp {
@@ -105,7 +100,6 @@ impl From<EntityChunkDown> for EntityChunkUp {
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
-            physics_body: chunk.physics_body,
         }
     }
 }
@@ -114,11 +108,11 @@ impl From<EntityChunkDown> for EntityChunkUp {
 #[class(no_init, base=RefCounted)]
 struct EntityField {
     inner: inner::EntityField,
+    physics: physics::EntityFieldPhysics,
     specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
-    physics_shape: Rid,
 }
 
 #[godot_api]
@@ -138,17 +132,29 @@ impl EntityField {
 
         let inner = inner::EntityField::new(Self::CHUNK_SIZE);
 
+        let physics_specs = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let entry = entry.bind();
+                physics::EntitySpec {
+                    size: (entry.physics_size.x, entry.physics_size.y),
+                    offset: (entry.physics_offset.x, entry.physics_offset.y),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let physics = physics::EntityFieldPhysics::new(physics_specs);
+
         let specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
                 EntitySpec {
+                    z_along_y: entry.z_along_y,
                     render_size: (entry.render_size.x, entry.render_size.y),
                     render_offset: (entry.render_offset.x, entry.render_offset.y),
-                    physics_size: (entry.physics_size.x, entry.physics_size.y),
-                    physics_offset: (entry.physics_offset.x, entry.physics_offset.y),
-                    z_along_y: entry.z_along_y,
                 }
             })
             .collect::<Vec<_>>();
@@ -250,10 +256,6 @@ impl EntityField {
             data
         };
 
-        let mut physics_server = godot::engine::PhysicsServer3D::singleton();
-        let physics_shape = physics_server.box_shape_create();
-        physics_server.shape_set_data(physics_shape, Vector3::new(0.5, 0.5, 0.5).to_variant());
-
         let down_chunks = (0..Self::MAX_INSTANCE_SIZE)
             .map(|_| {
                 let material = rendering_server.material_create();
@@ -283,47 +285,45 @@ impl EntityField {
                 let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
-                let physics_body = physics_server.body_create();
-                physics_server.body_set_mode(
-                    physics_body,
-                    godot::engine::physics_server_3d::BodyMode::STATIC,
-                );
-                physics_server.body_set_space(physics_body, world.get_space());
-                physics_server.body_set_state(
-                    physics_body,
-                    godot::engine::physics_server_3d::BodyState::TRANSFORM,
-                    Transform3D::IDENTITY.to_variant(),
-                );
-                physics_server.body_set_ray_pickable(physics_body, true);
-
                 EntityChunkDown {
                     material,
                     multimesh,
                     instance,
-                    physics_body,
                 }
             })
             .collect::<Vec<_>>();
 
         Gd::from_init_fn(|_| Self {
             inner,
+            physics,
             specs,
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
-            physics_shape,
         })
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) {
+    fn insert(&mut self, entity: Gd<Entity>) -> bool {
         let entity = entity.bind().inner.clone();
-        self.inner.insert(entity);
+        if self.inner.insert(entity.clone()).is_none() {
+            return false;
+        }
+        if self.physics.insert(&entity).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
-    fn remove(&mut self, key: u32) {
-        self.inner.remove(key);
+    fn remove(&mut self, key: u32) -> bool {
+        if self.inner.remove(key).is_none() {
+            return false;
+        }
+        if self.physics.remove(key).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
@@ -334,34 +334,40 @@ impl EntityField {
             .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
     }
 
+    // Rendering features
+
     #[func]
-    fn insert_view(&mut self, key: Vector2i) {
+    fn insert_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         if self.up_chunks.contains_key(&key) {
-            return;
+            return false;
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
+
+        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) {
+    fn remove_view(&mut self, key: Vector2i) -> bool {
         let key = (key.x, key.y);
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return;
+            return false;
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
         self.down_chunks.push(chunk.into());
+
+        true
     }
 
     #[func]
@@ -378,7 +384,6 @@ impl EntityField {
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
             let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
             let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
-            let mut physics_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
 
             for (i, entity) in chunk
                 .entities
@@ -411,11 +416,6 @@ impl EntityField {
                 texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
 
                 page_buffer[i] = texcoord.page as f32;
-
-                physics_buffer[i * 4 + 0] = spec.physics_size.0;
-                physics_buffer[i * 4 + 1] = spec.physics_size.1;
-                physics_buffer[i * 4 + 2] = entity.location.0 + spec.physics_offset.0;
-                physics_buffer[i * 4 + 3] = entity.location.1 + spec.physics_offset.1;
             }
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
@@ -434,29 +434,48 @@ impl EntityField {
                 PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
             );
 
-            let mut physics_server = godot::engine::PhysicsServer3D::singleton();
-            let size = usize::min(chunk.entities.len(), Self::MAX_BUFFER_SIZE as usize);
-            for i in 0..size {
-                let u = physics_buffer[i * 4 + 0];
-                let v = physics_buffer[i * 4 + 1];
-                let x = physics_buffer[i * 4 + 2];
-                let y = physics_buffer[i * 4 + 3];
-
-                if u * v == 0.0 {
-                    continue;
-                }
-
-                let transform = Transform3D::IDENTITY
-                    .scaled(Vector3::new(u, v, 1.0))
-                    .translated(Vector3::new(x + u * 0.5, y + v * 0.5, 0.5));
-
-                physics_server
-                    .body_add_shape_ex(up_chunk.physics_body, self.physics_shape)
-                    .transform(transform)
-                    .done();
-            }
-
             up_chunk.serial = chunk.serial;
         }
+    }
+
+    // Physics features
+
+    #[func]
+    fn intersects_with_point(&self, point: Vector2) -> bool {
+        let point = (point.x, point.y);
+        self.physics.get_by_point(point).is_some()
+    }
+
+    #[func]
+    fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Entity>> {
+        let point = (point.x, point.y);
+        self.physics
+            .get_by_point(point)
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
+    }
+
+    #[func]
+    fn intersects_with_rect(&self, rect: Rect2) -> bool {
+        let p0 = (rect.position.x, rect.position.y);
+        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+
+        self.physics.get_by_rect((p0, p1)).next().is_some()
+    }
+
+    #[func]
+    fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
+        let p0 = (rect.position.x, rect.position.y);
+        let p1 = (rect.position.x + rect.size.x, rect.position.y + rect.size.y);
+
+        let iter = self
+            .physics
+            .get_by_rect((p0, p1))
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Entity { inner }));
+
+        Array::from_iter(iter)
     }
 }

@@ -11,4 +11,5 @@ ahash = "0.8"
 godot = { git = "https://github.com/godot-rust/gdext" }
 image = "0.25"
 image-atlas = { git = "https://github.com/gossiperloturot/image-atlas" }
+rstar = "0.12"
 slab = "0.4"
