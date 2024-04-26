@@ -1,22 +1,22 @@
-use crate::{inner, physics};
+use crate::{inner, space};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(init, base=Resource)]
 struct EntityFieldDescEntry {
     #[export]
-    z_along_y: bool,
-    #[export]
     image: Option<Gd<godot::engine::Image>>,
     #[export]
+    z_along_y: bool,
+    #[export]
     #[init(default = Vector2::new(1.0, 1.0))]
-    render_size: Vector2,
+    rendering_size: Vector2,
     #[export]
-    render_offset: Vector2,
+    rendering_offset: Vector2,
     #[export]
-    physics_size: Vector2,
+    collision_size: Vector2,
     #[export]
-    physics_offset: Vector2,
+    collision_offset: Vector2,
 }
 
 #[derive(GodotClass)]
@@ -64,8 +64,8 @@ impl Entity {
 #[derive(Debug, Clone)]
 struct EntitySpec {
     z_along_y: bool,
-    render_size: inner::Vec2,
-    render_offset: inner::Vec2,
+    rendering_size: inner::Vec2,
+    rendering_offset: inner::Vec2,
 }
 
 #[derive(Debug, Clone)]
@@ -108,7 +108,8 @@ impl From<EntityChunkDown> for EntityChunkUp {
 #[class(no_init, base=RefCounted)]
 struct EntityField {
     inner: inner::EntityField,
-    physics: physics::EntityFieldPhysics,
+    collision: space::EntityFieldSpace,
+    hint: space::EntityFieldSpace,
     specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,
@@ -132,19 +133,33 @@ impl EntityField {
 
         let inner = inner::EntityField::new(Self::CHUNK_SIZE);
 
-        let physics_specs = desc
+        let collision_specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
-                physics::EntitySpec {
-                    size: [entry.physics_size.x, entry.physics_size.y],
-                    offset: [entry.physics_offset.x, entry.physics_offset.y],
+                space::EntitySpec {
+                    size: [entry.collision_size.x, entry.collision_size.y],
+                    offset: [entry.collision_offset.x, entry.collision_offset.y],
                 }
             })
             .collect::<Vec<_>>();
 
-        let physics = physics::EntityFieldPhysics::new(physics_specs);
+        let collision = space::EntityFieldSpace::new(collision_specs);
+
+        let hint_specs = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let entry = entry.bind();
+                space::EntitySpec {
+                    size: [entry.rendering_size.x, entry.rendering_size.y],
+                    offset: [entry.rendering_offset.x, entry.rendering_offset.y],
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let hint = space::EntityFieldSpace::new(hint_specs);
 
         let specs = desc
             .entries
@@ -153,8 +168,8 @@ impl EntityField {
                 let entry = entry.bind();
                 EntitySpec {
                     z_along_y: entry.z_along_y,
-                    render_size: [entry.render_size.x, entry.render_size.y],
-                    render_offset: [entry.render_offset.x, entry.render_offset.y],
+                    rendering_size: [entry.rendering_size.x, entry.rendering_size.y],
+                    rendering_offset: [entry.rendering_offset.x, entry.rendering_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -295,7 +310,8 @@ impl EntityField {
 
         Gd::from_init_fn(|_| Self {
             inner,
-            physics,
+            collision,
+            hint,
             specs,
             texcoords,
             down_chunks,
@@ -307,19 +323,19 @@ impl EntityField {
     fn insert(&mut self, entity: Gd<Entity>) -> u32 {
         let entity = entity.bind().inner.clone();
         let key = self.inner.insert(entity.clone());
-        self.physics.insert(key, &entity);
+        self.collision.insert(key, &entity);
+        self.hint.insert(key, &entity);
         key
     }
 
     #[func]
     fn remove(&mut self, key: u32) -> bool {
-        if self.inner.remove(key).is_none() {
-            return false;
+        if self.inner.remove(key).is_some() {
+            self.collision.remove(key).unwrap();
+            self.hint.remove(key).unwrap();
+            return true;
         }
-        if self.physics.remove(key).is_none() {
-            return false;
-        }
-        true
+        false
     }
 
     #[func]
@@ -387,17 +403,17 @@ impl EntityField {
                 .enumerate()
             {
                 let spec = &self.specs[entity.id as usize];
-                instance_buffer[i * 12 + 0] = spec.render_size[0];
+                instance_buffer[i * 12 + 0] = spec.rendering_size[0];
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = entity.location[0] + spec.render_offset[0];
+                instance_buffer[i * 12 + 3] = entity.location[0] + spec.rendering_offset[0];
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = spec.render_size[1];
+                instance_buffer[i * 12 + 5] = spec.rendering_size[1];
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = entity.location[1] + spec.render_offset[1];
+                instance_buffer[i * 12 + 7] = entity.location[1] + spec.rendering_offset[1];
 
-                let z_scale = spec.render_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
+                let z_scale = spec.rendering_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = z_scale;
@@ -432,18 +448,18 @@ impl EntityField {
         }
     }
 
-    // Physics features
+    // Hint features
 
     #[func]
-    fn intersects_with_point(&self, point: Vector2) -> bool {
+    fn has_hint_by_point(&self, point: Vector2) -> bool {
         let point = [point.x, point.y];
-        self.physics.get_by_point(point).is_some()
+        self.hint.get_by_point(point).is_some()
     }
 
     #[func]
-    fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Entity>> {
+    fn get_hint_by_point(&self, point: Vector2) -> Option<Gd<Entity>> {
         let point = [point.x, point.y];
-        self.physics
+        self.hint
             .get_by_point(point)
             .map(|key| self.inner.get(key).unwrap())
             .cloned()
@@ -451,20 +467,61 @@ impl EntityField {
     }
 
     #[func]
-    fn intersects_with_rect(&self, rect: Rect2) -> bool {
+    fn has_hint_by_rect(&self, rect: Rect2) -> bool {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
-        self.physics.get_by_rect([p0, p1]).next().is_some()
+        self.hint.get_by_rect([p0, p1]).next().is_some()
     }
 
     #[func]
-    fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
+    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
         let iter = self
-            .physics
+            .hint
+            .get_by_rect([p0, p1])
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Entity { inner }));
+
+        Array::from_iter(iter)
+    }
+
+    // Collision features
+
+    #[func]
+    fn has_collision_by_point(&self, point: Vector2) -> bool {
+        let point = [point.x, point.y];
+        self.collision.get_by_point(point).is_some()
+    }
+
+    #[func]
+    fn get_collision_by_point(&self, point: Vector2) -> Option<Gd<Entity>> {
+        let point = [point.x, point.y];
+        self.collision
+            .get_by_point(point)
+            .map(|key| self.inner.get(key).unwrap())
+            .cloned()
+            .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
+    }
+
+    #[func]
+    fn has_collision_by_rect(&self, rect: Rect2) -> bool {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+
+        self.collision.get_by_rect([p0, p1]).next().is_some()
+    }
+
+    #[func]
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+
+        let iter = self
+            .collision
             .get_by_rect([p0, p1])
             .map(|key| self.inner.get(key).unwrap())
             .cloned()

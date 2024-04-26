@@ -177,11 +177,6 @@ impl BlockField {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct EntitySpec {
-    pub size: Vec2,
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct Entity {
     pub id: u32,
     pub location: Vec2,

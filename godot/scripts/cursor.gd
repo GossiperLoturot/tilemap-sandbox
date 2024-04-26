@@ -30,31 +30,31 @@ func _process(delta):
 	
 	if _mode == MODE_ENTITY:
 		var location = Vector2(point.x, point.y)
-		var entity = field._entity_field.intersection_with_point(location)
+		var entity = field._entity_field.get_hint_by_point(location)
 		if entity:
 			var spec = field.entity_field_desc.entries[entity.get_id()]
 			
-			var marker_loc = entity.get_location() + spec.render_offset
-			var marker_scl = spec.render_size
+			var marker_loc = entity.get_location() + spec.rendering_offset
+			var marker_scl = spec.rendering_size
 			
-			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.render_size.y)
+			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.rendering_size.y)
 			transform.basis = Basis.from_scale(Vector3(marker_scl.x, marker_scl.y, 1.0))
 		
 	elif _mode == MODE_BLOCK:
-		var locationi = Vector2i(floori(point.x), floori(point.y))
-		var block = field._block_field.get(locationi)
+		var location = Vector2i(floori(point.x), floori(point.y))
+		var block = field._block_field.get(location)
 		if block:
 			var spec = field.block_field_desc.entries[block.get_id()]
 			
-			var marker_loc = Vector2(block.get_location()) + spec.render_offset
-			var marker_scl = spec.render_size
+			var marker_loc = Vector2(block.get_location()) + spec.rendering_offset
+			var marker_scl = spec.rendering_size
 			
-			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.render_size.y)
+			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.rendering_size.y)
 			transform.basis = Basis.from_scale(Vector3(marker_scl.x, marker_scl.y, 1.0))
 		
 	elif _mode == MODE_TILE:
-		var locationi = Vector2i(floori(point.x), floori(point.y))
-		var tile = field._tile_field.get(locationi)
+		var location = Vector2i(floori(point.x), floori(point.y))
+		var tile = field._tile_field.get(location)
 		if tile:
 			var spec = field.tile_field_desc.entries[tile.get_id()]
 			

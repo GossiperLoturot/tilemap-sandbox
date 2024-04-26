@@ -1,4 +1,4 @@
-use crate::{inner, physics};
+use crate::{inner, space};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
@@ -13,13 +13,13 @@ struct BlockFieldDescEntry {
     z_along_y: bool,
     #[export]
     #[init(default = Vector2::new(1.0, 1.0))]
-    render_size: Vector2,
+    rendering_size: Vector2,
     #[export]
-    render_offset: Vector2,
+    rendering_offset: Vector2,
     #[export]
-    physics_size: Vector2,
+    collision_size: Vector2,
     #[export]
-    physics_offset: Vector2,
+    collision_offset: Vector2,
 }
 
 #[derive(GodotClass)]
@@ -67,8 +67,8 @@ impl Block {
 #[derive(Debug, Clone)]
 struct BlockSpec {
     z_along_y: bool,
-    render_size: inner::Vec2,
-    render_offset: inner::Vec2,
+    rendering_size: inner::Vec2,
+    rendering_offset: inner::Vec2,
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +111,7 @@ impl From<BlockChunkDown> for BlockChunkUp {
 #[class(no_init, base=RefCounted)]
 struct BlockField {
     inner: inner::BlockField,
-    physics: physics::BlockFieldPhysics,
+    collision: space::BlockFieldSpace,
     specs: Vec<BlockSpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<BlockChunkDown>,
@@ -146,19 +146,19 @@ impl BlockField {
 
         let inner = inner::BlockField::new(Self::CHUNK_SIZE, inner_specs);
 
-        let physics_specs = desc
+        let collision_spec = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
-                physics::BlockSpec {
-                    size: [entry.physics_size.x, entry.physics_size.y],
-                    offset: [entry.physics_offset.x, entry.physics_offset.y],
+                space::BlockSpec {
+                    size: [entry.collision_size.x, entry.collision_size.y],
+                    offset: [entry.collision_offset.x, entry.collision_offset.y],
                 }
             })
             .collect::<Vec<_>>();
 
-        let physics = physics::BlockFieldPhysics::new(physics_specs);
+        let collision = space::BlockFieldSpace::new(collision_spec);
 
         let specs = desc
             .entries
@@ -167,8 +167,8 @@ impl BlockField {
                 let entry = entry.bind();
                 BlockSpec {
                     z_along_y: entry.z_along_y,
-                    render_size: [entry.render_size.x, entry.render_size.y],
-                    render_offset: [entry.render_offset.x, entry.render_offset.y],
+                    rendering_size: [entry.rendering_size.x, entry.rendering_size.y],
+                    rendering_offset: [entry.rendering_offset.x, entry.rendering_offset.y],
                 }
             })
             .collect::<Vec<_>>();
@@ -309,7 +309,7 @@ impl BlockField {
 
         Gd::from_init_fn(|_| Self {
             inner,
-            physics,
+            collision,
             specs,
             texcoords,
             down_chunks,
@@ -323,7 +323,7 @@ impl BlockField {
         if self.inner.insert(block.clone()).is_none() {
             return false;
         }
-        if self.physics.insert(&block).is_none() {
+        if self.collision.insert(&block).is_none() {
             return false;
         }
         true
@@ -335,7 +335,7 @@ impl BlockField {
         if self.inner.remove(key).is_none() {
             return false;
         }
-        if self.physics.remove(key).is_none() {
+        if self.collision.remove(key).is_none() {
             return false;
         }
         true
@@ -409,17 +409,17 @@ impl BlockField {
                 .enumerate()
             {
                 let spec = &self.specs[block.id as usize];
-                instance_buffer[i * 12 + 0] = spec.render_size[0];
+                instance_buffer[i * 12 + 0] = spec.rendering_size[0];
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
-                instance_buffer[i * 12 + 3] = block.location[0] as f32 + spec.render_offset[0];
+                instance_buffer[i * 12 + 3] = block.location[0] as f32 + spec.rendering_offset[0];
 
                 instance_buffer[i * 12 + 4] = 0.0;
-                instance_buffer[i * 12 + 5] = spec.render_size[1];
+                instance_buffer[i * 12 + 5] = spec.rendering_size[1];
                 instance_buffer[i * 12 + 6] = 0.0;
-                instance_buffer[i * 12 + 7] = block.location[1] as f32 + spec.render_offset[1];
+                instance_buffer[i * 12 + 7] = block.location[1] as f32 + spec.rendering_offset[1];
 
-                let z_scale = spec.render_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
+                let z_scale = spec.rendering_size[1] * if spec.z_along_y { 1.0 } else { 0.0 };
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = z_scale;
@@ -454,18 +454,18 @@ impl BlockField {
         }
     }
 
-    // Physics features
+    // Collision features
 
     #[func]
-    fn intersects_with_point(&self, point: Vector2) -> bool {
+    fn has_collision_by_point(&self, point: Vector2) -> bool {
         let point = [point.x, point.y];
-        self.physics.get_by_point(point).is_some()
+        self.collision.get_by_point(point).is_some()
     }
 
     #[func]
-    fn intersection_with_point(&self, point: Vector2) -> Option<Gd<Block>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Option<Gd<Block>> {
         let point = [point.x, point.y];
-        self.physics
+        self.collision
             .get_by_point(point)
             .map(|key| self.inner.get(key).unwrap())
             .cloned()
@@ -473,20 +473,20 @@ impl BlockField {
     }
 
     #[func]
-    fn intersects_with_rect(&self, rect: Rect2) -> bool {
+    fn has_collision_by_rect(&self, rect: Rect2) -> bool {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
-        self.physics.get_by_rect([p0, p1]).next().is_some()
+        self.collision.get_by_rect([p0, p1]).next().is_some()
     }
 
     #[func]
-    fn intersection_with_rect(&self, rect: Rect2) -> Array<Gd<Block>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<Block>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
 
         let iter = self
-            .physics
+            .collision
             .get_by_rect([p0, p1])
             .map(|key| self.inner.get(key).unwrap())
             .cloned()

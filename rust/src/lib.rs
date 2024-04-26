@@ -3,7 +3,7 @@ use godot::prelude::*;
 mod block;
 mod entity;
 mod inner;
-mod physics;
+mod space;
 mod tile;
 
 struct Extension;
