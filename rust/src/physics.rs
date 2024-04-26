@@ -83,7 +83,7 @@ pub struct EntitySpec {
 pub struct EntityFieldPhysics {
     specs: Vec<EntitySpec>,
     spartial_ref: rstar::RTree<EntityNode>,
-    index_ref: ahash::AHashMap<u32, EntityNode>,
+    index_ref: slab::Slab<EntityNode>,
 }
 
 impl EntityFieldPhysics {
@@ -95,11 +95,7 @@ impl EntityFieldPhysics {
         }
     }
 
-    pub fn insert(&mut self, entity: &crate::inner::Entity) -> Option<()> {
-        if self.index_ref.contains_key(&entity.id) {
-            return None;
-        }
-
+    pub fn insert(&mut self, entity: &crate::inner::Entity) -> u32 {
         let spec = &self.specs[entity.id as usize];
 
         let p0 = [
@@ -115,17 +111,17 @@ impl EntityFieldPhysics {
         let node = rstar::primitives::GeomWithData::new(rect, entity.id);
         self.spartial_ref.insert(node);
 
-        self.index_ref.insert(entity.id, node);
+        let key = self.index_ref.insert(node) as u32;
 
-        Some(())
+        key
     }
 
-    pub fn remove(&mut self, id: u32) -> Option<()> {
-        let node = self.index_ref.get(&id)?;
+    pub fn remove(&mut self, key: u32) -> Option<()> {
+        let node = self.index_ref.get(key as usize)?;
 
         self.spartial_ref.remove(node);
 
-        self.index_ref.remove(&id);
+        self.index_ref.remove(key as usize);
 
         Some(())
     }

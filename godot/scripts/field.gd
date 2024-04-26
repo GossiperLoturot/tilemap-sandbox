@@ -1,4 +1,5 @@
 extends Node3D
+class_name Field
 
 
 @export var camera: Camera3D
@@ -24,9 +25,7 @@ func _ready():
 	for i in range(4096):
 		var x = randi_range(-64, 65)
 		var y = randf_range(-64, 65)
-		_block_field.insert(Block.new_from(randi_range(0, 9), Vector2i(x, y)))
-	
-	_entity_field.insert(Entity.new_from(0, Vector2(1.2, 3.4)))
+		_block_field.insert(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
 	
 	for y in range(-4, 5):
 		for x in range(-4, 5):
@@ -39,15 +38,3 @@ func _process(_delta):
 	_tile_field.update_view()
 	_block_field.update_view()
 	_entity_field.update_view()
-
-
-func _input(event):
-	if event is InputEventMouseButton and event.pressed and event.button_index == 1:
-		var origin = camera.project_ray_origin(event.position)
-		var dir = camera.project_ray_normal(event.position)
-		
-		var k = origin.z / dir.z
-		var point = origin - dir * k
-		var point2d = Vector2(point.x, point.y)
-		
-		print(_block_field.intersection_with_point(point2d))

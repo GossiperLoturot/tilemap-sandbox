@@ -206,7 +206,7 @@ impl EntityField {
         }
     }
 
-    pub fn insert(&mut self, entity: Entity) -> Option<u32> {
+    pub fn insert(&mut self, entity: Entity) -> u32 {
         let location = entity.location;
 
         let chunk_key = {
@@ -216,15 +216,15 @@ impl EntityField {
         };
         let chunk = self.chunks.entry(chunk_key).or_default();
         chunk.serial += 1;
-        let block_key = chunk.entities.insert(entity) as u32;
+        let entity_key = chunk.entities.insert(entity) as u32;
 
-        let index = self.index_ref.insert((chunk_key, block_key)) as u32;
+        let key = self.index_ref.insert((chunk_key, entity_key)) as u32;
 
-        Some(index)
+        key
     }
 
-    pub fn remove(&mut self, index: u32) -> Option<Entity> {
-        let (chunk_key, entity_key) = self.index_ref[index as usize];
+    pub fn remove(&mut self, key: u32) -> Option<Entity> {
+        let (chunk_key, entity_key) = self.index_ref[key as usize];
 
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         chunk.serial += 1;

@@ -1,11 +1,10 @@
-[gd_resource type="BlockFieldDesc" load_steps=22 format=3 uid="uid://bvg4v8ufvni8o"]
+[gd_resource type="BlockFieldDesc" load_steps=20 format=3 uid="uid://bvg4v8ufvni8o"]
 
 [ext_resource type="Image" uid="uid://b1mhhd644disf" path="res://images/birch_tree.png" id="1_hgeii"]
 [ext_resource type="Image" uid="uid://b58m71oivdsuy" path="res://images/dandelion.png" id="2_vae15"]
 [ext_resource type="Image" uid="uid://brpym4033xgiw" path="res://images/dying_tree.png" id="3_bd31a"]
 [ext_resource type="Image" uid="uid://dafsg0heevc7l" path="res://images/fallen_branch.png" id="4_r7ovw"]
 [ext_resource type="Image" uid="uid://balsecqlqjgln" path="res://images/fallen_leaves.png" id="5_02tds"]
-[ext_resource type="Image" uid="uid://bf7ed1fo30u0v" path="res://images/fallen_tree.png" id="6_g0q47"]
 [ext_resource type="Image" uid="uid://slklmrbmfvsk" path="res://images/mix_grass.png" id="7_pxotk"]
 [ext_resource type="Image" uid="uid://ktg0hbndxkw7" path="res://images/mix_pebbles.png" id="8_2lvbq"]
 [ext_resource type="Image" uid="uid://vc8hgriavudp" path="res://images/mix_rock.png" id="9_3tguh"]
@@ -17,7 +16,7 @@ size = Vector2i(4, 2)
 image = ExtResource("1_hgeii")
 z_along_y = true
 render_size = Vector2(4, 6)
-physics_size = Vector2(1, 1)
+physics_size = Vector2(1, 0.5)
 physics_offset = Vector2(1.5, 0)
 
 [sub_resource type="BlockFieldDescEntry" id="BlockFieldDescEntry_t3afu"]
@@ -28,7 +27,7 @@ size = Vector2i(4, 2)
 image = ExtResource("3_bd31a")
 z_along_y = true
 render_size = Vector2(4, 6)
-physics_size = Vector2(1, 1)
+physics_size = Vector2(1, 0.5)
 physics_offset = Vector2(1.5, 0)
 
 [sub_resource type="BlockFieldDescEntry" id="BlockFieldDescEntry_q1kor"]
@@ -36,13 +35,6 @@ image = ExtResource("4_r7ovw")
 
 [sub_resource type="BlockFieldDescEntry" id="BlockFieldDescEntry_0jqbd"]
 image = ExtResource("5_02tds")
-
-[sub_resource type="BlockFieldDescEntry" id="BlockFieldDescEntry_213l8"]
-size = Vector2i(4, 1)
-image = ExtResource("6_g0q47")
-z_along_y = true
-render_size = Vector2(4, 2)
-physics_size = Vector2(4, 1)
 
 [sub_resource type="BlockFieldDescEntry" id="BlockFieldDescEntry_hkcqj"]
 image = ExtResource("7_pxotk")
@@ -63,9 +55,9 @@ size = Vector2i(4, 2)
 image = ExtResource("10_2pda6")
 z_along_y = true
 render_size = Vector2(4, 6)
-physics_size = Vector2(1, 1)
+physics_size = Vector2(1, 0.5)
 physics_offset = Vector2(1.5, 0)
 
 [resource]
-entries = Array[BlockFieldDescEntry]([SubResource("BlockFieldDescEntry_6gcpx"), SubResource("BlockFieldDescEntry_t3afu"), SubResource("BlockFieldDescEntry_boswe"), SubResource("BlockFieldDescEntry_q1kor"), SubResource("BlockFieldDescEntry_0jqbd"), SubResource("BlockFieldDescEntry_213l8"), SubResource("BlockFieldDescEntry_hkcqj"), SubResource("BlockFieldDescEntry_0glbn"), SubResource("BlockFieldDescEntry_uhk3m"), SubResource("BlockFieldDescEntry_lhcuo")])
+entries = Array[BlockFieldDescEntry]([SubResource("BlockFieldDescEntry_6gcpx"), SubResource("BlockFieldDescEntry_t3afu"), SubResource("BlockFieldDescEntry_boswe"), SubResource("BlockFieldDescEntry_q1kor"), SubResource("BlockFieldDescEntry_0jqbd"), SubResource("BlockFieldDescEntry_hkcqj"), SubResource("BlockFieldDescEntry_0glbn"), SubResource("BlockFieldDescEntry_uhk3m"), SubResource("BlockFieldDescEntry_lhcuo")])
 shader = ExtResource("11_5hwtk")
