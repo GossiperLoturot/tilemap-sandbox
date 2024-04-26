@@ -1,10 +1,20 @@
-[gd_scene load_steps=6 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=10 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" path="res://scripts/field.gd" id="1_b2r8a"]
 [ext_resource type="TileFieldDesc" uid="uid://cj2shpxp8h65o" path="res://tile_field.tres" id="2_8gebx"]
 [ext_resource type="BlockFieldDesc" uid="uid://bvg4v8ufvni8o" path="res://block_field.tres" id="3_1qtlw"]
 [ext_resource type="EntityFieldDesc" uid="uid://djvldykrptcfg" path="res://entity_field.tres" id="4_oyfkl"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="5_rbyqb"]
+[ext_resource type="Shader" path="res://cursor.gdshader" id="6_vhy0j"]
+[ext_resource type="Script" path="res://scripts/cursor.gd" id="7_f7tes"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ur735"]
+render_priority = 0
+shader = ExtResource("6_vhy0j")
+
+[sub_resource type="QuadMesh" id="QuadMesh_eh3sn"]
+material = SubResource("ShaderMaterial_ur735")
+center_offset = Vector3(0.5, 0.5, 0)
 
 [node name="Root" type="Node3D"]
 
@@ -23,3 +33,11 @@ entity_field_desc = ExtResource("4_oyfkl")
 [node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("field")]
 script = ExtResource("5_rbyqb")
 field = NodePath("../Field")
+
+[node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("field", "camera")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)
+mesh = SubResource("QuadMesh_eh3sn")
+skeleton = NodePath("../Camera3D")
+script = ExtResource("7_f7tes")
+field = NodePath("../Field")
+camera = NodePath("../Camera3D")

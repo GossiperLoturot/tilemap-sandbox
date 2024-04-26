@@ -61,13 +61,6 @@ impl Entity {
     }
 }
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct EntityKey {
-    inner: u32,
-    physics: u32,
-}
-
 #[derive(Debug, Clone)]
 struct EntitySpec {
     z_along_y: bool,
@@ -311,24 +304,27 @@ impl EntityField {
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
+    fn insert(&mut self, entity: Gd<Entity>) -> u32 {
         let entity = entity.bind().inner.clone();
-        let inner = self.inner.insert(entity.clone());
-        let physics = self.physics.insert(&entity);
-        Gd::from_init_fn(|_| EntityKey { inner, physics })
+        let key = self.inner.insert(entity.clone());
+        self.physics.insert(key, &entity);
+        key
     }
 
     #[func]
-    fn remove(&mut self, key: Gd<EntityKey>) {
-        let key = key.bind();
-        self.inner.remove(key.inner).unwrap();
-        self.physics.remove(key.physics).unwrap();
+    fn remove(&mut self, key: u32) -> bool {
+        if self.inner.remove(key).is_none() {
+            return false;
+        }
+        if self.physics.remove(key).is_none() {
+            return false;
+        }
+        true
     }
 
     #[func]
-    fn get(&self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
-        let key = key.bind();
-        let inner = self.inner.get(key.inner)?.clone();
+    fn get(&self, key: u32) -> Option<Gd<Entity>> {
+        let inner = self.inner.get(key)?.clone();
         Some(Gd::from_init_fn(|_| Entity { inner }))
     }
 

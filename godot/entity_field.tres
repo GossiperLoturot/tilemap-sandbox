@@ -1,14 +1,14 @@
 [gd_resource type="EntityFieldDesc" load_steps=4 format=3 uid="uid://djvldykrptcfg"]
 
 [ext_resource type="Image" uid="uid://dvrp7wa2ynml0" path="res://images/frame.png" id="1_n8vle"]
-[ext_resource type="Shader" path="res://shader.gdshader" id="2_cnctb"]
+[ext_resource type="Shader" path="res://field.gdshader" id="2_cnctb"]
 
 [sub_resource type="EntityFieldDescEntry" id="EntityFieldDescEntry_k277h"]
 z_along_y = true
 image = ExtResource("1_n8vle")
 render_size = Vector2(1, 2)
 render_offset = Vector2(-0.5, 0)
-physics_size = Vector2(1, 1)
+physics_size = Vector2(1, 2)
 physics_offset = Vector2(-0.5, 0)
 
 [resource]

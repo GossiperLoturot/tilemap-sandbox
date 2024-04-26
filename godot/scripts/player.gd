@@ -5,12 +5,13 @@ extends Node
 @export var speed: float = 4.0
 
 var _location: Vector2
-var _key: EntityKey
+var _key: int
 
 
 func _ready():
 	var entity = Entity.new_from(0, _location)
 	_key = field._entity_field.insert(entity)
+
 
 func _process(delta):
 	var input_dir = Input.get_vector("left", "right", "down", "up")

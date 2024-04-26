@@ -31,6 +31,7 @@ impl TileField {
 
     pub fn insert(&mut self, tile: Tile) -> Option<IVec2> {
         let location = tile.location;
+
         if self.spatial_ref.contains_key(&location) {
             return None;
         }
@@ -64,7 +65,8 @@ impl TileField {
     pub fn get(&self, location: IVec2) -> Option<&Tile> {
         let (chunk_key, tile_key) = *self.spatial_ref.get(&location)?;
 
-        let tile = &self.chunks[&chunk_key].tiles[tile_key as usize];
+        let chunk = &self.chunks.get(&chunk_key).unwrap();
+        let tile = chunk.tiles.get(tile_key as usize).unwrap();
         Some(tile)
     }
 
@@ -164,7 +166,8 @@ impl BlockField {
     pub fn get(&self, location: IVec2) -> Option<&Block> {
         let (chunk_key, block_key) = *self.spatial_ref.get(&location)?;
 
-        let block = &self.chunks[&chunk_key].blocks[block_key as usize];
+        let chunk = self.chunks.get(&chunk_key).unwrap();
+        let block = chunk.blocks.get(block_key as usize).unwrap();
         Some(block)
     }
 
@@ -224,19 +227,22 @@ impl EntityField {
     }
 
     pub fn remove(&mut self, key: u32) -> Option<Entity> {
-        let (chunk_key, entity_key) = self.index_ref[key as usize];
+        let (chunk_key, entity_key) = *self.index_ref.get(key as usize)?;
 
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         chunk.serial += 1;
         let entity = chunk.entities.remove(entity_key as usize);
 
+        self.index_ref.remove(key as usize);
+
         Some(entity)
     }
 
-    pub fn get(&self, index: u32) -> Option<&Entity> {
-        let (chunk_key, entity_key) = *self.index_ref.get(index as usize)?;
+    pub fn get(&self, key: u32) -> Option<&Entity> {
+        let (chunk_key, entity_key) = *self.index_ref.get(key as usize)?;
 
-        let entity = &self.chunks[&chunk_key].entities[entity_key as usize];
+        let chunk = self.chunks.get(&chunk_key).unwrap();
+        let entity = chunk.entities.get(entity_key as usize).unwrap();
         Some(entity)
     }
 
