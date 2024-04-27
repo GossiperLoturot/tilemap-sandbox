@@ -5,7 +5,7 @@ extends Node
 @export var speed: float = 4.0
 
 var _location: Vector2
-var _key: int
+var _key: EntityKey
 
 
 func _ready():

@@ -1,4 +1,4 @@
-use crate::{inner, space};
+use crate::inner;
 use godot::prelude::*;
 
 #[derive(GodotClass)]
@@ -38,7 +38,13 @@ struct BlockFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(init, base=RefCounted)]
+#[class(no_init, base=RefCounted)]
+struct BlockKey {
+    inner: inner::BlockKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
 struct Block {
     inner: inner::Block,
 }
@@ -111,7 +117,6 @@ impl From<BlockChunkDown> for BlockChunkUp {
 #[class(no_init, base=RefCounted)]
 struct BlockField {
     inner: inner::BlockField,
-    collision: space::BlockFieldSpace,
     specs: Vec<BlockSpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<BlockChunkDown>,
@@ -140,25 +145,15 @@ impl BlockField {
                 let entry = entry.bind();
                 inner::BlockSpec {
                     size: [entry.size.x, entry.size.y],
+                    collision_size: [entry.collision_size.x, entry.collision_size.y],
+                    collision_offset: [entry.collision_offset.x, entry.collision_offset.y],
+                    hint_size: [entry.rendering_size.x, entry.rendering_size.y],
+                    hint_offset: [entry.rendering_offset.x, entry.rendering_offset.y],
                 }
             })
             .collect::<Vec<_>>();
 
         let inner = inner::BlockField::new(Self::CHUNK_SIZE, inner_specs);
-
-        let collision_spec = desc
-            .entries
-            .iter_shared()
-            .map(|entry| {
-                let entry = entry.bind();
-                space::BlockSpec {
-                    size: [entry.collision_size.x, entry.collision_size.y],
-                    offset: [entry.collision_offset.x, entry.collision_offset.y],
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let collision = space::BlockFieldSpace::new(collision_spec);
 
         let specs = desc
             .entries
@@ -309,7 +304,6 @@ impl BlockField {
 
         Gd::from_init_fn(|_| Self {
             inner,
-            collision,
             specs,
             texcoords,
             down_chunks,
@@ -318,39 +312,27 @@ impl BlockField {
     }
 
     #[func]
-    fn insert(&mut self, block: Gd<Block>) -> bool {
+    fn insert(&mut self, block: Gd<Block>) -> Option<Gd<BlockKey>> {
         let block = block.bind().inner.clone();
-        if self.inner.insert(block.clone()).is_none() {
-            return false;
-        }
-        if self.collision.insert(&block).is_none() {
-            return false;
-        }
-        true
+        let key = self.inner.insert(block.clone())?;
+        Some(Gd::from_init_fn(|_| BlockKey { inner: key }))
     }
 
     #[func]
-    fn remove(&mut self, key: Vector2i) -> bool {
-        let key = [key.x, key.y];
-        if self.inner.remove(key).is_none() {
-            return false;
-        }
-        if self.collision.remove(key).is_none() {
-            return false;
-        }
-        true
+    fn remove(&mut self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
+        let key = key.bind().inner.clone();
+        let block = self.inner.remove(key)?;
+        Some(Gd::from_init_fn(|_| Block { inner: block }))
     }
 
     #[func]
-    fn get(&self, key: Vector2i) -> Option<Gd<Block>> {
-        let key = [key.x, key.y];
-        self.inner
-            .get(key)
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Block { inner }))
+    fn get(&self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
+        let key = key.bind().inner.clone();
+        let block = self.inner.get(key)?.clone();
+        Some(Gd::from_init_fn(|_| Block { inner: block }))
     }
 
-    // Rendering features
+    // rendering features
 
     #[func]
     fn insert_view(&mut self, key: Vector2i) -> bool {
@@ -454,44 +436,93 @@ impl BlockField {
         }
     }
 
-    // Collision features
+    // spatial features
+
+    #[func]
+    fn has_by_point(&self, point: Vector2i) -> bool {
+        let point = [point.x, point.y];
+        self.inner.has_by_point(point)
+    }
+
+    #[func]
+    fn get_by_point(&self, point: Vector2i) -> Option<Gd<BlockKey>> {
+        let point = [point.x, point.y];
+        let key = self.inner.get_by_point(point)?.clone();
+        Some(Gd::from_init_fn(|_| BlockKey { inner: key }))
+    }
+
+    #[func]
+    fn has_by_rect(&self, rect: Rect2i) -> bool {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        self.inner.has_by_rect([p0, p1])
+    }
+
+    #[func]
+    fn get_by_rect(&self, rect: Rect2i) -> Array<Gd<BlockKey>> {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_by_rect([p0, p1]).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+    }
+
+    // collision features
 
     #[func]
     fn has_collision_by_point(&self, point: Vector2) -> bool {
         let point = [point.x, point.y];
-        self.collision.get_by_point(point).is_some()
+        self.inner.has_collision_by_point(point)
     }
 
     #[func]
-    fn get_collision_by_point(&self, point: Vector2) -> Option<Gd<Block>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<BlockKey>> {
         let point = [point.x, point.y];
-        self.collision
-            .get_by_point(point)
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Block { inner }))
+        let keys = self.inner.get_collision_by_point(point).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
     }
 
     #[func]
     fn has_collision_by_rect(&self, rect: Rect2) -> bool {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-
-        self.collision.get_by_rect([p0, p1]).next().is_some()
+        self.inner.has_collision_by_rect([p0, p1])
     }
 
     #[func]
-    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<Block>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<BlockKey>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_collision_by_rect([p0, p1]).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+    }
 
-        let iter = self
-            .collision
-            .get_by_rect([p0, p1])
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Block { inner }));
+    // hint features
 
-        Array::from_iter(iter)
+    #[func]
+    fn has_hint_by_point(&self, point: Vector2) -> bool {
+        let point = [point.x, point.y];
+        self.inner.has_hint_by_point(point)
+    }
+
+    #[func]
+    fn get_hint_by_point(&self, point: Vector2) -> Array<Gd<BlockKey>> {
+        let point = [point.x, point.y];
+        let keys = self.inner.get_hint_by_point(point).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+    }
+
+    #[func]
+    fn has_hint_by_rect(&self, rect: Rect2) -> bool {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        self.inner.has_hint_by_rect([p0, p1])
+    }
+
+    #[func]
+    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<BlockKey>> {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_hint_by_rect([p0, p1]).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
     }
 }

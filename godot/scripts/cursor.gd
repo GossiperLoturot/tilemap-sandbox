@@ -30,37 +30,40 @@ func _process(delta):
 	
 	if _mode == MODE_ENTITY:
 		var location = Vector2(point.x, point.y)
-		var entity = field._entity_field.get_hint_by_point(location)
-		if entity:
+		var keys = field._entity_field.get_hint_by_point(location)
+		if len(keys) > 0:
+			var entity = field._entity_field.get(keys[0])
 			var spec = field.entity_field_desc.entries[entity.get_id()]
 			
-			var marker_loc = entity.get_location() + spec.rendering_offset
-			var marker_scl = spec.rendering_size
+			var cursor_location = entity.get_location() + spec.rendering_offset
+			var cursor_scale = spec.rendering_size
 			
-			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.rendering_size.y)
-			transform.basis = Basis.from_scale(Vector3(marker_scl.x, marker_scl.y, 1.0))
+			transform.origin = Vector3(cursor_location.x, cursor_location.y, spec.rendering_size.y)
+			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 		
 	elif _mode == MODE_BLOCK:
-		var location = Vector2i(floori(point.x), floori(point.y))
-		var block = field._block_field.get(location)
-		if block:
+		var location = Vector2(point.x, point.y)
+		var keys = field._block_field.get_hint_by_point(location)
+		if len(keys) > 0:
+			var block = field._block_field.get(keys[0])
 			var spec = field.block_field_desc.entries[block.get_id()]
 			
-			var marker_loc = Vector2(block.get_location()) + spec.rendering_offset
-			var marker_scl = spec.rendering_size
+			var cursor_location = Vector2(block.get_location()) + spec.rendering_offset
+			var cursor_scale = spec.rendering_size
 			
-			transform.origin = Vector3(marker_loc.x, marker_loc.y, spec.rendering_size.y)
-			transform.basis = Basis.from_scale(Vector3(marker_scl.x, marker_scl.y, 1.0))
+			transform.origin = Vector3(cursor_location.x, cursor_location.y, spec.rendering_size.y)
+			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 		
 	elif _mode == MODE_TILE:
 		var location = Vector2i(floori(point.x), floori(point.y))
-		var tile = field._tile_field.get(location)
-		if tile:
+		var key = field._tile_field.get_by_point(location)
+		if key:
+			var tile = field._tile_field.get(key)
 			var spec = field.tile_field_desc.entries[tile.get_id()]
 			
-			var marker_loc = Vector2(tile.get_location())
+			var cursor_location = Vector2(tile.get_location())
 			
-			transform.origin = Vector3(marker_loc.x, marker_loc.y, 0.0)
+			transform.origin = Vector3(cursor_location.x, cursor_location.y, 0.0)
 			transform.basis = Basis.from_scale(Vector3.ONE)
 
 

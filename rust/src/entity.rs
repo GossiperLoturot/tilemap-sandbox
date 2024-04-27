@@ -1,4 +1,4 @@
-use crate::{inner, space};
+use crate::inner;
 use godot::prelude::*;
 
 #[derive(GodotClass)]
@@ -35,7 +35,13 @@ struct EntityFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(init, base=RefCounted)]
+#[class(no_init, base=RefCounted)]
+struct EntityKey {
+    inner: inner::EntityKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
 struct Entity {
     inner: inner::Entity,
 }
@@ -108,8 +114,6 @@ impl From<EntityChunkDown> for EntityChunkUp {
 #[class(no_init, base=RefCounted)]
 struct EntityField {
     inner: inner::EntityField,
-    collision: space::EntityFieldSpace,
-    hint: space::EntityFieldSpace,
     specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,
@@ -131,35 +135,21 @@ impl EntityField {
     fn new_from(desc: Gd<EntityFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
         let desc = desc.bind();
 
-        let inner = inner::EntityField::new(Self::CHUNK_SIZE);
-
-        let collision_specs = desc
+        let inner_specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
-                space::EntitySpec {
-                    size: [entry.collision_size.x, entry.collision_size.y],
-                    offset: [entry.collision_offset.x, entry.collision_offset.y],
+                inner::EntitySpec {
+                    collision_size: [entry.collision_size.x, entry.collision_size.y],
+                    collision_offset: [entry.collision_offset.x, entry.collision_offset.y],
+                    hint_size: [entry.rendering_size.x, entry.rendering_size.y],
+                    hint_offset: [entry.rendering_offset.x, entry.rendering_offset.y],
                 }
             })
             .collect::<Vec<_>>();
 
-        let collision = space::EntityFieldSpace::new(collision_specs);
-
-        let hint_specs = desc
-            .entries
-            .iter_shared()
-            .map(|entry| {
-                let entry = entry.bind();
-                space::EntitySpec {
-                    size: [entry.rendering_size.x, entry.rendering_size.y],
-                    offset: [entry.rendering_offset.x, entry.rendering_offset.y],
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let hint = space::EntityFieldSpace::new(hint_specs);
+        let inner = inner::EntityField::new(Self::CHUNK_SIZE, inner_specs);
 
         let specs = desc
             .entries
@@ -310,8 +300,6 @@ impl EntityField {
 
         Gd::from_init_fn(|_| Self {
             inner,
-            collision,
-            hint,
             specs,
             texcoords,
             down_chunks,
@@ -320,31 +308,27 @@ impl EntityField {
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) -> u32 {
+    fn insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
         let entity = entity.bind().inner.clone();
         let key = self.inner.insert(entity.clone());
-        self.collision.insert(key, &entity);
-        self.hint.insert(key, &entity);
-        key
+        Gd::from_init_fn(|_| EntityKey { inner: key })
     }
 
     #[func]
-    fn remove(&mut self, key: u32) -> bool {
-        if self.inner.remove(key).is_some() {
-            self.collision.remove(key).unwrap();
-            self.hint.remove(key).unwrap();
-            return true;
-        }
-        false
+    fn remove(&mut self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
+        let key = key.bind().inner.clone();
+        let entity = self.inner.remove(key)?;
+        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 
     #[func]
-    fn get(&self, key: u32) -> Option<Gd<Entity>> {
-        let inner = self.inner.get(key)?.clone();
-        Some(Gd::from_init_fn(|_| Entity { inner }))
+    fn get(&self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
+        let key = key.bind().inner.clone();
+        let entity = self.inner.get(key)?.clone();
+        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 
-    // Rendering features
+    // rendering features
 
     #[func]
     fn insert_view(&mut self, key: Vector2i) -> bool {
@@ -448,85 +432,63 @@ impl EntityField {
         }
     }
 
-    // Hint features
-
-    #[func]
-    fn has_hint_by_point(&self, point: Vector2) -> bool {
-        let point = [point.x, point.y];
-        self.hint.get_by_point(point).is_some()
-    }
-
-    #[func]
-    fn get_hint_by_point(&self, point: Vector2) -> Option<Gd<Entity>> {
-        let point = [point.x, point.y];
-        self.hint
-            .get_by_point(point)
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
-    }
-
-    #[func]
-    fn has_hint_by_rect(&self, rect: Rect2) -> bool {
-        let p0 = [rect.position.x, rect.position.y];
-        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-
-        self.hint.get_by_rect([p0, p1]).next().is_some()
-    }
-
-    #[func]
-    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
-        let p0 = [rect.position.x, rect.position.y];
-        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-
-        let iter = self
-            .hint
-            .get_by_rect([p0, p1])
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Entity { inner }));
-
-        Array::from_iter(iter)
-    }
-
-    // Collision features
+    // collision features
 
     #[func]
     fn has_collision_by_point(&self, point: Vector2) -> bool {
         let point = [point.x, point.y];
-        self.collision.get_by_point(point).is_some()
+        self.inner.has_collision_by_point(point)
     }
 
     #[func]
-    fn get_collision_by_point(&self, point: Vector2) -> Option<Gd<Entity>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
         let point = [point.x, point.y];
-        self.collision
-            .get_by_point(point)
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Entity { inner }))
+        let keys = self.inner.get_collision_by_point(point).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 
     #[func]
     fn has_collision_by_rect(&self, rect: Rect2) -> bool {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-
-        self.collision.get_by_rect([p0, p1]).next().is_some()
+        self.inner.has_collision_by_rect([p0, p1])
     }
 
     #[func]
-    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<Entity>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_collision_by_rect([p0, p1]).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+    }
 
-        let iter = self
-            .collision
-            .get_by_rect([p0, p1])
-            .map(|key| self.inner.get(key).unwrap())
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Entity { inner }));
+    // hint features
 
-        Array::from_iter(iter)
+    #[func]
+    fn has_hint_by_point(&self, point: Vector2) -> bool {
+        let point = [point.x, point.y];
+        self.inner.has_hint_by_point(point)
+    }
+
+    #[func]
+    fn get_hint_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
+        let point = [point.x, point.y];
+        let keys = self.inner.get_hint_by_point(point).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+    }
+
+    #[func]
+    fn has_hint_by_rect(&self, rect: Rect2) -> bool {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        self.inner.has_hint_by_rect([p0, p1])
+    }
+
+    #[func]
+    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_hint_by_rect([p0, p1]).cloned();
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 }

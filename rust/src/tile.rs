@@ -26,7 +26,13 @@ struct TileFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(init, base=RefCounted)]
+#[class(no_init, base=RefCounted)]
+struct TileKey {
+    inner: inner::TileKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
 struct Tile {
     inner: inner::Tile,
 }
@@ -257,30 +263,24 @@ impl TileField {
     }
 
     #[func]
-    fn insert(&mut self, tile: Gd<Tile>) -> bool {
+    fn insert(&mut self, tile: Gd<Tile>) -> Option<Gd<TileKey>> {
         let tile = tile.bind().inner.clone();
-        if self.inner.insert(tile).is_none() {
-            return false;
-        }
-        true
+        let key = self.inner.insert(tile)?;
+        Some(Gd::from_init_fn(|_| TileKey { inner: key }))
     }
 
     #[func]
-    fn remove(&mut self, key: Vector2i) -> bool {
-        let key = [key.x, key.y];
-        if self.inner.remove(key).is_none() {
-            return false;
-        }
-        true
+    fn remove(&mut self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
+        let key = key.bind().inner.clone();
+        let tile = self.inner.remove(key)?;
+        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
     #[func]
-    fn get(&self, key: Vector2i) -> Option<Gd<Tile>> {
-        let key = [key.x, key.y];
-        self.inner
-            .get(key)
-            .cloned()
-            .map(|inner| Gd::from_init_fn(|_| Tile { inner }))
+    fn get(&self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
+        let key = key.bind().inner.clone();
+        let tile = self.inner.get(key)?.clone();
+        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
     #[func]
@@ -386,5 +386,20 @@ impl TileField {
 
             up_chunk.serial = chunk.serial;
         }
+    }
+
+    // spatial features
+
+    #[func]
+    fn has_by_point(&self, point: Vector2i) -> bool {
+        let point = [point.x, point.y];
+        self.inner.has_by_point(point)
+    }
+
+    #[func]
+    fn get_by_point(&self, point: Vector2i) -> Option<Gd<TileKey>> {
+        let point = [point.x, point.y];
+        let key = self.inner.get_by_point(point)?.clone();
+        Some(Gd::from_init_fn(|_| TileKey { inner: key }))
     }
 }
