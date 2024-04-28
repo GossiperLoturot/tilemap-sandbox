@@ -1,15 +1,17 @@
+use rand::Rng;
+
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
 
 type RectNode<T, U> = rstar::primitives::GeomWithData<rstar::primitives::Rectangle<T>, U>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TileKey {
     chunk_key: IVec2,
     tile_key: u32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Tile {
     pub id: u32,
     pub location: IVec2,
@@ -94,7 +96,7 @@ impl TileField {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct BlockSpec {
     pub size: IVec2,
     pub collision_size: Vec2,
@@ -103,13 +105,13 @@ pub struct BlockSpec {
     pub hint_offset: Vec2,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockKey {
     chunk_key: IVec2,
     block_key: u32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub id: u32,
     pub location: IVec2,
@@ -363,7 +365,7 @@ impl BlockField {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EntitySpec {
     pub collision_size: Vec2,
     pub collision_offset: Vec2,
@@ -371,13 +373,13 @@ pub struct EntitySpec {
     pub hint_offset: Vec2,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EntityKey {
     chunk_key: IVec2,
     entity_key: u32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Entity {
     pub id: u32,
     pub location: Vec2,
@@ -565,5 +567,116 @@ impl EntityField {
         self.hint_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| &node.data)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AgentData {
+    Empty,
+    Herbivore {
+        scan_secs: f32,
+        scan_distance: f32,
+        speed: f32,
+        next_scan: Option<f32>,
+        next_location: Option<Vec2>,
+        elapsed: f32,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct Agent {
+    entity_key: EntityKey,
+    data: AgentData,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentSystem {
+    agents: slab::Slab<Agent>,
+    inverse_ref: ahash::AHashMap<EntityKey, u32>,
+}
+
+impl AgentSystem {
+    pub fn new() -> Self {
+        Self {
+            agents: Default::default(),
+            inverse_ref: Default::default(),
+        }
+    }
+
+    pub fn insert(&mut self, entity_key: EntityKey, data: AgentData) -> Option<()> {
+        if self.inverse_ref.contains_key(&entity_key) {
+            return None;
+        }
+
+        let agent = Agent {
+            entity_key: entity_key.clone(),
+            data,
+        };
+        let key = self.agents.insert(agent) as u32;
+        self.inverse_ref.insert(entity_key, key);
+
+        Some(())
+    }
+
+    pub fn remove(&mut self, entity_key: EntityKey) -> Option<AgentData> {
+        let key = self.inverse_ref.remove(&entity_key)?;
+        let agent = self.agents.remove(key as usize);
+        Some(agent.data)
+    }
+
+    pub fn update(&mut self, entity_field: &mut EntityField, delta_secs: f32) {
+        let mut rng = rand::thread_rng();
+
+        for (_, agent) in &mut self.agents {
+            match &mut agent.data {
+                AgentData::Empty => {}
+                AgentData::Herbivore {
+                    scan_secs,
+                    scan_distance,
+                    speed,
+                    next_scan,
+                    next_location,
+                    elapsed,
+                } => {
+                    let mut entity = entity_field.remove(agent.entity_key.clone()).unwrap();
+
+                    if let Some(next_scan) = next_scan {
+                        if *elapsed >= *next_scan {
+                            *next_scan = *elapsed + *scan_secs;
+                            let distance: f32 =
+                                rng.sample(rand::distributions::Uniform::new(0.0, *scan_distance));
+                            let direction: f32 =
+                                rng.sample(rand::distributions::Uniform::new(0.0, 6.283185307179));
+                            *next_location = Some([
+                                entity.location[0] + direction.cos() * distance,
+                                entity.location[1] + direction.sin() * distance,
+                            ]);
+                        }
+                    } else {
+                        *next_scan = Some(*elapsed + *scan_secs);
+                        *next_location = None;
+                    }
+
+                    if let Some(next_location) = next_location {
+                        let diff = [
+                            next_location[0] - entity.location[0],
+                            next_location[1] - entity.location[1],
+                        ];
+                        let direction = diff[1].atan2(diff[0]);
+                        let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
+
+                        let delta_distance = distance.min(delta_secs * *speed);
+                        entity.location = [
+                            entity.location[0] + direction.cos() * delta_distance,
+                            entity.location[1] + direction.sin() * delta_distance,
+                        ];
+                    }
+
+                    *elapsed += delta_secs;
+
+                    agent.entity_key = entity_field.insert(entity);
+                }
+            }
+        }
     }
 }

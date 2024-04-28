@@ -36,8 +36,8 @@ struct EntityFieldDesc {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct EntityKey {
-    inner: inner::EntityKey,
+pub struct EntityKey {
+    pub inner: inner::EntityKey,
 }
 
 #[derive(GodotClass)]
@@ -112,8 +112,8 @@ impl From<EntityChunkDown> for EntityChunkUp {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct EntityField {
-    inner: inner::EntityField,
+pub struct EntityField {
+    pub inner: inner::EntityField,
     specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,

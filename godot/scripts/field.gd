@@ -11,12 +11,14 @@ class_name Field
 var _tile_field: TileField
 var _block_field: BlockField
 var _entity_field: EntityField
+var _agent_system: AgentSystem
 
 
 func _ready():
 	_tile_field = TileField.new_from(tile_field_desc, get_world_3d())
 	_block_field = BlockField.new_from(block_field_desc, get_world_3d())
 	_entity_field = EntityField.new_from(entity_field_desc, get_world_3d())
+	_agent_system = AgentSystem.new_from(_entity_field)
 	
 	for y in range(-64, 65):
 		for x in range(-64, 65):
@@ -27,6 +29,12 @@ func _ready():
 		var y = randf_range(-64, 65)
 		_block_field.insert(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
 	
+	for i in range(64):
+		var x = randf_range(-64.0, 64.0)
+		var y = randf_range(-64.0, 64.0)
+		var key = _entity_field.insert(Entity.new_from(1, Vector2(x, y)))
+		_agent_system.insert(key, AgentData.new_herbivore(10.0, 4.0, 1.0))
+	
 	for y in range(-4, 5):
 		for x in range(-4, 5):
 			_tile_field.insert_view(Vector2i(x, y))
@@ -34,7 +42,8 @@ func _ready():
 			_entity_field.insert_view(Vector2i(x, y))
 
 
-func _process(_delta):
+func _process(delta):
 	_tile_field.update_view()
 	_block_field.update_view()
 	_entity_field.update_view()
+	_agent_system.update(delta)
