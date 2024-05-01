@@ -1,68 +1,94 @@
-use crate::{entity, inner};
+use crate::{block, entity, inner};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct AgentData {
-    inner: inner::AgentData,
+#[class(init, base=Resource)]
+struct AgentPluginDescEntryEmpty {}
+
+#[derive(GodotClass)]
+#[class(init, base=Resource)]
+struct AgentPluginDescEntryHerbivore {
+    #[export]
+    min_rest_secs: f32,
+    #[export]
+    max_rest_secs: f32,
+    #[export]
+    min_distance: f32,
+    #[export]
+    max_distance: f32,
+    #[export]
+    speed: f32,
 }
 
-#[godot_api]
-impl AgentData {
-    #[func]
-    fn new_empty() -> Gd<Self> {
-        let data = inner::AgentData::Empty;
-        Gd::from_init_fn(|_| Self { inner: data })
-    }
-
-    #[func]
-    fn new_herbivore(scan_secs: f32, scan_distance: f32, speed: f32) -> Gd<Self> {
-        let data = inner::AgentData::Herbivore {
-            scan_secs,
-            scan_distance,
-            speed,
-            next_scan: Default::default(),
-            next_location: Default::default(),
-            elapsed: Default::default(),
-        };
-        Gd::from_init_fn(|_| Self { inner: data })
-    }
+#[derive(GodotClass)]
+#[class(init, base=Resource)]
+struct AgentPluginDesc {
+    #[export]
+    entries: Array<Gd<godot::engine::Resource>>,
 }
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct AgentSystem {
-    inner: inner::AgentSystem,
+struct AgentPlugin {
+    inner: inner::AgentPlugin,
+    block_field: Gd<block::BlockField>,
     entity_field: Gd<entity::EntityField>,
 }
 
 #[godot_api]
-impl AgentSystem {
+impl AgentPlugin {
     #[func]
-    fn new_from(entity_field: Gd<entity::EntityField>) -> Gd<Self> {
+    fn new_from(
+        desc: Gd<AgentPluginDesc>,
+        block_field: Gd<block::BlockField>,
+        entity_field: Gd<entity::EntityField>,
+    ) -> Gd<Self> {
+        let desc = desc.bind();
+
+        let specs = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                if let Ok(_) = entry.clone().try_cast::<AgentPluginDescEntryEmpty>() {
+                    inner::AgentSpec::Empty
+                } else if let Ok(entry) = entry.try_cast::<AgentPluginDescEntryHerbivore>() {
+                    let entry = entry.bind();
+                    inner::AgentSpec::Herbivore {
+                        min_rest_secs: entry.min_rest_secs,
+                        max_rest_secs: entry.max_rest_secs,
+                        min_distance: entry.min_distance,
+                        max_distance: entry.max_distance,
+                        speed: entry.speed,
+                    }
+                } else {
+                    panic!("Invalid entry in AgentPluginDesc");
+                }
+            })
+            .collect::<Vec<_>>();
+
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentSystem::new(),
+            inner: inner::AgentPlugin::new(specs),
+            block_field,
             entity_field,
         })
     }
 
     #[func]
-    fn insert(&mut self, entity_key: Gd<entity::EntityKey>, data: Gd<AgentData>) -> bool {
+    fn insert(&mut self, entity_key: Gd<entity::EntityKey>, id: u32) -> bool {
         let entity_key = entity_key.bind().inner.clone();
-        let data = data.bind().inner.clone();
-        self.inner.insert(entity_key, data).is_some()
+        self.inner.insert(entity_key, id).is_some()
     }
 
     #[func]
-    fn remove(&mut self, entity_key: Gd<entity::EntityKey>) -> Option<Gd<AgentData>> {
+    fn remove(&mut self, entity_key: Gd<entity::EntityKey>) -> bool {
         let entity_key = entity_key.bind().inner.clone();
-        let agent_data = self.inner.remove(entity_key)?;
-        Some(Gd::from_init_fn(|_| AgentData { inner: agent_data }))
+        self.inner.remove(entity_key).is_some()
     }
 
     #[func]
     fn update(&mut self, delta_secs: f32) {
+        let block_field = &self.block_field.bind().inner;
         let entity_field = &mut self.entity_field.bind_mut().inner;
-        self.inner.update(entity_field, delta_secs);
+        self.inner.update(block_field, entity_field, delta_secs);
     }
 }

@@ -1,5 +1,3 @@
-use rand::Rng;
-
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
 
@@ -571,111 +569,171 @@ impl EntityField {
 }
 
 #[derive(Debug, Clone)]
-pub enum AgentData {
+pub enum AgentSpec {
     Empty,
     Herbivore {
-        scan_secs: f32,
-        scan_distance: f32,
+        min_rest_secs: f32,
+        max_rest_secs: f32,
+        min_distance: f32,
+        max_distance: f32,
         speed: f32,
-        next_scan: Option<f32>,
-        next_location: Option<Vec2>,
-        elapsed: f32,
     },
 }
 
 #[derive(Debug, Clone)]
-pub struct Agent {
-    entity_key: EntityKey,
-    data: AgentData,
+enum AgentState {
+    Wait(f32),
+    Trip(Vec2),
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentSystem {
-    agents: slab::Slab<Agent>,
-    inverse_ref: ahash::AHashMap<EntityKey, u32>,
+struct Agent {
+    id: u32,
+    state: Option<AgentState>,
+    entity_key: EntityKey,
 }
 
-impl AgentSystem {
-    pub fn new() -> Self {
+#[derive(Debug, Clone)]
+pub struct AgentPlugin {
+    specs: Vec<AgentSpec>,
+    agents: slab::Slab<Agent>,
+    inverse_ref: ahash::AHashMap<EntityKey, u32>,
+    rng: rand::rngs::ThreadRng,
+}
+
+impl AgentPlugin {
+    pub fn new(specs: Vec<AgentSpec>) -> Self {
         Self {
+            specs,
             agents: Default::default(),
             inverse_ref: Default::default(),
+            rng: Default::default(),
         }
     }
 
-    pub fn insert(&mut self, entity_key: EntityKey, data: AgentData) -> Option<()> {
+    pub fn insert(&mut self, entity_key: EntityKey, id: u32) -> Option<()> {
         if self.inverse_ref.contains_key(&entity_key) {
             return None;
         }
 
         let agent = Agent {
+            id,
+            state: Default::default(),
             entity_key: entity_key.clone(),
-            data,
         };
         let key = self.agents.insert(agent) as u32;
         self.inverse_ref.insert(entity_key, key);
-
         Some(())
     }
 
-    pub fn remove(&mut self, entity_key: EntityKey) -> Option<AgentData> {
+    pub fn remove(&mut self, entity_key: EntityKey) -> Option<u32> {
         let key = self.inverse_ref.remove(&entity_key)?;
         let agent = self.agents.remove(key as usize);
-        Some(agent.data)
+        Some(agent.id)
     }
 
-    pub fn update(&mut self, entity_field: &mut EntityField, delta_secs: f32) {
-        let mut rng = rand::thread_rng();
+    pub fn update(
+        &mut self,
+        block_field: &BlockField,
+        entity_field: &mut EntityField,
+        delta_secs: f32,
+    ) {
+        use rand::distributions::Uniform;
+        use rand::Rng;
 
-        for (_, agent) in &mut self.agents {
-            match &mut agent.data {
-                AgentData::Empty => {}
-                AgentData::Herbivore {
-                    scan_secs,
-                    scan_distance,
+        for (_, agent) in self.agents.iter_mut() {
+            let spec = &self.specs[agent.id as usize];
+
+            match spec {
+                AgentSpec::Empty => {}
+                AgentSpec::Herbivore {
+                    min_rest_secs,
+                    max_rest_secs,
+                    min_distance,
+                    max_distance,
                     speed,
-                    next_scan,
-                    next_location,
-                    elapsed,
-                } => {
-                    let mut entity = entity_field.remove(agent.entity_key.clone()).unwrap();
+                } => match agent.state.take() {
+                    None => {
+                        agent.state = Some(AgentState::Wait(0.0));
+                    }
+                    Some(AgentState::Wait(secs)) => {
+                        let secs = secs - delta_secs;
 
-                    if let Some(next_scan) = next_scan {
-                        if *elapsed >= *next_scan {
-                            *next_scan = *elapsed + *scan_secs;
-                            let distance: f32 =
-                                rng.sample(rand::distributions::Uniform::new(0.0, *scan_distance));
-                            let direction: f32 =
-                                rng.sample(rand::distributions::Uniform::new(0.0, 6.283185307179));
-                            *next_location = Some([
-                                entity.location[0] + direction.cos() * distance,
-                                entity.location[1] + direction.sin() * distance,
-                            ]);
+                        if secs <= 0.0 {
+                            let entity = entity_field.get(agent.entity_key.clone()).unwrap();
+
+                            let distance =
+                                self.rng.sample(Uniform::new(*min_distance, *max_distance));
+                            let direction = self
+                                .rng
+                                .sample(Uniform::new(0.0, std::f32::consts::PI * 2.0));
+                            let destination = [
+                                entity.location[0] + distance * direction.cos(),
+                                entity.location[1] + distance * direction.sin(),
+                            ];
+
+                            agent.state = Some(AgentState::Trip(destination));
+                        } else {
+                            agent.state = Some(AgentState::Wait(secs));
                         }
-                    } else {
-                        *next_scan = Some(*elapsed + *scan_secs);
-                        *next_location = None;
                     }
+                    Some(AgentState::Trip(destination)) => {
+                        let entity = entity_field.get(agent.entity_key.clone()).unwrap();
 
-                    if let Some(next_location) = next_location {
                         let diff = [
-                            next_location[0] - entity.location[0],
-                            next_location[1] - entity.location[1],
+                            destination[0] - entity.location[0],
+                            destination[1] - entity.location[1],
                         ];
-                        let direction = diff[1].atan2(diff[0]);
-                        let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
+                        let len = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
+                        let mut delta = [
+                            diff[0] / len * *speed * delta_secs,
+                            diff[1] / len * *speed * delta_secs,
+                        ];
+                        if diff[0].abs() < delta[0].abs() {
+                            delta[0] = diff[0];
+                        }
+                        if diff[1].abs() < delta[1].abs() {
+                            delta[1] = diff[1];
+                        }
+                        let new_location =
+                            [entity.location[0] + delta[0], entity.location[1] + delta[1]];
 
-                        let delta_distance = distance.min(delta_secs * *speed);
-                        entity.location = [
-                            entity.location[0] + direction.cos() * delta_distance,
-                            entity.location[1] + direction.sin() * delta_distance,
+                        let spec = &entity_field.specs[entity.id as usize];
+                        let rect = [
+                            [
+                                new_location[0] + spec.collision_offset[0],
+                                new_location[1] + spec.collision_offset[1],
+                            ],
+                            [
+                                new_location[0] + spec.collision_offset[0] + spec.collision_size[0],
+                                new_location[1] + spec.collision_offset[1] + spec.collision_size[1],
+                            ],
                         ];
+                        if !block_field.has_collision_by_rect(rect) {
+                            if new_location == destination {
+                                let secs = self
+                                    .rng
+                                    .sample(Uniform::new(*min_rest_secs, *max_rest_secs));
+
+                                agent.state = Some(AgentState::Wait(secs));
+                            } else {
+                                self.inverse_ref.remove(&agent.entity_key).unwrap();
+                                let mut entity =
+                                    entity_field.remove(agent.entity_key.clone()).unwrap();
+
+                                entity.location = new_location;
+
+                                let entity_key = entity_field.insert(entity);
+                                agent.entity_key = entity_key.clone();
+                                self.inverse_ref.insert(entity_key, agent.id as u32);
+
+                                agent.state = Some(AgentState::Trip(destination));
+                            }
+                        } else {
+                            agent.state = Some(AgentState::Wait(1.0));
+                        }
                     }
-
-                    *elapsed += delta_secs;
-
-                    agent.entity_key = entity_field.insert(entity);
-                }
+                },
             }
         }
     }

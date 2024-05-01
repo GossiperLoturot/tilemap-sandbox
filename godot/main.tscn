@@ -1,9 +1,10 @@
-[gd_scene load_steps=10 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=11 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" path="res://scripts/field.gd" id="1_b2r8a"]
 [ext_resource type="TileFieldDesc" uid="uid://cj2shpxp8h65o" path="res://tile_field.tres" id="2_8gebx"]
 [ext_resource type="BlockFieldDesc" uid="uid://bvg4v8ufvni8o" path="res://block_field.tres" id="3_1qtlw"]
 [ext_resource type="EntityFieldDesc" uid="uid://djvldykrptcfg" path="res://entity_field.tres" id="4_oyfkl"]
+[ext_resource type="AgentPluginDesc" uid="uid://bejhq6w7q5w1v" path="res://agent_plugin.tres" id="5_pfcpx"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="5_rbyqb"]
 [ext_resource type="Shader" path="res://cursor.gdshader" id="6_vhy0j"]
 [ext_resource type="Script" path="res://scripts/cursor.gd" id="7_f7tes"]
@@ -29,6 +30,7 @@ camera = NodePath("../Camera3D")
 tile_field_desc = ExtResource("2_8gebx")
 block_field_desc = ExtResource("3_1qtlw")
 entity_field_desc = ExtResource("4_oyfkl")
+agent_plugin_desc = ExtResource("5_pfcpx")
 
 [node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("field")]
 script = ExtResource("5_rbyqb")

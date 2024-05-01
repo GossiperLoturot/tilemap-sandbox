@@ -115,8 +115,8 @@ impl From<BlockChunkDown> for BlockChunkUp {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct BlockField {
-    inner: inner::BlockField,
+pub struct BlockField {
+    pub inner: inner::BlockField,
     specs: Vec<BlockSpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<BlockChunkDown>,
