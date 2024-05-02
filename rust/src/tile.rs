@@ -28,7 +28,7 @@ struct TileFieldDesc {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 struct TileKey {
-    inner: inner::TileKey,
+    inner: u32,
 }
 
 #[derive(GodotClass)]
@@ -271,14 +271,22 @@ impl TileField {
 
     #[func]
     fn remove(&mut self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
-        let key = key.bind().inner.clone();
+        let key = key.bind().inner;
         let tile = self.inner.remove(key)?;
         Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
     #[func]
+    fn modify(&mut self, key: Gd<TileKey>, new_tile: Gd<Tile>) -> Option<Gd<Tile>> {
+        let key = key.bind().inner;
+        let new_tile = new_tile.bind().inner.clone();
+        let tile = self.inner.modify(key, new_tile)?;
+        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
+    }
+
+    #[func]
     fn get(&self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
-        let key = key.bind().inner.clone();
+        let key = key.bind().inner;
         let tile = self.inner.get(key)?.clone();
         Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
@@ -399,7 +407,7 @@ impl TileField {
     #[func]
     fn get_by_point(&self, point: Vector2i) -> Option<Gd<TileKey>> {
         let point = [point.x, point.y];
-        let key = self.inner.get_by_point(point)?.clone();
+        let key = self.inner.get_by_point(point)?;
         Some(Gd::from_init_fn(|_| TileKey { inner: key }))
     }
 }

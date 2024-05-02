@@ -37,7 +37,7 @@ struct EntityFieldDesc {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 pub struct EntityKey {
-    pub inner: inner::EntityKey,
+    pub inner: u32,
 }
 
 #[derive(GodotClass)]
@@ -310,20 +310,28 @@ impl EntityField {
     #[func]
     fn insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
         let entity = entity.bind().inner.clone();
-        let key = self.inner.insert(entity.clone());
+        let key = self.inner.insert(entity);
         Gd::from_init_fn(|_| EntityKey { inner: key })
     }
 
     #[func]
     fn remove(&mut self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
-        let key = key.bind().inner.clone();
+        let key = key.bind().inner;
         let entity = self.inner.remove(key)?;
         Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 
     #[func]
+    fn modify(&mut self, key: Gd<EntityKey>, new_entity: Gd<Entity>) -> Option<Gd<Entity>> {
+        let key = key.bind().inner;
+        let new_entity = new_entity.bind().inner.clone();
+        let entity = self.inner.modify(key, new_entity)?;
+        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
+    }
+
+    #[func]
     fn get(&self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
-        let key = key.bind().inner.clone();
+        let key = key.bind().inner;
         let entity = self.inner.get(key)?.clone();
         Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
@@ -443,7 +451,7 @@ impl EntityField {
     #[func]
     fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_collision_by_point(point).cloned();
+        let keys = self.inner.get_collision_by_point(point);
         Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 
@@ -458,7 +466,7 @@ impl EntityField {
     fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_collision_by_rect([p0, p1]).cloned();
+        let keys = self.inner.get_collision_by_rect([p0, p1]);
         Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 
@@ -473,7 +481,7 @@ impl EntityField {
     #[func]
     fn get_hint_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_hint_by_point(point).cloned();
+        let keys = self.inner.get_hint_by_point(point);
         Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 
@@ -488,7 +496,7 @@ impl EntityField {
     fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_hint_by_rect([p0, p1]).cloned();
+        let keys = self.inner.get_hint_by_rect([p0, p1]);
         Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
     }
 }

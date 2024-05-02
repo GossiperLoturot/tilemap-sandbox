@@ -49,7 +49,11 @@ impl AgentPlugin {
             .entries
             .iter_shared()
             .map(|entry| {
-                if let Ok(_) = entry.clone().try_cast::<AgentPluginDescEntryEmpty>() {
+                if entry
+                    .clone()
+                    .try_cast::<AgentPluginDescEntryEmpty>()
+                    .is_ok()
+                {
                     inner::AgentSpec::Empty
                 } else if let Ok(entry) = entry.try_cast::<AgentPluginDescEntryHerbivore>() {
                     let entry = entry.bind();
@@ -75,13 +79,13 @@ impl AgentPlugin {
 
     #[func]
     fn insert(&mut self, entity_key: Gd<entity::EntityKey>, id: u32) -> bool {
-        let entity_key = entity_key.bind().inner.clone();
+        let entity_key = entity_key.bind().inner;
         self.inner.insert(entity_key, id).is_some()
     }
 
     #[func]
     fn remove(&mut self, entity_key: Gd<entity::EntityKey>) -> bool {
-        let entity_key = entity_key.bind().inner.clone();
+        let entity_key = entity_key.bind().inner;
         self.inner.remove(entity_key).is_some()
     }
 
