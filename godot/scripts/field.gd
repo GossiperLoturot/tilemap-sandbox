@@ -7,7 +7,6 @@ class_name Field
 @export var tile_field_desc: TileFieldDesc
 @export var block_field_desc: BlockFieldDesc
 @export var entity_field_desc: EntityFieldDesc
-@export var agent_plugin_desc: AgentPluginDesc
 
 var _tile_field: TileField
 var _block_field: BlockField
@@ -19,7 +18,7 @@ func _ready():
 	_tile_field = TileField.new_from(tile_field_desc, get_world_3d())
 	_block_field = BlockField.new_from(block_field_desc, get_world_3d())
 	_entity_field = EntityField.new_from(entity_field_desc, get_world_3d())
-	_agent_plugin = AgentPlugin.new_from(agent_plugin_desc, _block_field, _entity_field)
+	_agent_plugin = AgentPlugin.new_from(_block_field, _entity_field)
 	
 	for y in range(-64, 65):
 		for x in range(-64, 65):
@@ -34,7 +33,7 @@ func _ready():
 		var x = randf_range(-64.0, 64.0)
 		var y = randf_range(-64.0, 64.0)
 		var key = _entity_field.insert(Entity.new_from(1, Vector2(x, y)))
-		_agent_plugin.insert(key, 0)
+		_agent_plugin.insert(key, AgentState.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0))
 	
 	for y in range(-4, 5):
 		for x in range(-4, 5):

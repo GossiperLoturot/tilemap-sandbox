@@ -1,30 +1,43 @@
-use crate::{block, entity, inner};
+use crate::{
+    block, entity,
+    inner::{self, AgentStateRandomWalk},
+};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
-#[class(init, base=Resource)]
-struct AgentPluginDescEntryEmpty {}
-
-#[derive(GodotClass)]
-#[class(init, base=Resource)]
-struct AgentPluginDescEntryHerbivore {
-    #[export]
-    min_rest_secs: f32,
-    #[export]
-    max_rest_secs: f32,
-    #[export]
-    min_distance: f32,
-    #[export]
-    max_distance: f32,
-    #[export]
-    speed: f32,
+#[class(no_init, base=RefCounted)]
+struct AgentState {
+    inner: inner::AgentState,
 }
 
-#[derive(GodotClass)]
-#[class(init, base=Resource)]
-struct AgentPluginDesc {
-    #[export]
-    entries: Array<Gd<godot::engine::Resource>>,
+#[godot_api]
+impl AgentState {
+    #[func]
+    fn new_empty() -> Gd<Self> {
+        Gd::from_init_fn(|_| Self {
+            inner: inner::AgentState::Empty,
+        })
+    }
+
+    #[func]
+    fn new_random_walk(
+        min_rest_secs: f32,
+        max_rest_secs: f32,
+        min_distance: f32,
+        max_distance: f32,
+        speed: f32,
+    ) -> Gd<Self> {
+        Gd::from_init_fn(|_| Self {
+            inner: inner::AgentState::RandomWalk(AgentStateRandomWalk {
+                min_rest_secs,
+                max_rest_secs,
+                min_distance,
+                max_distance,
+                speed,
+                local: Default::default(),
+            }),
+        })
+    }
 }
 
 #[derive(GodotClass)]
@@ -39,48 +52,21 @@ struct AgentPlugin {
 impl AgentPlugin {
     #[func]
     fn new_from(
-        desc: Gd<AgentPluginDesc>,
         block_field: Gd<block::BlockField>,
         entity_field: Gd<entity::EntityField>,
     ) -> Gd<Self> {
-        let desc = desc.bind();
-
-        let specs = desc
-            .entries
-            .iter_shared()
-            .map(|entry| {
-                if entry
-                    .clone()
-                    .try_cast::<AgentPluginDescEntryEmpty>()
-                    .is_ok()
-                {
-                    inner::AgentSpec::Empty
-                } else if let Ok(entry) = entry.try_cast::<AgentPluginDescEntryHerbivore>() {
-                    let entry = entry.bind();
-                    inner::AgentSpec::Herbivore {
-                        min_rest_secs: entry.min_rest_secs,
-                        max_rest_secs: entry.max_rest_secs,
-                        min_distance: entry.min_distance,
-                        max_distance: entry.max_distance,
-                        speed: entry.speed,
-                    }
-                } else {
-                    panic!("Invalid entry in AgentPluginDesc");
-                }
-            })
-            .collect::<Vec<_>>();
-
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentPlugin::new(specs),
+            inner: inner::AgentPlugin::new(),
             block_field,
             entity_field,
         })
     }
 
     #[func]
-    fn insert(&mut self, entity_key: Gd<entity::EntityKey>, id: u32) -> bool {
+    fn insert(&mut self, entity_key: Gd<entity::EntityKey>, state: Gd<AgentState>) -> bool {
         let entity_key = entity_key.bind().inner;
-        self.inner.insert(entity_key, id).is_some()
+        let state = state.bind().inner.clone();
+        self.inner.insert(entity_key, state).is_some()
     }
 
     #[func]

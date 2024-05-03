@@ -512,7 +512,7 @@ impl EntitySpec {
 }
 
 #[derive(Debug, Clone)]
-struct EntityKey {
+struct UnstableEntityKey {
     chunk_key: IVec2,
     entity_key: u32,
 }
@@ -534,7 +534,7 @@ pub struct EntityField {
     chunk_size: u32,
     specs: Vec<EntitySpec>,
     chunks: ahash::AHashMap<IVec2, EntityChunk>,
-    stable_ref: slab::Slab<EntityKey>,
+    stable_ref: slab::Slab<UnstableEntityKey>,
     collision_ref: rstar::RTree<RectNode<Vec2, u32>>,
     hint_ref: rstar::RTree<RectNode<Vec2, u32>>,
 }
@@ -569,7 +569,7 @@ impl EntityField {
         let chunk = self.chunks.entry(chunk_key).or_default();
         let entity_key = chunk.entities.insert(entity.clone()) as u32;
         chunk.serial += 1;
-        let ukey = EntityKey {
+        let ukey = UnstableEntityKey {
             chunk_key,
             entity_key,
         };
@@ -653,7 +653,7 @@ impl EntityField {
         let chunk = self.chunks.entry(chunk_key).or_default();
         let entity_key = chunk.entities.insert(new_entity.clone()) as u32;
         chunk.serial += 1;
-        let ukey = EntityKey {
+        let ukey = UnstableEntityKey {
             chunk_key,
             entity_key,
         };
@@ -742,67 +742,46 @@ impl EntityField {
 }
 
 #[derive(Debug, Clone)]
-pub enum AgentSpec {
+pub enum AgentState {
     Empty,
-    Herbivore {
-        min_rest_secs: f32,
-        max_rest_secs: f32,
-        min_distance: f32,
-        max_distance: f32,
-        speed: f32,
-    },
-}
-
-#[derive(Debug, Clone)]
-enum AgentState {
-    Wait(f32),
-    Trip(Vec2),
+    RandomWalk(AgentStateRandomWalk),
 }
 
 #[derive(Debug, Clone)]
 struct Agent {
     entity_key: u32,
-    id: u32,
-    state: Option<AgentState>,
+    state: AgentState,
 }
 
 #[derive(Debug, Clone)]
 pub struct AgentPlugin {
-    specs: Vec<AgentSpec>,
     agents: slab::Slab<Agent>,
     inverse_ref: ahash::AHashMap<u32, u32>,
-    rng: rand::rngs::ThreadRng,
 }
 
 impl AgentPlugin {
-    pub fn new(specs: Vec<AgentSpec>) -> Self {
+    pub fn new() -> Self {
         Self {
-            specs,
             agents: Default::default(),
             inverse_ref: Default::default(),
-            rng: Default::default(),
         }
     }
 
-    pub fn insert(&mut self, entity_key: u32, id: u32) -> Option<()> {
+    pub fn insert(&mut self, entity_key: u32, state: AgentState) -> Option<()> {
         if self.inverse_ref.contains_key(&entity_key) {
             return None;
         }
 
-        let agent = Agent {
-            entity_key,
-            id,
-            state: Default::default(),
-        };
+        let agent = Agent { entity_key, state };
         let key = self.agents.insert(agent) as u32;
         self.inverse_ref.insert(entity_key, key);
         Some(())
     }
 
-    pub fn remove(&mut self, entity_key: u32) -> Option<u32> {
+    pub fn remove(&mut self, entity_key: u32) -> Option<AgentState> {
         let key = self.inverse_ref.remove(&entity_key)?;
-        let agent = self.agents.remove(key as usize);
-        Some(agent.id)
+        let agent = self.agents.try_remove(key as usize).unwrap();
+        Some(agent.state)
     }
 
     pub fn update(
@@ -811,87 +790,123 @@ impl AgentPlugin {
         entity_field: &mut EntityField,
         delta_secs: f32,
     ) {
-        use rand::distributions::Uniform;
+        for (_, agent) in self.agents.iter_mut() {
+            match &mut agent.state {
+                AgentState::Empty => {}
+                AgentState::RandomWalk(state) => {
+                    state.update(block_field, entity_field, delta_secs, agent.entity_key)
+                }
+            }
+        }
+    }
+}
+
+fn move_entity(
+    block_field: &BlockField,
+    entity_field: &mut EntityField,
+    entity_key: u32,
+    new_location: Vec2,
+) -> Option<()> {
+    let entity = entity_field.get(entity_key).expect("entity key not found");
+    let spec = &entity_field.specs[entity.id as usize];
+
+    let rect = spec.collision_rect(new_location);
+    if block_field.has_collision_by_rect(rect) {
+        return None;
+    }
+
+    let mut new_entity = entity.clone();
+    new_entity.location = new_location;
+    entity_field.modify(entity_key, new_entity);
+
+    Some(())
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum AgentStateRandomWalkLocal {
+    #[default]
+    Init,
+    WaitStart,
+    Wait(f32),
+    TripStart,
+    Trip(Vec2),
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentStateRandomWalk {
+    pub min_rest_secs: f32,
+    pub max_rest_secs: f32,
+    pub min_distance: f32,
+    pub max_distance: f32,
+    pub speed: f32,
+    pub local: AgentStateRandomWalkLocal,
+}
+
+impl AgentStateRandomWalk {
+    fn update(
+        &mut self,
+        block_field: &BlockField,
+        entity_field: &mut EntityField,
+        delta_secs: f32,
+        entity_key: u32,
+    ) {
         use rand::Rng;
 
-        for (_, agent) in self.agents.iter_mut() {
-            let spec = &self.specs[agent.id as usize];
+        type StateLocal = AgentStateRandomWalkLocal;
 
-            match spec {
-                AgentSpec::Empty => {}
-                AgentSpec::Herbivore {
-                    min_rest_secs,
-                    max_rest_secs,
-                    min_distance,
-                    max_distance,
-                    speed,
-                } => match agent.state.take() {
-                    None => {
-                        agent.state = Some(AgentState::Wait(0.0));
-                    }
-                    Some(AgentState::Wait(secs)) => {
-                        let secs = secs - delta_secs;
+        match self.local {
+            StateLocal::Init => {
+                self.local = StateLocal::WaitStart;
+            }
+            StateLocal::WaitStart => {
+                let secs = rand::thread_rng().gen_range(self.min_rest_secs..self.max_rest_secs);
+                self.local = StateLocal::Wait(secs);
+            }
+            StateLocal::Wait(secs) => {
+                let new_secs = secs - delta_secs;
+                if new_secs <= 0.0 {
+                    self.local = StateLocal::TripStart;
+                } else {
+                    self.local = StateLocal::Wait(new_secs);
+                }
+            }
+            StateLocal::TripStart => {
+                let entity = entity_field.get(entity_key).unwrap();
 
-                        if secs <= 0.0 {
-                            let entity = entity_field.get(agent.entity_key).unwrap();
+                let distance = rand::thread_rng().gen_range(self.min_distance..self.max_distance);
+                let direction = rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
+                let destination = [
+                    entity.location[0] + distance * direction.cos(),
+                    entity.location[1] + distance * direction.sin(),
+                ];
 
-                            let distance =
-                                self.rng.sample(Uniform::new(*min_distance, *max_distance));
-                            let direction = self
-                                .rng
-                                .sample(Uniform::new(0.0, std::f32::consts::PI * 2.0));
-                            let destination = [
-                                entity.location[0] + distance * direction.cos(),
-                                entity.location[1] + distance * direction.sin(),
-                            ];
+                self.local = StateLocal::Trip(destination);
+            }
+            StateLocal::Trip(destination) => {
+                let entity = entity_field.get(entity_key).unwrap();
 
-                            agent.state = Some(AgentState::Trip(destination));
-                        } else {
-                            agent.state = Some(AgentState::Wait(secs));
-                        }
-                    }
-                    Some(AgentState::Trip(destination)) => {
-                        let entity = entity_field.get(agent.entity_key).unwrap();
+                if entity.location == destination {
+                    self.local = StateLocal::WaitStart;
+                    return;
+                }
 
-                        let diff = [
-                            destination[0] - entity.location[0],
-                            destination[1] - entity.location[1],
-                        ];
-                        let len = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
-                        let mut delta = [
-                            diff[0] / len * *speed * delta_secs,
-                            diff[1] / len * *speed * delta_secs,
-                        ];
-                        if diff[0].abs() < delta[0].abs() {
-                            delta[0] = diff[0];
-                        }
-                        if diff[1].abs() < delta[1].abs() {
-                            delta[1] = diff[1];
-                        }
-                        let new_location =
-                            [entity.location[0] + delta[0], entity.location[1] + delta[1]];
+                let diff = [
+                    destination[0] - entity.location[0],
+                    destination[1] - entity.location[1],
+                ];
+                let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
+                let direction = [diff[0] / distance, diff[1] / distance];
+                let delta_distance = distance.min(self.speed * delta_secs);
+                let new_location = [
+                    entity.location[0] + direction[0] * delta_distance,
+                    entity.location[1] + direction[1] * delta_distance,
+                ];
 
-                        let spec = &entity_field.specs[entity.id as usize];
-                        let rect = spec.collision_rect(new_location);
-                        if !block_field.has_collision_by_rect(rect) {
-                            if new_location == destination {
-                                let secs = self
-                                    .rng
-                                    .sample(Uniform::new(*min_rest_secs, *max_rest_secs));
-
-                                agent.state = Some(AgentState::Wait(secs));
-                            } else {
-                                let mut entity = entity.clone();
-                                entity.location = new_location;
-                                entity_field.modify(agent.entity_key, entity);
-
-                                agent.state = Some(AgentState::Trip(destination));
-                            }
-                        } else {
-                            agent.state = Some(AgentState::Wait(1.0));
-                        }
-                    }
-                },
+                if move_entity(block_field, entity_field, entity_key, new_location).is_some() {
+                    self.local = StateLocal::Trip(destination);
+                } else {
+                    self.local = StateLocal::WaitStart;
+                }
             }
         }
     }

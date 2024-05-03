@@ -37,7 +37,4 @@ func _process(delta):
 		changed = true
 	
 	if changed:
-		field._entity_field.remove(_key)
-		
-		var entity = Entity.new_from(0, _location)
-		_key = field._entity_field.insert(entity)
+		field._entity_field.modify(_key, Entity.new_from(0, _location))
