@@ -96,7 +96,7 @@ impl From<BlockChunkUp> for BlockChunkDown {
 
 #[derive(Debug, Clone)]
 struct BlockChunkUp {
-    serial: u32,
+    serial: u64,
     material: Rid,
     multimesh: Rid,
     instance: Rid,
@@ -105,7 +105,7 @@ struct BlockChunkUp {
 impl From<BlockChunkDown> for BlockChunkUp {
     fn from(chunk: BlockChunkDown) -> Self {
         Self {
-            serial: 0,
+            serial: Default::default(),
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
@@ -314,14 +314,14 @@ impl BlockField {
     #[func]
     fn insert(&mut self, block: Gd<Block>) -> Option<Gd<BlockKey>> {
         let block = block.bind().inner.clone();
-        let key = self.inner.insert(block)?;
+        let key = self.inner.insert(block).ok()?;
         Some(Gd::from_init_fn(|_| BlockKey { inner: key }))
     }
 
     #[func]
     fn remove(&mut self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
         let key = key.bind().inner;
-        let block = self.inner.remove(key)?;
+        let block = self.inner.remove(key).ok()?;
         Some(Gd::from_init_fn(|_| Block { inner: block }))
     }
 
@@ -329,14 +329,14 @@ impl BlockField {
     fn modify(&mut self, key: Gd<BlockKey>, new_block: Gd<Block>) -> Option<Gd<Block>> {
         let key = key.bind().inner;
         let new_block = new_block.bind().inner.clone();
-        let block = self.inner.modify(key, new_block)?;
+        let block = self.inner.modify(key, new_block).ok()?;
         Some(Gd::from_init_fn(|_| Block { inner: block }))
     }
 
     #[func]
     fn get(&self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
         let key = key.bind().inner;
-        let block = self.inner.get(key)?.clone();
+        let block = self.inner.get(key).ok()?.clone();
         Some(Gd::from_init_fn(|_| Block { inner: block }))
     }
 

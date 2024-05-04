@@ -25,14 +25,13 @@ impl AgentData {
         speed: f32,
     ) -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentData::RandomWalk(inner::AgentDataRandomWalk {
+            inner: inner::AgentData::RandomWalk(inner::AgentDataRandomWalk::new(
                 min_rest_secs,
                 max_rest_secs,
                 min_distance,
                 max_distance,
                 speed,
-                state: Default::default(),
-            }),
+            )),
         })
     }
 }
@@ -71,13 +70,14 @@ impl AgentPlugin {
         let data = data.bind().inner.clone();
         self.inner
             .insert(tile_field, block_field, entity_field, attach_key, data)
-            .is_some()
+            .is_ok()
     }
 
     #[func]
-    fn remove_tile(&mut self, tile_key: Gd<tile::TileKey>) -> bool {
+    fn remove_tile(&mut self, tile_key: Gd<tile::TileKey>) -> Option<Gd<AgentData>> {
         let attach_key = inner::AgentKey::Tile(tile_key.bind().inner);
-        self.inner.remove(attach_key).is_some()
+        let data = self.inner.remove(attach_key).ok()?;
+        Some(Gd::from_init_fn(|_| AgentData { inner: data }))
     }
 
     #[func]
@@ -89,13 +89,14 @@ impl AgentPlugin {
         let data = data.bind().inner.clone();
         self.inner
             .insert(tile_field, block_field, entity_field, attach_key, data)
-            .is_some()
+            .is_ok()
     }
 
     #[func]
-    fn remove_block(&mut self, block_key: Gd<block::BlockKey>) -> bool {
+    fn remove_block(&mut self, block_key: Gd<block::BlockKey>) -> Option<Gd<AgentData>> {
         let attach_key = inner::AgentKey::Block(block_key.bind().inner);
-        self.inner.remove(attach_key).is_some()
+        let data = self.inner.remove(attach_key).ok()?;
+        Some(Gd::from_init_fn(|_| AgentData { inner: data }))
     }
 
     #[func]
@@ -107,13 +108,14 @@ impl AgentPlugin {
         let data = data.bind().inner.clone();
         self.inner
             .insert(tile_field, block_field, entity_field, attach_key, data)
-            .is_some()
+            .is_ok()
     }
 
     #[func]
-    fn remove_entity(&mut self, entity_key: Gd<entity::EntityKey>) -> bool {
+    fn remove_entity(&mut self, entity_key: Gd<entity::EntityKey>) -> Option<Gd<AgentData>> {
         let attach_key = inner::AgentKey::Entity(entity_key.bind().inner);
-        self.inner.remove(attach_key).is_some()
+        let data = self.inner.remove(attach_key).ok()?;
+        Some(Gd::from_init_fn(|_| AgentData { inner: data }))
     }
 
     #[func]

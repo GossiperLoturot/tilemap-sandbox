@@ -93,7 +93,7 @@ impl From<EntityChunkUp> for EntityChunkDown {
 
 #[derive(Debug, Clone)]
 struct EntityChunkUp {
-    serial: u32,
+    serial: u64,
     material: Rid,
     multimesh: Rid,
     instance: Rid,
@@ -102,7 +102,7 @@ struct EntityChunkUp {
 impl From<EntityChunkDown> for EntityChunkUp {
     fn from(chunk: EntityChunkDown) -> Self {
         Self {
-            serial: 0,
+            serial: Default::default(),
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
@@ -308,16 +308,16 @@ impl EntityField {
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
+    fn insert(&mut self, entity: Gd<Entity>) -> Option<Gd<EntityKey>> {
         let entity = entity.bind().inner.clone();
-        let key = self.inner.insert(entity);
-        Gd::from_init_fn(|_| EntityKey { inner: key })
+        let key = self.inner.insert(entity).ok()?;
+        Some(Gd::from_init_fn(|_| EntityKey { inner: key }))
     }
 
     #[func]
     fn remove(&mut self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
         let key = key.bind().inner;
-        let entity = self.inner.remove(key)?;
+        let entity = self.inner.remove(key).ok()?;
         Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 
@@ -325,14 +325,14 @@ impl EntityField {
     fn modify(&mut self, key: Gd<EntityKey>, new_entity: Gd<Entity>) -> Option<Gd<Entity>> {
         let key = key.bind().inner;
         let new_entity = new_entity.bind().inner.clone();
-        let entity = self.inner.modify(key, new_entity)?;
+        let entity = self.inner.modify(key, new_entity).ok()?;
         Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 
     #[func]
     fn get(&self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
         let key = key.bind().inner;
-        let entity = self.inner.get(key)?.clone();
+        let entity = self.inner.get(key).ok()?.clone();
         Some(Gd::from_init_fn(|_| Entity { inner: entity }))
     }
 

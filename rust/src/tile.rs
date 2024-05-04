@@ -77,7 +77,7 @@ impl From<TileChunkUp> for TileChunkDown {
 
 #[derive(Debug, Clone)]
 struct TileChunkUp {
-    serial: u32,
+    serial: u64,
     material: Rid,
     multimesh: Rid,
     instance: Rid,
@@ -86,7 +86,7 @@ struct TileChunkUp {
 impl From<TileChunkDown> for TileChunkUp {
     fn from(chunk: TileChunkDown) -> Self {
         Self {
-            serial: 0,
+            serial: Default::default(),
             material: chunk.material,
             multimesh: chunk.multimesh,
             instance: chunk.instance,
@@ -265,14 +265,14 @@ impl TileField {
     #[func]
     fn insert(&mut self, tile: Gd<Tile>) -> Option<Gd<TileKey>> {
         let tile = tile.bind().inner.clone();
-        let key = self.inner.insert(tile)?;
+        let key = self.inner.insert(tile).ok()?;
         Some(Gd::from_init_fn(|_| TileKey { inner: key }))
     }
 
     #[func]
     fn remove(&mut self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
         let key = key.bind().inner;
-        let tile = self.inner.remove(key)?;
+        let tile = self.inner.remove(key).ok()?;
         Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
@@ -280,14 +280,14 @@ impl TileField {
     fn modify(&mut self, key: Gd<TileKey>, new_tile: Gd<Tile>) -> Option<Gd<Tile>> {
         let key = key.bind().inner;
         let new_tile = new_tile.bind().inner.clone();
-        let tile = self.inner.modify(key, new_tile)?;
+        let tile = self.inner.modify(key, new_tile).ok()?;
         Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
     #[func]
     fn get(&self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
         let key = key.bind().inner;
-        let tile = self.inner.get(key)?.clone();
+        let tile = self.inner.get(key).ok()?.clone();
         Some(Gd::from_init_fn(|_| Tile { inner: tile }))
     }
 
