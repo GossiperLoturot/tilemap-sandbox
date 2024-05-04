@@ -1,21 +1,18 @@
-use crate::{
-    block, entity,
-    inner::{self, AgentStateRandomWalk},
-};
+use crate::{block, entity, inner, tile};
 use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct AgentState {
-    inner: inner::AgentState,
+struct AgentData {
+    inner: inner::AgentData,
 }
 
 #[godot_api]
-impl AgentState {
+impl AgentData {
     #[func]
     fn new_empty() -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentState::Empty,
+            inner: inner::AgentData::Empty,
         })
     }
 
@@ -28,13 +25,13 @@ impl AgentState {
         speed: f32,
     ) -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentState::RandomWalk(AgentStateRandomWalk {
+            inner: inner::AgentData::RandomWalk(inner::AgentDataRandomWalk {
                 min_rest_secs,
                 max_rest_secs,
                 min_distance,
                 max_distance,
                 speed,
-                local: Default::default(),
+                state: Default::default(),
             }),
         })
     }
@@ -44,6 +41,7 @@ impl AgentState {
 #[class(no_init, base=RefCounted)]
 struct AgentPlugin {
     inner: inner::AgentPlugin,
+    tile_field: Gd<tile::TileField>,
     block_field: Gd<block::BlockField>,
     entity_field: Gd<entity::EntityField>,
 }
@@ -52,27 +50,70 @@ struct AgentPlugin {
 impl AgentPlugin {
     #[func]
     fn new_from(
+        tile_field: Gd<tile::TileField>,
         block_field: Gd<block::BlockField>,
         entity_field: Gd<entity::EntityField>,
     ) -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
             inner: inner::AgentPlugin::new(),
+            tile_field,
             block_field,
             entity_field,
         })
     }
 
     #[func]
-    fn insert(&mut self, entity_key: Gd<entity::EntityKey>, state: Gd<AgentState>) -> bool {
-        let entity_key = entity_key.bind().inner;
-        let state = state.bind().inner.clone();
-        self.inner.insert(entity_key, state).is_some()
+    fn insert_tile(&mut self, tile_key: Gd<tile::TileKey>, data: Gd<AgentData>) -> bool {
+        let tile_field = &self.tile_field.bind().inner;
+        let block_field = &self.block_field.bind().inner;
+        let entity_field = &self.entity_field.bind().inner;
+        let attach_key = inner::AgentKey::Tile(tile_key.bind().inner);
+        let data = data.bind().inner.clone();
+        self.inner
+            .insert(tile_field, block_field, entity_field, attach_key, data)
+            .is_some()
     }
 
     #[func]
-    fn remove(&mut self, entity_key: Gd<entity::EntityKey>) -> bool {
-        let entity_key = entity_key.bind().inner;
-        self.inner.remove(entity_key).is_some()
+    fn remove_tile(&mut self, tile_key: Gd<tile::TileKey>) -> bool {
+        let attach_key = inner::AgentKey::Tile(tile_key.bind().inner);
+        self.inner.remove(attach_key).is_some()
+    }
+
+    #[func]
+    fn insert_block(&mut self, block_key: Gd<block::BlockKey>, data: Gd<AgentData>) -> bool {
+        let tile_field = &self.tile_field.bind().inner;
+        let block_field = &self.block_field.bind().inner;
+        let entity_field = &self.entity_field.bind().inner;
+        let attach_key = inner::AgentKey::Block(block_key.bind().inner);
+        let data = data.bind().inner.clone();
+        self.inner
+            .insert(tile_field, block_field, entity_field, attach_key, data)
+            .is_some()
+    }
+
+    #[func]
+    fn remove_block(&mut self, block_key: Gd<block::BlockKey>) -> bool {
+        let attach_key = inner::AgentKey::Block(block_key.bind().inner);
+        self.inner.remove(attach_key).is_some()
+    }
+
+    #[func]
+    fn insert_entity(&mut self, entity_key: Gd<entity::EntityKey>, data: Gd<AgentData>) -> bool {
+        let tile_field = &self.tile_field.bind().inner;
+        let block_field = &self.block_field.bind().inner;
+        let entity_field = &self.entity_field.bind().inner;
+        let attach_key = inner::AgentKey::Entity(entity_key.bind().inner);
+        let data = data.bind().inner.clone();
+        self.inner
+            .insert(tile_field, block_field, entity_field, attach_key, data)
+            .is_some()
+    }
+
+    #[func]
+    fn remove_entity(&mut self, entity_key: Gd<entity::EntityKey>) -> bool {
+        let attach_key = inner::AgentKey::Entity(entity_key.bind().inner);
+        self.inner.remove(attach_key).is_some()
     }
 
     #[func]

@@ -148,14 +148,40 @@ impl TileField {
 
 #[derive(Debug, Clone)]
 pub struct BlockSpec {
-    pub size: IVec2,
-    pub collision_size: Vec2,
-    pub collision_offset: Vec2,
-    pub hint_size: Vec2,
-    pub hint_offset: Vec2,
+    size: IVec2,
+    collision_size: Vec2,
+    collision_offset: Vec2,
+    hint_size: Vec2,
+    hint_offset: Vec2,
 }
 
 impl BlockSpec {
+    pub fn new(
+        size: IVec2,
+        collision_size: Vec2,
+        collision_offset: Vec2,
+        hint_size: Vec2,
+        hint_offset: Vec2,
+    ) -> Self {
+        if size[0] * size[1] <= 0 {
+            panic!("size must be positive");
+        }
+        if collision_size[0] * collision_size[1] < 0.0 {
+            panic!("collision size must be non-negative");
+        }
+        if hint_size[0] * hint_size[1] < 0.0 {
+            panic!("hint size must be non-negative");
+        }
+
+        Self {
+            size,
+            collision_size,
+            collision_offset,
+            hint_size,
+            hint_offset,
+        }
+    }
+
     #[rustfmt::skip]
     fn rect(&self, location: IVec2) -> [IVec2; 2] {
         [[
@@ -167,23 +193,31 @@ impl BlockSpec {
     }
 
     #[rustfmt::skip]
-    fn collision_rect(&self, location: IVec2) -> [Vec2; 2] {
-        [[
+    fn collision_rect(&self, location: IVec2) -> Option<[Vec2; 2]> {
+        if self.collision_size[0] * self.collision_size[1] == 0.0 {
+            return None;
+        }
+
+        Some([[
             location[0] as f32 + self.collision_offset[0],
             location[1] as f32 + self.collision_offset[1], ], [
             location[0] as f32 + self.collision_offset[0] + self.collision_size[0],
             location[1] as f32 + self.collision_offset[1] + self.collision_size[1],
-        ]]
+        ]])
     }
 
     #[rustfmt::skip]
-    fn hint_rect(&self, location: IVec2) -> [Vec2; 2] {
-        [[
+    fn hint_rect(&self, location: IVec2) -> Option<[Vec2; 2]> {
+        if self.hint_size[0] * self.hint_size[1] == 0.0 {
+            return None;
+        }
+
+        Some([[
             location[0] as f32 + self.hint_offset[0],
             location[1] as f32 + self.hint_offset[1], ], [
             location[0] as f32 + self.hint_offset[0] + self.hint_size[0],
             location[1] as f32 + self.hint_offset[1] + self.hint_size[1],
-        ]]
+        ]])
     }
 }
 
@@ -218,16 +252,6 @@ pub struct BlockField {
 
 impl BlockField {
     pub fn new(chunk_size: u32, specs: Vec<BlockSpec>) -> Self {
-        // validate specs
-        specs.iter().for_each(|spec| {
-            assert!(spec.size[0] > 0);
-            assert!(spec.size[1] > 0);
-            assert!(spec.collision_size[0] >= 0.0);
-            assert!(spec.collision_size[1] >= 0.0);
-            assert!(spec.hint_size[0] >= 0.0);
-            assert!(spec.hint_size[1] >= 0.0);
-        });
-
         Self {
             chunk_size,
             specs,
@@ -268,16 +292,18 @@ impl BlockField {
         self.spatial_ref.insert(node);
 
         // collision features
-        let rect = spec.collision_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.insert(node);
+        if let Some(rect) = spec.collision_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.insert(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.insert(node);
+        if let Some(rect) = spec.hint_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.insert(node);
+        }
 
         Some(key)
     }
@@ -297,16 +323,18 @@ impl BlockField {
         self.spatial_ref.remove(node);
 
         // collision features
-        let rect = spec.collision_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.remove(node);
+        if let Some(rect) = spec.collision_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.remove(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.remove(node);
+        if let Some(rect) = spec.hint_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.remove(node);
+        }
 
         Some(block)
     }
@@ -341,16 +369,18 @@ impl BlockField {
         self.spatial_ref.remove(node);
 
         // collision features
-        let rect = spec.collision_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.remove(node);
+        if let Some(rect) = spec.collision_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.insert(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.remove(node);
+        if let Some(rect) = spec.hint_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.insert(node);
+        }
 
         // insert new block
 
@@ -375,16 +405,18 @@ impl BlockField {
         self.spatial_ref.insert(node);
 
         // collision features
-        let rect = new_spec.collision_rect(new_block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.insert(node);
+        if let Some(rect) = spec.collision_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.remove(node);
+        }
 
         // hint features
-        let rect = new_spec.hint_rect(new_block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.insert(node);
+        if let Some(rect) = spec.hint_rect(block.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.remove(node);
+        }
 
         Some(block)
     }
@@ -483,31 +515,58 @@ impl BlockField {
 
 #[derive(Debug, Clone)]
 pub struct EntitySpec {
-    pub collision_size: Vec2,
-    pub collision_offset: Vec2,
-    pub hint_size: Vec2,
-    pub hint_offset: Vec2,
+    collision_size: Vec2,
+    collision_offset: Vec2,
+    hint_size: Vec2,
+    hint_offset: Vec2,
 }
 
 impl EntitySpec {
+    pub fn new(
+        collision_size: Vec2,
+        collision_offset: Vec2,
+        hint_size: Vec2,
+        hint_offset: Vec2,
+    ) -> Self {
+        if collision_size[0] * collision_size[1] < 0.0 {
+            panic!("collision size must be non-negative");
+        }
+        if hint_size[0] * hint_size[1] < 0.0 {
+            panic!("hint size must be non-negative");
+        }
+
+        Self {
+            collision_size,
+            collision_offset,
+            hint_size,
+            hint_offset,
+        }
+    }
+
     #[rustfmt::skip]
-    fn collision_rect(&self, location: Vec2) -> [Vec2; 2] {
-        [[
+    fn collision_rect(&self, location: Vec2) -> Option<[Vec2; 2]> {
+        if self.collision_size[0] * self.collision_size[1] == 0.0 {
+            return None;
+        }
+        Some([[
             location[0] + self.collision_offset[0],
             location[1] + self.collision_offset[1], ], [
             location[0] + self.collision_offset[0] + self.collision_size[0],
             location[1] + self.collision_offset[1] + self.collision_size[1],
-        ]]
+        ]])
     }
 
     #[rustfmt::skip]
-    fn hint_rect(&self, location: Vec2) -> [Vec2; 2] {
-        [[
+    fn hint_rect(&self, location: Vec2) -> Option<[Vec2; 2]> {
+        if self.hint_size[0] * self.hint_size[1] == 0.0 {
+            return None;
+        }
+        Some([[
             location[0] + self.hint_offset[0],
             location[1] + self.hint_offset[1], ], [
             location[0] + self.hint_offset[0] + self.hint_size[0],
             location[1] + self.hint_offset[1] + self.hint_size[1],
-        ]]
+        ]])
     }
 }
 
@@ -541,14 +600,6 @@ pub struct EntityField {
 
 impl EntityField {
     pub fn new(chunk_size: u32, specs: Vec<EntitySpec>) -> Self {
-        // validate specs
-        specs.iter().for_each(|spec| {
-            assert!(spec.collision_size[0] >= 0.0);
-            assert!(spec.collision_size[1] >= 0.0);
-            assert!(spec.hint_size[0] >= 0.0);
-            assert!(spec.hint_size[1] >= 0.0);
-        });
-
         Self {
             chunk_size,
             specs,
@@ -577,16 +628,18 @@ impl EntityField {
         let key = self.stable_ref.insert(ukey) as u32;
 
         // collision features
-        let rect = spec.collision_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.insert(node);
+        if let Some(rect) = spec.collision_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.insert(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.insert(node);
+        if let Some(rect) = spec.hint_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.insert(node);
+        }
 
         key
     }
@@ -600,16 +653,18 @@ impl EntityField {
         let spec = &self.specs[entity.id as usize];
 
         // collision features
-        let rect = spec.collision_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.remove(node);
+        if let Some(rect) = spec.collision_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.remove(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.remove(node);
+        if let Some(rect) = spec.hint_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.remove(node);
+        }
 
         Some(entity)
     }
@@ -633,16 +688,18 @@ impl EntityField {
         let spec = &self.specs[entity.id as usize];
 
         // collision features
-        let rect = spec.collision_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.remove(node);
+        if let Some(rect) = spec.collision_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.remove(node);
+        }
 
         // hint features
-        let rect = spec.hint_rect(entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.remove(node);
+        if let Some(rect) = spec.hint_rect(entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.remove(node);
+        }
 
         // insert new entity
 
@@ -661,16 +718,18 @@ impl EntityField {
         *self.stable_ref.get_mut(key as usize).unwrap() = ukey;
 
         // collision features
-        let rect = new_spec.collision_rect(new_entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.collision_ref.insert(node);
+        if let Some(rect) = new_spec.collision_rect(new_entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.collision_ref.insert(node);
+        }
 
         // hint features
-        let rect = new_spec.hint_rect(new_entity.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.hint_ref.insert(node);
+        if let Some(rect) = new_spec.hint_rect(new_entity.location) {
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = rstar::primitives::GeomWithData::new(rect, key);
+            self.hint_ref.insert(node);
+        }
 
         Some(entity)
     }
@@ -741,22 +800,29 @@ impl EntityField {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AgentKey {
+    Tile(u32),
+    Block(u32),
+    Entity(u32),
+}
+
 #[derive(Debug, Clone)]
-pub enum AgentState {
+pub enum AgentData {
     Empty,
-    RandomWalk(AgentStateRandomWalk),
+    RandomWalk(AgentDataRandomWalk),
 }
 
 #[derive(Debug, Clone)]
 struct Agent {
-    entity_key: u32,
-    state: AgentState,
+    attach_key: AgentKey,
+    data: AgentData,
 }
 
 #[derive(Debug, Clone)]
 pub struct AgentPlugin {
     agents: slab::Slab<Agent>,
-    inverse_ref: ahash::AHashMap<u32, u32>,
+    inverse_ref: ahash::AHashMap<AgentKey, u32>,
 }
 
 impl AgentPlugin {
@@ -767,21 +833,41 @@ impl AgentPlugin {
         }
     }
 
-    pub fn insert(&mut self, entity_key: u32, state: AgentState) -> Option<()> {
-        if self.inverse_ref.contains_key(&entity_key) {
+    pub fn insert(
+        &mut self,
+        tile_field: &TileField,
+        block_field: &BlockField,
+        entity_field: &EntityField,
+        attach_key: AgentKey,
+        data: AgentData,
+    ) -> Option<()> {
+        if self.inverse_ref.contains_key(&attach_key) {
             return None;
         }
 
-        let agent = Agent { entity_key, state };
+        match attach_key {
+            AgentKey::Tile(key) if tile_field.get(key).is_none() => {
+                return None;
+            }
+            AgentKey::Block(key) if block_field.get(key).is_none() => {
+                return None;
+            }
+            AgentKey::Entity(key) if entity_field.get(key).is_none() => {
+                return None;
+            }
+            _ => {}
+        }
+
+        let agent = Agent { attach_key, data };
         let key = self.agents.insert(agent) as u32;
-        self.inverse_ref.insert(entity_key, key);
+        self.inverse_ref.insert(attach_key, key);
         Some(())
     }
 
-    pub fn remove(&mut self, entity_key: u32) -> Option<AgentState> {
-        let key = self.inverse_ref.remove(&entity_key)?;
+    pub fn remove(&mut self, attach_key: AgentKey) -> Option<AgentData> {
+        let key = self.inverse_ref.remove(&attach_key)?;
         let agent = self.agents.try_remove(key as usize).unwrap();
-        Some(agent.state)
+        Some(agent.data)
     }
 
     pub fn update(
@@ -791,11 +877,12 @@ impl AgentPlugin {
         delta_secs: f32,
     ) {
         for (_, agent) in self.agents.iter_mut() {
-            match &mut agent.state {
-                AgentState::Empty => {}
-                AgentState::RandomWalk(state) => {
-                    state.update(block_field, entity_field, delta_secs, agent.entity_key)
+            match (agent.attach_key, &mut agent.data) {
+                (_, AgentData::Empty) => {}
+                (AgentKey::Entity(key), AgentData::RandomWalk(data)) => {
+                    data.update_entity(block_field, entity_field, delta_secs, key)
                 }
+                (key, data) => unimplemented!("{:?} with {:?} agent", key, data),
             }
         }
     }
@@ -807,12 +894,13 @@ fn move_entity(
     entity_key: u32,
     new_location: Vec2,
 ) -> Option<()> {
-    let entity = entity_field.get(entity_key).expect("entity key not found");
+    let entity = entity_field.get(entity_key).unwrap();
     let spec = &entity_field.specs[entity.id as usize];
 
-    let rect = spec.collision_rect(new_location);
-    if block_field.has_collision_by_rect(rect) {
-        return None;
+    if let Some(rect) = spec.collision_rect(new_location) {
+        if block_field.has_collision_by_rect(rect) {
+            return None;
+        }
     }
 
     let mut new_entity = entity.clone();
@@ -823,7 +911,7 @@ fn move_entity(
 }
 
 #[derive(Debug, Clone, Default)]
-pub enum AgentStateRandomWalkLocal {
+pub enum AgentStateRandomWalk {
     #[default]
     Init,
     WaitStart,
@@ -833,17 +921,17 @@ pub enum AgentStateRandomWalkLocal {
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentStateRandomWalk {
+pub struct AgentDataRandomWalk {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
     pub max_distance: f32,
     pub speed: f32,
-    pub local: AgentStateRandomWalkLocal,
+    pub state: AgentStateRandomWalk,
 }
 
-impl AgentStateRandomWalk {
-    fn update(
+impl AgentDataRandomWalk {
+    fn update_entity(
         &mut self,
         block_field: &BlockField,
         entity_field: &mut EntityField,
@@ -852,25 +940,23 @@ impl AgentStateRandomWalk {
     ) {
         use rand::Rng;
 
-        type StateLocal = AgentStateRandomWalkLocal;
-
-        match self.local {
-            StateLocal::Init => {
-                self.local = StateLocal::WaitStart;
+        match self.state {
+            AgentStateRandomWalk::Init => {
+                self.state = AgentStateRandomWalk::WaitStart;
             }
-            StateLocal::WaitStart => {
+            AgentStateRandomWalk::WaitStart => {
                 let secs = rand::thread_rng().gen_range(self.min_rest_secs..self.max_rest_secs);
-                self.local = StateLocal::Wait(secs);
+                self.state = AgentStateRandomWalk::Wait(secs);
             }
-            StateLocal::Wait(secs) => {
+            AgentStateRandomWalk::Wait(secs) => {
                 let new_secs = secs - delta_secs;
                 if new_secs <= 0.0 {
-                    self.local = StateLocal::TripStart;
+                    self.state = AgentStateRandomWalk::TripStart;
                 } else {
-                    self.local = StateLocal::Wait(new_secs);
+                    self.state = AgentStateRandomWalk::Wait(new_secs);
                 }
             }
-            StateLocal::TripStart => {
+            AgentStateRandomWalk::TripStart => {
                 let entity = entity_field.get(entity_key).unwrap();
 
                 let distance = rand::thread_rng().gen_range(self.min_distance..self.max_distance);
@@ -880,13 +966,13 @@ impl AgentStateRandomWalk {
                     entity.location[1] + distance * direction.sin(),
                 ];
 
-                self.local = StateLocal::Trip(destination);
+                self.state = AgentStateRandomWalk::Trip(destination);
             }
-            StateLocal::Trip(destination) => {
+            AgentStateRandomWalk::Trip(destination) => {
                 let entity = entity_field.get(entity_key).unwrap();
 
                 if entity.location == destination {
-                    self.local = StateLocal::WaitStart;
+                    self.state = AgentStateRandomWalk::WaitStart;
                     return;
                 }
 
@@ -903,9 +989,9 @@ impl AgentStateRandomWalk {
                 ];
 
                 if move_entity(block_field, entity_field, entity_key, new_location).is_some() {
-                    self.local = StateLocal::Trip(destination);
+                    self.state = AgentStateRandomWalk::Trip(destination);
                 } else {
-                    self.local = StateLocal::WaitStart;
+                    self.state = AgentStateRandomWalk::WaitStart;
                 }
             }
         }

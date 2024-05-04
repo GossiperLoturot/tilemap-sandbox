@@ -140,12 +140,12 @@ impl EntityField {
             .iter_shared()
             .map(|entry| {
                 let entry = entry.bind();
-                inner::EntitySpec {
-                    collision_size: [entry.collision_size.x, entry.collision_size.y],
-                    collision_offset: [entry.collision_offset.x, entry.collision_offset.y],
-                    hint_size: [entry.rendering_size.x, entry.rendering_size.y],
-                    hint_offset: [entry.rendering_offset.x, entry.rendering_offset.y],
-                }
+                inner::EntitySpec::new(
+                    [entry.collision_size.x, entry.collision_size.y],
+                    [entry.collision_offset.x, entry.collision_offset.y],
+                    [entry.rendering_size.x, entry.rendering_size.y],
+                    [entry.rendering_offset.x, entry.rendering_offset.y],
+                )
             })
             .collect::<Vec<_>>();
 

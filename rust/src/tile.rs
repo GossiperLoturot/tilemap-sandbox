@@ -27,8 +27,8 @@ struct TileFieldDesc {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct TileKey {
-    inner: u32,
+pub struct TileKey {
+    pub inner: u32,
 }
 
 #[derive(GodotClass)]
@@ -96,8 +96,8 @@ impl From<TileChunkDown> for TileChunkUp {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct TileField {
-    inner: inner::TileField,
+pub struct TileField {
+    pub inner: inner::TileField,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, TileChunkUp>,
