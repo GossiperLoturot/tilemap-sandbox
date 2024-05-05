@@ -40,17 +40,19 @@ impl TileField {
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<u32, FieldError> {
+        let location = tile.location;
+
         // check by spatial features
-        if self.spatial_ref.contains_key(&tile.location) {
+        if self.spatial_ref.contains_key(&location) {
             return Err(FieldError::Conflict);
         }
 
         let chunk_key = [
-            tile.location[0].div_euclid(self.chunk_size as i32),
-            tile.location[1].div_euclid(self.chunk_size as i32),
+            location[0].div_euclid(self.chunk_size as i32),
+            location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let tile_key = chunk.tiles.insert(tile.clone()) as u32;
+        let tile_key = chunk.tiles.insert(tile) as u32;
         chunk.serial += 1;
         let ukey = UnstableTileKey {
             chunk_key,
@@ -60,7 +62,7 @@ impl TileField {
         let key = self.stable_ref.insert(ukey) as u32;
 
         // spatial features
-        self.spatial_ref.insert(tile.location, key);
+        self.spatial_ref.insert(location, key);
 
         Ok(key)
     }
@@ -106,12 +108,14 @@ impl TileField {
 
         // insert new tile
 
+        let location = new_tile.location;
+
         let chunk_key = [
-            new_tile.location[0].div_euclid(self.chunk_size as i32),
-            new_tile.location[1].div_euclid(self.chunk_size as i32),
+            location[0].div_euclid(self.chunk_size as i32),
+            location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let tile_key = chunk.tiles.insert(new_tile.clone()) as u32;
+        let tile_key = chunk.tiles.insert(new_tile) as u32;
         chunk.serial += 1;
         *ukey = UnstableTileKey {
             chunk_key,
@@ -119,7 +123,7 @@ impl TileField {
         };
 
         // spatial features
-        self.spatial_ref.insert(new_tile.location, key);
+        self.spatial_ref.insert(location, key);
 
         Ok(tile)
     }
@@ -267,22 +271,24 @@ impl BlockField {
     }
 
     pub fn insert(&mut self, block: Block) -> Result<u32, FieldError> {
+        let location = block.location;
+
         let spec = &self
             .specs
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
         // check by spatial features
-        if self.has_by_rect(spec.rect(block.location)) {
+        if self.has_by_rect(spec.rect(location)) {
             return Err(FieldError::Conflict);
         }
 
         let chunk_key = [
-            block.location[0].div_euclid(self.chunk_size as i32),
-            block.location[1].div_euclid(self.chunk_size as i32),
+            location[0].div_euclid(self.chunk_size as i32),
+            location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let block_key = chunk.blocks.insert(block.clone()) as u32;
+        let block_key = chunk.blocks.insert(block) as u32;
         chunk.serial += 1;
         let ukey = UnstableBlockKey {
             chunk_key,
@@ -292,20 +298,20 @@ impl BlockField {
         let key = self.stable_ref.insert(ukey) as u32;
 
         // spatial features
-        let rect = spec.rect(block.location);
+        let rect = spec.rect(location);
         let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
         let node = rstar::primitives::GeomWithData::new(rect, key);
         self.spatial_ref.insert(node);
 
         // collision features
-        if let Some(rect) = spec.collision_rect(block.location) {
+        if let Some(rect) = spec.collision_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = spec.hint_rect(block.location) {
+        if let Some(rect) = spec.hint_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
@@ -394,12 +400,14 @@ impl BlockField {
 
         // insert new block
 
+        let location = new_block.location;
+
         let chunk_key = [
-            new_block.location[0].div_euclid(self.chunk_size as i32),
-            new_block.location[1].div_euclid(self.chunk_size as i32),
+            location[0].div_euclid(self.chunk_size as i32),
+            location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let block_key = chunk.blocks.insert(new_block.clone()) as u32;
+        let block_key = chunk.blocks.insert(new_block) as u32;
         chunk.serial += 1;
         *ukey = UnstableBlockKey {
             chunk_key,
@@ -407,20 +415,20 @@ impl BlockField {
         };
 
         // spatial features
-        let rect = new_spec.rect(new_block.location);
+        let rect = new_spec.rect(location);
         let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
         let node = rstar::primitives::GeomWithData::new(rect, key);
         self.spatial_ref.insert(node);
 
         // collision features
-        if let Some(rect) = spec.collision_rect(block.location) {
+        if let Some(rect) = spec.collision_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = spec.hint_rect(block.location) {
+        if let Some(rect) = spec.hint_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
@@ -622,17 +630,19 @@ impl EntityField {
     }
 
     pub fn insert(&mut self, entity: Entity) -> Result<u32, FieldError> {
+        let location = entity.location;
+
         let spec = &self
             .specs
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
         let chunk_key = [
-            entity.location[0].div_euclid(self.chunk_size as f32) as i32,
-            entity.location[1].div_euclid(self.chunk_size as f32) as i32,
+            location[0].div_euclid(self.chunk_size as f32) as i32,
+            location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let entity_key = chunk.entities.insert(entity.clone()) as u32;
+        let entity_key = chunk.entities.insert(entity) as u32;
         chunk.serial += 1;
         let ukey = UnstableEntityKey {
             chunk_key,
@@ -642,14 +652,14 @@ impl EntityField {
         let key = self.stable_ref.insert(ukey) as u32;
 
         // collision features
-        if let Some(rect) = spec.collision_rect(entity.location) {
+        if let Some(rect) = spec.collision_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = spec.hint_rect(entity.location) {
+        if let Some(rect) = spec.hint_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
@@ -720,12 +730,14 @@ impl EntityField {
 
         // insert new entity
 
+        let location = new_entity.location;
+
         let chunk_key = [
-            new_entity.location[0].div_euclid(self.chunk_size as f32) as i32,
-            new_entity.location[1].div_euclid(self.chunk_size as f32) as i32,
+            location[0].div_euclid(self.chunk_size as f32) as i32,
+            location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let entity_key = chunk.entities.insert(new_entity.clone()) as u32;
+        let entity_key = chunk.entities.insert(new_entity) as u32;
         chunk.serial += 1;
         *ukey = UnstableEntityKey {
             chunk_key,
@@ -733,14 +745,14 @@ impl EntityField {
         };
 
         // collision features
-        if let Some(rect) = new_spec.collision_rect(new_entity.location) {
+        if let Some(rect) = new_spec.collision_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = new_spec.hint_rect(new_entity.location) {
+        if let Some(rect) = new_spec.hint_rect(location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
@@ -819,7 +831,7 @@ impl EntityField {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AgentKey {
+pub enum FieldKey {
     Tile(u32),
     Block(u32),
     Entity(u32),
@@ -828,26 +840,36 @@ pub enum AgentKey {
 #[derive(Debug, Clone)]
 pub enum AgentData {
     Empty,
-    RandomWalk(AgentDataRandomWalk),
+    RandomWalk(RandomWalk),
 }
 
 #[derive(Debug, Clone)]
-struct Agent {
-    attach_key: AgentKey,
-    data: AgentData,
+pub struct Agent {
+    pub field_ref: FieldKey,
+    pub data: AgentData,
+    pub update: bool,
+}
+
+#[derive(Debug, Clone)]
+struct AgentMeta {
+    inner: Agent,
+    inv_field_ref: u32,
+    inv_update_ref: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct AgentPlugin {
-    agents: slab::Slab<Agent>,
-    inverse_ref: ahash::AHashMap<AgentKey, u32>,
+    metas: slab::Slab<AgentMeta>,
+    field_ref: ahash::AHashMap<FieldKey, slab::Slab<u32>>,
+    update_ref: slab::Slab<u32>,
 }
 
 impl AgentPlugin {
     pub fn new() -> Self {
         Self {
-            agents: Default::default(),
-            inverse_ref: Default::default(),
+            metas: Default::default(),
+            field_ref: Default::default(),
+            update_ref: Default::default(),
         }
     }
 
@@ -856,51 +878,84 @@ impl AgentPlugin {
         tile_field: &TileField,
         block_field: &BlockField,
         entity_field: &EntityField,
-        attach_key: AgentKey,
-        data: AgentData,
-    ) -> Result<(), FieldError> {
-        if self.inverse_ref.contains_key(&attach_key) {
-            return Err(FieldError::Conflict);
-        }
-
-        match attach_key {
-            AgentKey::Tile(key) if tile_field.get(key).is_err() => {
+        agent: Agent,
+    ) -> Result<u32, FieldError> {
+        match agent.field_ref {
+            FieldKey::Tile(key) if tile_field.get(key).is_err() => {
                 return Err(FieldError::NotFound);
             }
-            AgentKey::Block(key) if block_field.get(key).is_err() => {
+            FieldKey::Block(key) if block_field.get(key).is_err() => {
                 return Err(FieldError::NotFound);
             }
-            AgentKey::Entity(key) if entity_field.get(key).is_err() => {
+            FieldKey::Entity(key) if entity_field.get(key).is_err() => {
                 return Err(FieldError::NotFound);
             }
             _ => {}
         }
 
-        let agent = Agent { attach_key, data };
-        let key = self.agents.insert(agent) as u32;
-        self.inverse_ref.insert(attach_key, key);
-        Ok(())
+        let key = self.metas.vacant_key() as u32;
+
+        let field_ref = self.field_ref.entry(agent.field_ref).or_default();
+        let inv_field_ref = field_ref.insert(key) as u32;
+
+        let inv_update_ref = if agent.update {
+            self.update_ref.insert(key) as u32
+        } else {
+            Default::default()
+        };
+
+        let meta = AgentMeta {
+            inner: agent,
+            inv_field_ref,
+            inv_update_ref,
+        };
+        self.metas.insert(meta);
+        Ok(key)
     }
 
-    pub fn remove(&mut self, attach_key: AgentKey) -> Result<AgentData, FieldError> {
-        let key = self
-            .inverse_ref
-            .remove(&attach_key)
+    pub fn remove(&mut self, key: u32) -> Result<Agent, FieldError> {
+        let meta = self
+            .metas
+            .try_remove(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let agent = self.agents.try_remove(key as usize).check();
-        Ok(agent.data)
+
+        let field_ref = self.field_ref.get_mut(&meta.inner.field_ref).check();
+        field_ref.try_remove(meta.inv_field_ref as usize).check();
+
+        if meta.inner.update {
+            self.update_ref
+                .try_remove(meta.inv_update_ref as usize)
+                .check();
+        }
+
+        Ok(meta.inner)
     }
 
+    pub fn get(&self, key: u32) -> Result<&Agent, FieldError> {
+        let meta = self.metas.get(key as usize).ok_or(FieldError::NotFound)?;
+        Ok(&meta.inner)
+    }
+
+    pub fn get_by_field(&self, field_key: FieldKey) -> impl Iterator<Item = u32> + '_ {
+        self.field_ref
+            .get(&field_key)
+            .into_iter()
+            .flat_map(|field_ref| field_ref.iter().map(|(_, key)| *key))
+    }
+
+    #[allow(unused_variables)]
     pub fn update(
         &mut self,
-        block_field: &BlockField,
+        tile_field: &mut TileField,
+        block_field: &mut BlockField,
         entity_field: &mut EntityField,
         delta_secs: f32,
     ) {
-        for (_, agent) in self.agents.iter_mut() {
-            match (agent.attach_key, &mut agent.data) {
+        for (_, key) in self.update_ref.iter() {
+            let meta = self.metas.get_mut(*key as usize).check();
+            match (meta.inner.field_ref, &mut meta.inner.data) {
                 (_, AgentData::Empty) => {}
-                (AgentKey::Entity(key), AgentData::RandomWalk(data)) => {
+                (FieldKey::Entity(key), AgentData::RandomWalk(data)) => {
                     data.update_entity(block_field, entity_field, delta_secs, key)
                 }
                 (key, data) => unimplemented!("{:?} with {:?} agent", key, data),
@@ -932,7 +987,7 @@ fn move_entity(
 }
 
 #[derive(Debug, Clone)]
-enum AgentStateRandomWalk {
+enum RandomWalkState {
     Init,
     WaitStart,
     Wait(f32),
@@ -941,16 +996,16 @@ enum AgentStateRandomWalk {
 }
 
 #[derive(Debug, Clone)]
-pub struct AgentDataRandomWalk {
+pub struct RandomWalk {
     min_rest_secs: f32,
     max_rest_secs: f32,
     min_distance: f32,
     max_distance: f32,
     speed: f32,
-    state: AgentStateRandomWalk,
+    state: RandomWalkState,
 }
 
-impl AgentDataRandomWalk {
+impl RandomWalk {
     pub fn new(
         min_rest_secs: f32,
         max_rest_secs: f32,
@@ -964,7 +1019,7 @@ impl AgentDataRandomWalk {
             min_distance,
             max_distance,
             speed,
-            state: AgentStateRandomWalk::Init,
+            state: RandomWalkState::Init,
         }
     }
 
@@ -978,22 +1033,22 @@ impl AgentDataRandomWalk {
         use rand::Rng;
 
         match self.state {
-            AgentStateRandomWalk::Init => {
-                self.state = AgentStateRandomWalk::WaitStart;
+            RandomWalkState::Init => {
+                self.state = RandomWalkState::WaitStart;
             }
-            AgentStateRandomWalk::WaitStart => {
+            RandomWalkState::WaitStart => {
                 let secs = rand::thread_rng().gen_range(self.min_rest_secs..self.max_rest_secs);
-                self.state = AgentStateRandomWalk::Wait(secs);
+                self.state = RandomWalkState::Wait(secs);
             }
-            AgentStateRandomWalk::Wait(secs) => {
+            RandomWalkState::Wait(secs) => {
                 let new_secs = secs - delta_secs;
                 if new_secs <= 0.0 {
-                    self.state = AgentStateRandomWalk::TripStart;
+                    self.state = RandomWalkState::TripStart;
                 } else {
-                    self.state = AgentStateRandomWalk::Wait(new_secs);
+                    self.state = RandomWalkState::Wait(new_secs);
                 }
             }
-            AgentStateRandomWalk::TripStart => {
+            RandomWalkState::TripStart => {
                 let entity = entity_field.get(entity_key).check();
 
                 let distance = rand::thread_rng().gen_range(self.min_distance..self.max_distance);
@@ -1003,13 +1058,13 @@ impl AgentDataRandomWalk {
                     entity.location[1] + distance * direction.sin(),
                 ];
 
-                self.state = AgentStateRandomWalk::Trip(destination);
+                self.state = RandomWalkState::Trip(destination);
             }
-            AgentStateRandomWalk::Trip(destination) => {
+            RandomWalkState::Trip(destination) => {
                 let entity = entity_field.get(entity_key).check();
 
                 if entity.location == destination {
-                    self.state = AgentStateRandomWalk::WaitStart;
+                    self.state = RandomWalkState::WaitStart;
                     return;
                 }
 
@@ -1020,15 +1075,15 @@ impl AgentDataRandomWalk {
                 let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
                 let direction = [diff[0] / distance, diff[1] / distance];
                 let delta_distance = distance.min(self.speed * delta_secs);
-                let new_location = [
+                let location = [
                     entity.location[0] + direction[0] * delta_distance,
                     entity.location[1] + direction[1] * delta_distance,
                 ];
 
-                if move_entity(block_field, entity_field, entity_key, new_location).is_ok() {
-                    self.state = AgentStateRandomWalk::Trip(destination);
+                if move_entity(block_field, entity_field, entity_key, location).is_ok() {
+                    self.state = RandomWalkState::Trip(destination);
                 } else {
-                    self.state = AgentStateRandomWalk::WaitStart;
+                    self.state = RandomWalkState::WaitStart;
                 }
             }
         }
