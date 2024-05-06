@@ -3,6 +3,8 @@ pub type IVec2 = [i32; 2];
 
 type RectNode<T, U> = rstar::primitives::GeomWithData<rstar::primitives::Rectangle<T>, U>;
 
+// Tile Field
+
 #[derive(Debug, Clone)]
 struct UnstableTileKey {
     chunk_key: IVec2,
@@ -152,6 +154,8 @@ impl TileField {
         self.spatial_ref.get(&point).copied()
     }
 }
+
+// Block Field
 
 #[derive(Debug, Clone)]
 pub struct BlockSpec {
@@ -532,6 +536,8 @@ impl BlockField {
     }
 }
 
+// Entity Field
+
 #[derive(Debug, Clone)]
 pub struct EntitySpec {
     collision_size: Vec2,
@@ -830,139 +836,7 @@ impl EntityField {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FieldKey {
-    Tile(u32),
-    Block(u32),
-    Entity(u32),
-}
-
-#[derive(Debug, Clone)]
-pub enum AgentData {
-    Empty,
-    RandomWalk(RandomWalk),
-}
-
-#[derive(Debug, Clone)]
-pub struct Agent {
-    pub field_ref: FieldKey,
-    pub data: AgentData,
-    pub update: bool,
-}
-
-#[derive(Debug, Clone)]
-struct AgentMeta {
-    inner: Agent,
-    inv_field_ref: u32,
-    inv_update_ref: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct AgentPlugin {
-    metas: slab::Slab<AgentMeta>,
-    field_ref: ahash::AHashMap<FieldKey, slab::Slab<u32>>,
-    update_ref: slab::Slab<u32>,
-}
-
-impl AgentPlugin {
-    pub fn new() -> Self {
-        Self {
-            metas: Default::default(),
-            field_ref: Default::default(),
-            update_ref: Default::default(),
-        }
-    }
-
-    pub fn insert(
-        &mut self,
-        tile_field: &TileField,
-        block_field: &BlockField,
-        entity_field: &EntityField,
-        agent: Agent,
-    ) -> Result<u32, FieldError> {
-        match agent.field_ref {
-            FieldKey::Tile(key) if tile_field.get(key).is_err() => {
-                return Err(FieldError::NotFound);
-            }
-            FieldKey::Block(key) if block_field.get(key).is_err() => {
-                return Err(FieldError::NotFound);
-            }
-            FieldKey::Entity(key) if entity_field.get(key).is_err() => {
-                return Err(FieldError::NotFound);
-            }
-            _ => {}
-        }
-
-        let key = self.metas.vacant_key() as u32;
-
-        let field_ref = self.field_ref.entry(agent.field_ref).or_default();
-        let inv_field_ref = field_ref.insert(key) as u32;
-
-        let inv_update_ref = if agent.update {
-            self.update_ref.insert(key) as u32
-        } else {
-            Default::default()
-        };
-
-        let meta = AgentMeta {
-            inner: agent,
-            inv_field_ref,
-            inv_update_ref,
-        };
-        self.metas.insert(meta);
-        Ok(key)
-    }
-
-    pub fn remove(&mut self, key: u32) -> Result<Agent, FieldError> {
-        let meta = self
-            .metas
-            .try_remove(key as usize)
-            .ok_or(FieldError::NotFound)?;
-
-        let field_ref = self.field_ref.get_mut(&meta.inner.field_ref).check();
-        field_ref.try_remove(meta.inv_field_ref as usize).check();
-
-        if meta.inner.update {
-            self.update_ref
-                .try_remove(meta.inv_update_ref as usize)
-                .check();
-        }
-
-        Ok(meta.inner)
-    }
-
-    pub fn get(&self, key: u32) -> Result<&Agent, FieldError> {
-        let meta = self.metas.get(key as usize).ok_or(FieldError::NotFound)?;
-        Ok(&meta.inner)
-    }
-
-    pub fn get_by_field(&self, field_key: FieldKey) -> impl Iterator<Item = u32> + '_ {
-        self.field_ref
-            .get(&field_key)
-            .into_iter()
-            .flat_map(|field_ref| field_ref.iter().map(|(_, key)| *key))
-    }
-
-    #[allow(unused_variables)]
-    pub fn update(
-        &mut self,
-        tile_field: &mut TileField,
-        block_field: &mut BlockField,
-        entity_field: &mut EntityField,
-        delta_secs: f32,
-    ) {
-        for (_, key) in self.update_ref.iter() {
-            let meta = self.metas.get_mut(*key as usize).check();
-            match (meta.inner.field_ref, &mut meta.inner.data) {
-                (_, AgentData::Empty) => {}
-                (FieldKey::Entity(key), AgentData::RandomWalk(data)) => {
-                    data.update_entity(block_field, entity_field, delta_secs, key)
-                }
-                (key, data) => unimplemented!("{:?} with {:?} agent", key, data),
-            }
-        }
-    }
-}
+// Field Extra
 
 fn move_entity(
     block_field: &BlockField,
@@ -986,6 +860,230 @@ fn move_entity(
     Ok(())
 }
 
+// Agent Plugin
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum FieldKey {
+    Global,
+    Tile(u32),
+    Block(u32),
+    Entity(u32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum UpdateKey {
+    None,
+    RealTime,
+    RoundRobin,
+}
+
+#[enum_dispatch::enum_dispatch]
+trait IAgent {
+    fn field_key(&self) -> FieldKey;
+
+    fn update_key(&self) -> UpdateKey;
+
+    fn update(
+        &mut self,
+        _tile_field: &mut TileField,
+        _block_field: &mut BlockField,
+        _entity_field: &mut EntityField,
+        _delta_secs: f32,
+    ) {
+        unimplemented!()
+    }
+}
+
+#[derive(Debug, Clone)]
+#[enum_dispatch::enum_dispatch(IAgent)]
+pub enum Agent {
+    Empty(Empty),
+    RandomWalk(RandomWalk),
+    Timestamp(Timestamp),
+}
+
+#[derive(Debug, Clone)]
+struct AgentMeta {
+    inner: Agent,
+    inv_field_key: u32,
+    inv_update_key: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentPlugin {
+    metas: slab::Slab<AgentMeta>,
+    field_ref: ahash::AHashMap<FieldKey, slab::Slab<u32>>,
+    rt_ref: slab::Slab<u32>,
+    rr_ref: slab::Slab<u32>,
+    rr_stack: Vec<u32>,
+}
+
+impl AgentPlugin {
+    pub fn new() -> Self {
+        Self {
+            metas: Default::default(),
+            field_ref: Default::default(),
+            rt_ref: Default::default(),
+            rr_ref: Default::default(),
+            rr_stack: Default::default(),
+        }
+    }
+
+    pub fn insert(
+        &mut self,
+        tile_field: &TileField,
+        block_field: &BlockField,
+        entity_field: &EntityField,
+        agent: Agent,
+    ) -> Result<u32, FieldError> {
+        match agent.field_key() {
+            FieldKey::Tile(key) if tile_field.get(key).is_err() => {
+                return Err(FieldError::NotFound);
+            }
+            FieldKey::Block(key) if block_field.get(key).is_err() => {
+                return Err(FieldError::NotFound);
+            }
+            FieldKey::Entity(key) if entity_field.get(key).is_err() => {
+                return Err(FieldError::NotFound);
+            }
+            _ => {}
+        }
+
+        let key = self.metas.vacant_key() as u32;
+
+        let field_keys = self.field_ref.entry(agent.field_key()).or_default();
+        let inv_field_key = field_keys.insert(key) as u32;
+
+        let inv_update_key = match agent.update_key() {
+            UpdateKey::None => Default::default(),
+            UpdateKey::RealTime => self.rt_ref.insert(key) as u32,
+            UpdateKey::RoundRobin => self.rr_ref.insert(key) as u32,
+        };
+
+        let meta = AgentMeta {
+            inner: agent,
+            inv_field_key,
+            inv_update_key,
+        };
+        self.metas.insert(meta);
+        Ok(key)
+    }
+
+    pub fn remove(&mut self, key: u32) -> Result<Agent, FieldError> {
+        let meta = self
+            .metas
+            .try_remove(key as usize)
+            .ok_or(FieldError::NotFound)?;
+
+        let field_keys = self.field_ref.get_mut(&meta.inner.field_key()).check();
+        field_keys.try_remove(meta.inv_field_key as usize).check();
+
+        match meta.inner.update_key() {
+            UpdateKey::None => {
+                // NOOP
+            }
+            UpdateKey::RealTime => {
+                self.rt_ref.try_remove(meta.inv_update_key as usize).check();
+            }
+            UpdateKey::RoundRobin => {
+                self.rr_ref.try_remove(meta.inv_update_key as usize).check();
+            }
+        }
+
+        Ok(meta.inner)
+    }
+
+    pub fn get(&self, key: u32) -> Result<&Agent, FieldError> {
+        let meta = self.metas.get(key as usize).ok_or(FieldError::NotFound)?;
+        Ok(&meta.inner)
+    }
+
+    pub fn get_by_global(&self) -> impl Iterator<Item = u32> + '_ {
+        self.field_ref
+            .get(&FieldKey::Global)
+            .map(|field_keys| field_keys.iter().map(|(_, key)| *key))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn get_by_tile(&self, tile_key: u32) -> impl Iterator<Item = u32> + '_ {
+        self.field_ref
+            .get(&FieldKey::Tile(tile_key))
+            .map(|field_keys| field_keys.iter().map(|(_, key)| *key))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn get_by_block(&self, block_key: u32) -> impl Iterator<Item = u32> + '_ {
+        self.field_ref
+            .get(&FieldKey::Block(block_key))
+            .map(|field_keys| field_keys.iter().map(|(_, key)| *key))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn get_by_entity(&self, entity_key: u32) -> impl Iterator<Item = u32> + '_ {
+        self.field_ref
+            .get(&FieldKey::Entity(entity_key))
+            .map(|field_keys| field_keys.iter().map(|(_, key)| *key))
+            .into_iter()
+            .flatten()
+    }
+
+    pub fn update(
+        &mut self,
+        tile_field: &mut TileField,
+        block_field: &mut BlockField,
+        entity_field: &mut EntityField,
+        delta_secs: f32,
+    ) {
+        // real time
+        for (_, key) in self.rt_ref.iter() {
+            let meta = self.metas.get_mut(*key as usize).check();
+            meta.inner
+                .update(tile_field, block_field, entity_field, delta_secs);
+        }
+
+        // round robin
+        if !self.rr_ref.is_empty() {
+            if self.rr_stack.is_empty() {
+                self.rr_ref
+                    .iter()
+                    .map(|(key, _)| key as u32)
+                    .for_each(|key| self.rr_stack.push(key));
+            }
+
+            let rr_key = self.rr_stack.pop().check();
+            if let Some(key) = self.rr_ref.get(rr_key as usize) {
+                let meta = self.metas.get_mut(*key as usize).check();
+                let agent = &mut meta.inner;
+                agent.update(tile_field, block_field, entity_field, delta_secs);
+            }
+        }
+    }
+}
+
+// Agent Plugin Extra
+
+#[derive(Debug, Clone)]
+pub struct Empty;
+
+impl Empty {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl IAgent for Empty {
+    fn field_key(&self) -> FieldKey {
+        FieldKey::Global
+    }
+
+    fn update_key(&self) -> UpdateKey {
+        UpdateKey::None
+    }
+}
+
 #[derive(Debug, Clone)]
 enum RandomWalkState {
     Init,
@@ -997,6 +1095,7 @@ enum RandomWalkState {
 
 #[derive(Debug, Clone)]
 pub struct RandomWalk {
+    entity_key: u32,
     min_rest_secs: f32,
     max_rest_secs: f32,
     min_distance: f32,
@@ -1007,6 +1106,7 @@ pub struct RandomWalk {
 
 impl RandomWalk {
     pub fn new(
+        entity_key: u32,
         min_rest_secs: f32,
         max_rest_secs: f32,
         min_distance: f32,
@@ -1014,6 +1114,7 @@ impl RandomWalk {
         speed: f32,
     ) -> Self {
         Self {
+            entity_key,
             min_rest_secs,
             max_rest_secs,
             min_distance,
@@ -1022,13 +1123,23 @@ impl RandomWalk {
             state: RandomWalkState::Init,
         }
     }
+}
 
-    fn update_entity(
+impl IAgent for RandomWalk {
+    fn field_key(&self) -> FieldKey {
+        FieldKey::Entity(self.entity_key)
+    }
+
+    fn update_key(&self) -> UpdateKey {
+        UpdateKey::RealTime
+    }
+
+    fn update(
         &mut self,
-        block_field: &BlockField,
+        _tile_field: &mut TileField,
+        block_field: &mut BlockField,
         entity_field: &mut EntityField,
         delta_secs: f32,
-        entity_key: u32,
     ) {
         use rand::Rng;
 
@@ -1049,7 +1160,7 @@ impl RandomWalk {
                 }
             }
             RandomWalkState::TripStart => {
-                let entity = entity_field.get(entity_key).check();
+                let entity = entity_field.get(self.entity_key).check();
 
                 let distance = rand::thread_rng().gen_range(self.min_distance..self.max_distance);
                 let direction = rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
@@ -1061,7 +1172,7 @@ impl RandomWalk {
                 self.state = RandomWalkState::Trip(destination);
             }
             RandomWalkState::Trip(destination) => {
-                let entity = entity_field.get(entity_key).check();
+                let entity = entity_field.get(self.entity_key).check();
 
                 if entity.location == destination {
                     self.state = RandomWalkState::WaitStart;
@@ -1080,7 +1191,7 @@ impl RandomWalk {
                     entity.location[1] + direction[1] * delta_distance,
                 ];
 
-                if move_entity(block_field, entity_field, entity_key, location).is_ok() {
+                if move_entity(block_field, entity_field, self.entity_key, location).is_ok() {
                     self.state = RandomWalkState::Trip(destination);
                 } else {
                     self.state = RandomWalkState::WaitStart;
@@ -1089,6 +1200,37 @@ impl RandomWalk {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Timestamp;
+
+impl Timestamp {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl IAgent for Timestamp {
+    fn field_key(&self) -> FieldKey {
+        FieldKey::Global
+    }
+
+    fn update_key(&self) -> UpdateKey {
+        UpdateKey::RoundRobin
+    }
+
+    fn update(
+        &mut self,
+        _tile_field: &mut TileField,
+        _block_field: &mut BlockField,
+        _entity_field: &mut EntityField,
+        _delta_secs: f32,
+    ) {
+        godot::log::godot_print!("{:?}", std::time::SystemTime::now())
+    }
+}
+
+// Error Handling
 
 trait IntegrityCheck<T> {
     fn check(self) -> T;

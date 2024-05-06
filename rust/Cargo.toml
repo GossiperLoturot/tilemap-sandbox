@@ -8,6 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ahash = "0.8"
+enum_dispatch = "0.3"
 godot = { git = "https://github.com/godot-rust/gdext" }
 image = "0.25"
 image-atlas = "0.4"

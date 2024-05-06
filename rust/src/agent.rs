@@ -3,59 +3,32 @@ use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct FieldKey {
-    inner: inner::FieldKey,
+struct Agent {
+    inner: inner::Agent,
 }
 
 #[godot_api]
-impl FieldKey {
-    #[func]
-    fn new_tile(tile_key: Gd<tile::TileKey>) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
-            inner: inner::FieldKey::Tile(tile_key.bind().inner),
-        })
-    }
-
-    #[func]
-    fn new_block(block_key: Gd<block::BlockKey>) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
-            inner: inner::FieldKey::Block(block_key.bind().inner),
-        })
-    }
-
-    #[func]
-    fn new_entity(entity_key: Gd<entity::EntityKey>) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
-            inner: inner::FieldKey::Entity(entity_key.bind().inner),
-        })
-    }
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct AgentData {
-    inner: inner::AgentData,
-}
-
-#[godot_api]
-impl AgentData {
+impl Agent {
     #[func]
     fn new_empty() -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentData::Empty,
+            inner: inner::Agent::Empty(inner::Empty::new()),
         })
     }
 
     #[func]
     fn new_random_walk(
+        entity_key: Gd<entity::EntityKey>,
         min_rest_secs: f32,
         max_rest_secs: f32,
         min_distance: f32,
         max_distance: f32,
         speed: f32,
     ) -> Gd<Self> {
+        let entity_key = entity_key.bind().inner;
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentData::RandomWalk(inner::RandomWalk::new(
+            inner: inner::Agent::RandomWalk(inner::RandomWalk::new(
+                entity_key,
                 min_rest_secs,
                 max_rest_secs,
                 min_distance,
@@ -64,24 +37,11 @@ impl AgentData {
             )),
         })
     }
-}
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct Agent {
-    inner: inner::Agent,
-}
-
-#[godot_api]
-impl Agent {
     #[func]
-    fn new_from(field_key: Gd<FieldKey>, data: Gd<AgentData>, update: bool) -> Gd<Self> {
+    fn new_timestamp() -> Gd<Self> {
         Gd::from_init_fn(|_| Self {
-            inner: inner::Agent {
-                field_ref: field_key.bind().inner,
-                data: data.bind().inner.clone(),
-                update,
-            },
+            inner: inner::Agent::Timestamp(inner::Timestamp::new()),
         })
     }
 }
@@ -145,11 +105,40 @@ impl AgentPlugin {
     }
 
     #[func]
-    fn get_by_field(&self, field_key: Gd<FieldKey>) -> Array<Gd<AgentKey>> {
-        let field_key = field_key.bind().inner;
+    fn get_by_global(&self) -> Array<Gd<AgentKey>> {
         let keys = self
             .inner
-            .get_by_field(field_key)
+            .get_by_global()
+            .map(|key| Gd::from_init_fn(|_| AgentKey { inner: key }));
+        Array::from_iter(keys)
+    }
+
+    #[func]
+    fn get_by_tile(&self, tile_key: Gd<tile::TileKey>) -> Array<Gd<AgentKey>> {
+        let tile_key = tile_key.bind().inner;
+        let keys = self
+            .inner
+            .get_by_tile(tile_key)
+            .map(|key| Gd::from_init_fn(|_| AgentKey { inner: key }));
+        Array::from_iter(keys)
+    }
+
+    #[func]
+    fn get_by_block(&self, block_key: Gd<block::BlockKey>) -> Array<Gd<AgentKey>> {
+        let block_key = block_key.bind().inner;
+        let keys = self
+            .inner
+            .get_by_block(block_key)
+            .map(|key| Gd::from_init_fn(|_| AgentKey { inner: key }));
+        Array::from_iter(keys)
+    }
+
+    #[func]
+    fn get_by_entity(&self, entity_key: Gd<entity::EntityKey>) -> Array<Gd<AgentKey>> {
+        let entity_key = entity_key.bind().inner;
+        let keys = self
+            .inner
+            .get_by_entity(entity_key)
             .map(|key| Gd::from_init_fn(|_| AgentKey { inner: key }));
         Array::from_iter(keys)
     }
