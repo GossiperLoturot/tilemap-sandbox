@@ -33,7 +33,7 @@ func _ready():
 		var x = randf_range(-64.0, 64.0)
 		var y = randf_range(-64.0, 64.0)
 		var key = _entity_field.insert(Entity.new_from(1, Vector2(x, y)))
-		_agent_plugin.insert(Agent.new_random_walk(key, 0.5, 5.0, 5.0, 10.0, 1.0))
+		_agent_plugin.insert_random_walk(key, 0.5, 5.0, 5.0, 10.0, 1.0)
 	
 	for y in range(-4, 5):
 		for x in range(-4, 5):
