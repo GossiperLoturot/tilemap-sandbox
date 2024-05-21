@@ -399,7 +399,7 @@ impl BlockField {
                 .enumerate()
             {
                 let spec = &self.specs[block.id as usize];
-                instance_buffer[i * 12 + 0] = spec.rendering_size[0];
+                instance_buffer[i * 12] = spec.rendering_size[0];
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
                 instance_buffer[i * 12 + 3] = block.location[0] as f32 + spec.rendering_offset[0];
@@ -416,7 +416,7 @@ impl BlockField {
                 instance_buffer[i * 12 + 11] = 0.0;
 
                 let texcoord = self.texcoords[block.id as usize];
-                texcoord_buffer[i * 4 + 0] = texcoord.min_x;
+                texcoord_buffer[i * 4] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
                 texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;

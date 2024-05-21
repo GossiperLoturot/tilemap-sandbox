@@ -864,54 +864,100 @@ fn move_entity(
 
 pub type AgentKey = (std::any::TypeId, u32);
 
+#[allow(unused)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum AgentRelation {
+pub enum AgentRelation {
     Global,
     Tile(u32),
     Block(u32),
     Entity(u32),
 }
 
-#[enum_dispatch::enum_dispatch]
-trait IAgent {
+pub trait Agent {
     fn relation(&self) -> AgentRelation;
 }
 
 pub struct AgentPlugin {
     ecs: ecs_tiny::ECS,
-    entity_ref: ahash::AHashMap<AgentRelation, u32>,
+    relation_ref: ahash::AHashMap<AgentRelation, u32>,
 }
 
 impl AgentPlugin {
     pub fn new() -> Self {
         Self {
             ecs: Default::default(),
-            entity_ref: Default::default(),
+            relation_ref: Default::default(),
         }
     }
 
-    pub fn insert<T: IAgent + 'static>(&mut self, agent: T) -> Result<AgentKey, FieldError> {
+    pub fn insert<T: Agent + 'static>(&mut self, agent: T) -> Result<AgentKey, FieldError> {
         let relation = agent.relation();
 
-        let entity_key = self
-            .entity_ref
+        let relation = self
+            .relation_ref
             .entry(relation)
             .or_insert_with(|| self.ecs.insert_entity());
 
-        let comp_key = self.ecs.insert_comp(*entity_key, agent).check();
+        let comp_key = self.ecs.insert_comp(*relation, agent).check();
         Ok(comp_key)
     }
 
-    pub fn remove<T: IAgent + 'static>(&mut self, key: AgentKey) -> Result<T, FieldError> {
+    pub fn remove<T: Agent + 'static>(&mut self, key: AgentKey) -> Result<T, FieldError> {
         self.ecs.remove_comp(key).ok_or(FieldError::NotFound)
     }
 
-    pub fn get<T: IAgent + 'static>(&self, key: AgentKey) -> Result<&T, FieldError> {
+    pub fn get<T: Agent + 'static>(&self, key: AgentKey) -> Result<&T, FieldError> {
         self.ecs.get_comp(key).ok_or(FieldError::NotFound)
     }
 
-    pub fn get_mut<T: IAgent + 'static>(&mut self, key: AgentKey) -> Result<&mut T, FieldError> {
+    #[allow(unused)]
+    pub fn get_mut<T: Agent + 'static>(&mut self, key: AgentKey) -> Result<&mut T, FieldError> {
         self.ecs.get_comp_mut(key).ok_or(FieldError::NotFound)
+    }
+
+    pub fn iter<T: Agent + 'static>(&self) -> Result<impl Iterator<Item = &T>, FieldError> {
+        self.ecs.iter_comp::<T>().ok_or(FieldError::NotFound)
+    }
+
+    #[allow(unused)]
+    pub fn iter_mut<T: Agent + 'static>(
+        &mut self,
+    ) -> Result<impl Iterator<Item = &mut T>, FieldError> {
+        self.ecs.iter_comp_mut::<T>().ok_or(FieldError::NotFound)
+    }
+
+    pub fn iter_by_relation<T: Agent + 'static>(
+        &self,
+        relation: AgentRelation,
+    ) -> Result<impl Iterator<Item = &T>, FieldError> {
+        let relation = self
+            .relation_ref
+            .get(&relation)
+            .ok_or(FieldError::NotFound)?;
+        let iter = self.ecs.iter_comp_by_entity(*relation).check();
+        Ok(iter)
+    }
+
+    #[allow(unused)]
+    pub fn iter_mut_by_relation<T: Agent + 'static>(
+        &mut self,
+        relation: AgentRelation,
+    ) -> Result<impl Iterator<Item = &mut T>, FieldError> {
+        let relation = self
+            .relation_ref
+            .get_mut(&relation)
+            .ok_or(FieldError::NotFound)?;
+        let iter = self.ecs.iter_comp_mut_by_entity(*relation).check();
+        Ok(iter)
+    }
+
+    pub fn remove_by_relation(&mut self, relation: AgentRelation) -> Result<(), FieldError> {
+        let relation = self
+            .relation_ref
+            .remove(&relation)
+            .ok_or(FieldError::NotFound)?;
+        self.ecs.remove_entity(relation).check();
+        Ok(())
     }
 
     pub fn update(
@@ -921,13 +967,7 @@ impl AgentPlugin {
         entity_field: &mut EntityField,
         delta_secs: f32,
     ) {
-        RandomWalk::update(
-            tile_field,
-            block_field,
-            entity_field,
-            &mut self.ecs,
-            delta_secs,
-        );
+        RandomWalk::update(self, tile_field, block_field, entity_field, delta_secs);
     }
 }
 
@@ -974,7 +1014,7 @@ impl RandomWalk {
     }
 }
 
-impl IAgent for RandomWalk {
+impl Agent for RandomWalk {
     fn relation(&self) -> AgentRelation {
         AgentRelation::Entity(self.entity_key)
     }
@@ -982,15 +1022,19 @@ impl IAgent for RandomWalk {
 
 impl RandomWalk {
     fn update(
+        agent_plguin: &mut AgentPlugin,
         _tile_field: &mut TileField,
         block_field: &mut BlockField,
         entity_field: &mut EntityField,
-        ecs: &mut ecs_tiny::ECS,
         delta_secs: f32,
     ) {
         use rand::Rng;
 
-        for agent in ecs.iter_comp_mut::<Self>().into_iter().flatten() {
+        let Ok(agent_iter) = agent_plguin.iter_mut::<Self>() else {
+            return;
+        };
+
+        for agent in agent_iter {
             match agent.state {
                 RandomWalkState::Init => {
                     agent.state = RandomWalkState::WaitStart;

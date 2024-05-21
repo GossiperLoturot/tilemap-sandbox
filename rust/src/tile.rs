@@ -347,7 +347,7 @@ impl TileField {
                 .take(Self::MAX_BUFFER_SIZE as usize)
                 .enumerate()
             {
-                instance_buffer[i * 12 + 0] = 2.0;
+                instance_buffer[i * 12] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
                 instance_buffer[i * 12 + 3] = tile.location[0] as f32 - 0.5;
@@ -368,7 +368,7 @@ impl TileField {
                 instance_buffer[i * 12 + 11] = z_offset;
 
                 let texcoord = self.texcoords[tile.id as usize];
-                texcoord_buffer[i * 4 + 0] = texcoord.min_x;
+                texcoord_buffer[i * 4] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
                 texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
