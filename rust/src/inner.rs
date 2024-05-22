@@ -864,7 +864,6 @@ fn move_entity(
 
 pub type AgentKey = (std::any::TypeId, u32);
 
-#[allow(unused)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AgentRelation {
     Global,
@@ -873,8 +872,58 @@ pub enum AgentRelation {
     Entity(u32),
 }
 
-pub trait Agent {
-    fn relation(&self) -> AgentRelation;
+#[derive(Debug, Clone)]
+pub struct Agent<T> {
+    pub inner: T,
+    pub relation: AgentRelation,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentRef<'a, T> {
+    pub inner: &'a T,
+    pub relation: &'a AgentRelation,
+}
+
+impl<'a, T> From<&'a Agent<T>> for AgentRef<'a, T> {
+    fn from(agent: &'a Agent<T>) -> Self {
+        Self {
+            inner: &agent.inner,
+            relation: &agent.relation,
+        }
+    }
+}
+
+impl<T: Clone> AgentRef<'_, T> {
+    pub fn to_owned(&self) -> Agent<T> {
+        Agent {
+            inner: self.inner.clone(),
+            relation: *self.relation,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AgentMut<'a, T> {
+    pub inner: &'a mut T,
+    pub relation: &'a AgentRelation,
+}
+
+impl<T: Clone> AgentMut<'_, T> {
+    pub fn to_owned(&self) -> Agent<T> {
+        Agent {
+            inner: self.inner.clone(),
+            relation: *self.relation,
+        }
+    }
+}
+
+impl<'a, T> From<&'a mut Agent<T>> for AgentMut<'a, T> {
+    fn from(agent: &'a mut Agent<T>) -> Self {
+        Self {
+            inner: &mut agent.inner,
+            relation: &agent.relation,
+        }
+    }
 }
 
 pub struct AgentPlugin {
@@ -890,73 +939,92 @@ impl AgentPlugin {
         }
     }
 
-    pub fn insert<T: Agent + 'static>(&mut self, agent: T) -> Result<AgentKey, FieldError> {
-        let relation = agent.relation();
-
-        let relation = self
+    pub fn insert<T: 'static>(&mut self, agent: Agent<T>) -> Result<AgentKey, FieldError> {
+        let entity_key = self
             .relation_ref
-            .entry(relation)
+            .entry(agent.relation)
             .or_insert_with(|| self.ecs.insert_entity());
 
-        let comp_key = self.ecs.insert_comp(*relation, agent).check();
+        let comp_key = self.ecs.insert_comp::<Agent<T>>(*entity_key, agent).check();
         Ok(comp_key)
     }
 
-    pub fn remove<T: Agent + 'static>(&mut self, key: AgentKey) -> Result<T, FieldError> {
-        self.ecs.remove_comp(key).ok_or(FieldError::NotFound)
+    pub fn remove<T: 'static>(&mut self, key: AgentKey) -> Result<Agent<T>, FieldError> {
+        self.ecs
+            .remove_comp::<Agent<T>>(key)
+            .ok_or(FieldError::NotFound)
     }
 
-    pub fn get<T: Agent + 'static>(&self, key: AgentKey) -> Result<&T, FieldError> {
-        self.ecs.get_comp(key).ok_or(FieldError::NotFound)
+    pub fn get<T: 'static>(&self, key: AgentKey) -> Result<AgentRef<T>, FieldError> {
+        let agent = self
+            .ecs
+            .get_comp::<Agent<T>>(key)
+            .ok_or(FieldError::NotFound)?;
+        Ok(agent.into())
     }
 
-    #[allow(unused)]
-    pub fn get_mut<T: Agent + 'static>(&mut self, key: AgentKey) -> Result<&mut T, FieldError> {
-        self.ecs.get_comp_mut(key).ok_or(FieldError::NotFound)
+    pub fn get_mut<T: 'static>(&mut self, key: AgentKey) -> Result<AgentMut<T>, FieldError> {
+        let agent = self
+            .ecs
+            .get_comp_mut::<Agent<T>>(key)
+            .ok_or(FieldError::NotFound)?;
+        Ok(agent.into())
     }
 
-    pub fn iter<T: Agent + 'static>(&self) -> Result<impl Iterator<Item = &T>, FieldError> {
-        self.ecs.iter_comp::<T>().ok_or(FieldError::NotFound)
+    pub fn iter<T: 'static>(&self) -> Result<impl Iterator<Item = AgentRef<T>>, FieldError> {
+        let iter = self
+            .ecs
+            .iter_comp::<Agent<T>>()
+            .ok_or(FieldError::NotFound)?;
+        Ok(iter.map(|agent| agent.into()))
     }
 
-    #[allow(unused)]
-    pub fn iter_mut<T: Agent + 'static>(
+    pub fn iter_mut<T: 'static>(
         &mut self,
-    ) -> Result<impl Iterator<Item = &mut T>, FieldError> {
-        self.ecs.iter_comp_mut::<T>().ok_or(FieldError::NotFound)
+    ) -> Result<impl Iterator<Item = AgentMut<T>>, FieldError> {
+        let iter = self
+            .ecs
+            .iter_comp_mut::<Agent<T>>()
+            .ok_or(FieldError::NotFound)?;
+        Ok(iter.map(|agent| agent.into()))
     }
 
-    pub fn iter_by_relation<T: Agent + 'static>(
+    pub fn iter_by_relation<T: 'static>(
         &self,
         relation: AgentRelation,
-    ) -> Result<impl Iterator<Item = &T>, FieldError> {
-        let relation = self
+    ) -> Result<impl Iterator<Item = AgentRef<T>>, FieldError> {
+        let entity_key = self
             .relation_ref
             .get(&relation)
             .ok_or(FieldError::NotFound)?;
-        let iter = self.ecs.iter_comp_by_entity(*relation).check();
-        Ok(iter)
+        let iter = self
+            .ecs
+            .iter_comp_by_entity::<Agent<T>>(*entity_key)
+            .check();
+        Ok(iter.map(|agent| agent.into()))
     }
 
-    #[allow(unused)]
-    pub fn iter_mut_by_relation<T: Agent + 'static>(
+    pub fn iter_mut_by_relation<T: 'static>(
         &mut self,
         relation: AgentRelation,
-    ) -> Result<impl Iterator<Item = &mut T>, FieldError> {
-        let relation = self
+    ) -> Result<impl Iterator<Item = AgentMut<T>>, FieldError> {
+        let entity_key = self
             .relation_ref
             .get_mut(&relation)
             .ok_or(FieldError::NotFound)?;
-        let iter = self.ecs.iter_comp_mut_by_entity(*relation).check();
-        Ok(iter)
+        let iter = self
+            .ecs
+            .iter_comp_mut_by_entity::<Agent<T>>(*entity_key)
+            .check();
+        Ok(iter.map(|agent| agent.into()))
     }
 
     pub fn remove_by_relation(&mut self, relation: AgentRelation) -> Result<(), FieldError> {
-        let relation = self
+        let entity_key = self
             .relation_ref
             .remove(&relation)
             .ok_or(FieldError::NotFound)?;
-        self.ecs.remove_entity(relation).check();
+        self.ecs.remove_entity(entity_key).check();
         Ok(())
     }
 
@@ -984,7 +1052,6 @@ enum RandomWalkState {
 
 #[derive(Debug, Clone)]
 pub struct RandomWalk {
-    entity_key: u32,
     min_rest_secs: f32,
     max_rest_secs: f32,
     min_distance: f32,
@@ -995,7 +1062,6 @@ pub struct RandomWalk {
 
 impl RandomWalk {
     pub fn new(
-        entity_key: u32,
         min_rest_secs: f32,
         max_rest_secs: f32,
         min_distance: f32,
@@ -1003,7 +1069,6 @@ impl RandomWalk {
         speed: f32,
     ) -> Self {
         Self {
-            entity_key,
             min_rest_secs,
             max_rest_secs,
             min_distance,
@@ -1011,12 +1076,6 @@ impl RandomWalk {
             speed,
             state: RandomWalkState::Init,
         }
-    }
-}
-
-impl Agent for RandomWalk {
-    fn relation(&self) -> AgentRelation {
-        AgentRelation::Entity(self.entity_key)
     }
 }
 
@@ -1035,41 +1094,47 @@ impl RandomWalk {
         };
 
         for agent in agent_iter {
-            match agent.state {
+            let inner = agent.inner;
+
+            let AgentRelation::Entity(relation) = *agent.relation else {
+                panic!("invalid relation");
+            };
+
+            match inner.state {
                 RandomWalkState::Init => {
-                    agent.state = RandomWalkState::WaitStart;
+                    inner.state = RandomWalkState::WaitStart;
                 }
                 RandomWalkState::WaitStart => {
                     let secs =
-                        rand::thread_rng().gen_range(agent.min_rest_secs..agent.max_rest_secs);
-                    agent.state = RandomWalkState::Wait(secs);
+                        rand::thread_rng().gen_range(inner.min_rest_secs..inner.max_rest_secs);
+                    inner.state = RandomWalkState::Wait(secs);
                 }
                 RandomWalkState::Wait(secs) => {
                     let new_secs = secs - delta_secs;
                     if new_secs <= 0.0 {
-                        agent.state = RandomWalkState::TripStart;
+                        inner.state = RandomWalkState::TripStart;
                     } else {
-                        agent.state = RandomWalkState::Wait(new_secs);
+                        inner.state = RandomWalkState::Wait(new_secs);
                     }
                 }
                 RandomWalkState::TripStart => {
-                    let entity = entity_field.get(agent.entity_key).check();
+                    let entity = entity_field.get(relation).check();
 
                     let distance =
-                        rand::thread_rng().gen_range(agent.min_distance..agent.max_distance);
+                        rand::thread_rng().gen_range(inner.min_distance..inner.max_distance);
                     let direction = rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
                     let destination = [
                         entity.location[0] + distance * direction.cos(),
                         entity.location[1] + distance * direction.sin(),
                     ];
 
-                    agent.state = RandomWalkState::Trip(destination);
+                    inner.state = RandomWalkState::Trip(destination);
                 }
                 RandomWalkState::Trip(destination) => {
-                    let entity = entity_field.get(agent.entity_key).check();
+                    let entity = entity_field.get(relation).check();
 
                     if entity.location == destination {
-                        agent.state = RandomWalkState::WaitStart;
+                        inner.state = RandomWalkState::WaitStart;
                         return;
                     }
 
@@ -1079,16 +1144,16 @@ impl RandomWalk {
                     ];
                     let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
                     let direction = [diff[0] / distance, diff[1] / distance];
-                    let delta_distance = distance.min(agent.speed * delta_secs);
+                    let delta_distance = distance.min(inner.speed * delta_secs);
                     let location = [
                         entity.location[0] + direction[0] * delta_distance,
                         entity.location[1] + direction[1] * delta_distance,
                     ];
 
-                    if move_entity(block_field, entity_field, agent.entity_key, location).is_ok() {
-                        agent.state = RandomWalkState::Trip(destination);
+                    if move_entity(block_field, entity_field, relation, location).is_ok() {
+                        inner.state = RandomWalkState::Trip(destination);
                     } else {
-                        agent.state = RandomWalkState::WaitStart;
+                        inner.state = RandomWalkState::WaitStart;
                     }
                 }
             }

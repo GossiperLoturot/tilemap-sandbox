@@ -13,29 +13,9 @@ struct AgentRelation {
     inner: inner::AgentRelation,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum AgentTypeEnum {
-    RandomWalk,
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct AgentType {
-    inner: AgentTypeEnum,
-}
-
-#[godot_api]
-impl AgentType {
-    #[func]
-    fn new_random_walk() -> Gd<Self> {
-        let agent = AgentTypeEnum::RandomWalk;
-        Gd::from_init_fn(|_| Self { inner: agent })
-    }
-}
-
 #[derive(Debug, Clone)]
 enum AgentEnum {
-    RandomWalk(inner::RandomWalk),
+    RandomWalk(inner::Agent<inner::RandomWalk>),
 }
 
 #[derive(GodotClass)]
@@ -56,14 +36,16 @@ impl Agent {
         speed: f32,
     ) -> Gd<Self> {
         let entity_key = entity_key.bind().inner;
-        let agent = AgentEnum::RandomWalk(inner::RandomWalk::new(
-            entity_key,
-            min_rest_secs,
-            max_rest_secs,
-            min_distance,
-            max_distance,
-            speed,
-        ));
+        let agent = AgentEnum::RandomWalk(inner::Agent {
+            inner: inner::RandomWalk::new(
+                min_rest_secs,
+                max_rest_secs,
+                min_distance,
+                max_distance,
+                speed,
+            ),
+            relation: inner::AgentRelation::Entity(entity_key),
+        });
         Gd::from_init_fn(|_| Self { inner: agent })
     }
 }
@@ -121,53 +103,12 @@ impl AgentPlugin {
 
         let agent = if key.0 == std::any::TypeId::of::<inner::RandomWalk>() {
             let agent = self.inner.get::<inner::RandomWalk>(key).ok()?;
-            AgentEnum::RandomWalk(agent.clone())
+            AgentEnum::RandomWalk(agent.to_owned())
         } else {
             unreachable!()
         };
 
         Some(Gd::from_init_fn(|_| Agent { inner: agent }))
-    }
-
-    #[func]
-    fn get_by_type(&self, r#type: Gd<AgentType>) -> Array<Gd<Agent>> {
-        let r#type = r#type.bind().inner;
-
-        let iter = match r#type {
-            AgentTypeEnum::RandomWalk => {
-                let agents = self.inner.iter::<inner::RandomWalk>();
-                agents.into_iter().flatten().map(|agent| {
-                    Gd::from_init_fn(|_| Agent {
-                        inner: AgentEnum::RandomWalk(agent.clone()),
-                    })
-                })
-            }
-        };
-
-        Array::from_iter(iter)
-    }
-
-    #[func]
-    fn get_by_type_and_relation(
-        &self,
-        r#type: Gd<AgentType>,
-        relation: Gd<AgentRelation>,
-    ) -> Array<Gd<Agent>> {
-        let r#type = r#type.bind().inner;
-        let relation = relation.bind().inner;
-
-        let iter = match r#type {
-            AgentTypeEnum::RandomWalk => {
-                let agents = self.inner.iter_by_relation::<inner::RandomWalk>(relation);
-                agents.into_iter().flatten().map(|agent| {
-                    Gd::from_init_fn(|_| Agent {
-                        inner: AgentEnum::RandomWalk(agent.clone()),
-                    })
-                })
-            }
-        };
-
-        Array::from_iter(iter)
     }
 
     #[func]
