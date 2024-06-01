@@ -42,8 +42,8 @@ pub struct EntityKey {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct Entity {
-    inner: inner::Entity,
+pub struct Entity {
+    pub inner: inner::Entity,
 }
 
 #[godot_api]

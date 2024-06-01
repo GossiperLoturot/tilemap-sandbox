@@ -45,8 +45,8 @@ pub struct BlockKey {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct Block {
-    inner: inner::Block,
+pub struct Block {
+    pub inner: inner::Block,
 }
 
 #[godot_api]

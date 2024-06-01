@@ -926,14 +926,30 @@ impl<'a, T> From<&'a mut Agent<T>> for AgentMut<'a, T> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum AgentFactory {
+    Unit,
+    RandomWalk(RandomWalkFactory),
+}
+
 pub struct AgentPlugin {
+    tile_factories: Vec<AgentFactory>,
+    block_factories: Vec<AgentFactory>,
+    entity_factories: Vec<AgentFactory>,
     ecs: ecs_tiny::ECS,
     relation_ref: ahash::AHashMap<AgentRelation, u32>,
 }
 
 impl AgentPlugin {
-    pub fn new() -> Self {
+    pub fn new(
+        tile_factories: Vec<AgentFactory>,
+        block_factories: Vec<AgentFactory>,
+        entity_factories: Vec<AgentFactory>,
+    ) -> Self {
         Self {
+            tile_factories,
+            block_factories,
+            entity_factories,
             ecs: Default::default(),
             relation_ref: Default::default(),
         }
@@ -1037,6 +1053,96 @@ impl AgentPlugin {
     ) {
         RandomWalk::update(self, tile_field, block_field, entity_field, delta_secs);
     }
+
+    pub fn place_tile(
+        &mut self,
+        tile_field: &mut TileField,
+        tile: Tile,
+    ) -> Result<u32, FieldError> {
+        let id = tile.id;
+        let key = tile_field.insert(tile)?;
+        let relation = AgentRelation::Tile(key);
+        let _ = self.insert_with_factory(id, relation);
+        Ok(key)
+    }
+
+    pub fn break_tile(&mut self, tile_field: &mut TileField, key: u32) -> Result<Tile, FieldError> {
+        let tile = tile_field.remove(key)?;
+        let relation = AgentRelation::Tile(key);
+        self.remove_by_relation(relation).check();
+        Ok(tile)
+    }
+
+    pub fn place_block(
+        &mut self,
+        block_field: &mut BlockField,
+        block: Block,
+    ) -> Result<u32, FieldError> {
+        let id = block.id;
+        let key = block_field.insert(block)?;
+        let relation = AgentRelation::Block(key);
+        let _ = self.insert_with_factory(id, relation);
+        Ok(key)
+    }
+
+    pub fn break_block(
+        &mut self,
+        block_field: &mut BlockField,
+        key: u32,
+    ) -> Result<Block, FieldError> {
+        let block = block_field.remove(key)?;
+        let relation = AgentRelation::Block(key);
+        self.remove_by_relation(relation).check();
+        Ok(block)
+    }
+
+    pub fn place_entity(
+        &mut self,
+        entity_field: &mut EntityField,
+        entity: Entity,
+    ) -> Result<u32, FieldError> {
+        let id = entity.id;
+        let key = entity_field.insert(entity)?;
+        let relation = AgentRelation::Entity(key);
+        let _ = self.insert_with_factory(id, relation);
+        Ok(key)
+    }
+
+    pub fn break_entity(
+        &mut self,
+        entity_field: &mut EntityField,
+        key: u32,
+    ) -> Result<Entity, FieldError> {
+        let entity = entity_field.remove(key)?;
+        let relation = AgentRelation::Entity(key);
+        self.remove_by_relation(relation).check();
+        Ok(entity)
+    }
+
+    fn insert_with_factory(
+        &mut self,
+        id: u32,
+        relation: AgentRelation,
+    ) -> Result<AgentKey, FieldError> {
+        let factories = match relation {
+            AgentRelation::Tile(_) => &self.tile_factories,
+            AgentRelation::Block(_) => &self.block_factories,
+            AgentRelation::Entity(_) => &self.entity_factories,
+            _ => unreachable!(),
+        };
+        let factory = factories.get(id as usize).ok_or(FieldError::InvalidId)?;
+
+        match factory {
+            AgentFactory::Unit => {
+                let inner = ();
+                self.insert(Agent { inner, relation })
+            }
+            AgentFactory::RandomWalk(factory) => {
+                let inner = factory.create();
+                self.insert(Agent { inner, relation })
+            }
+        }
+    }
 }
 
 // Agent Plugin Extra
@@ -1061,25 +1167,6 @@ pub struct RandomWalk {
 }
 
 impl RandomWalk {
-    pub fn new(
-        min_rest_secs: f32,
-        max_rest_secs: f32,
-        min_distance: f32,
-        max_distance: f32,
-        speed: f32,
-    ) -> Self {
-        Self {
-            min_rest_secs,
-            max_rest_secs,
-            min_distance,
-            max_distance,
-            speed,
-            state: RandomWalkState::Init,
-        }
-    }
-}
-
-impl RandomWalk {
     fn update(
         agent_plguin: &mut AgentPlugin,
         _tile_field: &mut TileField,
@@ -1097,7 +1184,7 @@ impl RandomWalk {
             let inner = agent.inner;
 
             let AgentRelation::Entity(relation) = *agent.relation else {
-                panic!("invalid relation");
+                unreachable!("invalid relation");
             };
 
             match inner.state {
@@ -1157,6 +1244,44 @@ impl RandomWalk {
                     }
                 }
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RandomWalkFactory {
+    min_rest_secs: f32,
+    max_rest_secs: f32,
+    min_distance: f32,
+    max_distance: f32,
+    speed: f32,
+}
+
+impl RandomWalkFactory {
+    pub fn new(
+        min_rest_secs: f32,
+        max_rest_secs: f32,
+        min_distance: f32,
+        max_distance: f32,
+        speed: f32,
+    ) -> Self {
+        Self {
+            min_rest_secs,
+            max_rest_secs,
+            min_distance,
+            max_distance,
+            speed,
+        }
+    }
+
+    fn create(&self) -> RandomWalk {
+        RandomWalk {
+            min_rest_secs: self.min_rest_secs,
+            max_rest_secs: self.max_rest_secs,
+            min_distance: self.min_distance,
+            max_distance: self.max_distance,
+            speed: self.speed,
+            state: RandomWalkState::Init,
         }
     }
 }

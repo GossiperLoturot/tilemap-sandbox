@@ -33,8 +33,8 @@ pub struct TileKey {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct Tile {
-    inner: inner::Tile,
+pub struct Tile {
+    pub inner: inner::Tile,
 }
 
 #[godot_api]
