@@ -10,7 +10,7 @@ var _key: EntityKey
 
 func _ready():
 	var entity = Entity.new_from(0, _location)
-	_key = field._entity_field.insert(entity)
+	_key = field._agent_plugin.place_entity(entity)
 
 
 func _process(delta):

@@ -16,8 +16,10 @@ var _agent_plugin: AgentPlugin
 
 func _ready():
 	var agent_plugin_desc = AgentPluginDesc.new()
+
 	agent_plugin_desc.tile_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.tile_factories.append(AgentFactory.new_unit())
+
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
@@ -26,6 +28,8 @@ func _ready():
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
+	agent_plugin_desc.block_factories.append(AgentFactory.new_unit())
+
 	agent_plugin_desc.entity_factories.append(AgentFactory.new_unit())
 	agent_plugin_desc.entity_factories.append(AgentFactory.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0))
 	

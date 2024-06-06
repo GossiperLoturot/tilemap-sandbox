@@ -81,7 +81,7 @@ impl AgentPlugin {
             .collect::<Vec<_>>();
 
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentPlugin::new(block_factories, tile_factories, entity_factories),
+            inner: inner::AgentPlugin::new(tile_factories, block_factories, entity_factories),
             tile_field,
             block_field,
             entity_field,

@@ -862,7 +862,7 @@ fn move_entity(
 
 // Agent Plugin
 
-pub type AgentKey = (std::any::TypeId, u32);
+pub type AgentKey = (AgentKind, u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AgentRelation {
@@ -872,20 +872,33 @@ pub enum AgentRelation {
     Entity(u32),
 }
 
+#[derive(Debug, Clone, strum_macros::EnumDiscriminants)]
+#[strum_discriminants(name(AgentKind))]
+#[strum_discriminants(derive(Hash))]
+pub enum AgentInner {
+    Unit,
+    RandomWalk(RandomWalk),
+}
+
 #[derive(Debug, Clone)]
-pub struct Agent<T> {
-    pub inner: T,
+pub struct Agent {
+    pub inner: AgentInner,
     pub relation: AgentRelation,
 }
 
-#[derive(Debug, Clone)]
-pub struct AgentRef<'a, T> {
-    pub inner: &'a T,
+impl<'a> From<&'a Agent> for AgentKind {
+    fn from(agent: &'a Agent) -> Self {
+        (&agent.inner).into()
+    }
+}
+
+pub struct AgentRef<'a> {
+    pub inner: &'a AgentInner,
     pub relation: &'a AgentRelation,
 }
 
-impl<'a, T> From<&'a Agent<T>> for AgentRef<'a, T> {
-    fn from(agent: &'a Agent<T>) -> Self {
+impl<'a> From<&'a Agent> for AgentRef<'a> {
+    fn from(agent: &'a Agent) -> Self {
         Self {
             inner: &agent.inner,
             relation: &agent.relation,
@@ -893,32 +906,13 @@ impl<'a, T> From<&'a Agent<T>> for AgentRef<'a, T> {
     }
 }
 
-impl<T: Clone> AgentRef<'_, T> {
-    pub fn to_owned(&self) -> Agent<T> {
-        Agent {
-            inner: self.inner.clone(),
-            relation: *self.relation,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct AgentMut<'a, T> {
-    pub inner: &'a mut T,
+pub struct AgentMut<'a> {
+    pub inner: &'a mut AgentInner,
     pub relation: &'a AgentRelation,
 }
 
-impl<T: Clone> AgentMut<'_, T> {
-    pub fn to_owned(&self) -> Agent<T> {
-        Agent {
-            inner: self.inner.clone(),
-            relation: *self.relation,
-        }
-    }
-}
-
-impl<'a, T> From<&'a mut Agent<T>> for AgentMut<'a, T> {
-    fn from(agent: &'a mut Agent<T>) -> Self {
+impl<'a> From<&'a mut Agent> for AgentMut<'a> {
+    fn from(agent: &'a mut Agent) -> Self {
         Self {
             inner: &mut agent.inner,
             relation: &agent.relation,
@@ -932,11 +926,21 @@ pub enum AgentFactory {
     RandomWalk(RandomWalkFactory),
 }
 
+impl<'a> From<&'a AgentFactory> for AgentInner {
+    fn from(value: &'a AgentFactory) -> Self {
+        match value {
+            AgentFactory::Unit => AgentInner::Unit,
+            AgentFactory::RandomWalk(factory) => AgentInner::RandomWalk(factory.create()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct AgentPlugin {
     tile_factories: Vec<AgentFactory>,
     block_factories: Vec<AgentFactory>,
     entity_factories: Vec<AgentFactory>,
-    ecs: ecs_tiny::ECS,
+    ecs: ecs_tiny::ECS<Agent, AgentKind>,
     relation_ref: ahash::AHashMap<AgentRelation, u32>,
 }
 
@@ -955,83 +959,66 @@ impl AgentPlugin {
         }
     }
 
-    pub fn insert<T: 'static>(&mut self, agent: Agent<T>) -> Result<AgentKey, FieldError> {
+    pub fn insert(&mut self, agent: Agent) -> Result<AgentKey, FieldError> {
         let entity_key = self
             .relation_ref
             .entry(agent.relation)
             .or_insert_with(|| self.ecs.insert_entity());
 
-        let comp_key = self.ecs.insert_comp::<Agent<T>>(*entity_key, agent).check();
+        let comp_key = self.ecs.insert_comp(*entity_key, agent).check();
         Ok(comp_key)
     }
 
-    pub fn remove<T: 'static>(&mut self, key: AgentKey) -> Result<Agent<T>, FieldError> {
-        self.ecs
-            .remove_comp::<Agent<T>>(key)
-            .ok_or(FieldError::NotFound)
+    pub fn remove(&mut self, key: AgentKey) -> Result<Agent, FieldError> {
+        self.ecs.remove_comp(key).ok_or(FieldError::NotFound)
     }
 
-    pub fn get<T: 'static>(&self, key: AgentKey) -> Result<AgentRef<T>, FieldError> {
-        let agent = self
-            .ecs
-            .get_comp::<Agent<T>>(key)
-            .ok_or(FieldError::NotFound)?;
+    pub fn get(&self, key: AgentKey) -> Result<AgentRef, FieldError> {
+        let agent = self.ecs.get_comp(key).ok_or(FieldError::NotFound)?;
         Ok(agent.into())
     }
 
-    pub fn get_mut<T: 'static>(&mut self, key: AgentKey) -> Result<AgentMut<T>, FieldError> {
-        let agent = self
-            .ecs
-            .get_comp_mut::<Agent<T>>(key)
-            .ok_or(FieldError::NotFound)?;
+    pub fn get_mut(&mut self, key: AgentKey) -> Result<AgentMut, FieldError> {
+        let agent = self.ecs.get_comp_mut(key).ok_or(FieldError::NotFound)?;
         Ok(agent.into())
     }
 
-    pub fn iter<T: 'static>(&self) -> Result<impl Iterator<Item = AgentRef<T>>, FieldError> {
-        let iter = self
-            .ecs
-            .iter_comp::<Agent<T>>()
-            .ok_or(FieldError::NotFound)?;
+    pub fn iter(&self, kind: AgentKind) -> Result<impl Iterator<Item = AgentRef>, FieldError> {
+        let iter = self.ecs.iter_comp(kind).ok_or(FieldError::NotFound)?;
         Ok(iter.map(|agent| agent.into()))
     }
 
-    pub fn iter_mut<T: 'static>(
+    pub fn iter_mut(
         &mut self,
-    ) -> Result<impl Iterator<Item = AgentMut<T>>, FieldError> {
-        let iter = self
-            .ecs
-            .iter_comp_mut::<Agent<T>>()
-            .ok_or(FieldError::NotFound)?;
+        kind: AgentKind,
+    ) -> Result<impl Iterator<Item = AgentMut>, FieldError> {
+        let iter = self.ecs.iter_comp_mut(kind).ok_or(FieldError::NotFound)?;
         Ok(iter.map(|agent| agent.into()))
     }
 
-    pub fn iter_by_relation<T: 'static>(
+    pub fn iter_by_relation(
         &self,
         relation: AgentRelation,
-    ) -> Result<impl Iterator<Item = AgentRef<T>>, FieldError> {
+        kind: AgentKind,
+    ) -> Result<impl Iterator<Item = AgentRef>, FieldError> {
         let entity_key = self
             .relation_ref
             .get(&relation)
             .ok_or(FieldError::NotFound)?;
-        let iter = self
-            .ecs
-            .iter_comp_by_entity::<Agent<T>>(*entity_key)
-            .check();
+        let iter = self.ecs.iter_comp_by_entity(*entity_key, kind).check();
         Ok(iter.map(|agent| agent.into()))
     }
 
-    pub fn iter_mut_by_relation<T: 'static>(
+    pub fn iter_mut_by_relation(
         &mut self,
         relation: AgentRelation,
-    ) -> Result<impl Iterator<Item = AgentMut<T>>, FieldError> {
+        kind: AgentKind,
+    ) -> Result<impl Iterator<Item = AgentMut>, FieldError> {
         let entity_key = self
             .relation_ref
             .get_mut(&relation)
             .ok_or(FieldError::NotFound)?;
-        let iter = self
-            .ecs
-            .iter_comp_mut_by_entity::<Agent<T>>(*entity_key)
-            .check();
+        let iter = self.ecs.iter_comp_mut_by_entity(*entity_key, kind).check();
         Ok(iter.map(|agent| agent.into()))
     }
 
@@ -1059,10 +1046,17 @@ impl AgentPlugin {
         tile_field: &mut TileField,
         tile: Tile,
     ) -> Result<u32, FieldError> {
-        let id = tile.id;
+        let factory = self
+            .tile_factories
+            .get(tile.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+
         let key = tile_field.insert(tile)?;
         let relation = AgentRelation::Tile(key);
-        let _ = self.insert_with_factory(id, relation);
+
+        let inner = factory.into();
+        self.insert(Agent { inner, relation }).check();
+
         Ok(key)
     }
 
@@ -1078,10 +1072,17 @@ impl AgentPlugin {
         block_field: &mut BlockField,
         block: Block,
     ) -> Result<u32, FieldError> {
-        let id = block.id;
+        let factory = self
+            .block_factories
+            .get(block.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+
         let key = block_field.insert(block)?;
         let relation = AgentRelation::Block(key);
-        let _ = self.insert_with_factory(id, relation);
+
+        let inner = factory.into();
+        self.insert(Agent { inner, relation }).check();
+
         Ok(key)
     }
 
@@ -1101,10 +1102,17 @@ impl AgentPlugin {
         entity_field: &mut EntityField,
         entity: Entity,
     ) -> Result<u32, FieldError> {
-        let id = entity.id;
+        let factory = self
+            .entity_factories
+            .get(entity.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+
         let key = entity_field.insert(entity)?;
         let relation = AgentRelation::Entity(key);
-        let _ = self.insert_with_factory(id, relation);
+
+        let inner = factory.into();
+        self.insert(Agent { inner, relation }).check();
+
         Ok(key)
     }
 
@@ -1117,31 +1125,6 @@ impl AgentPlugin {
         let relation = AgentRelation::Entity(key);
         self.remove_by_relation(relation).check();
         Ok(entity)
-    }
-
-    fn insert_with_factory(
-        &mut self,
-        id: u32,
-        relation: AgentRelation,
-    ) -> Result<AgentKey, FieldError> {
-        let factories = match relation {
-            AgentRelation::Tile(_) => &self.tile_factories,
-            AgentRelation::Block(_) => &self.block_factories,
-            AgentRelation::Entity(_) => &self.entity_factories,
-            _ => unreachable!(),
-        };
-        let factory = factories.get(id as usize).ok_or(FieldError::InvalidId)?;
-
-        match factory {
-            AgentFactory::Unit => {
-                let inner = ();
-                self.insert(Agent { inner, relation })
-            }
-            AgentFactory::RandomWalk(factory) => {
-                let inner = factory.create();
-                self.insert(Agent { inner, relation })
-            }
-        }
     }
 }
 
@@ -1176,12 +1159,14 @@ impl RandomWalk {
     ) {
         use rand::Rng;
 
-        let Ok(agent_iter) = agent_plguin.iter_mut::<Self>() else {
+        let Ok(iter) = agent_plguin.iter_mut(AgentKind::RandomWalk) else {
             return;
         };
 
-        for agent in agent_iter {
-            let inner = agent.inner;
+        for agent in iter {
+            let AgentInner::RandomWalk(inner) = agent.inner else {
+                unreachable!("invalid inner");
+            };
 
             let AgentRelation::Entity(relation) = *agent.relation else {
                 unreachable!("invalid relation");
