@@ -2,14 +2,13 @@ use crate::inner;
 use godot::prelude::*;
 
 #[derive(GodotClass)]
-#[class(init, base=Resource)]
+#[class(no_init, base=RefCounted)]
 struct EntityFieldDescEntry {
     #[export]
-    image: Option<Gd<godot::engine::Image>>,
+    image: Gd<godot::engine::Image>,
     #[export]
     z_along_y: bool,
     #[export]
-    #[init(default = Vector2::new(1.0, 1.0))]
     rendering_size: Vector2,
     #[export]
     rendering_offset: Vector2,
@@ -19,19 +18,57 @@ struct EntityFieldDescEntry {
     collision_offset: Vector2,
 }
 
+#[godot_api]
+impl EntityFieldDescEntry {
+    #[func]
+    fn new_from(
+        image: Gd<godot::engine::Image>,
+        z_along_y: bool,
+        rendering_size: Vector2,
+        rendering_offset: Vector2,
+        collision_size: Vector2,
+        collision_offset: Vector2,
+    ) -> Gd<Self> {
+        Gd::from_init_fn(|_| Self {
+            image,
+            z_along_y,
+            rendering_size,
+            rendering_offset,
+            collision_size,
+            collision_offset,
+        })
+    }
+}
+
 #[derive(GodotClass)]
-#[class(init, base=Resource)]
+#[class(no_init, base=RefCounted)]
 struct EntityFieldDesc {
     #[export]
-    #[init(default = 2048)]
     output_image_size: u32,
     #[export]
-    #[init(default = 64)]
     max_page_size: u32,
     #[export]
     entries: Array<Gd<EntityFieldDescEntry>>,
     #[export]
-    shader: Option<Gd<godot::engine::Shader>>,
+    shader: Gd<godot::engine::Shader>,
+}
+
+#[godot_api]
+impl EntityFieldDesc {
+    #[func]
+    fn new_from(
+        output_image_size: u32,
+        max_page_size: u32,
+        entries: Array<Gd<EntityFieldDescEntry>>,
+        shader: Gd<godot::engine::Shader>,
+    ) -> Gd<Self> {
+        Gd::from_init_fn(|_| Self {
+            output_image_size,
+            max_page_size,
+            entries,
+            shader,
+        })
+    }
 }
 
 #[derive(GodotClass)]
@@ -169,7 +206,6 @@ impl EntityField {
             .iter_shared()
             .map(|entry| {
                 let gd_image = &entry.bind().image;
-                let gd_image = gd_image.as_ref().unwrap();
 
                 let width = gd_image.get_width() as u32;
                 let height = gd_image.get_height() as u32;
@@ -227,7 +263,7 @@ impl EntityField {
             .map(|texcoord| texcoord.to_f32())
             .collect::<Vec<_>>();
 
-        let shader = desc.shader.as_ref().unwrap().get_rid();
+        let shader = desc.shader.get_rid();
         let mesh_data = {
             let mut data = VariantArray::new();
             data.resize(

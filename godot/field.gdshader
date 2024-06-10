@@ -12,7 +12,7 @@ varying flat float page;
 
 void vertex() {
 	page = page_buffer[INSTANCE_ID];
-	
+
 	vec2 offset = texcoord_buffer[INSTANCE_ID].xy;
 	vec2 scale = texcoord_buffer[INSTANCE_ID].zw;
 	UV = UV * scale + offset;
@@ -20,10 +20,10 @@ void vertex() {
 
 void fragment() {
 	vec4 col = texture(texture_array, vec3(UV, page));
-	
+
 	if (col.a < ALPHA_THRESHOLD) {
 		discard;
 	}
-	
+
 	ALBEDO = col.rgb;
 }

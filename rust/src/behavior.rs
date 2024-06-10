@@ -3,15 +3,15 @@ use godot::prelude::*;
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct AgentFactory {
-    inner: inner::AgentFactory,
+struct BehaviorFactory {
+    inner: inner::BehaviorFactory,
 }
 
 #[godot_api]
-impl AgentFactory {
+impl BehaviorFactory {
     #[func]
     fn new_unit() -> Gd<Self> {
-        let inner = inner::AgentFactory::Unit;
+        let inner = inner::BehaviorFactory::Unit;
         Gd::from_init_fn(|_| Self { inner })
     }
 
@@ -23,7 +23,7 @@ impl AgentFactory {
         max_distance: f32,
         speed: f32,
     ) -> Gd<Self> {
-        let inner = inner::AgentFactory::RandomWalk(inner::RandomWalkFactory::new(
+        let inner = inner::BehaviorFactory::RandomWalk(inner::RandomWalkFactory::new(
             min_rest_secs,
             max_rest_secs,
             min_distance,
@@ -32,33 +32,55 @@ impl AgentFactory {
         ));
         Gd::from_init_fn(|_| Self { inner })
     }
-}
 
-#[derive(GodotClass)]
-#[class(init, base=RefCounted)]
-struct AgentPluginDesc {
-    #[export]
-    tile_factories: Array<Gd<AgentFactory>>,
-    #[export]
-    block_factories: Array<Gd<AgentFactory>>,
-    #[export]
-    entity_factories: Array<Gd<AgentFactory>>,
+    #[func]
+    fn new_generator() -> Gd<Self> {
+        let inner = inner::BehaviorFactory::Generator(inner::GeneratorFactory::new());
+        Gd::from_init_fn(|_| Self { inner })
+    }
 }
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct AgentPlugin {
-    inner: inner::AgentPlugin,
+struct BehaviorPluginDesc {
+    #[export]
+    tile_factories: Array<Gd<BehaviorFactory>>,
+    #[export]
+    block_factories: Array<Gd<BehaviorFactory>>,
+    #[export]
+    entity_factories: Array<Gd<BehaviorFactory>>,
+}
+
+#[godot_api]
+impl BehaviorPluginDesc {
+    #[func]
+    fn new_from(
+        tile_factories: Array<Gd<BehaviorFactory>>,
+        block_factories: Array<Gd<BehaviorFactory>>,
+        entity_factories: Array<Gd<BehaviorFactory>>,
+    ) -> Gd<Self> {
+        Gd::from_init_fn(|_| Self {
+            tile_factories,
+            block_factories,
+            entity_factories,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct BehaviorPlugin {
+    inner: inner::BehaviorPlugin,
     tile_field: Gd<tile::TileField>,
     block_field: Gd<block::BlockField>,
     entity_field: Gd<entity::EntityField>,
 }
 
 #[godot_api]
-impl AgentPlugin {
+impl BehaviorPlugin {
     #[func]
     fn new_from(
-        desc: Gd<AgentPluginDesc>,
+        desc: Gd<BehaviorPluginDesc>,
         tile_field: Gd<tile::TileField>,
         block_field: Gd<block::BlockField>,
         entity_field: Gd<entity::EntityField>,
@@ -81,7 +103,7 @@ impl AgentPlugin {
             .collect::<Vec<_>>();
 
         Gd::from_init_fn(|_| Self {
-            inner: inner::AgentPlugin::new(tile_factories, block_factories, entity_factories),
+            inner: inner::BehaviorPlugin::new(tile_factories, block_factories, entity_factories),
             tile_field,
             block_field,
             entity_field,

@@ -1,6 +1,6 @@
 use godot::prelude::*;
 
-mod agent;
+mod behavior;
 mod block;
 mod entity;
 mod inner;
