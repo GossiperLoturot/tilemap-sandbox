@@ -2,6 +2,7 @@ pub use behavior::*;
 pub use field::*;
 
 mod behavior;
+mod behavior_new;
 mod field;
 
 pub type Vec2 = [f32; 2];
