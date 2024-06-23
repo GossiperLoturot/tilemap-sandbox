@@ -2,7 +2,7 @@ use super::*;
 
 type RectNode<T, U> = rstar::primitives::GeomWithData<rstar::primitives::Rectangle<T>, U>;
 
-// Tile Field
+// tile field
 
 #[derive(Debug, Clone)]
 struct UnstableTileKey {
@@ -85,7 +85,6 @@ impl TileField {
 
     pub fn modify(&mut self, key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
         // validate modification
-
         if !self
             .spatial_ref
             .get(&new_tile.location)
@@ -95,7 +94,6 @@ impl TileField {
         }
 
         // remove old tile
-
         let ukey = self
             .stable_ref
             .get_mut(key as usize)
@@ -107,10 +105,9 @@ impl TileField {
         // spatial features
         self.spatial_ref.remove(&tile.location).check();
 
-        // insert new tile
-
         let location = new_tile.location;
 
+        // insert new tile
         let chunk_key = [
             location[0].div_euclid(self.chunk_size as i32),
             location[1].div_euclid(self.chunk_size as i32),
@@ -154,7 +151,7 @@ impl TileField {
     }
 }
 
-// Block Field
+// block field
 
 #[derive(Debug, Clone)]
 pub struct BlockSpec {
@@ -370,7 +367,6 @@ impl BlockField {
         }
 
         // remove old block
-
         let ukey = self
             .stable_ref
             .get_mut(key as usize)
@@ -401,10 +397,9 @@ impl BlockField {
             self.hint_ref.remove(&node).check();
         }
 
-        // insert new block
-
         let location = new_block.location;
 
+        // insert new block
         let chunk_key = [
             location[0].div_euclid(self.chunk_size as i32),
             location[1].div_euclid(self.chunk_size as i32),
@@ -535,7 +530,7 @@ impl BlockField {
     }
 }
 
-// Entity Field
+// entity field
 
 #[derive(Debug, Clone)]
 pub struct EntitySpec {
@@ -708,7 +703,6 @@ impl EntityField {
             .ok_or(FieldError::InvalidId)?;
 
         // remove old entity
-
         let ukey = self
             .stable_ref
             .get_mut(key as usize)
@@ -733,10 +727,9 @@ impl EntityField {
             self.hint_ref.remove(node).check();
         }
 
-        // insert new entity
-
         let location = new_entity.location;
 
+        // insert new entity
         let chunk_key = [
             location[0].div_euclid(self.chunk_size as f32) as i32,
             location[1].div_euclid(self.chunk_size as f32) as i32,
@@ -835,7 +828,7 @@ impl EntityField {
     }
 }
 
-// Field Extra
+// utility functions
 
 pub fn move_entity(
     block_field: &BlockField,
