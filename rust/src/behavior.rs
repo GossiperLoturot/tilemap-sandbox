@@ -1,209 +1,58 @@
-use crate::{block, entity, inner, tile};
 use godot::prelude::*;
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct GlobalBehavior {
-    inner: Box<dyn inner::GlobalBehavior>,
-}
+use crate::{inner, world};
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct TileBehavior {
-    inner: Box<dyn inner::TileBehavior>,
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct BlockBehavior {
-    inner: Box<dyn inner::BlockBehavior>,
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct EntityBehavior {
-    inner: Box<dyn inner::EntityBehavior>,
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct WorldBehavior {
-    inner: inner::WorldBehavior,
-}
+struct Behavior;
 
 #[godot_api]
-impl WorldBehavior {
-    // #[func]
-    // fn new_from(
-    //     global_behaviors: Array<Gd<GlobalBehavior>>,
-    //     tile_behaviors: Array<Gd<TileBehavior>>,
-    //     block_behaviors: Array<Gd<BlockBehavior>>,
-    //     entity_behaviors: Array<Gd<EntityBehavior>>,
-    // ) -> Gd<Self> {
-    //     let global_behaviors = global_behaviors
-    //         .iter_shared()
-    //         .map(|behavior| behavior.bind().inner)
-    //         .collect::<Vec<_>>();
-    //     let tile_behaviors = tile_behaviors
-    //         .iter_shared()
-    //         .map(|behavior| behavior.bind().inner)
-    //         .collect::<Vec<_>>();
-    //     let block_behaviors = block_behaviors
-    //         .iter_shared()
-    //         .map(|behavior| behavior.bind().inner)
-    //         .collect::<Vec<_>>();
-    //     let entity_behaviors = entity_behaviors
-    //         .iter_shared()
-    //         .map(|behavior| behavior.bind().inner)
-    //         .collect::<Vec<_>>();
-    //     let inner = inner::WorldBehavior {
-    //         global_behaviors,
-    //         tile_behaviors,
-    //         block_behaviors,
-    //         entity_behaviors,
-    //     };
-    //     Gd::from_init_fn(|_| Self { inner })
-    // }
-}
-
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-struct World {
-    tile_field: Gd<tile::TileField>,
-    block_field: Gd<block::BlockField>,
-    entity_field: Gd<entity::EntityField>,
-    node_store: inner::NodeStore,
-}
-
-#[godot_api]
-impl World {
+impl Behavior {
     #[func]
-    fn new_from(
-        mut tile_field: Gd<tile::TileField>,
-        mut block_field: Gd<block::BlockField>,
-        mut entity_field: Gd<entity::EntityField>,
-        world_behavior: Gd<WorldBehavior>,
-    ) -> Gd<Self> {
-        let mut node_store = inner::NodeStore::default();
-
-        {
-            let mut world = inner::World {
-                tile_field: &mut tile_field.bind_mut().inner,
-                block_field: &mut block_field.bind_mut().inner,
-                entity_field: &mut entity_field.bind_mut().inner,
-                node_store: &mut node_store,
-            };
-
-            // world.install(world_behavior.bind().inner);
-        }
-
-        Gd::from_init_fn(|_| World {
-            tile_field,
-            block_field,
-            entity_field,
-            node_store,
-        })
+    fn new_unit_global() -> Gd<world::GlobalBehavior> {
+        let inner = Box::new(());
+        Gd::from_init_fn(|_| world::GlobalBehavior { inner })
     }
 
     #[func]
-    fn place_tile(&mut self, tile: Gd<tile::Tile>) -> Option<Gd<tile::TileKey>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let tile = tile.bind().inner.clone();
-        let key = world.place_tile(tile).ok()?;
-
-        Some(Gd::from_init_fn(|_| tile::TileKey { inner: key }))
+    fn new_unit_tile() -> Gd<world::TileBehavior> {
+        let inner = Box::new(());
+        Gd::from_init_fn(|_| world::TileBehavior { inner })
     }
 
     #[func]
-    fn break_tile(&mut self, tile_key: Gd<tile::TileKey>) -> Option<Gd<tile::Tile>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let tile_key = tile_key.bind().inner;
-        let tile = world.break_tile(tile_key).ok()?;
-
-        Some(Gd::from_init_fn(|_| tile::Tile { inner: tile }))
+    fn new_unit_block() -> Gd<world::BlockBehavior> {
+        let inner = Box::new(());
+        Gd::from_init_fn(|_| world::BlockBehavior { inner })
     }
 
     #[func]
-    fn place_block(&mut self, block: Gd<block::Block>) -> Option<Gd<block::BlockKey>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let block = block.bind().inner.clone();
-        let key = world.place_block(block).ok()?;
-
-        Some(Gd::from_init_fn(|_| block::BlockKey { inner: key }))
+    fn new_unit_entity() -> Gd<world::EntityBehavior> {
+        let inner = Box::new(());
+        Gd::from_init_fn(|_| world::EntityBehavior { inner })
     }
 
     #[func]
-    fn break_block(&mut self, block_key: Gd<block::BlockKey>) -> Option<Gd<block::Block>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let block_key = block_key.bind().inner;
-        let block = world.break_block(block_key).ok()?;
-
-        Some(Gd::from_init_fn(|_| block::Block { inner: block }))
+    fn new_time() -> Gd<world::GlobalBehavior> {
+        let inner = Box::new(inner::TimeBehavior);
+        Gd::from_init_fn(|_| world::GlobalBehavior { inner })
     }
 
     #[func]
-    fn place_entity(&mut self, entity: Gd<entity::Entity>) -> Option<Gd<entity::EntityKey>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let entity = entity.bind().inner.clone();
-        let key = world.place_entity(entity).ok()?;
-
-        Some(Gd::from_init_fn(|_| entity::EntityKey { inner: key }))
-    }
-
-    #[func]
-    fn break_entity(&mut self, entity_key: Gd<entity::EntityKey>) -> Option<Gd<entity::Entity>> {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        let entity_key = entity_key.bind().inner;
-        let entity = world.break_entity(entity_key).ok()?;
-
-        Some(Gd::from_init_fn(|_| entity::Entity { inner: entity }))
-    }
-
-    #[func]
-    fn update(&mut self) {
-        let mut world = inner::World {
-            tile_field: &mut self.tile_field.bind_mut().inner,
-            block_field: &mut self.block_field.bind_mut().inner,
-            entity_field: &mut self.entity_field.bind_mut().inner,
-            node_store: &mut self.node_store,
-        };
-
-        world.update();
+    fn new_random_walk(
+        min_rest_secs: f32,
+        max_rest_secs: f32,
+        min_distance: f32,
+        max_distance: f32,
+        speed: f32,
+    ) -> Gd<world::EntityBehavior> {
+        let inner = Box::new(inner::RandomWalkBehavior {
+            min_rest_secs,
+            max_rest_secs,
+            min_distance,
+            max_distance,
+            speed,
+        });
+        Gd::from_init_fn(|_| world::EntityBehavior { inner })
     }
 }

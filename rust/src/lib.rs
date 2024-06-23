@@ -4,7 +4,9 @@ mod behavior;
 mod block;
 mod entity;
 mod inner;
+mod node;
 mod tile;
+mod world;
 
 struct Extension;
 

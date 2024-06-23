@@ -1,28 +1,16 @@
 use super::*;
 
-impl TileBehavior for () {
-    fn on_new(&self, _world: &mut World) {}
-    fn on_drop(&self, _world: &mut World) {}
-    fn on_place_tile(&self, _world: &mut World, _tile_key: u32) {}
-    fn on_break_tile(&self, _world: &mut World, _tile_key: u32) {}
-    fn on_update(&self, _world: &mut World) {}
-}
+// unit behaviors
 
-impl BlockBehavior for () {
-    fn on_new(&self, _world: &mut World) {}
-    fn on_drop(&self, _world: &mut World) {}
-    fn on_place_block(&self, _world: &mut World, _block_key: u32) {}
-    fn on_break_block(&self, _world: &mut World, _block_key: u32) {}
-    fn on_update(&self, _world: &mut World) {}
-}
+impl GlobalBehavior for () {}
 
-impl EntityBehavior for () {
-    fn on_new(&self, _world: &mut World) {}
-    fn on_drop(&self, _world: &mut World) {}
-    fn on_place_entity(&self, _world: &mut World, _entity_key: u32) {}
-    fn on_break_entity(&self, _world: &mut World, _entity_key: u32) {}
-    fn on_update(&self, _world: &mut World) {}
-}
+impl TileBehavior for () {}
+
+impl BlockBehavior for () {}
+
+impl EntityBehavior for () {}
+
+// time behavior
 
 #[derive(Debug, Clone)]
 pub struct Time {
@@ -57,6 +45,8 @@ impl GlobalBehavior for TimeBehavior {
         inner.uptime_secs += inner.delta_secs;
     }
 }
+
+// random walk behavior
 
 #[derive(Debug, Clone)]
 pub enum RandomWalkState {

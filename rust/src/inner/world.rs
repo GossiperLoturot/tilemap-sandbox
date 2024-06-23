@@ -8,36 +8,41 @@ pub struct World<'a> {
     pub node_store: &'a mut NodeStore,
 }
 
-pub trait GlobalBehavior {
-    fn on_new(&self, world: &mut World);
-    fn on_drop(&self, world: &mut World);
-    fn on_update(&self, world: &mut World);
+pub trait GlobalBehavior: dyn_clone::DynClone {
+    fn on_new(&self, _world: &mut World) {}
+    fn on_drop(&self, _world: &mut World) {}
+    fn on_update(&self, _world: &mut World) {}
 }
+dyn_clone::clone_trait_object!(GlobalBehavior);
 
-pub trait TileBehavior {
-    fn on_new(&self, world: &mut World);
-    fn on_drop(&self, world: &mut World);
-    fn on_place_tile(&self, world: &mut World, tile_key: u32);
-    fn on_break_tile(&self, world: &mut World, tile_key: u32);
-    fn on_update(&self, world: &mut World);
+pub trait TileBehavior: dyn_clone::DynClone {
+    fn on_new(&self, _world: &mut World) {}
+    fn on_drop(&self, _world: &mut World) {}
+    fn on_place_tile(&self, _world: &mut World, _tile_key: u32) {}
+    fn on_break_tile(&self, _world: &mut World, _tile_key: u32) {}
+    fn on_update(&self, _world: &mut World) {}
 }
+dyn_clone::clone_trait_object!(TileBehavior);
 
-pub trait BlockBehavior {
-    fn on_new(&self, world: &mut World);
-    fn on_drop(&self, world: &mut World);
-    fn on_place_block(&self, world: &mut World, block_key: u32);
-    fn on_break_block(&self, world: &mut World, block_key: u32);
-    fn on_update(&self, world: &mut World);
+pub trait BlockBehavior: dyn_clone::DynClone {
+    fn on_new(&self, _world: &mut World) {}
+    fn on_drop(&self, _world: &mut World) {}
+    fn on_place_block(&self, _world: &mut World, _block_key: u32) {}
+    fn on_break_block(&self, _world: &mut World, _block_key: u32) {}
+    fn on_update(&self, _world: &mut World) {}
 }
+dyn_clone::clone_trait_object!(BlockBehavior);
 
-pub trait EntityBehavior {
-    fn on_new(&self, world: &mut World);
-    fn on_drop(&self, world: &mut World);
-    fn on_place_entity(&self, world: &mut World, entity_key: u32);
-    fn on_break_entity(&self, world: &mut World, entity_key: u32);
-    fn on_update(&self, world: &mut World);
+pub trait EntityBehavior: dyn_clone::DynClone {
+    fn on_new(&self, _world: &mut World) {}
+    fn on_drop(&self, _world: &mut World) {}
+    fn on_place_entity(&self, _world: &mut World, _entity_key: u32) {}
+    fn on_break_entity(&self, _world: &mut World, _entity_key: u32) {}
+    fn on_update(&self, _world: &mut World) {}
 }
+dyn_clone::clone_trait_object!(EntityBehavior);
 
+#[derive(Clone)]
 pub struct WorldBehavior {
     pub global_behaviors: Vec<Box<dyn GlobalBehavior>>,
     pub tile_behaviors: Vec<Box<dyn TileBehavior>>,
