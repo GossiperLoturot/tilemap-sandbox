@@ -7,12 +7,12 @@ class_name Field
 var _tile_field_desc: TileFieldDesc
 var _block_field_desc: BlockFieldDesc
 var _entity_field_desc: EntityFieldDesc
-var _behavior_plugin_desc: BehaviorPluginDesc
 
 var _tile_field: TileField
 var _block_field: BlockField
 var _entity_field: EntityField
-var _behavior_plugin: BehaviorPlugin
+var _node_store: NodeStore
+var _world: WorldServer
 
 
 func _ready():
@@ -123,49 +123,57 @@ func _ready():
 	)
 	_entity_field = EntityField.new_from(_entity_field_desc, get_world_3d())
 
-	var tile_factories = [
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-	] as Array[BehaviorFactory]
-	var block_factories = [
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-		BehaviorFactory.new_unit(),
-	] as Array[BehaviorFactory]
-	var entity_factories = [
-		BehaviorFactory.new_generator(),
-		BehaviorFactory.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
-	] as Array[BehaviorFactory]
-	_behavior_plugin_desc = BehaviorPluginDesc.new_from(
-		tile_factories,
-		block_factories,
-		entity_factories,
+	_node_store = NodeStore.new_from()
+
+	var global_behaviors = [
+		Behavior.new_time(),
+	] as Array[GlobalBehavior]
+	var tile_behaviors = [
+		Behavior.new_unit_tile(),
+		Behavior.new_unit_tile(),
+	] as Array[TileBehavior]
+	var block_behaviors = [
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+		Behavior.new_unit_block(),
+	] as Array[BlockBehavior]
+	var entity_behaviors = [
+		Behavior.new_unit_entity(),
+		Behavior.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
+	] as Array[EntityBehavior]
+	var _world_behavior = WorldBehavior.new_from(
+		global_behaviors,
+		tile_behaviors,
+		block_behaviors,
+		entity_behaviors,
 	)
-	_behavior_plugin = BehaviorPlugin.new_from(
-		_behavior_plugin_desc,
+	_world = WorldServer.new_from(
 		_tile_field,
 		_block_field,
 		_entity_field,
+		_node_store,
+		_world_behavior,
 	)
 
 	for y in range(-64, 65):
 		for x in range(-64, 65):
-			_behavior_plugin.place_tile(Tile.new_from(randi_range(0, 1), Vector2i(x, y)))
+			pass
+			_world.place_tile(Tile.new_from(randi_range(0, 1), Vector2i(x, y)))
 
 	for i in range(4096):
 		var x = randi_range(-64, 65)
 		var y = randf_range(-64, 65)
-		_behavior_plugin.place_block(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
+		_world.place_block(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
 
 	for i in range(64):
 		var x = randf_range(-64.0, 64.0)
 		var y = randf_range(-64.0, 64.0)
-		_behavior_plugin.place_entity(Entity.new_from(1, Vector2(x, y)))
+		_world.place_entity(Entity.new_from(1, Vector2(x, y)))
 
 	for y in range(-4, 5):
 		for x in range(-4, 5):
@@ -175,7 +183,7 @@ func _ready():
 
 
 func _process(delta):
-	_behavior_plugin.update(delta)
+	_world.update()
 
 	_tile_field.update_view()
 	_block_field.update_view()

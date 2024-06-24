@@ -66,8 +66,9 @@ impl WorldBehavior {
     }
 }
 
+// Rename World to WorldServer to avoid duplicating the class name with the built-in class in Godot.
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init, base=RefCounted, rename=WorldServer)]
 struct World {
     tile_field: Gd<tile::TileField>,
     block_field: Gd<block::BlockField>,
@@ -96,7 +97,7 @@ impl World {
             world.install(world_behavior.bind().inner.clone());
         }
 
-        Gd::from_init_fn(|_| World {
+        Gd::from_init_fn(|_| Self {
             tile_field,
             block_field,
             entity_field,

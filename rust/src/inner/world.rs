@@ -1,13 +1,6 @@
 use super::*;
 use std::rc::Rc;
 
-pub struct World<'a> {
-    pub tile_field: &'a mut TileField,
-    pub block_field: &'a mut BlockField,
-    pub entity_field: &'a mut EntityField,
-    pub node_store: &'a mut NodeStore,
-}
-
 pub trait GlobalBehavior: dyn_clone::DynClone {
     fn on_new(&self, _world: &mut World) {}
     fn on_drop(&self, _world: &mut World) {}
@@ -48,6 +41,13 @@ pub struct WorldBehavior {
     pub tile_behaviors: Vec<Box<dyn TileBehavior>>,
     pub block_behaviors: Vec<Box<dyn BlockBehavior>>,
     pub entity_behaviors: Vec<Box<dyn EntityBehavior>>,
+}
+
+pub struct World<'a> {
+    pub tile_field: &'a mut TileField,
+    pub block_field: &'a mut BlockField,
+    pub entity_field: &'a mut EntityField,
+    pub node_store: &'a mut NodeStore,
 }
 
 impl World<'_> {

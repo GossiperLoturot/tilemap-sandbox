@@ -42,7 +42,7 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				field._behavior_plugin.break_entity(keys[0])
+				field._world.break_entity(keys[0])
 
 	elif _mode == MODE_BLOCK:
 		var location = Vector2(point.x, point.y)
@@ -58,7 +58,7 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				field._behavior_plugin.break_block(keys[0])
+				field._world.break_block(keys[0])
 
 	elif _mode == MODE_TILE:
 		var location = Vector2i(floori(point.x), floori(point.y))
@@ -73,7 +73,7 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3.ONE)
 
 			if Input.is_action_just_pressed("primary"):
-				field._behavior_plugin.break_tile(key)
+				field._world.break_tile(key)
 
 
 func _input(event):

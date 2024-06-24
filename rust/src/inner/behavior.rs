@@ -41,7 +41,7 @@ impl GlobalBehavior for TimeBehavior {
     fn on_update(&self, world: &mut World) {
         let (_, inner) = world.node_store.one_mut::<Time>().check();
         let instance = std::mem::replace(&mut inner.instance, std::time::Instant::now());
-        inner.delta_secs += instance.elapsed().as_secs_f32();
+        inner.delta_secs = instance.elapsed().as_secs_f32();
         inner.uptime_secs += inner.delta_secs;
     }
 }

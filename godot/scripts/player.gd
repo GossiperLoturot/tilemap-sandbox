@@ -10,7 +10,7 @@ var _key: EntityKey
 
 func _ready():
 	var entity = Entity.new_from(0, _location)
-	_key = field._behavior_plugin.place_entity(entity)
+	_key = field._world.place_entity(entity)
 
 
 func _process(delta):
