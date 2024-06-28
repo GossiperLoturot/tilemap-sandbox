@@ -14,22 +14,70 @@ pub enum NodeRelation {
 struct Node<T> {
     inner: T,
     relation: NodeRelation,
-}
-
-#[derive(Debug)]
-struct NodeMeta {
     ref_slab_key: u32,
 }
 
-struct NodeColumn {
-    inners: Box<dyn std::any::Any>,
-    metas: slab::Slab<NodeMeta>,
+#[derive(Debug)]
+pub struct StackBuf<const N: usize> {
+    bytes: [std::mem::MaybeUninit<u8>; N],
+    size: usize,
 }
 
-#[derive(Default)]
+impl<const N: usize> StackBuf<N> {
+    pub fn try_new<T>(x: T) -> Option<Self>
+    where
+        T: std::any::Any,
+    {
+        if N < std::mem::size_of::<T>() {
+            return None;
+        }
+
+        let mut slf = Self {
+            bytes: [std::mem::MaybeUninit::uninit(); N],
+            size: std::mem::size_of::<T>(),
+        };
+
+        let src = &x as *const _ as *const _;
+        let dst = slf.bytes.as_mut_ptr();
+        unsafe { std::ptr::copy_nonoverlapping(src, dst, slf.size) };
+        std::mem::forget(x);
+
+        Some(slf)
+    }
+
+    pub fn downcast_ref<T>(&self) -> Option<&T>
+    where
+        T: std::any::Any,
+    {
+        if N < std::mem::size_of::<T>() {
+            return None;
+        }
+
+        let ptr = self.bytes.as_ptr();
+        Some(unsafe { &*(ptr as *const T) })
+    }
+
+    pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
+    where
+        T: std::any::Any,
+    {
+        if N < std::mem::size_of::<T>() {
+            return None;
+        }
+
+        let ptr = self.bytes.as_mut_ptr();
+        Some(unsafe { &mut *(ptr as *mut T) })
+    }
+}
+
+type NodeColumn<T> = slab::Slab<Node<T>>;
+
+const NODE_COLUMN_ALLOC_SIZE: usize = std::mem::size_of::<NodeColumn<()>>();
+
+#[derive(Debug, Default)]
 pub struct NodeStore {
-    node_cols: ahash::AHashMap<std::any::TypeId, NodeColumn>,
-    refs: ahash::AHashMap<(NodeRelation, std::any::TypeId), slab::Slab<u32>>,
+    node_cols: ahash::AHashMap<std::any::TypeId, StackBuf<NODE_COLUMN_ALLOC_SIZE>>,
+    ref_cols: ahash::AHashMap<(NodeRelation, std::any::TypeId), slab::Slab<u32>>,
 }
 
 impl NodeStore {
@@ -39,24 +87,23 @@ impl NodeStore {
         let node_col = self
             .node_cols
             .entry(type_key)
-            .or_insert_with(|| NodeColumn {
-                inners: Box::new(slab::Slab::<Node<T>>::new()),
-                metas: Default::default(),
-            });
+            .or_insert_with(|| StackBuf::try_new::<NodeColumn<T>>(Default::default()).check())
+            .downcast_mut::<NodeColumn<T>>()
+            .check();
 
-        let slab_key = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
-            .check()
-            .insert(Node { inner, relation }) as u32;
+        let slab_key = node_col.vacant_key() as u32;
 
         let ref_slab_key = self
-            .refs
+            .ref_cols
             .entry((relation, type_key))
             .or_default()
             .insert(slab_key) as u32;
 
-        node_col.metas.insert(NodeMeta { ref_slab_key });
+        node_col.insert(Node {
+            inner,
+            relation,
+            ref_slab_key,
+        });
 
         Some((type_key, slab_key))
     }
@@ -70,22 +117,19 @@ impl NodeStore {
 
         let node_col = self.node_cols.get_mut(&type_key)?;
 
-        let inner = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
+        let node = node_col
+            .downcast_mut::<NodeColumn<T>>()
             .check()
             .try_remove(slab_key as usize)
             .check();
 
-        let meta = node_col.metas.try_remove(slab_key as usize).check();
-
-        self.refs
-            .get_mut(&(inner.relation, type_key))
+        self.ref_cols
+            .get_mut(&(node.relation, type_key))
             .check()
-            .try_remove(meta.ref_slab_key as usize)
+            .try_remove(node.ref_slab_key as usize)
             .check();
 
-        Some((inner.relation, inner.inner))
+        Some((node.relation, node.inner))
     }
 
     pub fn get<T: 'static>(&self, node_key: NodeKey) -> Option<(&NodeRelation, &T)> {
@@ -97,14 +141,13 @@ impl NodeStore {
 
         let node_col = self.node_cols.get(&type_key)?;
 
-        let inner = node_col
-            .inners
-            .downcast_ref::<slab::Slab<Node<T>>>()
+        let node = node_col
+            .downcast_ref::<NodeColumn<T>>()
             .check()
             .get(slab_key as usize)
             .check();
 
-        Some((&inner.relation, &inner.inner))
+        Some((&node.relation, &node.inner))
     }
 
     pub fn get_mut<T: 'static>(&mut self, node_key: NodeKey) -> Option<(&NodeRelation, &mut T)> {
@@ -117,8 +160,7 @@ impl NodeStore {
         let node_col = self.node_cols.get_mut(&type_key)?;
 
         let inner = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
+            .downcast_mut::<NodeColumn<T>>()
             .check()
             .get_mut(slab_key as usize)
             .check();
@@ -132,8 +174,7 @@ impl NodeStore {
         let node_col = self.node_cols.get(&type_key)?;
 
         let iter = node_col
-            .inners
-            .downcast_ref::<slab::Slab<Node<T>>>()
+            .downcast_ref::<NodeColumn<T>>()
             .check()
             .iter()
             .map(|(_, node)| (&node.relation, &node.inner));
@@ -148,12 +189,9 @@ impl NodeStore {
 
         let node_col = self.node_cols.get_mut(&type_key)?;
 
-        let inners = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
-            .check();
-
-        let iter = inners
+        let iter = node_col
+            .downcast_mut::<NodeColumn<T>>()
+            .check()
             .iter_mut()
             .map(|(_, node)| (&node.relation, &mut node.inner));
 
@@ -176,18 +214,15 @@ impl NodeStore {
 
         let node_col = self.node_cols.get(&type_key)?;
 
-        let inners = node_col
-            .inners
-            .downcast_ref::<slab::Slab<Node<T>>>()
-            .check();
+        let node = node_col.downcast_ref::<NodeColumn<T>>().check();
 
         let iter = self
-            .refs
+            .ref_cols
             .get(&(relation, type_key))?
             .iter()
             .map(|(_, slab_key)| {
-                let inner = inners.get(*slab_key as usize).check();
-                (&inner.relation, &inner.inner)
+                let node = node.get(*slab_key as usize).check();
+                (&node.relation, &node.inner)
             });
 
         Some(iter)
@@ -201,19 +236,16 @@ impl NodeStore {
 
         let node_col = self.node_cols.get_mut(&type_key)?;
 
-        let inners = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
-            .check();
+        let node = node_col.downcast_mut::<NodeColumn<T>>().check();
 
         let iter = self
-            .refs
+            .ref_cols
             .get(&(relation, type_key))?
             .iter()
             .map(|(_, slab_key)| {
-                let inner = inners.get_mut(*slab_key as usize).check() as *mut Node<T>;
-                let inner = unsafe { &mut *inner };
-                (&inner.relation, &mut inner.inner)
+                let node = node.get_mut(*slab_key as usize).check() as *mut Node<T>;
+                let node = unsafe { &mut *node };
+                (&node.relation, &mut node.inner)
             });
 
         Some(iter)
@@ -225,22 +257,17 @@ impl NodeStore {
     ) -> Option<Vec<(NodeRelation, T)>> {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self.node_cols.get_mut(&type_key)?;
-
-        let inners = node_col
-            .inners
-            .downcast_mut::<slab::Slab<Node<T>>>()
+        let node_col = self
+            .node_cols
+            .get_mut(&type_key)?
+            .downcast_mut::<NodeColumn<T>>()
             .check();
 
-        let meta = &mut node_col.metas;
-
         let mut vec = vec![];
-        if let Some(r#ref) = self.refs.remove(&(relation, type_key)) {
-            for (_, slab_key) in r#ref {
-                let inner = inners.try_remove(slab_key as usize).check();
-                vec.push((inner.relation, inner.inner));
-
-                meta.try_remove(slab_key as usize).check();
+        if let Some(ref_col) = self.ref_cols.remove(&(relation, type_key)) {
+            for (_, slab_key) in ref_col {
+                let node = node_col.try_remove(slab_key as usize).check();
+                vec.push((node.relation, node.inner));
             }
         }
 

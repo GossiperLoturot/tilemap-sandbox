@@ -1,5 +1,4 @@
 use super::*;
-use std::rc::Rc;
 
 pub trait GlobalBehavior: dyn_clone::DynClone {
     fn on_new(&self, _world: &mut World) {}
@@ -36,7 +35,7 @@ pub trait EntityBehavior: dyn_clone::DynClone {
 dyn_clone::clone_trait_object!(EntityBehavior);
 
 #[derive(Clone)]
-pub struct WorldBehavior {
+pub struct BehaviorRoot {
     pub global_behaviors: Vec<Box<dyn GlobalBehavior>>,
     pub tile_behaviors: Vec<Box<dyn TileBehavior>>,
     pub block_behaviors: Vec<Box<dyn BlockBehavior>>,
@@ -48,71 +47,58 @@ pub struct World<'a> {
     pub block_field: &'a mut BlockField,
     pub entity_field: &'a mut EntityField,
     pub node_store: &'a mut NodeStore,
+    pub behavior_root: &'a BehaviorRoot,
 }
 
 impl World<'_> {
-    pub fn install(&mut self, world_behavior: WorldBehavior) {
-        let world_behavior = Rc::new(world_behavior);
-        self.node_store.insert(world_behavior, NodeRelation::Global);
-
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
-        for global_behavior in &world_behavior.global_behaviors {
+    pub fn install(&mut self) {
+        for global_behavior in &self.behavior_root.global_behaviors {
             global_behavior.on_new(self);
         }
-        for tile_behavior in &world_behavior.tile_behaviors {
+        for tile_behavior in &self.behavior_root.tile_behaviors {
             tile_behavior.on_new(self);
         }
-        for block_behavior in &world_behavior.block_behaviors {
+        for block_behavior in &self.behavior_root.block_behaviors {
             block_behavior.on_new(self);
         }
-        for entity_behavior in &world_behavior.entity_behaviors {
+        for entity_behavior in &self.behavior_root.entity_behaviors {
             entity_behavior.on_new(self);
         }
     }
 
-    pub fn remove(&mut self) {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
-        for global_behavior in &world_behavior.global_behaviors {
+    pub fn uninstall(&mut self) {
+        for global_behavior in &self.behavior_root.global_behaviors {
             global_behavior.on_drop(self);
         }
-        for tile_behavior in &world_behavior.tile_behaviors {
+        for tile_behavior in &self.behavior_root.tile_behaviors {
             tile_behavior.on_drop(self);
         }
-        for block_behavior in &world_behavior.block_behaviors {
+        for block_behavior in &self.behavior_root.block_behaviors {
             block_behavior.on_drop(self);
         }
-        for entity_behavior in &world_behavior.entity_behaviors {
+        for entity_behavior in &self.behavior_root.entity_behaviors {
             entity_behavior.on_drop(self);
         }
     }
 
     pub fn update(&mut self) {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
-        for global_behavior in &world_behavior.global_behaviors {
+        for global_behavior in &self.behavior_root.global_behaviors {
             global_behavior.on_update(self);
         }
-        for tile_behavior in &world_behavior.tile_behaviors {
+        for tile_behavior in &self.behavior_root.tile_behaviors {
             tile_behavior.on_update(self);
         }
-        for block_behavior in &world_behavior.block_behaviors {
+        for block_behavior in &self.behavior_root.block_behaviors {
             block_behavior.on_update(self);
         }
-        for entity_behavior in &world_behavior.entity_behaviors {
+        for entity_behavior in &self.behavior_root.entity_behaviors {
             entity_behavior.on_update(self);
         }
     }
 
     pub fn place_tile(&mut self, tile: Tile) -> Result<u32, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let inner = world_behavior.clone();
-
-        let tile_behaviors = inner
+        let tile_behaviors = self
+            .behavior_root
             .tile_behaviors
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -123,11 +109,9 @@ impl World<'_> {
     }
 
     pub fn break_tile(&mut self, tile_key: u32) -> Result<Tile, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
         let tile = self.tile_field.remove(tile_key)?;
-        let tile_behaviors = world_behavior
+        let tile_behaviors = self
+            .behavior_root
             .tile_behaviors
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -137,10 +121,8 @@ impl World<'_> {
     }
 
     pub fn place_block(&mut self, block: Block) -> Result<u32, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
-        let block_behaviors = world_behavior
+        let block_behaviors = self
+            .behavior_root
             .block_behaviors
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -151,11 +133,9 @@ impl World<'_> {
     }
 
     pub fn break_block(&mut self, block_key: u32) -> Result<Block, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
         let block = self.block_field.remove(block_key)?;
-        let block_behavior = world_behavior
+        let block_behavior = self
+            .behavior_root
             .block_behaviors
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -165,10 +145,8 @@ impl World<'_> {
     }
 
     pub fn place_entity(&mut self, entity: Entity) -> Result<u32, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
-        let entity_behaviors = world_behavior
+        let entity_behaviors = self
+            .behavior_root
             .entity_behaviors
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -179,11 +157,9 @@ impl World<'_> {
     }
 
     pub fn break_entity(&mut self, entity_key: u32) -> Result<Entity, FieldError> {
-        let (_, world_behavior) = self.node_store.one::<Rc<WorldBehavior>>().check();
-        let world_behavior = world_behavior.clone();
-
         let entity = self.entity_field.remove(entity_key)?;
-        let entity_behaviors = world_behavior
+        let entity_behaviors = self
+            .behavior_root
             .entity_behaviors
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;

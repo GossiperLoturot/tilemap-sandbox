@@ -2,8 +2,6 @@ extends Node3D
 class_name Field
 
 
-@export var camera: Camera3D
-
 var _tile_field_desc: TileFieldDesc
 var _block_field_desc: BlockFieldDesc
 var _entity_field_desc: EntityFieldDesc
@@ -125,41 +123,42 @@ func _ready():
 
 	_node_store = NodeStore.new_from()
 
-	var global_behaviors = [
-		Behavior.new_time(),
-	] as Array[GlobalBehavior]
-	var tile_behaviors = [
-		Behavior.new_unit_tile(),
-		Behavior.new_unit_tile(),
-	] as Array[TileBehavior]
-	var block_behaviors = [
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-		Behavior.new_unit_block(),
-	] as Array[BlockBehavior]
-	var entity_behaviors = [
-		Behavior.new_unit_entity(),
-		Behavior.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
-	] as Array[EntityBehavior]
-	var _world_behavior = WorldBehavior.new_from(
-		global_behaviors,
-		tile_behaviors,
-		block_behaviors,
-		entity_behaviors,
+	var _behavior_root = BehaviorRoot.new_from(
+		[
+			Behavior.new_time(),
+		] as Array[GlobalBehavior],
+		[
+			Behavior.new_unit_tile(),
+			Behavior.new_unit_tile(),
+		] as Array[TileBehavior],
+		[
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+			Behavior.new_unit_block(),
+		] as Array[BlockBehavior],
+		[
+			Behavior.new_unit_entity(),
+			Behavior.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
+		] as Array[EntityBehavior],
 	)
+
 	_world = WorldServer.new_from(
 		_tile_field,
 		_block_field,
 		_entity_field,
 		_node_store,
-		_world_behavior,
+		_behavior_root,
 	)
 
+	generate_level()
+
+
+func generate_level():
 	for y in range(-64, 65):
 		for x in range(-64, 65):
 			pass

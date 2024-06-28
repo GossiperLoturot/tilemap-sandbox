@@ -27,12 +27,12 @@ pub struct EntityBehavior {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct WorldBehavior {
-    inner: inner::WorldBehavior,
+struct BehaviorRoot {
+    inner: inner::BehaviorRoot,
 }
 
 #[godot_api]
-impl WorldBehavior {
+impl BehaviorRoot {
     #[func]
     fn new_from(
         global_behaviors: Array<Gd<GlobalBehavior>>,
@@ -56,7 +56,7 @@ impl WorldBehavior {
             .iter_shared()
             .map(|behavior| behavior.bind().inner.clone())
             .collect::<Vec<_>>();
-        let inner = inner::WorldBehavior {
+        let inner = inner::BehaviorRoot {
             global_behaviors,
             tile_behaviors,
             block_behaviors,
@@ -74,6 +74,7 @@ struct World {
     block_field: Gd<block::BlockField>,
     entity_field: Gd<entity::EntityField>,
     node_store: Gd<node::NodeStore>,
+    behavior_root: Gd<BehaviorRoot>,
 }
 
 #[godot_api]
@@ -84,7 +85,7 @@ impl World {
         mut block_field: Gd<block::BlockField>,
         mut entity_field: Gd<entity::EntityField>,
         mut node_store: Gd<node::NodeStore>,
-        world_behavior: Gd<WorldBehavior>,
+        behavior_root: Gd<BehaviorRoot>,
     ) -> Gd<Self> {
         {
             let mut world = inner::World {
@@ -92,9 +93,10 @@ impl World {
                 block_field: &mut block_field.bind_mut().inner,
                 entity_field: &mut entity_field.bind_mut().inner,
                 node_store: &mut node_store.bind_mut().inner,
+                behavior_root: &behavior_root.bind().inner,
             };
 
-            world.install(world_behavior.bind().inner.clone());
+            world.install();
         }
 
         Gd::from_init_fn(|_| Self {
@@ -102,7 +104,21 @@ impl World {
             block_field,
             entity_field,
             node_store,
+            behavior_root,
         })
+    }
+
+    #[func]
+    fn update(&mut self) {
+        let mut world = inner::World {
+            tile_field: &mut self.tile_field.bind_mut().inner,
+            block_field: &mut self.block_field.bind_mut().inner,
+            entity_field: &mut self.entity_field.bind_mut().inner,
+            node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
+        };
+
+        world.update();
     }
 
     #[func]
@@ -112,6 +128,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let tile = tile.bind().inner.clone();
@@ -128,6 +145,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let tile_key = tile_key.bind().inner;
@@ -144,6 +162,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let block = block.bind().inner.clone();
@@ -160,6 +179,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let block_key = block_key.bind().inner;
@@ -176,6 +196,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let entity = entity.bind().inner.clone();
@@ -192,6 +213,7 @@ impl World {
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
         let entity_key = entity_key.bind().inner;
@@ -200,16 +222,18 @@ impl World {
         let entity = entity::Entity { inner: entity };
         Some(Gd::from_init_fn(|_| entity))
     }
+}
 
-    #[func]
-    fn update(&mut self) {
+impl Drop for World {
+    fn drop(&mut self) {
         let mut world = inner::World {
             tile_field: &mut self.tile_field.bind_mut().inner,
             block_field: &mut self.block_field.bind_mut().inner,
             entity_field: &mut self.entity_field.bind_mut().inner,
             node_store: &mut self.node_store.bind_mut().inner,
+            behavior_root: &self.behavior_root.bind().inner,
         };
 
-        world.update();
+        world.uninstall();
     }
 }

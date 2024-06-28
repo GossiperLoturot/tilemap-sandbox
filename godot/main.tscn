@@ -20,9 +20,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 32)
 projection = 1
 size = 32.0
 
-[node name="Field" type="Node3D" parent="." node_paths=PackedStringArray("camera")]
+[node name="Field" type="Node3D" parent="."]
 script = ExtResource("1_b2r8a")
-camera = NodePath("../Camera3D")
 
 [node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("field")]
 script = ExtResource("5_rbyqb")
