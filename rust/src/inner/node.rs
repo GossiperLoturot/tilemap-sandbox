@@ -11,250 +11,230 @@ pub enum NodeRelation {
 }
 
 #[derive(Debug)]
-struct Node<T> {
-    inner: T,
+struct NodeRow<T> {
+    node: T,
     relation: NodeRelation,
-    ref_slab_key: u32,
+    ref_row_key: u32,
 }
 
-#[derive(Debug)]
-pub struct StackBuf<const N: usize> {
-    bytes: [std::mem::MaybeUninit<u8>; N],
-    size: usize,
-}
+type NodeColumn<T> = slab::Slab<NodeRow<T>>;
 
-impl<const N: usize> StackBuf<N> {
-    pub fn try_new<T>(x: T) -> Option<Self>
-    where
-        T: std::any::Any,
-    {
-        if N < std::mem::size_of::<T>() {
-            return None;
-        }
-
-        let mut slf = Self {
-            bytes: [std::mem::MaybeUninit::uninit(); N],
-            size: std::mem::size_of::<T>(),
-        };
-
-        let src = &x as *const _ as *const _;
-        let dst = slf.bytes.as_mut_ptr();
-        unsafe { std::ptr::copy_nonoverlapping(src, dst, slf.size) };
-        std::mem::forget(x);
-
-        Some(slf)
-    }
-
-    pub fn downcast_ref<T>(&self) -> Option<&T>
-    where
-        T: std::any::Any,
-    {
-        if N < std::mem::size_of::<T>() {
-            return None;
-        }
-
-        let ptr = self.bytes.as_ptr();
-        Some(unsafe { &*(ptr as *const T) })
-    }
-
-    pub fn downcast_mut<T>(&mut self) -> Option<&mut T>
-    where
-        T: std::any::Any,
-    {
-        if N < std::mem::size_of::<T>() {
-            return None;
-        }
-
-        let ptr = self.bytes.as_mut_ptr();
-        Some(unsafe { &mut *(ptr as *mut T) })
-    }
-}
-
-type NodeColumn<T> = slab::Slab<Node<T>>;
-
-const NODE_COLUMN_ALLOC_SIZE: usize = std::mem::size_of::<NodeColumn<()>>();
+const ALLOC_SIZE: usize = std::mem::size_of::<NodeColumn<()>>();
 
 #[derive(Debug, Default)]
 pub struct NodeStore {
-    node_cols: ahash::AHashMap<std::any::TypeId, StackBuf<NODE_COLUMN_ALLOC_SIZE>>,
+    node_cols: ahash::AHashMap<std::any::TypeId, stack_any::StackAny<ALLOC_SIZE>>,
     ref_cols: ahash::AHashMap<(NodeRelation, std::any::TypeId), slab::Slab<u32>>,
 }
 
 impl NodeStore {
-    pub fn insert<T: 'static>(&mut self, inner: T, relation: NodeRelation) -> Option<NodeKey> {
+    pub fn insert<T>(&mut self, node: T, relation: NodeRelation) -> Option<NodeKey>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
         let node_col = self
             .node_cols
             .entry(type_key)
-            .or_insert_with(|| StackBuf::try_new::<NodeColumn<T>>(Default::default()).check())
+            .or_insert_with(|| stack_any::StackAny::try_new(NodeColumn::<T>::new()).check())
             .downcast_mut::<NodeColumn<T>>()
             .check();
 
-        let slab_key = node_col.vacant_key() as u32;
+        let row_key = node_col.vacant_key() as u32;
 
-        let ref_slab_key = self
+        let ref_row_key = self
             .ref_cols
             .entry((relation, type_key))
             .or_default()
-            .insert(slab_key) as u32;
+            .insert(row_key) as u32;
 
-        node_col.insert(Node {
-            inner,
+        node_col.insert(NodeRow {
+            node,
             relation,
-            ref_slab_key,
+            ref_row_key,
         });
 
-        Some((type_key, slab_key))
+        Some((type_key, row_key))
     }
 
-    pub fn remove<T: 'static>(&mut self, node_key: NodeKey) -> Option<(NodeRelation, T)> {
-        let (type_key, slab_key) = node_key;
+    pub fn remove<T>(&mut self, node_key: NodeKey) -> Option<(NodeRelation, T)>
+    where
+        T: std::any::Any,
+    {
+        let (type_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self.node_cols.get_mut(&type_key)?;
-
-        let node = node_col
+        let node_col = self
+            .node_cols
+            .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check()
-            .try_remove(slab_key as usize)
             .check();
+
+        let node_row = node_col.try_remove(row_key as usize)?;
 
         self.ref_cols
-            .get_mut(&(node.relation, type_key))
+            .get_mut(&(node_row.relation, type_key))
             .check()
-            .try_remove(node.ref_slab_key as usize)
+            .try_remove(node_row.ref_row_key as usize)
             .check();
 
-        Some((node.relation, node.inner))
+        Some((node_row.relation, node_row.node))
     }
 
-    pub fn get<T: 'static>(&self, node_key: NodeKey) -> Option<(&NodeRelation, &T)> {
-        let (type_key, slab_key) = node_key;
+    pub fn get<T>(&self, node_key: NodeKey) -> Option<(&NodeRelation, &T)>
+    where
+        T: std::any::Any,
+    {
+        let (type_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self.node_cols.get(&type_key)?;
-
-        let node = node_col
+        let node_col = self
+            .node_cols
+            .get(&type_key)?
             .downcast_ref::<NodeColumn<T>>()
-            .check()
-            .get(slab_key as usize)
             .check();
 
-        Some((&node.relation, &node.inner))
+        let node_row = node_col.get(row_key as usize)?;
+
+        Some((&node_row.relation, &node_row.node))
     }
 
-    pub fn get_mut<T: 'static>(&mut self, node_key: NodeKey) -> Option<(&NodeRelation, &mut T)> {
-        let (type_key, slab_key) = node_key;
+    pub fn get_mut<T>(&mut self, node_key: NodeKey) -> Option<(&NodeRelation, &mut T)>
+    where
+        T: std::any::Any,
+    {
+        let (type_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self.node_cols.get_mut(&type_key)?;
-
-        let inner = node_col
+        let node_col = self
+            .node_cols
+            .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check()
-            .get_mut(slab_key as usize)
             .check();
 
-        Some((&inner.relation, &mut inner.inner))
+        let node_row = node_col.get_mut(row_key as usize)?;
+
+        Some((&node_row.relation, &mut node_row.node))
     }
 
-    pub fn iter<T: 'static>(&self) -> Option<impl Iterator<Item = (&NodeRelation, &T)>> {
+    pub fn iter<T>(&self) -> Option<impl Iterator<Item = (&NodeRelation, &T)>>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self.node_cols.get(&type_key)?;
+        let node_col = self
+            .node_cols
+            .get(&type_key)?
+            .downcast_ref::<NodeColumn<T>>()
+            .check();
 
         let iter = node_col
-            .downcast_ref::<NodeColumn<T>>()
-            .check()
             .iter()
-            .map(|(_, node)| (&node.relation, &node.inner));
+            .map(|(_, node_row)| (&node_row.relation, &node_row.node));
 
         Some(iter)
     }
 
-    pub fn iter_mut<T: 'static>(
-        &mut self,
-    ) -> Option<impl Iterator<Item = (&NodeRelation, &mut T)>> {
+    pub fn iter_mut<T>(&mut self) -> Option<impl Iterator<Item = (&NodeRelation, &mut T)>>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self.node_cols.get_mut(&type_key)?;
+        let node_col = self
+            .node_cols
+            .get_mut(&type_key)?
+            .downcast_mut::<NodeColumn<T>>()
+            .check();
 
         let iter = node_col
-            .downcast_mut::<NodeColumn<T>>()
-            .check()
             .iter_mut()
-            .map(|(_, node)| (&node.relation, &mut node.inner));
+            .map(|(_, node_row)| (&node_row.relation, &mut node_row.node));
 
         Some(iter)
     }
 
-    pub fn one<T: 'static>(&self) -> Option<(&NodeRelation, &T)> {
+    pub fn one<T>(&self) -> Option<(&NodeRelation, &T)>
+    where
+        T: std::any::Any,
+    {
         self.iter::<T>()?.next()
     }
 
-    pub fn one_mut<T: 'static>(&mut self) -> Option<(&NodeRelation, &mut T)> {
+    pub fn one_mut<T>(&mut self) -> Option<(&NodeRelation, &mut T)>
+    where
+        T: std::any::Any,
+    {
         self.iter_mut::<T>()?.next()
     }
 
-    pub fn iter_by_relation<T: 'static>(
-        &self,
-        relation: NodeRelation,
-    ) -> Option<impl Iterator<Item = (&NodeRelation, &T)>> {
+    pub fn iter_by_relation<T>(&self, relation: NodeRelation) -> Option<impl Iterator<Item = &T>>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self.node_cols.get(&type_key)?;
-
-        let node = node_col.downcast_ref::<NodeColumn<T>>().check();
+        let node_col = self
+            .node_cols
+            .get(&type_key)?
+            .downcast_ref::<NodeColumn<T>>()
+            .check();
 
         let iter = self
             .ref_cols
             .get(&(relation, type_key))?
             .iter()
-            .map(|(_, slab_key)| {
-                let node = node.get(*slab_key as usize).check();
-                (&node.relation, &node.inner)
+            .map(|(_, row_key)| {
+                let node_row = node_col.get(*row_key as usize).check();
+                &node_row.node
             });
 
         Some(iter)
     }
 
-    pub fn iter_mut_by_relation<T: 'static>(
+    pub fn iter_mut_by_relation<T>(
         &mut self,
         relation: NodeRelation,
-    ) -> Option<impl Iterator<Item = (&NodeRelation, &mut T)>> {
+    ) -> Option<impl Iterator<Item = &mut T>>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self.node_cols.get_mut(&type_key)?;
-
-        let node = node_col.downcast_mut::<NodeColumn<T>>().check();
+        let node_col = self
+            .node_cols
+            .get_mut(&type_key)?
+            .downcast_mut::<NodeColumn<T>>()
+            .check();
 
         let iter = self
             .ref_cols
             .get(&(relation, type_key))?
             .iter()
-            .map(|(_, slab_key)| {
-                let node = node.get_mut(*slab_key as usize).check() as *mut Node<T>;
-                let node = unsafe { &mut *node };
-                (&node.relation, &mut node.inner)
+            .map(|(_, row_key)| {
+                let node_row = node_col.get_mut(*row_key as usize).check() as *mut NodeRow<T>;
+                let node_row = unsafe { &mut *node_row };
+                &mut node_row.node
             });
 
         Some(iter)
     }
 
-    pub fn remove_by_relation<T: 'static>(
-        &mut self,
-        relation: NodeRelation,
-    ) -> Option<Vec<(NodeRelation, T)>> {
+    pub fn remove_by_relation<T>(&mut self, relation: NodeRelation) -> Option<Vec<T>>
+    where
+        T: std::any::Any,
+    {
         let type_key = std::any::TypeId::of::<T>();
 
         let node_col = self
@@ -265,12 +245,193 @@ impl NodeStore {
 
         let mut vec = vec![];
         if let Some(ref_col) = self.ref_cols.remove(&(relation, type_key)) {
-            for (_, slab_key) in ref_col {
-                let node = node_col.try_remove(slab_key as usize).check();
-                vec.push((node.relation, node.inner));
+            for (_, row_key) in ref_col {
+                let node_row = node_col.try_remove(row_key as usize).check();
+                vec.push(node_row.node);
             }
         }
 
         Some(vec)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crud_comp() {
+        let mut store = NodeStore::default();
+        let key = store.insert(42, NodeRelation::Global).unwrap();
+
+        assert_eq!(store.get::<i32>(key), Some((&NodeRelation::Global, &42)));
+        assert_eq!(
+            store.get_mut::<i32>(key),
+            Some((&NodeRelation::Global, &mut 42))
+        );
+        assert_eq!(store.remove::<i32>(key), Some((NodeRelation::Global, 42)));
+
+        assert_eq!(store.get::<i32>(key), None);
+        assert_eq!(store.get_mut::<i32>(key), None);
+        assert_eq!(store.remove::<i32>(key), None);
+    }
+
+    #[test]
+    fn comp_with_invalid_type() {
+        let mut store = NodeStore::default();
+        let key = store.insert(42, NodeRelation::Global).unwrap();
+
+        assert!(store.get::<()>(key).is_none());
+        assert!(store.get_mut::<()>(key).is_none());
+        assert!(store.remove::<()>(key).is_none());
+    }
+
+    #[test]
+    fn iter() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Tile(0)).unwrap();
+        store.insert(63, NodeRelation::Tile(0)).unwrap();
+        store.insert(42, NodeRelation::Tile(1)).unwrap();
+        store.insert((), NodeRelation::Tile(1)).unwrap();
+
+        let mut iter = store.iter::<i32>().unwrap();
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &42)));
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &63)));
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &42)));
+        assert_eq!(iter.next(), None);
+        drop(iter);
+
+        let mut iter = store.iter::<()>().unwrap();
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &())));
+        assert_eq!(iter.next(), None);
+        drop(iter);
+
+        let mut iter = store.iter_mut::<i32>().unwrap();
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &mut 42)));
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &mut 63)));
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &mut 42)));
+        assert_eq!(iter.next(), None);
+        drop(iter);
+
+        let mut iter = store.iter_mut::<()>().unwrap();
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &mut ())));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_with_invalid_type() {
+        let mut store = NodeStore::default();
+        assert!(store.iter::<i32>().is_none());
+        assert!(store.iter_mut::<i32>().is_none());
+    }
+
+    #[test]
+    fn one() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Global).unwrap();
+
+        assert_eq!(store.one::<i32>(), Some((&NodeRelation::Global, &42)));
+        assert_eq!(
+            store.one_mut::<i32>(),
+            Some((&NodeRelation::Global, &mut 42))
+        );
+
+        assert_eq!(store.one::<()>(), None);
+        assert_eq!(store.one_mut::<()>(), None);
+    }
+
+    #[test]
+    fn iter_by_relation() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Tile(0)).unwrap();
+        store.insert(63, NodeRelation::Tile(0)).unwrap();
+        store.insert(42, NodeRelation::Tile(1)).unwrap();
+        store.insert((), NodeRelation::Tile(1)).unwrap();
+
+        let mut iter = store
+            .iter_by_relation::<i32>(NodeRelation::Tile(0))
+            .unwrap();
+        assert_eq!(iter.next(), Some(&42));
+        assert_eq!(iter.next(), Some(&63));
+        assert_eq!(iter.next(), None);
+        drop(iter);
+
+        let mut iter = store
+            .iter_mut_by_relation::<i32>(NodeRelation::Tile(1))
+            .unwrap();
+        assert_eq!(iter.next(), Some(&mut 42));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter_by_relation_with_invalid_type() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Global).unwrap();
+
+        assert!(store.iter_by_relation::<()>(NodeRelation::Global).is_none());
+        assert!(store
+            .iter_mut_by_relation::<()>(NodeRelation::Global)
+            .is_none());
+    }
+
+    #[test]
+    fn iter_by_relation_with_invalid_relation() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Global).unwrap();
+
+        assert!(store
+            .iter_by_relation::<i32>(NodeRelation::Tile(0))
+            .is_none());
+        assert!(store
+            .iter_mut_by_relation::<i32>(NodeRelation::Tile(0))
+            .is_none());
+    }
+
+    #[test]
+    fn remove_by_relation() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Tile(0)).unwrap();
+        store.insert(63, NodeRelation::Tile(0)).unwrap();
+        store.insert(42, NodeRelation::Tile(1)).unwrap();
+        store.insert((), NodeRelation::Tile(1)).unwrap();
+
+        let vec = store
+            .remove_by_relation::<i32>(NodeRelation::Tile(0))
+            .unwrap();
+        assert_eq!(vec, vec![42, 63]);
+
+        let vec = store
+            .remove_by_relation::<()>(NodeRelation::Tile(1))
+            .unwrap();
+        assert_eq!(vec, vec![()]);
+
+        let mut iter = store.iter::<i32>().unwrap();
+        assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &42)));
+        assert_eq!(iter.next(), None);
+        drop(iter);
+
+        let mut iter = store.iter::<()>().unwrap();
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn remove_by_relation_with_invalid_type() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Global).unwrap();
+
+        assert!(store
+            .remove_by_relation::<()>(NodeRelation::Global)
+            .is_none());
+    }
+
+    #[test]
+    fn remove_by_relation_with_invalid_relation() {
+        let mut store = NodeStore::default();
+        store.insert(42, NodeRelation::Global).unwrap();
+
+        assert_eq!(
+            store.remove_by_relation::<i32>(NodeRelation::Tile(0)),
+            Some(vec![])
+        );
     }
 }
