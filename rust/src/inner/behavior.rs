@@ -166,8 +166,14 @@ impl EntityBehavior for RandomWalkBehavior {
                         entity.location[0] + direction[0] * delta_distance,
                         entity.location[1] + direction[1] * delta_distance,
                     ];
-                    if move_entity(world.block_field, world.entity_field, entity_key, location)
-                        .is_ok()
+                    if move_entity(
+                        world.tile_field,
+                        world.block_field,
+                        world.entity_field,
+                        entity_key,
+                        location,
+                    )
+                    .is_ok()
                     {
                         inner.state = RandomWalkState::Trip(destination);
                     } else {

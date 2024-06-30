@@ -88,7 +88,7 @@ impl Entity {
     #[func]
     fn new_from(id: u32, location: Vector2) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Entity { id, location };
+        let inner = inner::Entity::new(id, location);
         Gd::from_init_fn(|_| Self { inner })
     }
 

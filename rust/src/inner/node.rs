@@ -2,7 +2,7 @@ use super::*;
 
 pub type NodeKey = (std::any::TypeId, u32);
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NodeRelation {
     Global,
     Tile(u32),

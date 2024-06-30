@@ -92,7 +92,7 @@ impl Block {
     #[func]
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Block { id, location };
+        let inner = inner::Block::new(id, location);
         Gd::from_init_fn(|_| Self { inner })
     }
 

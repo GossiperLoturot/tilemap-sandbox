@@ -18,11 +18,26 @@ func _ready():
 		2048,
 		8,
 		[
-			TileFieldDescEntry.new_from(preload("res://images/surface_dirt.webp")),
-			TileFieldDescEntry.new_from(preload("res://images/surface_grass.webp")),
-			TileFieldDescEntry.new_from(preload("res://images/surface_gravel.webp")),
-			TileFieldDescEntry.new_from(preload("res://images/surface_sand.webp")),
-			TileFieldDescEntry.new_from(preload("res://images/surface_stone.webp")),
+			TileFieldDescEntry.new_from(
+				preload("res://images/surface_dirt.webp"),
+				false,
+			),
+			TileFieldDescEntry.new_from(
+				preload("res://images/surface_grass.webp"),
+				false,
+			),
+			TileFieldDescEntry.new_from(
+				preload("res://images/surface_gravel.webp"),
+				false,
+			),
+			TileFieldDescEntry.new_from(
+				preload("res://images/surface_sand.webp"),
+				false,
+			),
+			TileFieldDescEntry.new_from(
+				preload("res://images/surface_stone.webp"),
+				false,
+			),
 		] as Array[TileFieldDescEntry],
 		preload("res://field.gdshader"),
 	)
@@ -128,6 +143,9 @@ func _ready():
 			Behavior.new_time(),
 		] as Array[GlobalBehavior],
 		[
+			Behavior.new_unit_tile(),
+			Behavior.new_unit_tile(),
+			Behavior.new_unit_tile(),
 			Behavior.new_unit_tile(),
 			Behavior.new_unit_tile(),
 		] as Array[TileBehavior],

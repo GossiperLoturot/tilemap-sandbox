@@ -29,7 +29,7 @@ impl<T, U: std::error::Error> IntegrityCheck<T> for Result<T, U> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldError {
     NotFound,
     Conflict,

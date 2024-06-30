@@ -7,13 +7,15 @@ use std::hash::Hasher;
 struct TileFieldDescEntry {
     #[export]
     image: Gd<godot::engine::Image>,
+    #[export]
+    collision: bool,
 }
 
 #[godot_api]
 impl TileFieldDescEntry {
     #[func]
-    fn new_from(image: Gd<godot::engine::Image>) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self { image })
+    fn new_from(image: Gd<godot::engine::Image>, collision: bool) -> Gd<Self> {
+        Gd::from_init_fn(|_| Self { image, collision })
     }
 }
 
@@ -65,7 +67,7 @@ impl Tile {
     #[func]
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Tile { id, location };
+        let inner = inner::Tile::new(id, location);
         Gd::from_init_fn(|_| Self { inner })
     }
 
@@ -141,7 +143,16 @@ impl TileField {
     fn new_from(desc: Gd<TileFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
         let desc = desc.bind();
 
-        let inner = inner::TileField::new(Self::CHUNK_SIZE);
+        let inner_specs = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let entry = entry.bind();
+                inner::TileSpec::new(entry.collision)
+            })
+            .collect::<Vec<_>>();
+
+        let inner = inner::TileField::new(Self::CHUNK_SIZE, inner_specs);
 
         let entries = desc
             .entries
@@ -431,5 +442,35 @@ impl TileField {
         let point = [point.x, point.y];
         let key = self.inner.get_by_point(point)?;
         Some(Gd::from_init_fn(|_| TileKey { inner: key }))
+    }
+
+    // collision features
+
+    #[func]
+    fn has_collision_by_point(&self, point: Vector2) -> bool {
+        let point = [point.x, point.y];
+        self.inner.has_collision_by_point(point)
+    }
+
+    #[func]
+    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<TileKey>> {
+        let point = [point.x, point.y];
+        let keys = self.inner.get_collision_by_point(point);
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| TileKey { inner: key })))
+    }
+
+    #[func]
+    fn has_collision_by_rect(&self, rect: Rect2) -> bool {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        self.inner.has_collision_by_rect([p0, p1])
+    }
+
+    #[func]
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<TileKey>> {
+        let p0 = [rect.position.x, rect.position.y];
+        let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
+        let keys = self.inner.get_collision_by_rect([p0, p1]);
+        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| TileKey { inner: key })))
     }
 }
