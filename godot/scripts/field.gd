@@ -141,6 +141,7 @@ func _ready():
 	var _behavior_root = BehaviorRoot.new_from(
 		[
 			Behavior.new_time(),
+			Behavior.new_generator(16, 1),
 		] as Array[GlobalBehavior],
 		[
 			Behavior.new_unit_tile(),
@@ -160,7 +161,7 @@ func _ready():
 			Behavior.new_unit_block(),
 		] as Array[BlockBehavior],
 		[
-			Behavior.new_unit_entity(),
+			Behavior.new_generator_anchor(),
 			Behavior.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
 		] as Array[EntityBehavior],
 	)
@@ -177,20 +178,20 @@ func _ready():
 
 
 func generate_level():
-	for y in range(-64, 65):
-		for x in range(-64, 65):
-			pass
-			_world.place_tile(Tile.new_from(randi_range(0, 1), Vector2i(x, y)))
+	#for y in range(-64, 65):
+	#	for x in range(-64, 65):
+	#		pass
+	#		_world.place_tile(Tile.new_from(randi_range(0, 1), Vector2i(x, y)))
 
-	for i in range(4096):
-		var x = randi_range(-64, 65)
-		var y = randf_range(-64, 65)
-		_world.place_block(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
+	#for i in range(4096):
+	#	var x = randi_range(-64, 65)
+	#	var y = randf_range(-64, 65)
+	#	_world.place_block(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
 
-	for i in range(64):
-		var x = randf_range(-64.0, 64.0)
-		var y = randf_range(-64.0, 64.0)
-		_world.place_entity(Entity.new_from(1, Vector2(x, y)))
+	#for i in range(64):
+	#	var x = randf_range(-64.0, 64.0)
+	#	var y = randf_range(-64.0, 64.0)
+	#	_world.place_entity(Entity.new_from(1, Vector2(x, y)))
 
 	for y in range(-4, 5):
 		for x in range(-4, 5):

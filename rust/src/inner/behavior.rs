@@ -24,13 +24,13 @@ pub struct TimeBehavior;
 
 impl GlobalBehavior for TimeBehavior {
     fn on_new(&self, world: &mut World) {
-        let inner = Time {
+        let node = Time {
             uptime_secs: Default::default(),
             delta_secs: Default::default(),
             instance: std::time::Instant::now(),
         };
         let relation = NodeRelation::Global;
-        world.node_store.insert(inner, relation);
+        world.node_store.insert(node, relation);
     }
 
     fn on_drop(&self, world: &mut World) {
@@ -39,10 +39,112 @@ impl GlobalBehavior for TimeBehavior {
     }
 
     fn on_update(&self, world: &mut World) {
-        let (_, inner) = world.node_store.one_mut::<Time>().check();
-        let instance = std::mem::replace(&mut inner.instance, std::time::Instant::now());
-        inner.delta_secs = instance.elapsed().as_secs_f32();
-        inner.uptime_secs += inner.delta_secs;
+        let (_, node) = world.node_store.one_mut::<Time>().check();
+        let instance = std::mem::replace(&mut node.instance, std::time::Instant::now());
+        node.delta_secs = instance.elapsed().as_secs_f32();
+        node.uptime_secs += node.delta_secs;
+    }
+}
+
+// generator behavior
+
+#[derive(Debug, Clone)]
+pub struct Generator {
+    pub chunk_size: u32,
+    pub size: u32,
+    pub visited_chunk: ahash::AHashSet<IVec2>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GeneratorBehavior {
+    pub chunk_size: u32,
+    pub size: u32,
+}
+
+impl GlobalBehavior for GeneratorBehavior {
+    fn on_new(&self, world: &mut World) {
+        let node = Generator {
+            chunk_size: self.chunk_size,
+            size: self.size,
+            visited_chunk: Default::default(),
+        };
+        let relation = NodeRelation::Global;
+        world.node_store.insert(node, relation);
+    }
+
+    fn on_drop(&self, world: &mut World) {
+        let relation = NodeRelation::Global;
+        world.node_store.remove_by_relation::<Generator>(relation);
+    }
+
+    fn on_update(&self, world: &mut World) {
+        let relations = world
+            .node_store
+            .iter::<GeneratorAnchor>()
+            .map(|(relation, _)| *relation)
+            .collect::<Vec<_>>();
+
+        let (_, node) = world.node_store.one_mut::<Generator>().check();
+
+        for relation in relations {
+            let NodeRelation::Entity(entity_key) = relation else {
+                unreachable!();
+            };
+
+            let entity = world.entity_field.get(entity_key).check();
+            let location = entity.location;
+
+            let chunk_key = [
+                location[0].div_euclid(node.chunk_size as f32) as i32,
+                location[1].div_euclid(node.chunk_size as f32) as i32,
+            ];
+
+            for y in -(node.size as i32)..node.size as i32 {
+                for x in -(node.size as i32)..node.size as i32 {
+                    let chunk_key = [chunk_key[0] + x as i32, chunk_key[1] + y as i32];
+
+                    if node.visited_chunk.contains(&chunk_key) {
+                        continue;
+                    }
+
+                    for v in 0..node.chunk_size {
+                        for u in 0..node.chunk_size {
+                            let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
+                            let location = [
+                                chunk_key[0] * node.chunk_size as i32 + u as i32,
+                                chunk_key[1] * node.chunk_size as i32 + v as i32,
+                            ];
+                            let _ = world.tile_field.insert(Tile::new(id, location));
+                        }
+                    }
+
+                    node.visited_chunk.insert(chunk_key);
+                }
+            }
+        }
+    }
+}
+
+// generator anchor behavior
+
+#[derive(Debug, Clone)]
+pub struct GeneratorAnchor;
+
+#[derive(Debug, Clone)]
+pub struct GeneratorAnchorBehavior;
+
+impl EntityBehavior for GeneratorAnchorBehavior {
+    fn on_place_entity(&self, world: &mut World, entity_key: u32) {
+        let node = GeneratorAnchor;
+        let relation = NodeRelation::Entity(entity_key);
+        world.node_store.insert::<GeneratorAnchor>(node, relation);
+    }
+
+    fn on_break_entity(&self, world: &mut World, entity_key: u32) {
+        let relation = NodeRelation::Entity(entity_key);
+        world
+            .node_store
+            .remove_by_relation::<GeneratorAnchor>(relation);
     }
 }
 
@@ -77,12 +179,8 @@ pub struct RandomWalkBehavior {
 }
 
 impl EntityBehavior for RandomWalkBehavior {
-    fn on_new(&self, _world: &mut World) {}
-
-    fn on_drop(&self, _world: &mut World) {}
-
     fn on_place_entity(&self, world: &mut World, entity_key: u32) {
-        let inner = RandomWalk {
+        let node = RandomWalk {
             min_rest_secs: self.min_rest_secs,
             max_rest_secs: self.max_rest_secs,
             min_distance: self.min_distance,
@@ -91,7 +189,7 @@ impl EntityBehavior for RandomWalkBehavior {
             state: RandomWalkState::Init,
         };
         let relation = NodeRelation::Entity(entity_key);
-        world.node_store.insert::<RandomWalk>(inner, relation);
+        world.node_store.insert::<RandomWalk>(node, relation);
     }
 
     fn on_break_entity(&self, world: &mut World, entity_key: u32) {
@@ -105,39 +203,35 @@ impl EntityBehavior for RandomWalkBehavior {
         };
         let delta_secs = time.delta_secs;
 
-        let Some(iter) = world.node_store.iter_mut::<RandomWalk>() else {
-            return;
-        };
-
-        for (relation, inner) in iter {
+        for (relation, node) in world.node_store.iter_mut::<RandomWalk>() {
             let NodeRelation::Entity(entity_key) = *relation else {
-                unreachable!("invalid relation");
+                unreachable!();
             };
 
-            match inner.state {
+            match node.state {
                 RandomWalkState::Init => {
-                    inner.state = RandomWalkState::WaitStart;
+                    node.state = RandomWalkState::WaitStart;
                 }
                 RandomWalkState::WaitStart => {
                     let secs = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
-                        inner.min_rest_secs..inner.max_rest_secs,
+                        node.min_rest_secs..node.max_rest_secs,
                     );
-                    inner.state = RandomWalkState::Wait(secs);
+                    node.state = RandomWalkState::Wait(secs);
                 }
                 RandomWalkState::Wait(secs) => {
                     let new_secs = secs - delta_secs;
                     if new_secs <= 0.0 {
-                        inner.state = RandomWalkState::TripStart;
+                        node.state = RandomWalkState::TripStart;
                     } else {
-                        inner.state = RandomWalkState::Wait(new_secs);
+                        node.state = RandomWalkState::Wait(new_secs);
                     }
                 }
                 RandomWalkState::TripStart => {
                     let entity = world.entity_field.get(entity_key).check();
                     let distance = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
-                        inner.min_distance..inner.max_distance,
+                        node.min_distance..node.max_distance,
                     );
                     let direction = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
@@ -147,12 +241,12 @@ impl EntityBehavior for RandomWalkBehavior {
                         entity.location[0] + distance * direction.cos(),
                         entity.location[1] + distance * direction.sin(),
                     ];
-                    inner.state = RandomWalkState::Trip(destination);
+                    node.state = RandomWalkState::Trip(destination);
                 }
                 RandomWalkState::Trip(destination) => {
                     let entity = world.entity_field.get(entity_key).check();
                     if entity.location == destination {
-                        inner.state = RandomWalkState::WaitStart;
+                        node.state = RandomWalkState::WaitStart;
                         return;
                     }
                     let diff = [
@@ -161,7 +255,7 @@ impl EntityBehavior for RandomWalkBehavior {
                     ];
                     let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
                     let direction = [diff[0] / distance, diff[1] / distance];
-                    let delta_distance = distance.min(inner.speed * delta_secs);
+                    let delta_distance = distance.min(node.speed * delta_secs);
                     let location = [
                         entity.location[0] + direction[0] * delta_distance,
                         entity.location[1] + direction[1] * delta_distance,
@@ -175,9 +269,9 @@ impl EntityBehavior for RandomWalkBehavior {
                     )
                     .is_ok()
                     {
-                        inner.state = RandomWalkState::Trip(destination);
+                        node.state = RandomWalkState::Trip(destination);
                     } else {
-                        inner.state = RandomWalkState::WaitStart;
+                        node.state = RandomWalkState::WaitStart;
                     }
                 }
             }

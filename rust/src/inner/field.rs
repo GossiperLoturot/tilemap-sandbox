@@ -36,6 +36,7 @@ pub struct Tile {
 }
 
 impl Tile {
+    #[inline]
     pub fn new(id: u32, location: IVec2) -> Self {
         Self { id, location }
     }
@@ -199,32 +200,38 @@ impl TileField {
         Ok(tile)
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&TileChunk> {
         self.chunks.get(&chunk_key)
     }
 
     // spatial features
 
+    #[inline]
     pub fn has_by_point(&self, point: IVec2) -> bool {
         self.spatial_ref.contains_key(&point)
     }
 
+    #[inline]
     pub fn get_by_point(&self, point: IVec2) -> Option<u32> {
         self.spatial_ref.get(&point).copied()
     }
 
     // collision features
 
+    #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_point(&self, point: Vec2) -> impl Iterator<Item = u32> + '_ {
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
     }
 
+    #[inline]
     pub fn has_collision_by_rect(&self, rect: [Vec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -233,6 +240,7 @@ impl TileField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -260,13 +268,13 @@ impl BlockSpec {
         hint_size: Vec2,
         hint_offset: Vec2,
     ) -> Self {
-        if size[0] * size[1] <= 0 {
+        if size[0] <= 0 || size[1] <= 0 {
             panic!("size must be positive");
         }
-        if collision_size[0] * collision_size[1] < 0.0 {
+        if collision_size[0] < 0.0 || collision_size[1] < 0.0 {
             panic!("collision size must be non-negative");
         }
-        if hint_size[0] * hint_size[1] < 0.0 {
+        if hint_size[0] < 0.0 || hint_size[1] < 0.0 {
             panic!("hint size must be non-negative");
         }
 
@@ -325,6 +333,7 @@ pub struct Block {
 }
 
 impl Block {
+    #[inline]
     pub fn new(id: u32, location: IVec2) -> Self {
         Self { id, location }
     }
@@ -527,21 +536,25 @@ impl BlockField {
         Ok(block)
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&BlockChunk> {
         self.chunks.get(&chunk_key)
     }
 
     // spatial features
 
+    #[inline]
     pub fn has_by_point(&self, point: IVec2) -> bool {
         self.spatial_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_by_point(&self, point: IVec2) -> Option<u32> {
         let node = self.spatial_ref.locate_at_point(&point)?;
         Some(node.data)
     }
 
+    #[inline]
     pub fn has_by_rect(&self, rect: [IVec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.spatial_ref
@@ -550,6 +563,7 @@ impl BlockField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.spatial_ref
@@ -559,16 +573,19 @@ impl BlockField {
 
     // collision features
 
+    #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_point(&self, point: Vec2) -> impl Iterator<Item = u32> + '_ {
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
     }
 
+    #[inline]
     pub fn has_collision_by_rect(&self, rect: [Vec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -577,6 +594,7 @@ impl BlockField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -586,16 +604,19 @@ impl BlockField {
 
     // hint features
 
+    #[inline]
     pub fn has_hint_by_point(&self, point: Vec2) -> bool {
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_hint_by_point(&self, point: Vec2) -> impl Iterator<Item = u32> + '_ {
         self.hint_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
     }
 
+    #[inline]
     pub fn has_hint_by_rect(&self, rect: [Vec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.hint_ref
@@ -604,6 +625,7 @@ impl BlockField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_hint_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.hint_ref
@@ -629,10 +651,10 @@ impl EntitySpec {
         hint_size: Vec2,
         hint_offset: Vec2,
     ) -> Self {
-        if collision_size[0] * collision_size[1] < 0.0 {
+        if collision_size[0] < 0.0 || collision_size[1] < 0.0 {
             panic!("collision size must be non-negative");
         }
-        if hint_size[0] * hint_size[1] < 0.0 {
+        if hint_size[0] < 0.0 || hint_size[1] < 0.0 {
             panic!("hint size must be non-negative");
         }
 
@@ -678,6 +700,7 @@ pub struct Entity {
 }
 
 impl Entity {
+    #[inline]
     pub fn new(id: u32, location: Vec2) -> Self {
         Self { id, location }
     }
@@ -843,22 +866,26 @@ impl EntityField {
         Ok(entity)
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&EntityChunk> {
         self.chunks.get(&chunk_key)
     }
 
     // collision features
 
+    #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_point(&self, point: Vec2) -> impl Iterator<Item = u32> + '_ {
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
     }
 
+    #[inline]
     pub fn has_collision_by_rect(&self, rect: [Vec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -867,6 +894,7 @@ impl EntityField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_collision_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.collision_ref
@@ -876,16 +904,19 @@ impl EntityField {
 
     // hint features
 
+    #[inline]
     pub fn has_hint_by_point(&self, point: Vec2) -> bool {
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
+    #[inline]
     pub fn get_hint_by_point(&self, point: Vec2) -> impl Iterator<Item = u32> + '_ {
         self.hint_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
     }
 
+    #[inline]
     pub fn has_hint_by_rect(&self, rect: [Vec2; 2]) -> bool {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.hint_ref
@@ -894,6 +925,7 @@ impl EntityField {
             .is_some()
     }
 
+    #[inline]
     pub fn get_hint_by_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = u32> + '_ {
         let rect = rstar::AABB::from_corners(rect[0], rect[1]);
         self.hint_ref

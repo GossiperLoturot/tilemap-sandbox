@@ -127,7 +127,7 @@ impl NodeStore {
         Some((&node_row.relation, &mut node_row.node))
     }
 
-    pub fn iter<T>(&self) -> Option<impl Iterator<Item = (&NodeRelation, &T)>>
+    fn iter_internal<T>(&self) -> Option<impl Iterator<Item = (&NodeRelation, &T)>>
     where
         T: std::any::Any,
     {
@@ -146,7 +146,7 @@ impl NodeStore {
         Some(iter)
     }
 
-    pub fn iter_mut<T>(&mut self) -> Option<impl Iterator<Item = (&NodeRelation, &mut T)>>
+    fn iter_mut_internal<T>(&mut self) -> Option<impl Iterator<Item = (&NodeRelation, &mut T)>>
     where
         T: std::any::Any,
     {
@@ -165,21 +165,10 @@ impl NodeStore {
         Some(iter)
     }
 
-    pub fn one<T>(&self) -> Option<(&NodeRelation, &T)>
-    where
-        T: std::any::Any,
-    {
-        self.iter::<T>()?.next()
-    }
-
-    pub fn one_mut<T>(&mut self) -> Option<(&NodeRelation, &mut T)>
-    where
-        T: std::any::Any,
-    {
-        self.iter_mut::<T>()?.next()
-    }
-
-    pub fn iter_by_relation<T>(&self, relation: NodeRelation) -> Option<impl Iterator<Item = &T>>
+    fn iter_by_relation_internal<T>(
+        &self,
+        relation: NodeRelation,
+    ) -> Option<impl Iterator<Item = &T>>
     where
         T: std::any::Any,
     {
@@ -203,7 +192,7 @@ impl NodeStore {
         Some(iter)
     }
 
-    pub fn iter_mut_by_relation<T>(
+    fn iter_mut_by_relation_internal<T>(
         &mut self,
         relation: NodeRelation,
     ) -> Option<impl Iterator<Item = &mut T>>
@@ -231,7 +220,7 @@ impl NodeStore {
         Some(iter)
     }
 
-    pub fn remove_by_relation<T>(&mut self, relation: NodeRelation) -> Option<Vec<T>>
+    fn remove_by_relation_internal<T>(&mut self, relation: NodeRelation) -> Option<Vec<T>>
     where
         T: std::any::Any,
     {
@@ -252,6 +241,70 @@ impl NodeStore {
         }
 
         Some(vec)
+    }
+
+    #[inline]
+    pub fn iter<T>(&self) -> impl Iterator<Item = (&NodeRelation, &T)>
+    where
+        T: std::any::Any,
+    {
+        self.iter_internal::<T>().into_iter().flatten()
+    }
+
+    #[inline]
+    pub fn iter_mut<T>(&mut self) -> impl Iterator<Item = (&NodeRelation, &mut T)>
+    where
+        T: std::any::Any,
+    {
+        self.iter_mut_internal::<T>().into_iter().flatten()
+    }
+
+    #[inline]
+    pub fn one<T>(&self) -> Option<(&NodeRelation, &T)>
+    where
+        T: std::any::Any,
+    {
+        self.iter::<T>().next()
+    }
+
+    #[inline]
+    pub fn one_mut<T>(&mut self) -> Option<(&NodeRelation, &mut T)>
+    where
+        T: std::any::Any,
+    {
+        self.iter_mut::<T>().next()
+    }
+
+    #[inline]
+    pub fn iter_by_relation<T>(&self, relation: NodeRelation) -> impl Iterator<Item = &T>
+    where
+        T: std::any::Any,
+    {
+        self.iter_by_relation_internal::<T>(relation)
+            .into_iter()
+            .flatten()
+    }
+
+    #[inline]
+    pub fn iter_mut_by_relation<T>(
+        &mut self,
+        relation: NodeRelation,
+    ) -> impl Iterator<Item = &mut T>
+    where
+        T: std::any::Any,
+    {
+        self.iter_mut_by_relation_internal::<T>(relation)
+            .into_iter()
+            .flatten()
+    }
+
+    #[inline]
+    pub fn remove_by_relation<T>(&mut self, relation: NodeRelation) -> Vec<T>
+    where
+        T: std::any::Any,
+    {
+        self.remove_by_relation_internal::<T>(relation)
+            .unwrap_or_default()
     }
 }
 
@@ -294,26 +347,26 @@ mod tests {
         store.insert(42, NodeRelation::Tile(1)).unwrap();
         store.insert((), NodeRelation::Tile(1)).unwrap();
 
-        let mut iter = store.iter::<i32>().unwrap();
+        let mut iter = store.iter::<i32>();
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &42)));
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &63)));
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &42)));
         assert_eq!(iter.next(), None);
         drop(iter);
 
-        let mut iter = store.iter::<()>().unwrap();
+        let mut iter = store.iter::<()>();
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &())));
         assert_eq!(iter.next(), None);
         drop(iter);
 
-        let mut iter = store.iter_mut::<i32>().unwrap();
+        let mut iter = store.iter_mut::<i32>();
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &mut 42)));
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(0), &mut 63)));
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &mut 42)));
         assert_eq!(iter.next(), None);
         drop(iter);
 
-        let mut iter = store.iter_mut::<()>().unwrap();
+        let mut iter = store.iter_mut::<()>();
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &mut ())));
         assert_eq!(iter.next(), None);
     }
@@ -321,8 +374,8 @@ mod tests {
     #[test]
     fn iter_with_invalid_type() {
         let mut store = NodeStore::default();
-        assert!(store.iter::<i32>().is_none());
-        assert!(store.iter_mut::<i32>().is_none());
+        assert!(store.iter::<i32>().next().is_none());
+        assert!(store.iter_mut::<i32>().next().is_none());
     }
 
     #[test]
@@ -348,17 +401,13 @@ mod tests {
         store.insert(42, NodeRelation::Tile(1)).unwrap();
         store.insert((), NodeRelation::Tile(1)).unwrap();
 
-        let mut iter = store
-            .iter_by_relation::<i32>(NodeRelation::Tile(0))
-            .unwrap();
+        let mut iter = store.iter_by_relation::<i32>(NodeRelation::Tile(0));
         assert_eq!(iter.next(), Some(&42));
         assert_eq!(iter.next(), Some(&63));
         assert_eq!(iter.next(), None);
         drop(iter);
 
-        let mut iter = store
-            .iter_mut_by_relation::<i32>(NodeRelation::Tile(1))
-            .unwrap();
+        let mut iter = store.iter_mut_by_relation::<i32>(NodeRelation::Tile(1));
         assert_eq!(iter.next(), Some(&mut 42));
         assert_eq!(iter.next(), None);
     }
@@ -368,9 +417,13 @@ mod tests {
         let mut store = NodeStore::default();
         store.insert(42, NodeRelation::Global).unwrap();
 
-        assert!(store.iter_by_relation::<()>(NodeRelation::Global).is_none());
+        assert!(store
+            .iter_by_relation::<()>(NodeRelation::Global)
+            .next()
+            .is_none());
         assert!(store
             .iter_mut_by_relation::<()>(NodeRelation::Global)
+            .next()
             .is_none());
     }
 
@@ -381,9 +434,11 @@ mod tests {
 
         assert!(store
             .iter_by_relation::<i32>(NodeRelation::Tile(0))
+            .next()
             .is_none());
         assert!(store
             .iter_mut_by_relation::<i32>(NodeRelation::Tile(0))
+            .next()
             .is_none());
     }
 
@@ -395,22 +450,18 @@ mod tests {
         store.insert(42, NodeRelation::Tile(1)).unwrap();
         store.insert((), NodeRelation::Tile(1)).unwrap();
 
-        let vec = store
-            .remove_by_relation::<i32>(NodeRelation::Tile(0))
-            .unwrap();
+        let vec = store.remove_by_relation::<i32>(NodeRelation::Tile(0));
         assert_eq!(vec, vec![42, 63]);
 
-        let vec = store
-            .remove_by_relation::<()>(NodeRelation::Tile(1))
-            .unwrap();
+        let vec = store.remove_by_relation::<()>(NodeRelation::Tile(1));
         assert_eq!(vec, vec![()]);
 
-        let mut iter = store.iter::<i32>().unwrap();
+        let mut iter = store.iter::<i32>();
         assert_eq!(iter.next(), Some((&NodeRelation::Tile(1), &42)));
         assert_eq!(iter.next(), None);
         drop(iter);
 
-        let mut iter = store.iter::<()>().unwrap();
+        let mut iter = store.iter::<()>();
         assert_eq!(iter.next(), None);
     }
 
@@ -419,9 +470,7 @@ mod tests {
         let mut store = NodeStore::default();
         store.insert(42, NodeRelation::Global).unwrap();
 
-        assert!(store
-            .remove_by_relation::<()>(NodeRelation::Global)
-            .is_none());
+        assert_eq!(store.remove_by_relation::<()>(NodeRelation::Global), vec![]);
     }
 
     #[test]
@@ -431,7 +480,7 @@ mod tests {
 
         assert_eq!(
             store.remove_by_relation::<i32>(NodeRelation::Tile(0)),
-            Some(vec![])
+            vec![]
         );
     }
 }

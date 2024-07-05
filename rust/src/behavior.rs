@@ -39,6 +39,18 @@ impl Behavior {
     }
 
     #[func]
+    fn new_generator(chunk_size: u32, size: u32) -> Gd<world::GlobalBehavior> {
+        let inner = Box::new(inner::GeneratorBehavior { chunk_size, size });
+        Gd::from_init_fn(|_| world::GlobalBehavior { inner })
+    }
+
+    #[func]
+    fn new_generator_anchor() -> Gd<world::EntityBehavior> {
+        let inner = Box::new(inner::GeneratorAnchorBehavior);
+        Gd::from_init_fn(|_| world::EntityBehavior { inner })
+    }
+
+    #[func]
     fn new_random_walk(
         min_rest_secs: f32,
         max_rest_secs: f32,
