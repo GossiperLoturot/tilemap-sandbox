@@ -13,22 +13,6 @@ pub type IVec2 = [i32; 2];
 
 // Error Handling
 
-pub trait IntegrityCheck<T> {
-    fn check(self) -> T;
-}
-
-impl<T> IntegrityCheck<T> for Option<T> {
-    fn check(self) -> T {
-        self.expect("integrity error")
-    }
-}
-
-impl<T, U: std::error::Error> IntegrityCheck<T> for Result<T, U> {
-    fn check(self) -> T {
-        self.expect("integrity error")
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldError {
     NotFound,

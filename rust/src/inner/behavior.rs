@@ -39,7 +39,7 @@ impl GlobalBehavior for TimeBehavior {
     }
 
     fn on_update(&self, world: &mut World) {
-        let (_, node) = world.node_store.one_mut::<Time>().check();
+        let (_, node) = world.node_store.one_mut::<Time>().unwrap();
         let instance = std::mem::replace(&mut node.instance, std::time::Instant::now());
         node.delta_secs = instance.elapsed().as_secs_f32();
         node.uptime_secs += node.delta_secs;
@@ -76,75 +76,34 @@ impl GlobalBehavior for GeneratorBehavior {
         let relation = NodeRelation::Global;
         world.node_store.remove_by_relation::<Generator>(relation);
     }
-
-    fn on_update(&self, world: &mut World) {
-        let relations = world
-            .node_store
-            .iter::<GeneratorAnchor>()
-            .map(|(relation, _)| *relation)
-            .collect::<Vec<_>>();
-
-        let (_, node) = world.node_store.one_mut::<Generator>().check();
-
-        for relation in relations {
-            let NodeRelation::Entity(entity_key) = relation else {
-                unreachable!();
-            };
-
-            let entity = world.entity_field.get(entity_key).check();
-            let location = entity.location;
-
-            let chunk_key = [
-                location[0].div_euclid(node.chunk_size as f32) as i32,
-                location[1].div_euclid(node.chunk_size as f32) as i32,
-            ];
-
-            for y in -(node.size as i32)..node.size as i32 {
-                for x in -(node.size as i32)..node.size as i32 {
-                    let chunk_key = [chunk_key[0] + x as i32, chunk_key[1] + y as i32];
-
-                    if node.visited_chunk.contains(&chunk_key) {
-                        continue;
-                    }
-
-                    for v in 0..node.chunk_size {
-                        for u in 0..node.chunk_size {
-                            let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
-                            let location = [
-                                chunk_key[0] * node.chunk_size as i32 + u as i32,
-                                chunk_key[1] * node.chunk_size as i32 + v as i32,
-                            ];
-                            let _ = world.tile_field.insert(Tile::new(id, location));
-                        }
-                    }
-
-                    node.visited_chunk.insert(chunk_key);
-                }
-            }
-        }
-    }
 }
 
-// generator anchor behavior
+impl GeneratorBehavior {
+    pub fn generate_chunk(&self, world: &mut World, chunk_key: IVec2) {
+        let (_, node) = world.node_store.one_mut::<Generator>().unwrap();
 
-#[derive(Debug, Clone)]
-pub struct GeneratorAnchor;
+        for y in -(node.size as i32)..node.size as i32 {
+            for x in -(node.size as i32)..node.size as i32 {
+                let chunk_key = [chunk_key[0] + x as i32, chunk_key[1] + y as i32];
 
-#[derive(Debug, Clone)]
-pub struct GeneratorAnchorBehavior;
+                if node.visited_chunk.contains(&chunk_key) {
+                    continue;
+                }
 
-impl EntityBehavior for GeneratorAnchorBehavior {
-    fn on_place_entity(&self, world: &mut World, entity_key: u32) {
-        let node = GeneratorAnchor;
-        let relation = NodeRelation::Entity(entity_key);
-        world.node_store.insert::<GeneratorAnchor>(node, relation);
-    }
+                for v in 0..node.chunk_size {
+                    for u in 0..node.chunk_size {
+                        let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
+                        let location = [
+                            chunk_key[0] * node.chunk_size as i32 + u as i32,
+                            chunk_key[1] * node.chunk_size as i32 + v as i32,
+                        ];
+                        let _ = world.tile_field.insert(Tile::new(id, location));
+                    }
+                }
 
-    fn on_break_entity(&self, world: &mut World, entity_key: u32) {
-        let relation = NodeRelation::Entity(entity_key);
-        world
-            .node_store
-            .remove_by_relation::<GeneratorAnchor>(relation);
+                node.visited_chunk.insert(chunk_key);
+            }
+        }
     }
 }
 
@@ -228,7 +187,7 @@ impl EntityBehavior for RandomWalkBehavior {
                     }
                 }
                 RandomWalkState::TripStart => {
-                    let entity = world.entity_field.get(entity_key).check();
+                    let entity = world.entity_field.get(entity_key).unwrap();
                     let distance = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
                         node.min_distance..node.max_distance,
@@ -244,7 +203,7 @@ impl EntityBehavior for RandomWalkBehavior {
                     node.state = RandomWalkState::Trip(destination);
                 }
                 RandomWalkState::Trip(destination) => {
-                    let entity = world.entity_field.get(entity_key).check();
+                    let entity = world.entity_field.get(entity_key).unwrap();
                     if entity.location == destination {
                         node.state = RandomWalkState::WaitStart;
                         return;

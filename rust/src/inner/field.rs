@@ -111,20 +111,20 @@ impl TileField {
             .stable_ref
             .try_remove(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(&chunk_key).check();
-        let tile = chunk.tiles.try_remove(tile_key as usize).check();
+        let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+        let tile = chunk.tiles.try_remove(tile_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = &self.specs.get(tile.id as usize).check();
+        let spec = &self.specs.get(tile.id as usize).unwrap();
 
         // spatial features
-        self.spatial_ref.remove(&tile.location).check();
+        self.spatial_ref.remove(&tile.location).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(tile.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).check();
+            self.collision_ref.remove(&node).unwrap();
         }
 
         Ok(tile)
@@ -150,20 +150,20 @@ impl TileField {
             .stable_ref
             .get_mut(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).check();
-        let tile = chunk.tiles.try_remove(*tile_key as usize).check();
+        let chunk = self.chunks.get_mut(chunk_key).unwrap();
+        let tile = chunk.tiles.try_remove(*tile_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = self.specs.get(tile.id as usize).check();
+        let spec = self.specs.get(tile.id as usize).unwrap();
 
         // spatial features
-        self.spatial_ref.remove(&tile.location).check();
+        self.spatial_ref.remove(&tile.location).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(tile.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).check();
+            self.collision_ref.remove(&node).unwrap();
         }
 
         let location = new_tile.location;
@@ -195,8 +195,8 @@ impl TileField {
             .stable_ref
             .get(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key).check();
-        let tile = chunk.tiles.get(*tile_key as usize).check();
+        let chunk = self.chunks.get(chunk_key).unwrap();
+        let tile = chunk.tiles.get(*tile_key as usize).unwrap();
         Ok(tile)
     }
 
@@ -420,30 +420,30 @@ impl BlockField {
             .stable_ref
             .try_remove(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(&chunk_key).check();
-        let block = chunk.blocks.try_remove(block_key as usize).check();
+        let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+        let block = chunk.blocks.try_remove(block_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = &self.specs.get(block.id as usize).check();
+        let spec = &self.specs.get(block.id as usize).unwrap();
 
         // spatial features
         let rect = spec.rect(block.location);
         let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
         let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.spatial_ref.remove(&node).check();
+        self.spatial_ref.remove(&node).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).check();
+            self.collision_ref.remove(&node).unwrap();
         }
 
         // hint features
         if let Some(rect) = spec.hint_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(&node).check();
+            self.hint_ref.remove(&node).unwrap();
         }
 
         Ok(block)
@@ -466,30 +466,30 @@ impl BlockField {
             .stable_ref
             .get_mut(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).check();
-        let block = chunk.blocks.try_remove(*block_key as usize).check();
+        let chunk = self.chunks.get_mut(chunk_key).unwrap();
+        let block = chunk.blocks.try_remove(*block_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = self.specs.get(block.id as usize).check();
+        let spec = self.specs.get(block.id as usize).unwrap();
 
         // spatial features
         let rect = spec.rect(block.location);
         let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
         let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.spatial_ref.remove(node).check();
+        self.spatial_ref.remove(node).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).check();
+            self.collision_ref.remove(&node).unwrap();
         }
 
         // hint features
         if let Some(rect) = spec.hint_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(&node).check();
+            self.hint_ref.remove(&node).unwrap();
         }
 
         let location = new_block.location;
@@ -531,8 +531,8 @@ impl BlockField {
             .stable_ref
             .get(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key).check();
-        let block = chunk.blocks.get(*block_key as usize).check();
+        let chunk = self.chunks.get(chunk_key).unwrap();
+        let block = chunk.blocks.get(*block_key as usize).unwrap();
         Ok(block)
     }
 
@@ -774,24 +774,24 @@ impl EntityField {
             .stable_ref
             .try_remove(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(&chunk_key).check();
-        let entity = chunk.entities.try_remove(entity_key as usize).check();
+        let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+        let entity = chunk.entities.try_remove(entity_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = &self.specs.get(entity.id as usize).check();
+        let spec = &self.specs.get(entity.id as usize).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(node).check();
+            self.collision_ref.remove(node).unwrap();
         }
 
         // hint features
         if let Some(rect) = spec.hint_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(node).check();
+            self.hint_ref.remove(node).unwrap();
         }
 
         Ok(entity)
@@ -808,24 +808,24 @@ impl EntityField {
             .stable_ref
             .get_mut(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).check();
-        let entity = chunk.entities.try_remove(*entity_key as usize).check();
+        let chunk = self.chunks.get_mut(chunk_key).unwrap();
+        let entity = chunk.entities.try_remove(*entity_key as usize).unwrap();
         chunk.serial += 1;
 
-        let spec = &self.specs.get(entity.id as usize).check();
+        let spec = &self.specs.get(entity.id as usize).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(node).check();
+            self.collision_ref.remove(node).unwrap();
         }
 
         // hint features
         if let Some(rect) = spec.hint_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(node).check();
+            self.hint_ref.remove(node).unwrap();
         }
 
         let location = new_entity.location;
@@ -861,8 +861,8 @@ impl EntityField {
             .stable_ref
             .get(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key).check();
-        let entity = chunk.entities.get(*entity_key as usize).check();
+        let chunk = self.chunks.get(chunk_key).unwrap();
+        let entity = chunk.entities.get(*entity_key as usize).unwrap();
         Ok(entity)
     }
 
@@ -945,7 +945,7 @@ pub fn move_entity(
 ) -> Result<(), FieldError> {
     let entity = entity_field.get(entity_key)?;
 
-    let spec = &entity_field.specs.get(entity.id as usize).check();
+    let spec = &entity_field.specs.get(entity.id as usize).unwrap();
 
     if let Some(rect) = spec.collision_rect(new_location) {
         if tile_field.has_collision_by_rect(rect) {

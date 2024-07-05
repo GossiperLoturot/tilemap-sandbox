@@ -1,5 +1,3 @@
-use super::*;
-
 pub type NodeKey = (std::any::TypeId, u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -37,9 +35,9 @@ impl NodeStore {
         let node_col = self
             .node_cols
             .entry(type_key)
-            .or_insert_with(|| stack_any::StackAny::try_new(NodeColumn::<T>::new()).check())
+            .or_insert_with(|| stack_any::StackAny::try_new(NodeColumn::<T>::new()).unwrap())
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let row_key = node_col.vacant_key() as u32;
 
@@ -72,15 +70,15 @@ impl NodeStore {
             .node_cols
             .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let node_row = node_col.try_remove(row_key as usize)?;
 
         self.ref_cols
             .get_mut(&(node_row.relation, type_key))
-            .check()
+            .unwrap()
             .try_remove(node_row.ref_row_key as usize)
-            .check();
+            .unwrap();
 
         Some((node_row.relation, node_row.node))
     }
@@ -99,7 +97,7 @@ impl NodeStore {
             .node_cols
             .get(&type_key)?
             .downcast_ref::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let node_row = node_col.get(row_key as usize)?;
 
@@ -120,7 +118,7 @@ impl NodeStore {
             .node_cols
             .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let node_row = node_col.get_mut(row_key as usize)?;
 
@@ -137,7 +135,7 @@ impl NodeStore {
             .node_cols
             .get(&type_key)?
             .downcast_ref::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let iter = node_col
             .iter()
@@ -156,7 +154,7 @@ impl NodeStore {
             .node_cols
             .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let iter = node_col
             .iter_mut()
@@ -178,14 +176,14 @@ impl NodeStore {
             .node_cols
             .get(&type_key)?
             .downcast_ref::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let iter = self
             .ref_cols
             .get(&(relation, type_key))?
             .iter()
             .map(|(_, row_key)| {
-                let node_row = node_col.get(*row_key as usize).check();
+                let node_row = node_col.get(*row_key as usize).unwrap();
                 &node_row.node
             });
 
@@ -205,14 +203,14 @@ impl NodeStore {
             .node_cols
             .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let iter = self
             .ref_cols
             .get(&(relation, type_key))?
             .iter()
             .map(|(_, row_key)| {
-                let node_row = node_col.get_mut(*row_key as usize).check() as *mut NodeRow<T>;
+                let node_row = node_col.get_mut(*row_key as usize).unwrap() as *mut NodeRow<T>;
                 let node_row = unsafe { &mut *node_row };
                 &mut node_row.node
             });
@@ -230,12 +228,12 @@ impl NodeStore {
             .node_cols
             .get_mut(&type_key)?
             .downcast_mut::<NodeColumn<T>>()
-            .check();
+            .unwrap();
 
         let mut vec = vec![];
         if let Some(ref_col) = self.ref_cols.remove(&(relation, type_key)) {
             for (_, row_key) in ref_col {
-                let node_row = node_col.try_remove(row_key as usize).check();
+                let node_row = node_col.try_remove(row_key as usize).unwrap();
                 vec.push(node_row.node);
             }
         }
