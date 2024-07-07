@@ -17,11 +17,9 @@ struct NodeRow<T> {
 
 type NodeColumn<T> = slab::Slab<NodeRow<T>>;
 
-const ALLOC_SIZE: usize = std::mem::size_of::<NodeColumn<()>>();
-
 #[derive(Debug, Default)]
 pub struct NodeStore {
-    node_cols: ahash::AHashMap<std::any::TypeId, stack_any::StackAny<ALLOC_SIZE>>,
+    node_cols: ahash::AHashMap<std::any::TypeId, Box<dyn std::any::Any>>,
     ref_cols: ahash::AHashMap<(NodeRelation, std::any::TypeId), slab::Slab<u32>>,
 }
 
@@ -35,7 +33,7 @@ impl NodeStore {
         let node_col = self
             .node_cols
             .entry(type_key)
-            .or_insert_with(|| stack_any::StackAny::try_new(NodeColumn::<T>::new()).unwrap())
+            .or_insert_with(|| Box::new(NodeColumn::<T>::new()))
             .downcast_mut::<NodeColumn<T>>()
             .unwrap();
 

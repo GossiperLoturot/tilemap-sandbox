@@ -8,11 +8,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ahash = "0.8"
-dyn-clone = "1.0"
 godot = "0.1"
 image = "0.25"
 image-atlas = "0.4"
 rand = "0.8"
 rstar = "0.12"
 slab = "0.4"
-stack-any = "0.1"

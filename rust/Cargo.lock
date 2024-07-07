@@ -216,12 +216,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
-name = "dyn-clone"
-version = "1.0.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1039,12 +1033,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
-name = "stack-any"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59b330496f4c260280f0bcfd6baa378f7855f0d4ff7bd97f3a263acf271bee1d"
-
-[[package]]
 name = "syn"
 version = "2.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1110,14 +1098,12 @@ name = "tilemap-sandbox"
 version = "0.1.0"
 dependencies = [
  "ahash",
- "dyn-clone",
  "godot",
  "image",
  "image-atlas",
  "rand",
  "rstar",
  "slab",
- "stack-any",
 ]
 
 [[package]]
