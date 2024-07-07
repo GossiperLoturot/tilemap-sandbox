@@ -1,12 +1,10 @@
-pub use behavior::*;
+pub use delegate::*;
 pub use field::*;
 pub use node::*;
-pub use world::*;
 
-mod behavior;
+mod delegate;
 mod field;
 mod node;
-mod world;
 
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];

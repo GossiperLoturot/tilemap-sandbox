@@ -1,12 +1,12 @@
 use godot::prelude::*;
 
-mod behavior;
 mod block;
+mod delegate;
 mod entity;
+mod extra;
 mod inner;
 mod node;
 mod tile;
-mod world;
 
 struct Extension;
 

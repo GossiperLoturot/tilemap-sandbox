@@ -138,60 +138,21 @@ func _ready():
 
 	_node_store = NodeStore.new_from()
 
-	var _behavior_root = BehaviorRoot.new_from(
-		[
-			Behavior.new_time(),
-			Behavior.new_generator(16, 1),
-		] as Array[GlobalBehavior],
-		[
-			Behavior.new_unit_tile(),
-			Behavior.new_unit_tile(),
-			Behavior.new_unit_tile(),
-			Behavior.new_unit_tile(),
-			Behavior.new_unit_tile(),
-		] as Array[TileBehavior],
-		[
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-			Behavior.new_unit_block(),
-		] as Array[BlockBehavior],
-		[
-			Behavior.new_generator_anchor(),
-			Behavior.new_random_walk(0.5, 5.0, 5.0, 10.0, 1.0),
-		] as Array[EntityBehavior],
-	)
+	var _delegate_store = DelegateStore.new_from()
+	Delegate.inserted_generator(_delegate_store, 0, 32, 4)
+	Delegate.inserted_randow_walk(_delegate_store, 1, 1.0, 3.0, 1.0, 5.0, 3.0)
 
 	_world = WorldServer.new_from(
 		_tile_field,
 		_block_field,
 		_entity_field,
 		_node_store,
-		_behavior_root,
+		_delegate_store,
 	)
 
-	generate_level()
+	Delegate.call_new(_world)
 
-
-func generate_level():
-	#for y in range(-64, 65):
-	#	for x in range(-64, 65):
-	#		pass
-	#		_world.place_tile(Tile.new_from(randi_range(0, 1), Vector2i(x, y)))
-
-	#for i in range(4096):
-	#	var x = randi_range(-64, 65)
-	#	var y = randf_range(-64, 65)
-	#	_world.place_block(Block.new_from(randi_range(0, 8), Vector2i(x, y)))
-
-	#for i in range(64):
-	#	var x = randf_range(-64.0, 64.0)
-	#	var y = randf_range(-64.0, 64.0)
-	#	_world.place_entity(Entity.new_from(1, Vector2(x, y)))
+	Delegate.call_generate_chunk(_world, Vector2i(0, 0))
 
 	for y in range(-4, 5):
 		for x in range(-4, 5):
@@ -201,7 +162,7 @@ func generate_level():
 
 
 func _process(delta):
-	_world.update()
+	Delegate.call_update(_world, delta)
 
 	_tile_field.update_view()
 	_block_field.update_view()

@@ -10,7 +10,7 @@ var _key: EntityKey
 
 func _ready():
 	var entity = Entity.new_from(0, _location)
-	_key = field._world.place_entity(entity)
+	_key = Delegate.call_place_entity(field._world, entity)
 
 
 func _process(delta):
@@ -37,4 +37,5 @@ func _process(delta):
 		changed = true
 
 	if changed:
-		field._entity_field.modify(_key, Entity.new_from(0, _location))
+		#field._entity_field.modify(_key, Entity.new_from(0, _location))
+		pass
