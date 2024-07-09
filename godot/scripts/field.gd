@@ -136,23 +136,25 @@ func _ready():
 	)
 	_entity_field = EntityField.new_from(_entity_field_desc, get_world_3d())
 
-	_node_store = NodeStore.new_from()
+	_node_store = NodeStore.new()
 
-	var _delegate_store = DelegateStore.new_from()
-	Delegate.inserted_generator(_delegate_store, 0, 32, 4)
-	Delegate.inserted_randow_walk(_delegate_store, 1, 1.0, 3.0, 1.0, 5.0, 3.0)
+	var _callback_store_builder = CallbackStoreBuilder.new()
+	_callback_store_builder.insert_bundle(Callback.new_generator(16, 4))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk_forward())
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(1, 1.0, 3.0, 1.0, 5.0, 3.0))
+	var _callback_store = _callback_store_builder.build()
+	# _callback_store_builder is initialized by CallbackStoreBuilder.build()
 
 	_world = WorldServer.new_from(
 		_tile_field,
 		_block_field,
 		_entity_field,
 		_node_store,
-		_delegate_store,
+		_callback_store,
 	)
 
-	Delegate.call_new(_world)
-
-	Delegate.call_generate_chunk(_world, Vector2i(0, 0))
+	Action.before(_world)
+	Action.generate_chunk(_world, Vector2i(0, 0))
 
 	for y in range(-4, 5):
 		for x in range(-4, 5):
@@ -162,7 +164,7 @@ func _ready():
 
 
 func _process(delta):
-	Delegate.call_update(_world, delta)
+	Action.forward(_world, delta)
 
 	_tile_field.update_view()
 	_block_field.update_view()

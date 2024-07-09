@@ -1,13 +1,21 @@
-pub use delegate::*;
+pub use callback::*;
 pub use field::*;
 pub use node::*;
 
-mod delegate;
+mod callback;
 mod field;
 mod node;
 
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
+
+pub struct World<'a> {
+    pub tile_field: &'a mut TileField,
+    pub block_field: &'a mut BlockField,
+    pub entity_field: &'a mut EntityField,
+    pub node_store: &'a mut NodeStore,
+    pub callback_store: &'a CallbackStore,
+}
 
 // Error Handling
 

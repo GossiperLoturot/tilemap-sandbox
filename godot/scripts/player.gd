@@ -10,7 +10,7 @@ var _key: EntityKey
 
 func _ready():
 	var entity = Entity.new_from(0, _location)
-	_key = Delegate.call_place_entity(field._world, entity)
+	_key = Action.place_entity(field._world, entity)
 
 
 func _process(delta):

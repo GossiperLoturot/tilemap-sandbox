@@ -1,156 +1,142 @@
-use std::rc::Rc;
-
 use crate::inner::*;
 
-// delegate definition
+// callback definition
 
-pub trait OnNewDelegate {
-    fn call(&self, world: &mut World);
-}
-
-pub trait OnDropDelegate {
-    fn call(&self, world: &mut World);
-}
-
-pub trait OnUpdateDelegate {
-    fn call(&self, world: &mut World, delta_secs: f32);
-}
-
-pub trait OnPlaceTileDelegate {
-    fn call(&self, world: &mut World, tile_key: u32);
-}
-
-pub trait OnBreakTileDelegate {
-    fn call(&self, world: &mut World, tile_key: u32);
-}
-
-pub trait OnPlaceBlockDelegate {
-    fn call(&self, world: &mut World, block_key: u32);
-}
-
-pub trait OnBreakBlockDelegate {
-    fn call(&self, world: &mut World, block_key: u32);
-}
-
-pub trait OnPlaceEntityDelegate {
-    fn call(&self, world: &mut World, entity_key: u32);
-}
-
-pub trait OnBreakEntityDelegate {
-    fn call(&self, world: &mut World, entity_key: u32);
-}
+pub struct BeforeCallback(pub Box<dyn Fn(&mut World)>);
+pub struct AfterCallback(pub Box<dyn Fn(&mut World)>);
+pub struct ForwardCallback(pub Box<dyn Fn(&mut World, f32)>);
+pub struct PlaceTileCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct BreakTileCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct PlaceBlockCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct BreakBlockCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct PlaceEntityCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct BreakEntityCallback(pub Box<dyn Fn(&mut World, u32)>);
+pub struct GenerateCallback(pub Box<dyn Fn(&mut World, IVec2)>);
 
 // action
 
-pub fn new(world: &mut World) {
-    let delegates = world.delegate_store.iter_0::<Rc<dyn OnNewDelegate>>();
-    delegates.for_each(|v| v.call(world));
+pub fn before(world: &mut World) {
+    let callbacks = world.callback_store.iter::<BeforeCallback>();
+    callbacks.for_each(|f| f.0(world));
 }
 
-pub fn drop(world: &mut World) {
-    let delegates = world.delegate_store.iter_0::<Rc<dyn OnDropDelegate>>();
-    delegates.for_each(|v| v.call(world));
+pub fn after(world: &mut World) {
+    let callbacks = world.callback_store.iter::<AfterCallback>();
+    callbacks.for_each(|f| f.0(world));
 }
 
-pub fn update(world: &mut World, delta_secs: f32) {
-    let delegates = world.delegate_store.iter_0::<Rc<dyn OnUpdateDelegate>>();
-    delegates.for_each(|v| v.call(world, delta_secs));
+pub fn forward(world: &mut World, delta_secs: f32) {
+    let callbacks = world.callback_store.iter::<ForwardCallback>();
+    callbacks.for_each(|f| f.0(world, delta_secs));
 }
 
 pub fn place_tile(world: &mut World, tile: Tile) -> Result<u32, FieldError> {
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnPlaceTileDelegate>>(DelegateStore::TILE_LAYER, tile.id);
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<PlaceTileCallback>(CallbackRef::Tile(tile.id));
     let tile_key = world.tile_field.insert(tile)?;
-    delegates.for_each(|v| v.call(world, tile_key));
+    callbacks.for_each(|f| f.0(world, tile_key));
     Ok(tile_key)
 }
 
 pub fn break_tile(world: &mut World, tile_key: u32) -> Result<Tile, FieldError> {
     let tile = world.tile_field.get(tile_key)?;
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnBreakTileDelegate>>(DelegateStore::TILE_LAYER, tile.id);
-    delegates.for_each(|v| v.call(world, tile_key));
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<BreakTileCallback>(CallbackRef::Tile(tile.id));
+    callbacks.for_each(|f| f.0(world, tile_key));
     let tile = world.tile_field.remove(tile_key)?;
     Ok(tile)
 }
 
 pub fn place_block(world: &mut World, block: Block) -> Result<u32, FieldError> {
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnPlaceBlockDelegate>>(DelegateStore::BLOCK_LAYER, block.id);
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<PlaceBlockCallback>(CallbackRef::Block(block.id));
     let block_key = world.block_field.insert(block)?;
-    delegates.for_each(|v| v.call(world, block_key));
+    callbacks.for_each(|f| f.0(world, block_key));
     Ok(block_key)
 }
 
 pub fn break_block(world: &mut World, block_key: u32) -> Result<Block, FieldError> {
     let block = world.block_field.get(block_key)?;
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnBreakBlockDelegate>>(DelegateStore::BLOCK_LAYER, block.id);
-    delegates.for_each(|v| v.call(world, block_key));
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<BreakBlockCallback>(CallbackRef::Block(block.id));
+    callbacks.for_each(|f| f.0(world, block_key));
     let block = world.block_field.remove(block_key)?;
     Ok(block)
 }
 
 pub fn place_entity(world: &mut World, entity: Entity) -> Result<u32, FieldError> {
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnPlaceEntityDelegate>>(DelegateStore::ENTITY_LAYER, entity.id);
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<PlaceEntityCallback>(CallbackRef::Entity(entity.id));
     let entity_key = world.entity_field.insert(entity)?;
-    delegates.for_each(|v| v.call(world, entity_key));
+    callbacks.for_each(|f| f.0(world, entity_key));
     Ok(entity_key)
 }
 
 pub fn break_entity(world: &mut World, entity_key: u32) -> Result<Entity, FieldError> {
     let entity = world.entity_field.get(entity_key)?;
-    let delegates = world
-        .delegate_store
-        .iter_2::<Rc<dyn OnBreakEntityDelegate>>(DelegateStore::ENTITY_LAYER, entity.id);
-    delegates.for_each(|v| v.call(world, entity_key));
+    let callbacks = world
+        .callback_store
+        .iter_by_ref::<BreakEntityCallback>(CallbackRef::Entity(entity.id));
+    callbacks.for_each(|f| f.0(world, entity_key));
     let entity = world.entity_field.remove(entity_key)?;
     Ok(entity)
 }
 
 pub fn generate_chunk(world: &mut World, chunk_key: IVec2) {
-    let delegate = world.delegate_store.iter_0::<Rc<GeneratorDelegate>>();
-    delegate.for_each(|v| v.generate_chunk(world, chunk_key));
+    let callback = world.callback_store.iter::<GenerateCallback>();
+    callback.for_each(|f| f.0(world, chunk_key));
 }
 
-// generator delegate
+// generator callback
+
+#[derive(Debug, Clone)]
+pub struct GeneratorNode {
+    pub chunk_size: u32,
+    pub size: u32,
+    pub prev_chunk_key: Option<IVec2>,
+    pub visited_chunk: ahash::AHashSet<IVec2>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Generator {
     pub chunk_size: u32,
     pub size: u32,
-    pub visited_chunk: ahash::AHashSet<IVec2>,
 }
 
-#[derive(Debug, Clone)]
-pub struct GeneratorDelegate {
-    pub chunk_size: u32,
-    pub size: u32,
-}
+impl Generator {
+    fn before(&self, world: &mut World) {
+        let node = GeneratorNode {
+            chunk_size: self.chunk_size,
+            size: self.size,
+            prev_chunk_key: None,
+            visited_chunk: Default::default(),
+        };
+        world.node_store.insert(node, NodeRef::Global);
+    }
 
-impl GeneratorDelegate {
-    pub fn inserted(self, delegate_store: &mut DelegateStore, id: u32) {
-        let layer = DelegateStore::GLOBAL_LAYER;
-        let delegate = Rc::new(self);
-        delegate_store.insert::<Rc<dyn OnNewDelegate>>(layer, id, delegate.clone());
-        delegate_store.insert::<Rc<dyn OnDropDelegate>>(layer, id, delegate.clone());
-        delegate_store.insert(layer, id, delegate);
+    fn after(&self, world: &mut World) {
+        world
+            .node_store
+            .remove_by_ref::<GeneratorNode>(NodeRef::Global);
     }
 
     pub fn generate_chunk(&self, world: &mut World, chunk_key: IVec2) {
-        let (_, node) = world.node_store.one_mut::<Generator>().unwrap();
+        let (_, node) = world.node_store.one_mut::<GeneratorNode>().unwrap();
 
-        let chunk_size = node.chunk_size;
+        if node.prev_chunk_key == Some(chunk_key) {
+            return;
+        }
+
         let mut chunks = vec![];
-
-        for y in -(node.size as i32)..node.size as i32 {
-            for x in -(node.size as i32)..node.size as i32 {
+        let size = node.size;
+        let chunk_size = node.chunk_size;
+        for y in -(size as i32)..size as i32 {
+            for x in -(size as i32)..size as i32 {
                 let chunk_key = [chunk_key[0] + x, chunk_key[1] + y];
 
                 if node.visited_chunk.contains(&chunk_key) {
@@ -163,9 +149,11 @@ impl GeneratorDelegate {
             }
         }
 
+        node.prev_chunk_key = Some(chunk_key);
+
         for [x, y] in chunks {
-            for v in 0..self.chunk_size {
-                for u in 0..self.chunk_size {
+            for v in 0..chunk_size {
+                for u in 0..chunk_size {
                     let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
                     let location = [
                         x * chunk_size as i32 + u as i32,
@@ -199,26 +187,34 @@ impl GeneratorDelegate {
     }
 }
 
-impl OnNewDelegate for GeneratorDelegate {
-    fn call(&self, world: &mut World) {
-        let node = Generator {
-            chunk_size: self.chunk_size,
-            size: self.size,
-            visited_chunk: Default::default(),
-        };
-        let relation = NodeRelation::Global;
-        world.node_store.insert(node, relation);
+impl CallbackBundle for Generator {
+    fn insert(&self, r#ref: CallbackRef, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            r#ref,
+            BeforeCallback(Box::new({
+                let slf = slf.clone();
+                move |world| slf.before(world)
+            })),
+        );
+        builder.insert(
+            r#ref,
+            AfterCallback(Box::new({
+                let slf = slf.clone();
+                move |world| slf.after(world)
+            })),
+        );
+        builder.insert(
+            r#ref,
+            GenerateCallback(Box::new({
+                let slf = slf.clone();
+                move |world, chunk_key| slf.generate_chunk(world, chunk_key)
+            })),
+        );
     }
 }
 
-impl OnDropDelegate for GeneratorDelegate {
-    fn call(&self, world: &mut World) {
-        let relation = NodeRelation::Global;
-        world.node_store.remove_by_relation::<Generator>(relation);
-    }
-}
-
-// random walk delegate
+// random walk callback
 
 #[derive(Debug, Clone)]
 pub enum RandomWalkState {
@@ -230,7 +226,7 @@ pub enum RandomWalkState {
 }
 
 #[derive(Debug, Clone)]
-pub struct RandomWalk {
+pub struct RandomWalkNode {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
@@ -240,7 +236,7 @@ pub struct RandomWalk {
 }
 
 #[derive(Debug, Clone)]
-pub struct RandomWalkDelegate {
+pub struct RandomWalk {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
@@ -248,19 +244,9 @@ pub struct RandomWalkDelegate {
     pub speed: f32,
 }
 
-impl RandomWalkDelegate {
-    pub fn inserted(self, delegate_store: &mut DelegateStore, id: u32) {
-        let layer = DelegateStore::ENTITY_LAYER;
-        let delegate = Rc::new(self);
-        delegate_store.insert::<Rc<dyn OnPlaceEntityDelegate>>(layer, id, delegate.clone());
-        delegate_store.insert::<Rc<dyn OnBreakEntityDelegate>>(layer, id, delegate.clone());
-        delegate_store.insert::<Rc<dyn OnUpdateDelegate>>(layer, id, delegate);
-    }
-}
-
-impl OnPlaceEntityDelegate for RandomWalkDelegate {
-    fn call(&self, world: &mut World, entity_key: u32) {
-        let node = RandomWalk {
+impl RandomWalk {
+    fn place_entity(&self, world: &mut World, entity_key: u32) {
+        let node = RandomWalkNode {
             min_rest_secs: self.min_rest_secs,
             max_rest_secs: self.max_rest_secs,
             min_distance: self.min_distance,
@@ -268,22 +254,43 @@ impl OnPlaceEntityDelegate for RandomWalkDelegate {
             speed: self.speed,
             state: RandomWalkState::Init,
         };
-        let relation = NodeRelation::Entity(entity_key);
-        world.node_store.insert::<RandomWalk>(node, relation);
+        world.node_store.insert(node, NodeRef::Entity(entity_key));
+    }
+
+    fn break_entity(&self, world: &mut World, entity_key: u32) {
+        world
+            .node_store
+            .remove_by_ref::<RandomWalkNode>(NodeRef::Entity(entity_key));
     }
 }
 
-impl OnBreakEntityDelegate for RandomWalkDelegate {
-    fn call(&self, world: &mut World, entity_key: u32) {
-        let relation = NodeRelation::Entity(entity_key);
-        world.node_store.remove_by_relation::<RandomWalk>(relation);
+impl CallbackBundle for RandomWalk {
+    fn insert(&self, r#ref: CallbackRef, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            r#ref,
+            PlaceEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |world, entity_key| slf.place_entity(world, entity_key)
+            })),
+        );
+        builder.insert(
+            r#ref,
+            BreakEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |world, entity_key| slf.break_entity(world, entity_key)
+            })),
+        );
     }
 }
 
-impl OnUpdateDelegate for RandomWalkDelegate {
-    fn call(&self, world: &mut World, delta_secs: f32) {
-        for (relation, node) in world.node_store.iter_mut::<RandomWalk>() {
-            let NodeRelation::Entity(entity_key) = *relation else {
+#[derive(Debug, Clone)]
+pub struct RandomWalkForward;
+
+impl RandomWalkForward {
+    fn forward(world: &mut World, delta_secs: f32) {
+        for (r#ref, node) in world.node_store.iter_mut::<RandomWalkNode>() {
+            let NodeRef::Entity(entity_key) = *r#ref else {
                 unreachable!();
             };
 
@@ -355,5 +362,11 @@ impl OnUpdateDelegate for RandomWalkDelegate {
                 }
             }
         }
+    }
+}
+
+impl CallbackBundle for RandomWalkForward {
+    fn insert(&self, r#ref: CallbackRef, builder: &mut CallbackStoreBuilder) {
+        builder.insert(r#ref, ForwardCallback(Box::new(Self::forward)))
     }
 }
