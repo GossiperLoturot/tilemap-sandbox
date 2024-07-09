@@ -10,7 +10,7 @@ var _tile_field: TileField
 var _block_field: BlockField
 var _entity_field: EntityField
 var _node_store: NodeStore
-var _world: WorldServer
+var _world: WorldContext
 
 
 func _ready():
@@ -136,16 +136,17 @@ func _ready():
 	)
 	_entity_field = EntityField.new_from(_entity_field_desc, get_world_3d())
 
-	_node_store = NodeStore.new()
+	_node_store = NodeStore.new_from()
 
-	var _callback_store_builder = CallbackStoreBuilder.new()
+	var _callback_store_builder = CallbackStoreBuilder.new_from()
 	_callback_store_builder.insert_bundle(Callback.new_generator(16, 4))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk_forward())
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(1, 1.0, 3.0, 1.0, 5.0, 3.0))
 	var _callback_store = _callback_store_builder.build()
-	# _callback_store_builder is initialized by CallbackStoreBuilder.build()
+	# CallbackBundle is initialized after running CallbackStoreBuilder.insert(CallbackBundle)
+	# CallbackStoreBuilder is initialized after running CallbackStoreBuilder.build()
 
-	_world = WorldServer.new_from(
+	_world = WorldContext.new_from(
 		_tile_field,
 		_block_field,
 		_entity_field,

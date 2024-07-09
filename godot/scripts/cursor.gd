@@ -62,8 +62,9 @@ func _process(delta):
 
 	elif _mode == MODE_TILE:
 		var location = Vector2i(floori(point.x), floori(point.y))
-		var key = field._tile_field.get_by_point(location)
-		if key:
+		if field._tile_field.has_by_point(location):
+			var key = field._tile_field.get_by_point(location)
+
 			var tile = field._tile_field.get(key)
 			var spec = field._tile_field_desc.entries[tile.get_id()]
 

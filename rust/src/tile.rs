@@ -1,9 +1,9 @@
-use crate::inner;
 use godot::prelude::*;
-use std::hash::Hasher;
+
+use crate::inner;
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct TileFieldDescEntry {
     #[export]
     image: Gd<godot::engine::Image>,
@@ -15,12 +15,12 @@ struct TileFieldDescEntry {
 impl TileFieldDescEntry {
     #[func]
     fn new_from(image: Gd<godot::engine::Image>, collision: bool) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self { image, collision })
+        Gd::from_object(Self { image, collision })
     }
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct TileFieldDesc {
     #[export]
     output_image_size: u32,
@@ -41,7 +41,7 @@ impl TileFieldDesc {
         entries: Array<Gd<TileFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             output_image_size,
             max_page_size,
             entries,
@@ -51,15 +51,31 @@ impl TileFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct TileKey {
-    pub inner: u32,
+#[class(no_init)]
+pub struct Tile {
+    inner: inner::Tile,
 }
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct Tile {
-    pub inner: inner::Tile,
+impl Tile {
+    #[inline]
+    pub fn new(value: inner::Tile) -> Self {
+        Self { inner: value }
+    }
+
+    #[inline]
+    pub fn inner_ref(&self) -> &inner::Tile {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::Tile {
+        &mut self.inner
+    }
+
+    #[inline]
+    pub fn inner(self) -> inner::Tile {
+        self.inner
+    }
 }
 
 #[godot_api]
@@ -68,7 +84,7 @@ impl Tile {
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
         let location = [location.x, location.y];
         let inner = inner::Tile::new(id, location);
-        Gd::from_init_fn(|_| Self { inner })
+        Gd::from_object(Self { inner })
     }
 
     #[func]
@@ -120,12 +136,20 @@ impl From<TileChunkDown> for TileChunkUp {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct TileField {
-    pub inner: inner::TileField,
+#[class(no_init)]
+pub(crate) struct TileField {
+    inner: inner::TileField,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, TileChunkUp>,
+}
+
+// pass the inner reference for world
+impl TileField {
+    #[inline]
+    pub(crate) fn inner_mut(&mut self) -> &mut inner::TileField {
+        &mut self.inner
+    }
 }
 
 #[godot_api]
@@ -287,7 +311,7 @@ impl TileField {
             })
             .collect::<Vec<_>>();
 
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             inner,
             texcoords,
             down_chunks,
@@ -296,66 +320,64 @@ impl TileField {
     }
 
     #[func]
-    fn insert(&mut self, tile: Gd<Tile>) -> Option<Gd<TileKey>> {
+    fn insert(&mut self, tile: Gd<Tile>) -> u32 {
         let tile = tile.bind().inner.clone();
-        let key = self.inner.insert(tile).ok()?;
-        Some(Gd::from_init_fn(|_| TileKey { inner: key }))
+        self.inner.insert(tile).unwrap()
     }
 
     #[func]
-    fn remove(&mut self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
-        let key = key.bind().inner;
-        let tile = self.inner.remove(key).ok()?;
-        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
+    fn remove(&mut self, key: u32) -> Gd<Tile> {
+        let tile = self.inner.remove(key).unwrap();
+        Gd::from_object(Tile { inner: tile })
     }
 
     #[func]
-    fn modify(&mut self, key: Gd<TileKey>, new_tile: Gd<Tile>) -> Option<Gd<Tile>> {
-        let key = key.bind().inner;
+    fn modify(&mut self, key: u32, new_tile: Gd<Tile>) -> Gd<Tile> {
         let new_tile = new_tile.bind().inner.clone();
-        let tile = self.inner.modify(key, new_tile).ok()?;
-        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
+        let tile = self.inner.modify(key, new_tile).unwrap();
+        Gd::from_object(Tile { inner: tile })
     }
 
     #[func]
-    fn get(&self, key: Gd<TileKey>) -> Option<Gd<Tile>> {
-        let key = key.bind().inner;
-        let tile = self.inner.get(key).ok()?.clone();
-        Some(Gd::from_init_fn(|_| Tile { inner: tile }))
+    fn get(&self, key: u32) -> Gd<Tile> {
+        let tile = self.inner.get(key).unwrap().clone();
+        Gd::from_object(Tile { inner: tile })
     }
 
+    // rendering features
+
     #[func]
-    fn insert_view(&mut self, key: Vector2i) -> bool {
+    fn insert_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
+
         if self.up_chunks.contains_key(&key) {
-            return false;
+            panic!("chunk already exists ({}, {})", key[0], key[1]);
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return false;
+            let up = self.up_chunks.len();
+            let down = self.down_chunks.len();
+            panic!("no chunk available in pool (up:{}, down:{})", up, down);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
-
-        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) -> bool {
+    fn remove_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
+
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return false;
+            panic!("chunk is not found ({}, {})", key[0], key[1]);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
         self.down_chunks.push(chunk.into());
-
-        true
     }
 
     #[func]
@@ -391,9 +413,9 @@ impl TileField {
                 instance_buffer[i * 12 + 7] = tile.location[1] as f32 - 0.5;
 
                 let mut hasher = ahash::AHasher::default();
-                hasher.write_i32(tile.location[0]);
-                hasher.write_i32(tile.location[1]);
-                let hash = hasher.finish() as u16;
+                std::hash::Hasher::write_i32(&mut hasher, tile.location[0]);
+                std::hash::Hasher::write_i32(&mut hasher, tile.location[1]);
+                let hash = std::hash::Hasher::finish(&hasher) as u16;
                 let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625; // -2^{-4} <= z <= 0
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
@@ -438,10 +460,9 @@ impl TileField {
     }
 
     #[func]
-    fn get_by_point(&self, point: Vector2i) -> Option<Gd<TileKey>> {
+    fn get_by_point(&self, point: Vector2i) -> u32 {
         let point = [point.x, point.y];
-        let key = self.inner.get_by_point(point)?;
-        Some(Gd::from_init_fn(|_| TileKey { inner: key }))
+        self.inner.get_by_point(point).unwrap()
     }
 
     // collision features
@@ -453,10 +474,10 @@ impl TileField {
     }
 
     #[func]
-    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<TileKey>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
         let keys = self.inner.get_collision_by_point(point);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| TileKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     #[func]
@@ -467,10 +488,10 @@ impl TileField {
     }
 
     #[func]
-    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<TileKey>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_collision_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| TileKey { inner: key })))
+        Array::from_iter(keys)
     }
 }

@@ -15,7 +15,7 @@ pub enum CallbackRef {
 /// A bundle of callbacks.
 /// self is the reference for compability with dyn T.
 pub trait CallbackBundle {
-    fn insert(&self, r#ref: CallbackRef, builder: &mut CallbackStoreBuilder);
+    fn insert(&self, builder: &mut CallbackStoreBuilder);
 }
 
 #[derive(Default, Debug)]
@@ -33,11 +33,8 @@ impl CallbackStoreBuilder {
     }
 
     #[inline]
-    pub fn insert_bundle<B>(&mut self, r#ref: CallbackRef, bundle: B)
-    where
-        B: CallbackBundle,
-    {
-        bundle.insert(r#ref, self);
+    pub fn insert_bundle(&mut self, bundle: Box<dyn CallbackBundle>) {
+        bundle.insert(self);
     }
 
     pub fn build(self) -> CallbackStore {

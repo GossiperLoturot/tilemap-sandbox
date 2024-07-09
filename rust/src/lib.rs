@@ -1,21 +1,29 @@
 use godot::prelude::*;
 
+pub use block::*;
+pub use callback::*;
+pub use entity::*;
+// pub use node::*;
+pub use tile::*;
+
+pub mod inner;
+
 mod block;
 mod callback;
 mod entity;
-mod extra;
-mod inner;
 mod node;
 mod tile;
+
+mod extra;
 
 struct Extension;
 
 #[gdextension]
 unsafe impl ExtensionLibrary for Extension {}
 
-// rename `World` to `WorldServer` to avoid duplicating the class name with the built-in class in Godot.
+// rename `World` to `WorldContext` to avoid duplicating the class name with the built-in class in Godot.
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted, rename=WorldServer)]
+#[class(no_init, rename=WorldContext)]
 pub struct World {
     tile_field: Gd<tile::TileField>,
     block_field: Gd<block::BlockField>,
@@ -34,7 +42,7 @@ impl World {
         node_store: Gd<node::NodeStore>,
         callback_store: Gd<callback::CallbackStore>,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             tile_field,
             block_field,
             entity_field,
@@ -43,6 +51,7 @@ impl World {
         })
     }
 
+    #[inline]
     pub fn as_mut(&mut self) -> WorldMut {
         WorldMut {
             tile_field: self.tile_field.bind_mut(),
@@ -63,13 +72,14 @@ pub struct WorldMut<'a> {
 }
 
 impl WorldMut<'_> {
+    #[inline]
     pub fn inner(&mut self) -> inner::World {
         inner::World {
-            tile_field: &mut self.tile_field.inner,
-            block_field: &mut self.block_field.inner,
-            entity_field: &mut self.entity_field.inner,
-            node_store: &mut self.node_store.inner,
-            callback_store: &self.callback_store.inner,
+            tile_field: self.tile_field.inner_mut(),
+            block_field: self.block_field.inner_mut(),
+            entity_field: self.entity_field.inner_mut(),
+            node_store: self.node_store.inner_mut(),
+            callback_store: self.callback_store.inner_ref(),
         }
     }
 }

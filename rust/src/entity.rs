@@ -1,8 +1,9 @@
-use crate::inner;
 use godot::prelude::*;
 
+use crate::inner;
+
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct EntityFieldDescEntry {
     #[export]
     image: Gd<godot::engine::Image>,
@@ -29,7 +30,7 @@ impl EntityFieldDescEntry {
         collision_size: Vector2,
         collision_offset: Vector2,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             image,
             z_along_y,
             rendering_size,
@@ -41,7 +42,7 @@ impl EntityFieldDescEntry {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct EntityFieldDesc {
     #[export]
     output_image_size: u32,
@@ -62,7 +63,7 @@ impl EntityFieldDesc {
         entries: Array<Gd<EntityFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             output_image_size,
             max_page_size,
             entries,
@@ -72,15 +73,31 @@ impl EntityFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct EntityKey {
-    pub inner: u32,
+#[class(no_init)]
+pub struct Entity {
+    inner: inner::Entity,
 }
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct Entity {
-    pub inner: inner::Entity,
+impl Entity {
+    #[inline]
+    pub fn new(value: inner::Entity) -> Self {
+        Self { inner: value }
+    }
+
+    #[inline]
+    pub fn inner_ref(&self) -> &inner::Entity {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::Entity {
+        &mut self.inner
+    }
+
+    #[inline]
+    pub fn inner(self) -> inner::Entity {
+        self.inner
+    }
 }
 
 #[godot_api]
@@ -89,7 +106,7 @@ impl Entity {
     fn new_from(id: u32, location: Vector2) -> Gd<Self> {
         let location = [location.x, location.y];
         let inner = inner::Entity::new(id, location);
-        Gd::from_init_fn(|_| Self { inner })
+        Gd::from_object(Self { inner })
     }
 
     #[func]
@@ -148,13 +165,21 @@ impl From<EntityChunkDown> for EntityChunkUp {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct EntityField {
-    pub inner: inner::EntityField,
+#[class(no_init)]
+pub(crate) struct EntityField {
+    inner: inner::EntityField,
     specs: Vec<EntitySpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
+}
+
+// pass the inner reference for world
+impl EntityField {
+    #[inline]
+    pub(crate) fn inner_mut(&mut self) -> &mut inner::EntityField {
+        &mut self.inner
+    }
 }
 
 #[godot_api]
@@ -334,7 +359,7 @@ impl EntityField {
             })
             .collect::<Vec<_>>();
 
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             inner,
             specs,
             texcoords,
@@ -344,68 +369,62 @@ impl EntityField {
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) -> Option<Gd<EntityKey>> {
+    fn insert(&mut self, entity: Gd<Entity>) -> u32 {
         let entity = entity.bind().inner.clone();
-        let key = self.inner.insert(entity).ok()?;
-        Some(Gd::from_init_fn(|_| EntityKey { inner: key }))
+        self.inner.insert(entity).unwrap()
     }
 
     #[func]
-    fn remove(&mut self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
-        let key = key.bind().inner;
-        let entity = self.inner.remove(key).ok()?;
-        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
+    fn remove(&mut self, key: u32) -> Gd<Entity> {
+        let entity = self.inner.remove(key).unwrap();
+        Gd::from_object(Entity { inner: entity })
     }
 
     #[func]
-    fn modify(&mut self, key: Gd<EntityKey>, new_entity: Gd<Entity>) -> Option<Gd<Entity>> {
-        let key = key.bind().inner;
+    fn modify(&mut self, key: u32, new_entity: Gd<Entity>) -> Gd<Entity> {
         let new_entity = new_entity.bind().inner.clone();
-        let entity = self.inner.modify(key, new_entity).ok()?;
-        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
+        let entity = self.inner.modify(key, new_entity).unwrap();
+        Gd::from_object(Entity { inner: entity })
     }
 
     #[func]
-    fn get(&self, key: Gd<EntityKey>) -> Option<Gd<Entity>> {
-        let key = key.bind().inner;
-        let entity = self.inner.get(key).ok()?.clone();
-        Some(Gd::from_init_fn(|_| Entity { inner: entity }))
+    fn get(&self, key: u32) -> Gd<Entity> {
+        let entity = self.inner.get(key).unwrap().clone();
+        Gd::from_object(Entity { inner: entity })
     }
 
     // rendering features
 
     #[func]
-    fn insert_view(&mut self, key: Vector2i) -> bool {
+    fn insert_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
         if self.up_chunks.contains_key(&key) {
-            return false;
+            panic!("chunk already exists ({}, {})", key[0], key[1]);
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return false;
+            let up = self.up_chunks.len();
+            let down = self.down_chunks.len();
+            panic!("no chunk available in pool (up:{}, down:{})", up, down);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
-
-        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) -> bool {
+    fn remove_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return false;
+            panic!("chunk is not found ({}, {})", key[0], key[1]);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
         self.down_chunks.push(chunk.into());
-
-        true
     }
 
     #[func]
@@ -485,10 +504,10 @@ impl EntityField {
     }
 
     #[func]
-    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
         let keys = self.inner.get_collision_by_point(point);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     #[func]
@@ -499,11 +518,11 @@ impl EntityField {
     }
 
     #[func]
-    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_collision_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     // hint features
@@ -515,10 +534,10 @@ impl EntityField {
     }
 
     #[func]
-    fn get_hint_by_point(&self, point: Vector2) -> Array<Gd<EntityKey>> {
+    fn get_hint_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
         let keys = self.inner.get_hint_by_point(point);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     #[func]
@@ -529,10 +548,10 @@ impl EntityField {
     }
 
     #[func]
-    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<EntityKey>> {
+    fn get_hint_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_hint_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| EntityKey { inner: key })))
+        Array::from_iter(keys)
     }
 }

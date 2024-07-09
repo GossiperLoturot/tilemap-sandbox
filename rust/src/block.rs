@@ -1,8 +1,9 @@
-use crate::inner;
 use godot::prelude::*;
 
+use crate::inner;
+
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct BlockFieldDescEntry {
     #[export]
     size: Vector2i,
@@ -32,7 +33,7 @@ impl BlockFieldDescEntry {
         collision_size: Vector2,
         collision_offset: Vector2,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             size,
             image,
             z_along_y,
@@ -45,7 +46,7 @@ impl BlockFieldDescEntry {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
+#[class(no_init)]
 struct BlockFieldDesc {
     #[export]
     output_image_size: u32,
@@ -66,7 +67,7 @@ impl BlockFieldDesc {
         entries: Array<Gd<BlockFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             output_image_size,
             max_page_size,
             entries,
@@ -76,15 +77,31 @@ impl BlockFieldDesc {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct BlockKey {
-    pub inner: u32,
+#[class(no_init)]
+pub struct Block {
+    inner: inner::Block,
 }
 
-#[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct Block {
-    pub inner: inner::Block,
+impl Block {
+    #[inline]
+    pub fn new(value: inner::Block) -> Self {
+        Self { inner: value }
+    }
+
+    #[inline]
+    pub fn inner_ref(&self) -> &inner::Block {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::Block {
+        &mut self.inner
+    }
+
+    #[inline]
+    pub fn inner(self) -> inner::Block {
+        self.inner
+    }
 }
 
 #[godot_api]
@@ -93,7 +110,7 @@ impl Block {
     fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
         let location = [location.x, location.y];
         let inner = inner::Block::new(id, location);
-        Gd::from_init_fn(|_| Self { inner })
+        Gd::from_object(Self { inner })
     }
 
     #[func]
@@ -152,13 +169,21 @@ impl From<BlockChunkDown> for BlockChunkUp {
 }
 
 #[derive(GodotClass)]
-#[class(no_init, base=RefCounted)]
-pub struct BlockField {
-    pub inner: inner::BlockField,
+#[class(no_init)]
+pub(crate) struct BlockField {
+    inner: inner::BlockField,
     specs: Vec<BlockSpec>,
     texcoords: Vec<image_atlas::Texcoord32>,
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
+}
+
+// pass the inner reference for world
+impl BlockField {
+    #[inline]
+    pub(crate) fn inner_mut(&mut self) -> &mut inner::BlockField {
+        &mut self.inner
+    }
 }
 
 #[godot_api]
@@ -339,7 +364,7 @@ impl BlockField {
             })
             .collect::<Vec<_>>();
 
-        Gd::from_init_fn(|_| Self {
+        Gd::from_object(Self {
             inner,
             specs,
             texcoords,
@@ -349,68 +374,62 @@ impl BlockField {
     }
 
     #[func]
-    fn insert(&mut self, block: Gd<Block>) -> Option<Gd<BlockKey>> {
+    fn insert(&mut self, block: Gd<Block>) -> u32 {
         let block = block.bind().inner.clone();
-        let key = self.inner.insert(block).ok()?;
-        Some(Gd::from_init_fn(|_| BlockKey { inner: key }))
+        self.inner.insert(block).unwrap()
     }
 
     #[func]
-    fn remove(&mut self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
-        let key = key.bind().inner;
-        let block = self.inner.remove(key).ok()?;
-        Some(Gd::from_init_fn(|_| Block { inner: block }))
+    fn remove(&mut self, key: u32) -> Gd<Block> {
+        let block = self.inner.remove(key).unwrap();
+        Gd::from_object(Block { inner: block })
     }
 
     #[func]
-    fn modify(&mut self, key: Gd<BlockKey>, new_block: Gd<Block>) -> Option<Gd<Block>> {
-        let key = key.bind().inner;
+    fn modify(&mut self, key: u32, new_block: Gd<Block>) -> Gd<Block> {
         let new_block = new_block.bind().inner.clone();
-        let block = self.inner.modify(key, new_block).ok()?;
-        Some(Gd::from_init_fn(|_| Block { inner: block }))
+        let block = self.inner.modify(key, new_block).unwrap();
+        Gd::from_object(Block { inner: block })
     }
 
     #[func]
-    fn get(&self, key: Gd<BlockKey>) -> Option<Gd<Block>> {
-        let key = key.bind().inner;
-        let block = self.inner.get(key).ok()?.clone();
-        Some(Gd::from_init_fn(|_| Block { inner: block }))
+    fn get(&self, key: u32) -> Gd<Block> {
+        let block = self.inner.get(key).unwrap().clone();
+        Gd::from_object(Block { inner: block })
     }
 
     // rendering features
 
     #[func]
-    fn insert_view(&mut self, key: Vector2i) -> bool {
+    fn insert_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
         if self.up_chunks.contains_key(&key) {
-            return false;
+            panic!("chunk already exists ({}, {})", key[0], key[1]);
         }
 
         let Some(chunk) = self.down_chunks.pop() else {
-            return false;
+            let up = self.up_chunks.len();
+            let down = self.down_chunks.len();
+            panic!("no chunk available in pool (up:{}, down:{})", up, down);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, true);
 
         self.up_chunks.insert(key, chunk.into());
-
-        true
     }
 
     #[func]
-    fn remove_view(&mut self, key: Vector2i) -> bool {
+    fn remove_view(&mut self, key: Vector2i) {
         let key = [key.x, key.y];
         let Some(chunk) = self.up_chunks.remove(&key) else {
-            return false;
+            panic!("chunk is not found ({}, {})", key[0], key[1]);
         };
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         rendering_server.instance_set_visible(chunk.instance, false);
 
         self.down_chunks.push(chunk.into());
-
-        true
     }
 
     #[func]
@@ -490,10 +509,9 @@ impl BlockField {
     }
 
     #[func]
-    fn get_by_point(&self, point: Vector2i) -> Option<Gd<BlockKey>> {
+    fn get_by_point(&self, point: Vector2i) -> u32 {
         let point = [point.x, point.y];
-        let key = self.inner.get_by_point(point)?;
-        Some(Gd::from_init_fn(|_| BlockKey { inner: key }))
+        self.inner.get_by_point(point).unwrap()
     }
 
     #[func]
@@ -504,11 +522,11 @@ impl BlockField {
     }
 
     #[func]
-    fn get_by_rect(&self, rect: Rect2i) -> Array<Gd<BlockKey>> {
+    fn get_by_rect(&self, rect: Rect2i) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     // collision features
@@ -520,10 +538,10 @@ impl BlockField {
     }
 
     #[func]
-    fn get_collision_by_point(&self, point: Vector2) -> Array<Gd<BlockKey>> {
+    fn get_collision_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
         let keys = self.inner.get_collision_by_point(point);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     #[func]
@@ -534,11 +552,11 @@ impl BlockField {
     }
 
     #[func]
-    fn get_collision_by_rect(&self, rect: Rect2) -> Array<Gd<BlockKey>> {
+    fn get_collision_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_collision_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     // hint features
@@ -550,10 +568,10 @@ impl BlockField {
     }
 
     #[func]
-    fn get_hint_by_point(&self, point: Vector2) -> Array<Gd<BlockKey>> {
+    fn get_hint_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
         let keys = self.inner.get_hint_by_point(point);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+        Array::from_iter(keys)
     }
 
     #[func]
@@ -564,10 +582,10 @@ impl BlockField {
     }
 
     #[func]
-    fn get_hint_by_rect(&self, rect: Rect2) -> Array<Gd<BlockKey>> {
+    fn get_hint_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let keys = self.inner.get_hint_by_rect([p0, p1]);
-        Array::from_iter(keys.map(|key| Gd::from_init_fn(|_| BlockKey { inner: key })))
+        Array::from_iter(keys)
     }
 }
