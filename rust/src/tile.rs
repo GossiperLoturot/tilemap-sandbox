@@ -235,7 +235,10 @@ impl TileField {
         .unwrap();
 
         let pad_mip_level = (desc.output_image_size / desc.mip_block_size).ilog2();
-        let pad_pixel_size = (0..pad_mip_level).map(|i| 1 << i).sum::<usize>();
+        let pad_pixel_size = (0..pad_mip_level)
+            .map(|i| (1 << i) * (1 << i))
+            .sum::<usize>();
+
         let gd_images = atlas
             .textures
             .into_iter()
@@ -243,14 +246,10 @@ impl TileField {
                 let mut data = texture
                     .mip_maps
                     .into_iter()
-                    .fold(vec![], |mut data, image| {
-                        data.append(&mut image.to_vec());
-                        data
-                    });
+                    .flat_map(|image| image.to_vec())
+                    .collect::<Vec<_>>();
                 data.append(&mut vec![0; pad_pixel_size * 4]);
-                data
-            })
-            .map(|data| {
+
                 godot::engine::Image::create_from_data(
                     desc.output_image_size as i32,
                     desc.output_image_size as i32,

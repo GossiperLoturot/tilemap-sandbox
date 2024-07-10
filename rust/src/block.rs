@@ -8,7 +8,7 @@ struct BlockFieldDescEntry {
     #[export]
     size: Vector2i,
     #[export]
-    image: Gd<godot::engine::Image>,
+    images: Array<Gd<godot::engine::Image>>,
     #[export]
     z_along_y: bool,
     #[export]
@@ -26,7 +26,7 @@ impl BlockFieldDescEntry {
     #[func]
     fn new_from(
         size: Vector2i,
-        image: Gd<godot::engine::Image>,
+        images: Array<Gd<godot::engine::Image>>,
         z_along_y: bool,
         rendering_size: Vector2,
         rendering_offset: Vector2,
@@ -35,7 +35,7 @@ impl BlockFieldDescEntry {
     ) -> Gd<Self> {
         Gd::from_object(Self {
             size,
-            image,
+            images,
             z_along_y,
             rendering_size,
             rendering_offset,
@@ -53,6 +53,8 @@ struct BlockFieldDesc {
     #[export]
     max_page_size: u32,
     #[export]
+    mip_block_size: u32,
+    #[export]
     entries: Array<Gd<BlockFieldDescEntry>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
@@ -64,12 +66,14 @@ impl BlockFieldDesc {
     fn new_from(
         output_image_size: u32,
         max_page_size: u32,
+        mip_block_size: u32,
         entries: Array<Gd<BlockFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
             output_image_size,
             max_page_size,
+            mip_block_size,
             entries,
             shader,
         })
@@ -107,9 +111,9 @@ impl Block {
 #[godot_api]
 impl Block {
     #[func]
-    fn new_from(id: u32, location: Vector2i) -> Gd<Self> {
+    fn new_from(id: u32, location: Vector2i, variant: u8) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Block::new(id, location);
+        let inner = inner::Block::new(id, location, variant);
         Gd::from_object(Self { inner })
     }
 
@@ -122,6 +126,11 @@ impl Block {
     fn get_location(&self) -> Vector2i {
         let location = self.inner.location;
         Vector2i::new(location[0], location[1])
+    }
+
+    #[func]
+    fn get_variant(&self) -> u8 {
+        self.inner.variant
     }
 }
 
@@ -173,7 +182,7 @@ impl From<BlockChunkDown> for BlockChunkUp {
 pub(crate) struct BlockField {
     inner: inner::BlockField,
     specs: Vec<BlockSpec>,
-    texcoords: Vec<image_atlas::Texcoord32>,
+    texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
 }
@@ -234,9 +243,11 @@ impl BlockField {
         let entries = desc
             .entries
             .iter_shared()
-            .map(|entry| {
-                let gd_image = &entry.bind().image;
-
+            .flat_map(|entry| {
+                let gd_images = &entry.bind().images;
+                gd_images.iter_shared().collect::<Vec<_>>()
+            })
+            .map(|gd_image| {
                 let width = gd_image.get_width() as u32;
                 let height = gd_image.get_height() as u32;
 
@@ -249,33 +260,55 @@ impl BlockField {
                     }
                 }
 
-                image
+                image_atlas::AtlasEntry {
+                    texture: image,
+                    mip: image_atlas::AtlasEntryMipOption::Clamp,
+                }
             })
-            .map(|image| image_atlas::AtlasEntry {
-                texture: image,
-                mip: image_atlas::AtlasEntryMipOption::Clamp,
+            .collect::<Vec<_>>();
+
+        let variants = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let gd_images = &entry.bind().images;
+                gd_images.len() as u8
             })
             .collect::<Vec<_>>();
 
         let atlas = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
             size: desc.output_image_size,
             max_page_count: desc.max_page_size,
-            mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
+            mip: image_atlas::AtlasMipOption::MipWithBlock(
+                image_atlas::AtlasMipFilter::Linear,
+                desc.mip_block_size,
+            ),
             entries: &entries,
         })
         .unwrap();
 
+        let pad_mip_level = (desc.output_image_size / desc.mip_block_size).ilog2();
+        let pad_pixel_size = (0..pad_mip_level)
+            .map(|i| (1 << i) * (1 << i))
+            .sum::<usize>();
+
         let gd_images = atlas
             .textures
             .into_iter()
-            .map(|texture| texture.mip_maps.into_iter().next().unwrap())
-            .map(|image| {
+            .map(|texture| {
+                let mut data = texture
+                    .mip_maps
+                    .into_iter()
+                    .flat_map(|image| image.to_vec())
+                    .collect::<Vec<_>>();
+                data.append(&mut vec![0; pad_pixel_size * 4]);
+
                 godot::engine::Image::create_from_data(
-                    image.width() as i32,
-                    image.height() as i32,
+                    desc.output_image_size as i32,
+                    desc.output_image_size as i32,
                     false,
                     godot::engine::image::Format::RGBA8,
-                    PackedByteArray::from(image.to_vec().as_slice()),
+                    PackedByteArray::from(data.as_slice()),
                 )
                 .unwrap()
             })
@@ -287,10 +320,14 @@ impl BlockField {
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
 
-        let texcoords = atlas
-            .texcoords
+        let mut iter = atlas.texcoords.into_iter();
+        let texcoords = variants
             .into_iter()
-            .map(|texcoord| texcoord.to_f32())
+            .map(|variant| {
+                (0..variant)
+                    .map(|_| iter.next().unwrap().to_f32())
+                    .collect::<Vec<_>>()
+            })
             .collect::<Vec<_>>();
 
         let shader = desc.shader.get_rid();
@@ -471,7 +508,7 @@ impl BlockField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let texcoord = self.texcoords[block.id as usize];
+                let texcoord = self.texcoords[block.id as usize][block.variant as usize];
                 texcoord_buffer[i * 4] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;

@@ -171,7 +171,7 @@ impl Generator {
                     x * chunk_size as i32 + u as i32,
                     y * chunk_size as i32 + v as i32,
                 ];
-                let _ = place_block(world, Block::new(id, location));
+                let _ = place_block(world, Block::new(id, location, 0));
             }
 
             for _ in 0..8 {
@@ -181,7 +181,7 @@ impl Generator {
                     x as f32 * chunk_size as f32 + u,
                     y as f32 * chunk_size as f32 + v,
                 ];
-                let _ = place_entity(world, Entity::new(1, location));
+                let _ = place_entity(world, Entity::new(1, location, 0));
             }
         }
     }

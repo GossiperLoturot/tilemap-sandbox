@@ -39,7 +39,11 @@ pub struct Tile {
 impl Tile {
     #[inline]
     pub fn new(id: u32, location: IVec2, variant: u8) -> Self {
-        Self { id, location, variant }
+        Self {
+            id,
+            location,
+            variant,
+        }
     }
 }
 
@@ -331,12 +335,17 @@ impl BlockSpec {
 pub struct Block {
     pub id: u32,
     pub location: IVec2,
+    pub variant: u8,
 }
 
 impl Block {
     #[inline]
-    pub fn new(id: u32, location: IVec2) -> Self {
-        Self { id, location }
+    pub fn new(id: u32, location: IVec2, variant: u8) -> Self {
+        Self {
+            id,
+            location,
+            variant,
+        }
     }
 }
 
@@ -698,12 +707,17 @@ impl EntitySpec {
 pub struct Entity {
     pub id: u32,
     pub location: Vec2,
+    pub variant: u8,
 }
 
 impl Entity {
     #[inline]
-    pub fn new(id: u32, location: Vec2) -> Self {
-        Self { id, location }
+    pub fn new(id: u32, location: Vec2, variant: u8) -> Self {
+        Self {
+            id,
+            location,
+            variant,
+        }
     }
 }
 
@@ -1125,12 +1139,12 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key = field.insert(Block::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
 
-        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
-        assert_eq!(field.remove(key), Ok(Block::new(1, [-1, 3])));
+        assert_eq!(field.remove(key), Ok(Block::new(1, [-1, 3], 0)));
 
         assert_eq!(field.get(key), Err(FieldError::NotFound));
         assert!(!field.has_by_point([-1, 3]));
@@ -1147,18 +1161,18 @@ mod tests {
         let mut field = BlockField::new(16, specs);
 
         assert_eq!(
-            field.insert(Block::new(2, [-1, 3])),
+            field.insert(Block::new(2, [-1, 3], 0)),
             Err(FieldError::InvalidId)
         );
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
 
-        let key = field.insert(Block::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
         assert_eq!(
-            field.insert(Block::new(0, [-1, 3])),
+            field.insert(Block::new(0, [-1, 3], 0)),
             Err(FieldError::Conflict)
         );
-        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
     }
@@ -1170,21 +1184,21 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key = field.insert(Block::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key, Block::new(0, [-1, 3])),
-            Ok(Block::new(1, [-1, 3]))
+            field.modify(key, Block::new(0, [-1, 3], 0)),
+            Ok(Block::new(1, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
         assert_eq!(
-            field.modify(key, Block::new(0, [-1, 4])),
-            Ok(Block::new(0, [-1, 3]))
+            field.modify(key, Block::new(0, [-1, 4], 0)),
+            Ok(Block::new(0, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 4])));
+        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 4], 0)));
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 4]));
@@ -1198,28 +1212,28 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key_0 = field.insert(Block::new(1, [-1, 3])).unwrap();
-        let key_1 = field.insert(Block::new(1, [-1, 4])).unwrap();
+        let key_0 = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+        let key_1 = field.insert(Block::new(1, [-1, 4], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key_0, Block::new(3, [-1, 3])),
+            field.modify(key_0, Block::new(3, [-1, 3], 0)),
             Err(FieldError::InvalidId)
         );
-        assert_eq!(field.get(key_0), Ok(&Block::new(1, [-1, 3])));
+        assert_eq!(field.get(key_0), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         assert_eq!(
-            field.modify(key_0, Block::new(1, [-1, 4])),
+            field.modify(key_0, Block::new(1, [-1, 4], 0)),
             Err(FieldError::Conflict)
         );
-        assert_eq!(field.get(key_0), Ok(&Block::new(1, [-1, 3])));
+        assert_eq!(field.get(key_0), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         field.remove(key_1).unwrap();
         assert_eq!(
-            field.modify(key_1, Block::new(1, [-1, 4])),
+            field.modify(key_1, Block::new(1, [-1, 4], 0)),
             Err(FieldError::NotFound)
         );
         assert_eq!(field.get(key_1), Err(FieldError::NotFound));
@@ -1234,7 +1248,7 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key = field.insert(Block::new(0, [-1, 3])).unwrap();
+        let key = field.insert(Block::new(0, [-1, 3], 0)).unwrap();
 
         let point = [-1.0, 3.0];
         assert!(!field.has_collision_by_point(point));
@@ -1245,10 +1259,10 @@ mod tests {
         assert_eq!(vec, vec![]);
 
         assert_eq!(
-            field.modify(key, Block::new(1, [-1, 3])),
-            Ok(Block::new(0, [-1, 3]))
+            field.modify(key, Block::new(1, [-1, 3], 0)),
+            Ok(Block::new(0, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
@@ -1261,10 +1275,10 @@ mod tests {
         assert_eq!(vec, vec![key]);
 
         assert_eq!(
-            field.modify(key, Block::new(0, [-1, 3])),
-            Ok(Block::new(1, [-1, 3]))
+            field.modify(key, Block::new(0, [-1, 3], 0)),
+            Ok(Block::new(1, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Block::new(0, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
@@ -1284,9 +1298,9 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key_0 = field.insert(Block::new(1, [-1, 3])).unwrap();
-        let key_1 = field.insert(Block::new(1, [-1, 4])).unwrap();
-        let _key_2 = field.insert(Block::new(1, [-1, 5])).unwrap();
+        let key_0 = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+        let key_1 = field.insert(Block::new(1, [-1, 4], 0)).unwrap();
+        let _key_2 = field.insert(Block::new(1, [-1, 5], 0)).unwrap();
 
         let point = [-1.0, 4.0];
         assert!(field.has_collision_by_point(point));
@@ -1308,9 +1322,9 @@ mod tests {
             BlockSpec::new([1, 1], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = BlockField::new(16, specs);
-        let key_0 = field.insert(Block::new(1, [-1, 3])).unwrap();
-        let key_1 = field.insert(Block::new(1, [-1, 4])).unwrap();
-        let _key_2 = field.insert(Block::new(1, [-1, 5])).unwrap();
+        let key_0 = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+        let key_1 = field.insert(Block::new(1, [-1, 4], 0)).unwrap();
+        let _key_2 = field.insert(Block::new(1, [-1, 5], 0)).unwrap();
 
         let point = [-1.0, 4.0];
         assert!(field.has_hint_by_point(point));
@@ -1332,10 +1346,10 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key = field.insert(Entity::new(1, [-1.0, 3.0])).unwrap();
+        let key = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
 
-        assert_eq!(field.get(key), Ok(&Entity::new(1, [-1.0, 3.0])));
-        assert_eq!(field.remove(key), Ok(Entity::new(1, [-1.0, 3.0])));
+        assert_eq!(field.get(key), Ok(&Entity::new(1, [-1.0, 3.0], 0)));
+        assert_eq!(field.remove(key), Ok(Entity::new(1, [-1.0, 3.0], 0)));
 
         assert_eq!(field.get(key), Err(FieldError::NotFound));
         assert_eq!(field.remove(key), Err(FieldError::NotFound));
@@ -1350,7 +1364,7 @@ mod tests {
         let mut field = EntityField::new(16, specs);
 
         assert_eq!(
-            field.insert(Entity::new(2, [-1.0, 3.0])),
+            field.insert(Entity::new(2, [-1.0, 3.0], 0)),
             Err(FieldError::InvalidId)
         );
     }
@@ -1362,19 +1376,19 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key = field.insert(Entity::new(1, [-1.0, 3.0])).unwrap();
+        let key = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key, Entity::new(0, [-1.0, 3.0])),
-            Ok(Entity::new(1, [-1.0, 3.0]))
+            field.modify(key, Entity::new(0, [-1.0, 3.0], 0)),
+            Ok(Entity::new(1, [-1.0, 3.0], 0))
         );
-        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 3.0])));
+        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 3.0], 0)));
 
         assert_eq!(
-            field.modify(key, Entity::new(0, [-1.0, 4.0])),
-            Ok(Entity::new(0, [-1.0, 3.0]))
+            field.modify(key, Entity::new(0, [-1.0, 4.0], 0)),
+            Ok(Entity::new(0, [-1.0, 3.0], 0))
         );
-        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 4.0])));
+        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 4.0], 0)));
     }
 
     #[test]
@@ -1384,18 +1398,18 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0])).unwrap();
-        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0])).unwrap();
+        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
+        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key_0, Entity::new(3, [-1.0, 3.0])),
+            field.modify(key_0, Entity::new(3, [-1.0, 3.0], 0)),
             Err(FieldError::InvalidId)
         );
-        assert_eq!(field.get(key_0), Ok(&Entity::new(1, [-1.0, 3.0])));
+        assert_eq!(field.get(key_0), Ok(&Entity::new(1, [-1.0, 3.0], 0)));
 
         field.remove(key_1).unwrap();
         assert_eq!(
-            field.modify(key_1, Entity::new(1, [-1.0, 4.0])),
+            field.modify(key_1, Entity::new(1, [-1.0, 4.0], 0)),
             Err(FieldError::NotFound)
         );
         assert_eq!(field.get(key_1), Err(FieldError::NotFound));
@@ -1408,7 +1422,7 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key = field.insert(Entity::new(0, [-1.0, 3.0])).unwrap();
+        let key = field.insert(Entity::new(0, [-1.0, 3.0], 0)).unwrap();
 
         let point = [-1.0, 3.0];
         assert!(!field.has_collision_by_point(point));
@@ -1419,10 +1433,10 @@ mod tests {
         assert_eq!(vec, vec![]);
 
         assert_eq!(
-            field.modify(key, Entity::new(1, [-1.0, 3.0])),
-            Ok(Entity::new(0, [-1.0, 3.0]))
+            field.modify(key, Entity::new(1, [-1.0, 3.0], 0)),
+            Ok(Entity::new(0, [-1.0, 3.0], 0))
         );
-        assert_eq!(field.get(key), Ok(&Entity::new(1, [-1.0, 3.0])));
+        assert_eq!(field.get(key), Ok(&Entity::new(1, [-1.0, 3.0], 0)));
 
         let point = [-1.0, 3.0];
         assert!(field.has_collision_by_point(point));
@@ -1433,10 +1447,10 @@ mod tests {
         assert_eq!(vec, vec![key]);
 
         assert_eq!(
-            field.modify(key, Entity::new(0, [-1.0, 3.0])),
-            Ok(Entity::new(1, [-1.0, 3.0]))
+            field.modify(key, Entity::new(0, [-1.0, 3.0], 0)),
+            Ok(Entity::new(1, [-1.0, 3.0], 0))
         );
-        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 3.0])));
+        assert_eq!(field.get(key), Ok(&Entity::new(0, [-1.0, 3.0], 0)));
 
         let point = [-1.0, 3.0];
         assert!(!field.has_collision_by_point(point));
@@ -1454,9 +1468,9 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0])).unwrap();
-        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0])).unwrap();
-        let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0])).unwrap();
+        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
+        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
+        let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0], 0)).unwrap();
 
         let point = [-1.0, 4.0];
         assert!(field.has_collision_by_point(point));
@@ -1478,9 +1492,9 @@ mod tests {
             EntitySpec::new([1.0, 1.0], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0]),
         ];
         let mut field = EntityField::new(16, specs);
-        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0])).unwrap();
-        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0])).unwrap();
-        let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0])).unwrap();
+        let key_0 = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
+        let key_1 = field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
+        let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0], 0)).unwrap();
 
         let point = [-1.0, 4.0];
         assert!(field.has_hint_by_point(point));

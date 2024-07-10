@@ -6,7 +6,7 @@ use crate::inner;
 #[class(no_init)]
 struct EntityFieldDescEntry {
     #[export]
-    image: Gd<godot::engine::Image>,
+    images: Array<Gd<godot::engine::Image>>,
     #[export]
     z_along_y: bool,
     #[export]
@@ -23,7 +23,7 @@ struct EntityFieldDescEntry {
 impl EntityFieldDescEntry {
     #[func]
     fn new_from(
-        image: Gd<godot::engine::Image>,
+        images: Array<Gd<godot::engine::Image>>,
         z_along_y: bool,
         rendering_size: Vector2,
         rendering_offset: Vector2,
@@ -31,7 +31,7 @@ impl EntityFieldDescEntry {
         collision_offset: Vector2,
     ) -> Gd<Self> {
         Gd::from_object(Self {
-            image,
+            images,
             z_along_y,
             rendering_size,
             rendering_offset,
@@ -49,6 +49,8 @@ struct EntityFieldDesc {
     #[export]
     max_page_size: u32,
     #[export]
+    mip_block_size: u32,
+    #[export]
     entries: Array<Gd<EntityFieldDescEntry>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
@@ -60,12 +62,14 @@ impl EntityFieldDesc {
     fn new_from(
         output_image_size: u32,
         max_page_size: u32,
+        mip_block_size: u32,
         entries: Array<Gd<EntityFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
             output_image_size,
             max_page_size,
+            mip_block_size,
             entries,
             shader,
         })
@@ -103,9 +107,9 @@ impl Entity {
 #[godot_api]
 impl Entity {
     #[func]
-    fn new_from(id: u32, location: Vector2) -> Gd<Self> {
+    fn new_from(id: u32, location: Vector2, variant: u8) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Entity::new(id, location);
+        let inner = inner::Entity::new(id, location, variant);
         Gd::from_object(Self { inner })
     }
 
@@ -118,6 +122,11 @@ impl Entity {
     fn get_location(&self) -> Vector2 {
         let location = self.inner.location;
         Vector2::new(location[0], location[1])
+    }
+
+    #[func]
+    fn get_variant(&self) -> u8 {
+        self.inner.variant
     }
 }
 
@@ -169,7 +178,7 @@ impl From<EntityChunkDown> for EntityChunkUp {
 pub(crate) struct EntityField {
     inner: inner::EntityField,
     specs: Vec<EntitySpec>,
-    texcoords: Vec<image_atlas::Texcoord32>,
+    texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
 }
@@ -229,9 +238,11 @@ impl EntityField {
         let entries = desc
             .entries
             .iter_shared()
-            .map(|entry| {
-                let gd_image = &entry.bind().image;
-
+            .flat_map(|entry| {
+                let gd_image = &entry.bind().images;
+                gd_image.iter_shared().collect::<Vec<_>>()
+            })
+            .map(|gd_image| {
                 let width = gd_image.get_width() as u32;
                 let height = gd_image.get_height() as u32;
 
@@ -244,33 +255,55 @@ impl EntityField {
                     }
                 }
 
-                image
+                image_atlas::AtlasEntry {
+                    texture: image,
+                    mip: image_atlas::AtlasEntryMipOption::Clamp,
+                }
             })
-            .map(|image| image_atlas::AtlasEntry {
-                texture: image,
-                mip: image_atlas::AtlasEntryMipOption::Clamp,
+            .collect::<Vec<_>>();
+
+        let variants = desc
+            .entries
+            .iter_shared()
+            .map(|entry| {
+                let gd_images = &entry.bind().images;
+                gd_images.len() as u8
             })
             .collect::<Vec<_>>();
 
         let atlas = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
             size: desc.output_image_size,
             max_page_count: desc.max_page_size,
-            mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
+            mip: image_atlas::AtlasMipOption::MipWithBlock(
+                image_atlas::AtlasMipFilter::Linear,
+                desc.mip_block_size,
+            ),
             entries: &entries,
         })
         .unwrap();
 
+        let pad_mip_level = (desc.output_image_size / desc.mip_block_size).ilog2();
+        let pad_pixel_size = (0..pad_mip_level)
+            .map(|i| (1 << i) * (1 << i))
+            .sum::<usize>();
+
         let gd_images = atlas
             .textures
             .into_iter()
-            .map(|texture| texture.mip_maps.into_iter().next().unwrap())
-            .map(|image| {
+            .map(|texture| {
+                let mut data = texture
+                    .mip_maps
+                    .into_iter()
+                    .flat_map(|image| image.to_vec())
+                    .collect::<Vec<_>>();
+                data.append(&mut vec![0; pad_pixel_size * 4]);
+
                 godot::engine::Image::create_from_data(
-                    image.width() as i32,
-                    image.height() as i32,
-                    false,
+                    desc.output_image_size as i32,
+                    desc.output_image_size as i32,
+                    true,
                     godot::engine::image::Format::RGBA8,
-                    PackedByteArray::from(image.to_vec().as_slice()),
+                    PackedByteArray::from(data.as_slice()),
                 )
                 .unwrap()
             })
@@ -282,10 +315,14 @@ impl EntityField {
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
 
-        let texcoords = atlas
-            .texcoords
+        let mut iter = atlas.texcoords.into_iter();
+        let texcoords = variants
             .into_iter()
-            .map(|texcoord| texcoord.to_f32())
+            .map(|variant| {
+                (0..variant)
+                    .map(|_| iter.next().unwrap().to_f32())
+                    .collect::<Vec<_>>()
+            })
             .collect::<Vec<_>>();
 
         let shader = desc.shader.get_rid();
@@ -466,7 +503,7 @@ impl EntityField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let texcoord = self.texcoords[entity.id as usize];
+                let texcoord = self.texcoords[entity.id as usize][entity.variant as usize];
                 texcoord_buffer[i * 4] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
