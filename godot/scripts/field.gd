@@ -19,23 +19,23 @@ func _ready():
 		8,
 		[
 			TileFieldDescEntry.new_from(
-				preload("res://images/surface_dirt.webp"),
+				[preload("res://images/surface_dirt.webp")] as Array[Image],
 				false,
 			),
 			TileFieldDescEntry.new_from(
-				preload("res://images/surface_grass.webp"),
+				[preload("res://images/surface_grass.webp")] as Array[Image],
 				false,
 			),
 			TileFieldDescEntry.new_from(
-				preload("res://images/surface_gravel.webp"),
+				[preload("res://images/surface_gravel.webp")] as Array[Image],
 				false,
 			),
 			TileFieldDescEntry.new_from(
-				preload("res://images/surface_sand.webp"),
+				[preload("res://images/surface_sand.webp")] as Array[Image],
 				false,
 			),
 			TileFieldDescEntry.new_from(
-				preload("res://images/surface_stone.webp"),
+				[preload("res://images/surface_stone.webp")] as Array[Image],
 				false,
 			),
 		] as Array[TileFieldDescEntry],

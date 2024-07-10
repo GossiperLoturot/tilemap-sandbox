@@ -33,12 +33,13 @@ impl TileSpec {
 pub struct Tile {
     pub id: u32,
     pub location: IVec2,
+    pub variant: u8,
 }
 
 impl Tile {
     #[inline]
-    pub fn new(id: u32, location: IVec2) -> Self {
-        Self { id, location }
+    pub fn new(id: u32, location: IVec2, variant: u8) -> Self {
+        Self { id, location, variant }
     }
 }
 
@@ -970,12 +971,12 @@ mod tests {
     #[test]
     fn crud_tile() {
         let mut field = TileField::new(16, vec![TileSpec::new(true), TileSpec::new(true)]);
-        let key = field.insert(Tile::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
 
-        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
-        assert_eq!(field.remove(key), Ok(Tile::new(1, [-1, 3])));
+        assert_eq!(field.remove(key), Ok(Tile::new(1, [-1, 3], 0)));
 
         assert_eq!(field.get(key), Err(FieldError::NotFound));
         assert!(!field.has_by_point([-1, 3]));
@@ -988,18 +989,18 @@ mod tests {
         let mut field = TileField::new(16, vec![TileSpec::new(true), TileSpec::new(true)]);
 
         assert_eq!(
-            field.insert(Tile::new(2, [-1, 3])),
+            field.insert(Tile::new(2, [-1, 3], 0)),
             Err(FieldError::InvalidId)
         );
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
 
-        let key = field.insert(Tile::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
         assert_eq!(
-            field.insert(Tile::new(0, [-1, 3])),
+            field.insert(Tile::new(0, [-1, 3], 0)),
             Err(FieldError::Conflict)
         );
-        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
     }
@@ -1007,21 +1008,21 @@ mod tests {
     #[test]
     fn modify_tile() {
         let mut field = TileField::new(16, vec![TileSpec::new(true), TileSpec::new(true)]);
-        let key = field.insert(Tile::new(1, [-1, 3])).unwrap();
+        let key = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key, Tile::new(0, [-1, 3])),
-            Ok(Tile::new(1, [-1, 3]))
+            field.modify(key, Tile::new(0, [-1, 3], 0)),
+            Ok(Tile::new(1, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
         assert_eq!(
-            field.modify(key, Tile::new(0, [-1, 4])),
-            Ok(Tile::new(0, [-1, 3]))
+            field.modify(key, Tile::new(0, [-1, 4], 0)),
+            Ok(Tile::new(0, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 4])));
+        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 4], 0)));
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 4]));
@@ -1031,28 +1032,28 @@ mod tests {
     #[test]
     fn modify_tile_with_invalid() {
         let mut field = TileField::new(16, vec![TileSpec::new(true), TileSpec::new(true)]);
-        let key_0 = field.insert(Tile::new(1, [-1, 3])).unwrap();
-        let key_1 = field.insert(Tile::new(1, [-1, 4])).unwrap();
+        let key_0 = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
+        let key_1 = field.insert(Tile::new(1, [-1, 4], 0)).unwrap();
 
         assert_eq!(
-            field.modify(key_0, Tile::new(3, [-1, 3])),
+            field.modify(key_0, Tile::new(3, [-1, 3], 0)),
             Err(FieldError::InvalidId)
         );
-        assert_eq!(field.get(key_0), Ok(&Tile::new(1, [-1, 3])));
+        assert_eq!(field.get(key_0), Ok(&Tile::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         assert_eq!(
-            field.modify(key_0, Tile::new(1, [-1, 4])),
+            field.modify(key_0, Tile::new(1, [-1, 4], 0)),
             Err(FieldError::Conflict)
         );
-        assert_eq!(field.get(key_0), Ok(&Tile::new(1, [-1, 3])));
+        assert_eq!(field.get(key_0), Ok(&Tile::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         field.remove(key_1).unwrap();
         assert_eq!(
-            field.modify(key_1, Tile::new(1, [-1, 4])),
+            field.modify(key_1, Tile::new(1, [-1, 4], 0)),
             Err(FieldError::NotFound)
         );
         assert_eq!(field.get(key_1), Err(FieldError::NotFound));
@@ -1063,7 +1064,7 @@ mod tests {
     #[test]
     fn modify_tile_with_different_collision() {
         let mut field = TileField::new(16, vec![TileSpec::new(false), TileSpec::new(true)]);
-        let key = field.insert(Tile::new(0, [-1, 3])).unwrap();
+        let key = field.insert(Tile::new(0, [-1, 3], 0)).unwrap();
 
         let point = [-1.0, 3.0];
         assert!(!field.has_collision_by_point(point));
@@ -1071,10 +1072,10 @@ mod tests {
         assert_eq!(vec, vec![]);
 
         assert_eq!(
-            field.modify(key, Tile::new(1, [-1, 3])),
-            Ok(Tile::new(0, [-1, 3]))
+            field.modify(key, Tile::new(1, [-1, 3], 0)),
+            Ok(Tile::new(0, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
@@ -1084,10 +1085,10 @@ mod tests {
         assert_eq!(vec, vec![key]);
 
         assert_eq!(
-            field.modify(key, Tile::new(0, [-1, 3])),
-            Ok(Tile::new(1, [-1, 3]))
+            field.modify(key, Tile::new(0, [-1, 3], 0)),
+            Ok(Tile::new(1, [-1, 3], 0))
         );
-        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 3])));
+        assert_eq!(field.get(key), Ok(&Tile::new(0, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
 
@@ -1100,9 +1101,9 @@ mod tests {
     #[test]
     fn collision_tile() {
         let mut field = TileField::new(16, vec![TileSpec::new(true), TileSpec::new(true)]);
-        let key_0 = field.insert(Tile::new(1, [-1, 3])).unwrap();
-        let key_1 = field.insert(Tile::new(1, [-1, 4])).unwrap();
-        let _key_2 = field.insert(Tile::new(1, [-1, 5])).unwrap();
+        let key_0 = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
+        let key_1 = field.insert(Tile::new(1, [-1, 4], 0)).unwrap();
+        let _key_2 = field.insert(Tile::new(1, [-1, 5], 0)).unwrap();
 
         let point = [-1.0, 4.0];
         assert!(field.has_collision_by_point(point));

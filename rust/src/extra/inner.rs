@@ -159,7 +159,7 @@ impl Generator {
                         x * chunk_size as i32 + u as i32,
                         y * chunk_size as i32 + v as i32,
                     ];
-                    let _ = place_tile(world, Tile::new(id, location));
+                    let _ = place_tile(world, Tile::new(id, location, 0));
                 }
             }
 
