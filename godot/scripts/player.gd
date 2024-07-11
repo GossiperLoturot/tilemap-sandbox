@@ -9,7 +9,7 @@ var _key: int
 
 
 func _ready():
-	var entity = Entity.new_from(0, _location)
+	var entity = Entity.new_from(0, _location, 0)
 	_key = Action.place_entity(field._world, entity)
 
 

@@ -49,8 +49,6 @@ struct EntityFieldDesc {
     #[export]
     max_page_size: u32,
     #[export]
-    mip_block_size: u32,
-    #[export]
     entries: Array<Gd<EntityFieldDescEntry>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
@@ -62,14 +60,12 @@ impl EntityFieldDesc {
     fn new_from(
         output_image_size: u32,
         max_page_size: u32,
-        mip_block_size: u32,
         entries: Array<Gd<EntityFieldDescEntry>>,
         shader: Gd<godot::engine::Shader>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
             output_image_size,
             max_page_size,
-            mip_block_size,
             entries,
             shader,
         })
@@ -274,34 +270,21 @@ impl EntityField {
         let atlas = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
             size: desc.output_image_size,
             max_page_count: desc.max_page_size,
-            mip: image_atlas::AtlasMipOption::MipWithBlock(
-                image_atlas::AtlasMipFilter::Linear,
-                desc.mip_block_size,
-            ),
+            mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
             entries: &entries,
         })
         .unwrap();
-
-        let pad_mip_level = (desc.output_image_size / desc.mip_block_size).ilog2();
-        let pad_pixel_size = (0..pad_mip_level)
-            .map(|i| (1 << i) * (1 << i))
-            .sum::<usize>();
 
         let gd_images = atlas
             .textures
             .into_iter()
             .map(|texture| {
-                let mut data = texture
-                    .mip_maps
-                    .into_iter()
-                    .flat_map(|image| image.to_vec())
-                    .collect::<Vec<_>>();
-                data.append(&mut vec![0; pad_pixel_size * 4]);
+                let data = texture.mip_maps[0].to_vec();
 
                 godot::engine::Image::create_from_data(
                     desc.output_image_size as i32,
                     desc.output_image_size as i32,
-                    true,
+                    false,
                     godot::engine::image::Format::RGBA8,
                     PackedByteArray::from(data.as_slice()),
                 )
@@ -503,7 +486,8 @@ impl EntityField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let texcoord = self.texcoords[entity.id as usize][entity.variant as usize];
+                let texcoord = &self.texcoords[entity.id as usize];
+                let texcoord = &texcoord[usize::min(entity.variant as usize, texcoord.len() - 1)];
                 texcoord_buffer[i * 4] = texcoord.min_x;
                 texcoord_buffer[i * 4 + 1] = texcoord.min_y;
                 texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
