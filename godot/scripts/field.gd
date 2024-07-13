@@ -25,19 +25,7 @@ func _ready():
 			TileFieldDescEntry.new_from(
 				[preload("res://images/surface_grass.webp")] as Array[Image],
 				false,
-			),
-			TileFieldDescEntry.new_from(
-				[preload("res://images/surface_gravel.webp")] as Array[Image],
-				false,
-			),
-			TileFieldDescEntry.new_from(
-				[preload("res://images/surface_sand.webp")] as Array[Image],
-				false,
-			),
-			TileFieldDescEntry.new_from(
-				[preload("res://images/surface_stone.webp")] as Array[Image],
-				false,
-			),
+			)
 		] as Array[TileFieldDescEntry],
 		preload("res://field.gdshader"),
 	)
@@ -48,29 +36,8 @@ func _ready():
 		8,
 		[
 			BlockFieldDescEntry.new_from(
-				Vector2i(4, 2),
-				[preload("res://images/birch_tree.webp")] as Array[Image],
-				true,
-				Vector2(4.0, 6.0), Vector2(0.0, 0.0),
-				Vector2(1.0, 0.5), Vector2(1.5, 0.0),
-			),
-			BlockFieldDescEntry.new_from(
 				Vector2i(1, 1),
 				[preload("res://images/dandelion.webp")] as Array[Image],
-				false,
-				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			),
-			BlockFieldDescEntry.new_from(
-				Vector2i(4, 2),
-				[preload("res://images/dying_tree.webp")] as Array[Image],
-				true,
-				Vector2(4.0, 6.0), Vector2(0.0, 0.0),
-				Vector2(1.0, 0.5), Vector2(1.5, 0.0),
-			),
-			BlockFieldDescEntry.new_from(
-				Vector2i(1, 1),
-				[preload("res://images/fallen_branch.webp")] as Array[Image],
 				false,
 				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
 				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
@@ -95,21 +62,7 @@ func _ready():
 				false,
 				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
 				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			),
-			BlockFieldDescEntry.new_from(
-				Vector2i(2, 1),
-				[preload("res://images/mix_rock.webp")] as Array[Image],
-				true,
-				Vector2(2.0, 2.0), Vector2(0.0, 0.0),
-				Vector2(2.0, 1.0), Vector2(0.0, 0.0),
-			),
-			BlockFieldDescEntry.new_from(
-				Vector2i(4, 2),
-				[preload("res://images/oak_tree.webp")] as Array[Image],
-				false,
-				Vector2(4.0, 6.0), Vector2(0.0, 0.0),
-				Vector2(1.0, 0.5), Vector2(1.5, 0.0),
-			),
+			)
 		] as Array[BlockFieldDescEntry],
 		preload("res://field.gdshader"),
 	)
@@ -120,17 +73,41 @@ func _ready():
 		8,
 		[
 			EntityFieldDescEntry.new_from(
-				[preload("res://images/frame1x2.webp")] as Array[Image],
+				[preload("res://images/player.webp")] as Array[Image],
 				true,
-				Vector2(1.0, 2.0), Vector2(-0.5, 0.0),
+				Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
 				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 			),
 			EntityFieldDescEntry.new_from(
-				[preload("res://images/frame1x1.webp")] as Array[Image],
+				[preload("res://images/pig.webp")] as Array[Image],
+				true,
+				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+			),
+			EntityFieldDescEntry.new_from(
+				[preload("res://images/cow.webp")] as Array[Image],
+				true,
+				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+			),
+			EntityFieldDescEntry.new_from(
+				[preload("res://images/sheep.webp")] as Array[Image],
+				true,
+				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+			),
+			EntityFieldDescEntry.new_from(
+				[preload("res://images/chiken.webp")] as Array[Image],
 				true,
 				Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
 				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 			),
+			EntityFieldDescEntry.new_from(
+				[preload("res://images/bird.webp")] as Array[Image],
+				true,
+				Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
+				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+			)
 		] as Array[EntityFieldDescEntry],
 		preload("res://field.gdshader"),
 	)
@@ -141,7 +118,11 @@ func _ready():
 	var _callback_store_builder = CallbackStoreBuilder.new_from()
 	_callback_store_builder.insert_bundle(Callback.new_generator(16, 4))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk_forward())
-	_callback_store_builder.insert_bundle(Callback.new_random_walk(1, 1.0, 3.0, 1.0, 5.0, 3.0))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(1, 3.0, 60.0, 1.0, 5.0, 0.5))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(2, 3.0, 60.0, 1.0, 5.0, 0.5))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(3, 3.0, 60.0, 1.0, 5.0, 0.5))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(4, 3.0, 60.0, 1.0, 5.0, 0.5))
+	_callback_store_builder.insert_bundle(Callback.new_random_walk(5, 3.0, 60.0, 1.0, 5.0, 0.5))
 	var _callback_store = _callback_store_builder.build()
 	# CallbackBundle is initialized after running CallbackStoreBuilder.insert(CallbackBundle)
 	# CallbackStoreBuilder is initialized after running CallbackStoreBuilder.build()

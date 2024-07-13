@@ -164,7 +164,7 @@ impl Generator {
             }
 
             for _ in 0..64 {
-                let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=7);
+                let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=3);
                 let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
                 let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
                 let location = [
@@ -174,14 +174,15 @@ impl Generator {
                 let _ = place_block(world, Block::new(id, location, 0));
             }
 
-            for _ in 0..8 {
+            for _ in 0..4 {
+                let id = rand::Rng::gen_range(&mut rand::thread_rng(), 1..=5);
                 let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
                 let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
                 let location = [
                     x as f32 * chunk_size as f32 + u,
                     y as f32 * chunk_size as f32 + v,
                 ];
-                let _ = place_entity(world, Entity::new(1, location, 0));
+                let _ = place_entity(world, Entity::new(id, location, 0));
             }
         }
     }
