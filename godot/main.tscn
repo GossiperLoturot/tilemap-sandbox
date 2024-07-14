@@ -1,7 +1,7 @@
 [gd_scene load_steps=7 format=3 uid="uid://dwy0soa82f5eo"]
 
-[ext_resource type="Script" path="res://scripts/field.gd" id="1_b2r8a"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="5_rbyqb"]
+[ext_resource type="Script" path="res://scripts/world.gd" id="1_b2r8a"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="2_6wr23"]
 [ext_resource type="Shader" path="res://cursor.gdshader" id="6_vhy0j"]
 [ext_resource type="Script" path="res://scripts/cursor.gd" id="7_f7tes"]
 
@@ -20,17 +20,20 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 32)
 projection = 1
 size = 32.0
 
-[node name="Field" type="Node3D" parent="."]
+[node name="World" type="Node3D" parent="."]
 script = ExtResource("1_b2r8a")
 
-[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("field")]
-script = ExtResource("5_rbyqb")
-field = NodePath("../Field")
+[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("world", "camera")]
+script = ExtResource("2_6wr23")
+world = NodePath("../World")
+camera = NodePath("../Camera3D")
+view_size = 2
+speed = 3.0
 
-[node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("field", "camera")]
+[node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("world", "camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)
 mesh = SubResource("QuadMesh_eh3sn")
 skeleton = NodePath("../Camera3D")
 script = ExtResource("7_f7tes")
-field = NodePath("../Field")
+world = NodePath("../World")
 camera = NodePath("../Camera3D")

@@ -91,6 +91,14 @@ impl Action {
         let chunk_key = [chunk_key.x, chunk_key.y];
         extra_inner::generate_chunk(&mut world.inner(), chunk_key);
     }
+
+    #[func]
+    fn call_move_entity(mut world: Gd<World>, entity_key: u32, new_location: Vector2) {
+        let mut world = world.bind_mut();
+        let mut world = world.as_mut();
+        let new_location = [new_location.x, new_location.y];
+        extra_inner::call_move_entity(&mut world.inner(), entity_key, new_location);
+    }
 }
 
 // static class

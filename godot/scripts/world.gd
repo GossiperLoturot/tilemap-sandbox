@@ -1,5 +1,5 @@
 extends Node3D
-class_name Field
+class_name World
 
 
 var _tile_field_desc: TileFieldDesc
@@ -10,10 +10,11 @@ var _tile_field: TileField
 var _block_field: BlockField
 var _entity_field: EntityField
 var _node_store: NodeStore
+var _callback_store: CallbackStore
 var _world: WorldContext
 
 
-func _ready():
+func _enter_tree():
 	_tile_field_desc = TileFieldDesc.new_from(
 		2048,
 		8,
@@ -52,7 +53,7 @@ func _ready():
 			BlockFieldDescEntry.new_from(
 				Vector2i(1, 1),
 				[preload("res://images/mix_grass.webp")] as Array[Image],
-				false,
+				true,
 				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
 				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 			),
@@ -116,14 +117,14 @@ func _ready():
 	_node_store = NodeStore.new_from()
 
 	var _callback_store_builder = CallbackStoreBuilder.new_from()
-	_callback_store_builder.insert_bundle(Callback.new_generator(16, 4))
+	_callback_store_builder.insert_bundle(Callback.new_generator(32, 2))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk_forward())
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(1, 3.0, 60.0, 1.0, 5.0, 0.5))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(2, 3.0, 60.0, 1.0, 5.0, 0.5))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(3, 3.0, 60.0, 1.0, 5.0, 0.5))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(4, 3.0, 60.0, 1.0, 5.0, 0.5))
 	_callback_store_builder.insert_bundle(Callback.new_random_walk(5, 3.0, 60.0, 1.0, 5.0, 0.5))
-	var _callback_store = _callback_store_builder.build()
+	_callback_store = _callback_store_builder.build()
 	# CallbackBundle is initialized after running CallbackStoreBuilder.insert(CallbackBundle)
 	# CallbackStoreBuilder is initialized after running CallbackStoreBuilder.build()
 
@@ -135,19 +136,19 @@ func _ready():
 		_callback_store,
 	)
 
+	# initialize world context
 	Action.before(_world)
-	Action.generate_chunk(_world, Vector2i(0, 0))
-
-	for y in range(-4, 5):
-		for x in range(-4, 5):
-			_tile_field.insert_view(Vector2i(x, y))
-			_block_field.insert_view(Vector2i(x, y))
-			_entity_field.insert_view(Vector2i(x, y))
 
 
 func _process(delta):
 	Action.forward(_world, delta)
 
+	# rendering
 	_tile_field.update_view()
 	_block_field.update_view()
 	_entity_field.update_view()
+
+
+func _exit_tree():
+	# clean up world context
+	Action.after(_world)

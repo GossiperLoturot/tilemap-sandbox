@@ -1,11 +1,12 @@
 extends Node3D
+class_name Cursor
 
 
 const MODE_ENTITY: int = 0
 const MODE_BLOCK: int = 1
 const MODE_TILE: int = 2
 
-@export var field: Field
+@export var world: World
 @export var camera: Camera3D
 
 var _mouse_position: Vector2
@@ -30,10 +31,10 @@ func _process(delta):
 
 	if _mode == MODE_ENTITY:
 		var location = Vector2(point.x, point.y)
-		var keys = field._entity_field.get_hint_by_point(location)
+		var keys = world._entity_field.get_hint_by_point(location)
 		if len(keys) > 0:
-			var entity = field._entity_field.get(keys[0])
-			var spec = field._entity_field_desc.entries[entity.get_id()]
+			var entity = world._entity_field.get(keys[0])
+			var spec = world._entity_field_desc.entries[entity.get_id()]
 
 			var cursor_location = entity.get_location() + spec.rendering_offset
 			var cursor_scale = spec.rendering_size
@@ -42,14 +43,14 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_entity(field._world, keys[0])
+				Action.break_entity(world._world, keys[0])
 
 	elif _mode == MODE_BLOCK:
 		var location = Vector2(point.x, point.y)
-		var keys = field._block_field.get_hint_by_point(location)
+		var keys = world._block_field.get_hint_by_point(location)
 		if len(keys) > 0:
-			var block = field._block_field.get(keys[0])
-			var spec = field._block_field_desc.entries[block.get_id()]
+			var block = world._block_field.get(keys[0])
+			var spec = world._block_field_desc.entries[block.get_id()]
 
 			var cursor_location = Vector2(block.get_location()) + spec.rendering_offset
 			var cursor_scale = spec.rendering_size
@@ -58,15 +59,15 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_block(field._world, keys[0])
+				Action.break_block(world._world, keys[0])
 
 	elif _mode == MODE_TILE:
 		var location = Vector2i(floori(point.x), floori(point.y))
-		if field._tile_field.has_by_point(location):
-			var key = field._tile_field.get_by_point(location)
+		if world._tile_field.has_by_point(location):
+			var key = world._tile_field.get_by_point(location)
 
-			var tile = field._tile_field.get(key)
-			var spec = field._tile_field_desc.entries[tile.get_id()]
+			var tile = world._tile_field.get(key)
+			var spec = world._tile_field_desc.entries[tile.get_id()]
 
 			var cursor_location = Vector2(tile.get_location())
 
@@ -74,7 +75,7 @@ func _process(delta):
 			transform.basis = Basis.from_scale(Vector3.ONE)
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_tile(field._world, key)
+				Action.break_tile(world._world, key)
 
 
 func _input(event):

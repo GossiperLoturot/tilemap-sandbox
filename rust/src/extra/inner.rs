@@ -92,6 +92,16 @@ pub fn generate_chunk(world: &mut World, chunk_key: IVec2) {
     callback.for_each(|f| f.0(world, chunk_key));
 }
 
+pub fn call_move_entity(world: &mut World, entity_key: u32, new_location: Vec2) {
+    let _ = move_entity(
+        &world.tile_field,
+        &world.block_field,
+        &mut world.entity_field,
+        entity_key,
+        new_location,
+    );
+}
+
 // generator callback
 
 #[derive(Debug, Clone)]
@@ -372,6 +382,6 @@ impl CallbackBundle for RandomWalkForward {
         builder.insert(
             CallbackRef::Global,
             ForwardCallback(Box::new(Self::forward)),
-        )
+        );
     }
 }
