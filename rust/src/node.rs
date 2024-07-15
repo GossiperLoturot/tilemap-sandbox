@@ -8,10 +8,15 @@ pub(crate) struct NodeStore {
     inner: inner::NodeStore,
 }
 
-// pass the inner reference for world
+// pass the inner reference for `Root`
 impl NodeStore {
     #[inline]
-    pub(crate) fn inner_mut(&mut self) -> &mut inner::NodeStore {
+    pub fn inner_ref(&self) -> &inner::NodeStore {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::NodeStore {
         &mut self.inner
     }
 }

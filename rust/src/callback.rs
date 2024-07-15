@@ -32,30 +32,15 @@ impl CallbackBundle {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-pub(crate) struct CallbackStoreBuilder {
-    inner: Option<inner::CallbackStoreBuilder>,
+struct CallbackStoreDescriptor {
+    entries: Array<Gd<CallbackBundle>>,
 }
 
 #[godot_api]
-impl CallbackStoreBuilder {
+impl CallbackStoreDescriptor {
     #[func]
-    fn new_from() -> Gd<Self> {
-        let inner = Some(Default::default());
-        Gd::from_object(Self { inner })
-    }
-
-    #[func]
-    fn insert_bundle(&mut self, mut bundle: Gd<CallbackBundle>) {
-        let slf = self.inner.as_mut().unwrap();
-        let bundle = bundle.bind_mut().inner.take().unwrap();
-        slf.insert_bundle(bundle);
-    }
-
-    #[func]
-    fn build(&mut self) -> Gd<CallbackStore> {
-        let slf = self.inner.take().unwrap();
-        let store = slf.build();
-        Gd::from_object(CallbackStore { inner: store })
+    fn new_from(entries: Array<Gd<CallbackBundle>>) -> Gd<Self> {
+        Gd::from_object(Self { entries })
     }
 }
 
@@ -65,10 +50,28 @@ pub(crate) struct CallbackStore {
     inner: inner::CallbackStore,
 }
 
-// pass the inner reference for world
+// pass the inner reference for `Root`
 impl CallbackStore {
     #[inline]
-    pub(crate) fn inner_ref(&self) -> &inner::CallbackStore {
+    pub fn inner_ref(&self) -> &inner::CallbackStore {
         &self.inner
+    }
+}
+
+#[godot_api]
+impl CallbackStore {
+    #[func]
+    fn new_from(desc: Gd<CallbackStoreDescriptor>) -> Gd<CallbackStore> {
+        let desc = desc.bind();
+
+        let mut builder = inner::CallbackStoreBuilder::default();
+        desc.entries.iter_shared().for_each(|mut entry| {
+            let mut entry = entry.bind_mut();
+            let bundle = entry.inner.take().unwrap();
+            builder.insert_bundle(bundle);
+        });
+
+        let inner = builder.build();
+        Gd::from_object(Self { inner })
     }
 }

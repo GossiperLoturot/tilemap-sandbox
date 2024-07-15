@@ -4,7 +4,7 @@ use crate::inner;
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct BlockFieldDescEntry {
+struct BlockDescriptor {
     #[export]
     size: Vector2i,
     #[export]
@@ -22,7 +22,7 @@ struct BlockFieldDescEntry {
 }
 
 #[godot_api]
-impl BlockFieldDescEntry {
+impl BlockDescriptor {
     #[func]
     fn new_from(
         size: Vector2i,
@@ -47,31 +47,43 @@ impl BlockFieldDescEntry {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct BlockFieldDesc {
+struct BlockFieldDescriptor {
+    #[export]
+    chunk_size: u32,
+    #[export]
+    instance_size: u32,
     #[export]
     output_image_size: u32,
     #[export]
     max_page_size: u32,
     #[export]
-    entries: Array<Gd<BlockFieldDescEntry>>,
+    entries: Array<Gd<BlockDescriptor>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
+    #[export]
+    world: Gd<godot::engine::World3D>,
 }
 
 #[godot_api]
-impl BlockFieldDesc {
+impl BlockFieldDescriptor {
     #[func]
     fn new_from(
+        chunk_size: u32,
+        instance_size: u32,
         output_image_size: u32,
         max_page_size: u32,
-        entries: Array<Gd<BlockFieldDescEntry>>,
+        entries: Array<Gd<BlockDescriptor>>,
         shader: Gd<godot::engine::Shader>,
+        world: Gd<godot::engine::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
+            chunk_size,
+            instance_size,
             output_image_size,
             max_page_size,
             entries,
             shader,
+            world,
         })
     }
 }
@@ -144,12 +156,13 @@ struct BlockChunkDown {
     instance: Rid,
 }
 
-impl From<BlockChunkUp> for BlockChunkDown {
-    fn from(chunk: BlockChunkUp) -> Self {
-        Self {
-            material: chunk.material,
-            multimesh: chunk.multimesh,
-            instance: chunk.instance,
+impl BlockChunkDown {
+    fn up(self) -> BlockChunkUp {
+        BlockChunkUp {
+            serial: Default::default(),
+            material: self.material,
+            multimesh: self.multimesh,
+            instance: self.instance,
         }
     }
 }
@@ -162,13 +175,12 @@ struct BlockChunkUp {
     instance: Rid,
 }
 
-impl From<BlockChunkDown> for BlockChunkUp {
-    fn from(chunk: BlockChunkDown) -> Self {
-        Self {
-            serial: Default::default(),
-            material: chunk.material,
-            multimesh: chunk.multimesh,
-            instance: chunk.instance,
+impl BlockChunkUp {
+    fn down(self) -> BlockChunkDown {
+        BlockChunkDown {
+            material: self.material,
+            multimesh: self.multimesh,
+            instance: self.instance,
         }
     }
 }
@@ -181,12 +193,18 @@ pub(crate) struct BlockField {
     texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
+    min_view_rect: Option<[[i32; 2]; 2]>,
 }
 
-// pass the inner reference for world
+// pass the inner reference for `Root`
 impl BlockField {
     #[inline]
-    pub(crate) fn inner_mut(&mut self) -> &mut inner::BlockField {
+    pub fn inner_ref(&self) -> &inner::BlockField {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::BlockField {
         &mut self.inner
     }
 }
@@ -194,19 +212,13 @@ impl BlockField {
 #[godot_api]
 impl BlockField {
     #[constant]
-    const MAX_INSTANCE_SIZE: u32 = 256;
-
-    #[constant]
     const MAX_BUFFER_SIZE: u32 = 1024;
 
-    #[constant]
-    const CHUNK_SIZE: u32 = 32;
-
     #[func]
-    fn new_from(desc: Gd<BlockFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
+    fn new_from(desc: Gd<BlockFieldDescriptor>) -> Gd<Self> {
         let desc = desc.bind();
 
-        let inner_specs = desc
+        let specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
@@ -221,7 +233,7 @@ impl BlockField {
             })
             .collect::<Vec<_>>();
 
-        let inner = inner::BlockField::new(Self::CHUNK_SIZE, inner_specs);
+        let inner = inner::BlockField::new(desc.chunk_size, specs);
 
         let specs = desc
             .entries
@@ -240,24 +252,24 @@ impl BlockField {
             .entries
             .iter_shared()
             .flat_map(|entry| {
-                let gd_images = &entry.bind().images;
-                gd_images.iter_shared().collect::<Vec<_>>()
+                let entry = entry.bind();
+                entry.images.iter_shared().collect::<Vec<_>>()
             })
-            .map(|gd_image| {
-                let width = gd_image.get_width() as u32;
-                let height = gd_image.get_height() as u32;
+            .map(|image| {
+                let width = image.get_width() as u32;
+                let height = image.get_height() as u32;
 
-                let mut image = image::RgbaImage::new(width, height);
+                let mut image_rgba8 = image::RgbaImage::new(width, height);
                 for y in 0..height {
                     for x in 0..width {
-                        let rgba = gd_image.get_pixel(x as i32, y as i32);
-                        let rgba = image::Rgba([rgba.r8(), rgba.g8(), rgba.b8(), rgba.a8()]);
-                        image.put_pixel(x, y, rgba);
+                        let color = image.get_pixel(x as i32, y as i32);
+                        let rgba8 = image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
+                        image_rgba8.put_pixel(x, y, rgba8);
                     }
                 }
 
                 image_atlas::AtlasEntry {
-                    texture: image,
+                    texture: image_rgba8,
                     mip: image_atlas::AtlasEntryMipOption::Clamp,
                 }
             })
@@ -267,8 +279,8 @@ impl BlockField {
             .entries
             .iter_shared()
             .map(|entry| {
-                let gd_images = &entry.bind().images;
-                gd_images.len() as u8
+                let entry = entry.bind();
+                entry.images.len() as u8
             })
             .collect::<Vec<_>>();
 
@@ -280,7 +292,7 @@ impl BlockField {
         })
         .unwrap();
 
-        let gd_images = atlas
+        let images = atlas
             .textures
             .into_iter()
             .map(|texture| {
@@ -299,7 +311,7 @@ impl BlockField {
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         let texture_array = rendering_server.texture_2d_layered_create(
-            Array::from(gd_images.as_slice()),
+            Array::from(images.as_slice()),
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
 
@@ -347,7 +359,7 @@ impl BlockField {
             data
         };
 
-        let down_chunks = (0..Self::MAX_INSTANCE_SIZE)
+        let down_chunks = (0..desc.instance_size)
             .map(|_| {
                 let material = rendering_server.material_create();
                 rendering_server.material_set_shader(material, shader);
@@ -373,7 +385,8 @@ impl BlockField {
                     godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
                 );
 
-                let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
+                let instance =
+                    rendering_server.instance_create2(multimesh, desc.world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
                 BlockChunkDown {
@@ -390,72 +403,82 @@ impl BlockField {
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
+            min_view_rect: None,
         })
     }
 
     #[func]
-    fn insert(&mut self, block: Gd<Block>) -> u32 {
-        let block = block.bind().inner.clone();
-        self.inner.insert(block).unwrap()
-    }
-
-    #[func]
-    fn remove(&mut self, key: u32) -> Gd<Block> {
-        let block = self.inner.remove(key).unwrap();
-        Gd::from_object(Block { inner: block })
-    }
-
-    #[func]
-    fn modify(&mut self, key: u32, new_block: Gd<Block>) -> Gd<Block> {
-        let new_block = new_block.bind().inner.clone();
-        let block = self.inner.modify(key, new_block).unwrap();
-        Gd::from_object(Block { inner: block })
-    }
-
-    #[func]
-    fn get(&self, key: u32) -> Gd<Block> {
-        let block = self.inner.get(key).unwrap().clone();
+    fn get(&self, block_key: u32) -> Gd<Block> {
+        let block = self.inner.get(block_key).unwrap().clone();
         Gd::from_object(Block { inner: block })
     }
 
     // rendering features
 
     #[func]
-    fn insert_view(&mut self, key: Vector2i) {
-        let key = [key.x, key.y];
-        if self.up_chunks.contains_key(&key) {
-            panic!("chunk already exists ({}, {})", key[0], key[1]);
+    fn update_view(&mut self, min_view_rect: Rect2) {
+        let chunk_size = self.inner.get_chunk_size() as f32;
+
+        #[rustfmt::skip]
+        let min_view_rect = [[
+            min_view_rect.position.x.div_euclid(chunk_size) as i32,
+            min_view_rect.position.y.div_euclid(chunk_size) as i32, ], [
+            (min_view_rect.position.x + min_view_rect.size.x).div_euclid(chunk_size) as i32,
+            (min_view_rect.position.y + min_view_rect.size.y).div_euclid(chunk_size) as i32,
+        ]];
+
+        // remove/insert view chunk
+
+        if Some(min_view_rect) != self.min_view_rect {
+            let chunk_keys = self
+                .up_chunks
+                .iter()
+                .filter_map(|(&chunk_key, _)| {
+                    let is_out_of_range_x =
+                        chunk_key[0] < min_view_rect[0][0] || min_view_rect[1][0] < chunk_key[0];
+                    let is_out_of_range_y =
+                        chunk_key[1] < min_view_rect[0][1] || min_view_rect[1][1] < chunk_key[1];
+                    (is_out_of_range_x || is_out_of_range_y).then_some(chunk_key)
+                })
+                .collect::<Vec<_>>();
+
+            chunk_keys.into_iter().for_each(|chunk_key| {
+                let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
+
+                let mut rendering_server = godot::engine::RenderingServer::singleton();
+                rendering_server.instance_set_visible(up_chunk.instance, false);
+
+                self.down_chunks.push(up_chunk.down());
+            });
+
+            for y in min_view_rect[0][1]..=min_view_rect[1][1] {
+                for x in min_view_rect[0][0]..=min_view_rect[1][0] {
+                    let chunk_key = [x, y];
+
+                    if self.up_chunks.contains_key(&chunk_key) {
+                        continue;
+                    }
+
+                    let Some(down_chunk) = self.down_chunks.pop() else {
+                        let up = self.up_chunks.len();
+                        let down = self.down_chunks.len();
+                        panic!("no chunk available in pool (up:{}, down:{})", up, down);
+                    };
+
+                    let mut rendering_server = godot::engine::RenderingServer::singleton();
+                    rendering_server.instance_set_visible(down_chunk.instance, true);
+
+                    self.up_chunks.insert(chunk_key, down_chunk.up());
+                }
+            }
+
+            self.min_view_rect = Some(min_view_rect);
         }
 
-        let Some(chunk) = self.down_chunks.pop() else {
-            let up = self.up_chunks.len();
-            let down = self.down_chunks.len();
-            panic!("no chunk available in pool (up:{}, down:{})", up, down);
-        };
+        // update view chunk
 
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
-        rendering_server.instance_set_visible(chunk.instance, true);
-
-        self.up_chunks.insert(key, chunk.into());
-    }
-
-    #[func]
-    fn remove_view(&mut self, key: Vector2i) {
-        let key = [key.x, key.y];
-        let Some(chunk) = self.up_chunks.remove(&key) else {
-            panic!("chunk is not found ({}, {})", key[0], key[1]);
-        };
-
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
-        rendering_server.instance_set_visible(chunk.instance, false);
-
-        self.down_chunks.push(chunk.into());
-    }
-
-    #[func]
-    fn update_view(&mut self) {
-        for (key, up_chunk) in &mut self.up_chunks {
-            let Some(chunk) = self.inner.get_chunk(*key) else {
+        for (chunk_key, up_chunk) in &mut self.up_chunks {
+            let Some(chunk) = self.inner.get_chunk(*chunk_key) else {
                 continue;
             };
 
@@ -524,6 +547,15 @@ impl BlockField {
     // spatial features
 
     #[func]
+    fn get_rect(&self, block_key: u32) -> Rect2i {
+        let rect = self.inner.get_rect(block_key).unwrap();
+        Rect2i::from_corners(
+            Vector2i::new(rect[0][0], rect[0][1]),
+            Vector2i::new(rect[1][0], rect[1][1]),
+        )
+    }
+
+    #[func]
     fn has_by_point(&self, point: Vector2i) -> bool {
         let point = [point.x, point.y];
         self.inner.has_by_point(point)
@@ -546,11 +578,20 @@ impl BlockField {
     fn get_by_rect(&self, rect: Rect2i) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_by_rect([p0, p1]);
-        Array::from_iter(keys)
+        let block_keys = self.inner.get_by_rect([p0, p1]);
+        Array::from_iter(block_keys)
     }
 
     // collision features
+
+    #[func]
+    fn get_collision_rect(&self, block_key: u32) -> Rect2 {
+        let rect = self.inner.get_collision_rect(block_key).unwrap();
+        Rect2::from_corners(
+            Vector2::new(rect[0][0], rect[0][1]),
+            Vector2::new(rect[1][0], rect[1][1]),
+        )
+    }
 
     #[func]
     fn has_collision_by_point(&self, point: Vector2) -> bool {
@@ -561,8 +602,8 @@ impl BlockField {
     #[func]
     fn get_collision_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_collision_by_point(point);
-        Array::from_iter(keys)
+        let entity_keys = self.inner.get_collision_by_point(point);
+        Array::from_iter(entity_keys)
     }
 
     #[func]
@@ -576,11 +617,20 @@ impl BlockField {
     fn get_collision_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_collision_by_rect([p0, p1]);
-        Array::from_iter(keys)
+        let block_keys = self.inner.get_collision_by_rect([p0, p1]);
+        Array::from_iter(block_keys)
     }
 
     // hint features
+
+    #[func]
+    fn get_hint_rect(&self, block_key: u32) -> Rect2 {
+        let rect = self.inner.get_hint_rect(block_key).unwrap();
+        Rect2::from_corners(
+            Vector2::new(rect[0][0], rect[0][1]),
+            Vector2::new(rect[1][0], rect[1][1]),
+        )
+    }
 
     #[func]
     fn has_hint_by_point(&self, point: Vector2) -> bool {
@@ -591,8 +641,8 @@ impl BlockField {
     #[func]
     fn get_hint_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_hint_by_point(point);
-        Array::from_iter(keys)
+        let block_keys = self.inner.get_hint_by_point(point);
+        Array::from_iter(block_keys)
     }
 
     #[func]
@@ -606,7 +656,7 @@ impl BlockField {
     fn get_hint_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_hint_by_rect([p0, p1]);
-        Array::from_iter(keys)
+        let block_keys = self.inner.get_hint_by_rect([p0, p1]);
+        Array::from_iter(block_keys)
     }
 }

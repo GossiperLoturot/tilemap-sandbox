@@ -9,7 +9,15 @@ mod node;
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
 
-pub struct World<'a> {
+pub struct RootRef<'a> {
+    pub tile_field: &'a TileField,
+    pub block_field: &'a BlockField,
+    pub entity_field: &'a EntityField,
+    pub node_store: &'a NodeStore,
+    pub callback_store: &'a CallbackStore,
+}
+
+pub struct RootMut<'a> {
     pub tile_field: &'a mut TileField,
     pub block_field: &'a mut BlockField,
     pub entity_field: &'a mut EntityField,

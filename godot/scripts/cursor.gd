@@ -31,51 +31,36 @@ func _process(delta):
 
 	if _mode == MODE_ENTITY:
 		var location = Vector2(point.x, point.y)
-		var keys = world._entity_field.get_hint_by_point(location)
+		var keys = world._root.entity_field.get_hint_by_point(location)
 		if len(keys) > 0:
-			var entity = world._entity_field.get(keys[0])
-			var spec = world._entity_field_desc.entries[entity.get_id()]
-
-			var cursor_location = entity.get_location() + spec.rendering_offset
-			var cursor_scale = spec.rendering_size
-
-			transform.origin = Vector3(cursor_location.x, cursor_location.y, spec.rendering_size.y)
-			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
+			var rect = world._root.entity_field.get_hint_rect(keys[0])
+			transform.origin = Vector3(rect.position.x, rect.position.y, rect.size.y)
+			transform.basis = Basis.from_scale(Vector3(rect.size.x, rect.size.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_entity(world._world, keys[0])
+				Actions.break_entity(world._root, keys[0])
 
 	elif _mode == MODE_BLOCK:
 		var location = Vector2(point.x, point.y)
-		var keys = world._block_field.get_hint_by_point(location)
+		var keys = world._root.block_field.get_hint_by_point(location)
 		if len(keys) > 0:
-			var block = world._block_field.get(keys[0])
-			var spec = world._block_field_desc.entries[block.get_id()]
-
-			var cursor_location = Vector2(block.get_location()) + spec.rendering_offset
-			var cursor_scale = spec.rendering_size
-
-			transform.origin = Vector3(cursor_location.x, cursor_location.y, spec.rendering_size.y)
-			transform.basis = Basis.from_scale(Vector3(cursor_scale.x, cursor_scale.y, 1.0))
+			var rect = world._root.block_field.get_hint_rect(keys[0])
+			transform.origin = Vector3(rect.position.x, rect.position.y, rect.size.y)
+			transform.basis = Basis.from_scale(Vector3(rect.size.x, rect.size.y, 1.0))
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_block(world._world, keys[0])
+				Actions.break_block(world._root, keys[0])
 
 	elif _mode == MODE_TILE:
 		var location = Vector2i(floori(point.x), floori(point.y))
-		if world._tile_field.has_by_point(location):
-			var key = world._tile_field.get_by_point(location)
+		if world._root.tile_field.has_by_point(location):
+			var key = world._root.tile_field.get_by_point(location)
 
-			var tile = world._tile_field.get(key)
-			var spec = world._tile_field_desc.entries[tile.get_id()]
-
-			var cursor_location = Vector2(tile.get_location())
-
-			transform.origin = Vector3(cursor_location.x, cursor_location.y, 0.0)
+			transform.origin = Vector3(location.x, location.y, 0.0)
 			transform.basis = Basis.from_scale(Vector3.ONE)
 
 			if Input.is_action_just_pressed("primary"):
-				Action.break_tile(world._world, key)
+				Actions.break_tile(world._root, key)
 
 
 func _input(event):

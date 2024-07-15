@@ -4,7 +4,7 @@ use crate::inner;
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct EntityFieldDescEntry {
+struct EntityDescriptor {
     #[export]
     images: Array<Gd<godot::engine::Image>>,
     #[export]
@@ -20,7 +20,7 @@ struct EntityFieldDescEntry {
 }
 
 #[godot_api]
-impl EntityFieldDescEntry {
+impl EntityDescriptor {
     #[func]
     fn new_from(
         images: Array<Gd<godot::engine::Image>>,
@@ -43,31 +43,43 @@ impl EntityFieldDescEntry {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct EntityFieldDesc {
+struct EntityFieldDescriptor {
+    #[export]
+    chunk_size: u32,
+    #[export]
+    instance_size: u32,
     #[export]
     output_image_size: u32,
     #[export]
     max_page_size: u32,
     #[export]
-    entries: Array<Gd<EntityFieldDescEntry>>,
+    entries: Array<Gd<EntityDescriptor>>,
     #[export]
     shader: Gd<godot::engine::Shader>,
+    #[export]
+    world: Gd<godot::engine::World3D>,
 }
 
 #[godot_api]
-impl EntityFieldDesc {
+impl EntityFieldDescriptor {
     #[func]
     fn new_from(
+        chunk_size: u32,
+        instance_size: u32,
         output_image_size: u32,
         max_page_size: u32,
-        entries: Array<Gd<EntityFieldDescEntry>>,
+        entries: Array<Gd<EntityDescriptor>>,
         shader: Gd<godot::engine::Shader>,
+        world: Gd<godot::engine::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
+            chunk_size,
+            instance_size,
             output_image_size,
             max_page_size,
             entries,
             shader,
+            world,
         })
     }
 }
@@ -140,12 +152,13 @@ struct EntityChunkDown {
     instance: Rid,
 }
 
-impl From<EntityChunkUp> for EntityChunkDown {
-    fn from(chunk: EntityChunkUp) -> Self {
-        Self {
-            material: chunk.material,
-            multimesh: chunk.multimesh,
-            instance: chunk.instance,
+impl EntityChunkDown {
+    fn up(self) -> EntityChunkUp {
+        EntityChunkUp {
+            serial: Default::default(),
+            material: self.material,
+            multimesh: self.multimesh,
+            instance: self.instance,
         }
     }
 }
@@ -158,13 +171,12 @@ struct EntityChunkUp {
     instance: Rid,
 }
 
-impl From<EntityChunkDown> for EntityChunkUp {
-    fn from(chunk: EntityChunkDown) -> Self {
-        Self {
-            serial: Default::default(),
-            material: chunk.material,
-            multimesh: chunk.multimesh,
-            instance: chunk.instance,
+impl EntityChunkUp {
+    fn down(self) -> EntityChunkDown {
+        EntityChunkDown {
+            material: self.material,
+            multimesh: self.multimesh,
+            instance: self.instance,
         }
     }
 }
@@ -177,12 +189,18 @@ pub(crate) struct EntityField {
     texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
+    min_view_rect: Option<[[i32; 2]; 2]>,
 }
 
-// pass the inner reference for world
+// pass the inner reference for `Root`
 impl EntityField {
     #[inline]
-    pub(crate) fn inner_mut(&mut self) -> &mut inner::EntityField {
+    pub fn inner_ref(&self) -> &inner::EntityField {
+        &self.inner
+    }
+
+    #[inline]
+    pub fn inner_mut(&mut self) -> &mut inner::EntityField {
         &mut self.inner
     }
 }
@@ -190,19 +208,13 @@ impl EntityField {
 #[godot_api]
 impl EntityField {
     #[constant]
-    const MAX_INSTANCE_SIZE: u32 = 256;
-
-    #[constant]
     const MAX_BUFFER_SIZE: u32 = 1024;
 
-    #[constant]
-    const CHUNK_SIZE: u32 = 32;
-
     #[func]
-    fn new_from(desc: Gd<EntityFieldDesc>, world: Gd<godot::engine::World3D>) -> Gd<Self> {
+    fn new_from(desc: Gd<EntityFieldDescriptor>) -> Gd<Self> {
         let desc = desc.bind();
 
-        let inner_specs = desc
+        let specs = desc
             .entries
             .iter_shared()
             .map(|entry| {
@@ -216,7 +228,7 @@ impl EntityField {
             })
             .collect::<Vec<_>>();
 
-        let inner = inner::EntityField::new(Self::CHUNK_SIZE, inner_specs);
+        let inner = inner::EntityField::new(desc.chunk_size, specs);
 
         let specs = desc
             .entries
@@ -235,24 +247,24 @@ impl EntityField {
             .entries
             .iter_shared()
             .flat_map(|entry| {
-                let gd_image = &entry.bind().images;
-                gd_image.iter_shared().collect::<Vec<_>>()
+                let entry = entry.bind();
+                entry.images.iter_shared().collect::<Vec<_>>()
             })
-            .map(|gd_image| {
-                let width = gd_image.get_width() as u32;
-                let height = gd_image.get_height() as u32;
+            .map(|image| {
+                let width = image.get_width() as u32;
+                let height = image.get_height() as u32;
 
-                let mut image = image::RgbaImage::new(width, height);
+                let mut image_rgba8 = image::RgbaImage::new(width, height);
                 for y in 0..height {
                     for x in 0..width {
-                        let rgba = gd_image.get_pixel(x as i32, y as i32);
-                        let rgba = image::Rgba([rgba.r8(), rgba.g8(), rgba.b8(), rgba.a8()]);
-                        image.put_pixel(x, y, rgba);
+                        let color = image.get_pixel(x as i32, y as i32);
+                        let rgba8 = image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
+                        image_rgba8.put_pixel(x, y, rgba8);
                     }
                 }
 
                 image_atlas::AtlasEntry {
-                    texture: image,
+                    texture: image_rgba8,
                     mip: image_atlas::AtlasEntryMipOption::Clamp,
                 }
             })
@@ -262,8 +274,8 @@ impl EntityField {
             .entries
             .iter_shared()
             .map(|entry| {
-                let gd_images = &entry.bind().images;
-                gd_images.len() as u8
+                let entry = entry.bind();
+                entry.images.len() as u8
             })
             .collect::<Vec<_>>();
 
@@ -275,7 +287,7 @@ impl EntityField {
         })
         .unwrap();
 
-        let gd_images = atlas
+        let images = atlas
             .textures
             .into_iter()
             .map(|texture| {
@@ -294,7 +306,7 @@ impl EntityField {
 
         let mut rendering_server = godot::engine::RenderingServer::singleton();
         let texture_array = rendering_server.texture_2d_layered_create(
-            Array::from(gd_images.as_slice()),
+            Array::from(images.as_slice()),
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
 
@@ -342,7 +354,7 @@ impl EntityField {
             data
         };
 
-        let down_chunks = (0..Self::MAX_INSTANCE_SIZE)
+        let down_chunks = (0..desc.instance_size)
             .map(|_| {
                 let material = rendering_server.material_create();
                 rendering_server.material_set_shader(material, shader);
@@ -368,7 +380,8 @@ impl EntityField {
                     godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
                 );
 
-                let instance = rendering_server.instance_create2(multimesh, world.get_scenario());
+                let instance =
+                    rendering_server.instance_create2(multimesh, desc.world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
 
                 EntityChunkDown {
@@ -385,72 +398,81 @@ impl EntityField {
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
+            min_view_rect: None,
         })
     }
 
     #[func]
-    fn insert(&mut self, entity: Gd<Entity>) -> u32 {
-        let entity = entity.bind().inner.clone();
-        self.inner.insert(entity).unwrap()
-    }
-
-    #[func]
-    fn remove(&mut self, key: u32) -> Gd<Entity> {
-        let entity = self.inner.remove(key).unwrap();
-        Gd::from_object(Entity { inner: entity })
-    }
-
-    #[func]
-    fn modify(&mut self, key: u32, new_entity: Gd<Entity>) -> Gd<Entity> {
-        let new_entity = new_entity.bind().inner.clone();
-        let entity = self.inner.modify(key, new_entity).unwrap();
-        Gd::from_object(Entity { inner: entity })
-    }
-
-    #[func]
-    fn get(&self, key: u32) -> Gd<Entity> {
-        let entity = self.inner.get(key).unwrap().clone();
+    fn get(&self, entity_key: u32) -> Gd<Entity> {
+        let entity = self.inner.get(entity_key).unwrap().clone();
         Gd::from_object(Entity { inner: entity })
     }
 
     // rendering features
 
     #[func]
-    fn insert_view(&mut self, key: Vector2i) {
-        let key = [key.x, key.y];
-        if self.up_chunks.contains_key(&key) {
-            panic!("chunk already exists ({}, {})", key[0], key[1]);
+    fn update_view(&mut self, min_view_rect: Rect2) {
+        let chunk_size = self.inner.get_chunk_size() as f32;
+
+        #[rustfmt::skip]
+        let min_view_rect = [[
+            min_view_rect.position.x.div_euclid(chunk_size) as i32,
+            min_view_rect.position.y.div_euclid(chunk_size) as i32, ], [
+            (min_view_rect.position.x + min_view_rect.size.x).div_euclid(chunk_size) as i32,
+            (min_view_rect.position.y + min_view_rect.size.y).div_euclid(chunk_size) as i32,
+        ]];
+
+        // remove/insert view chunk
+        if Some(min_view_rect) != self.min_view_rect {
+            let chunk_keys = self
+                .up_chunks
+                .iter()
+                .filter_map(|(&chunk_key, _)| {
+                    let is_out_of_range_x =
+                        chunk_key[0] < min_view_rect[0][0] || min_view_rect[1][0] < chunk_key[0];
+                    let is_out_of_range_y =
+                        chunk_key[1] < min_view_rect[0][1] || min_view_rect[1][1] < chunk_key[1];
+                    (is_out_of_range_x || is_out_of_range_y).then_some(chunk_key)
+                })
+                .collect::<Vec<_>>();
+
+            chunk_keys.into_iter().for_each(|chunk_key| {
+                let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
+
+                let mut rendering_server = godot::engine::RenderingServer::singleton();
+                rendering_server.instance_set_visible(up_chunk.instance, false);
+
+                self.down_chunks.push(up_chunk.down());
+            });
+
+            for y in min_view_rect[0][1]..=min_view_rect[1][1] {
+                for x in min_view_rect[0][0]..=min_view_rect[1][0] {
+                    let chunk_key = [x, y];
+
+                    if self.up_chunks.contains_key(&chunk_key) {
+                        continue;
+                    }
+
+                    let Some(down_chunk) = self.down_chunks.pop() else {
+                        let up = self.up_chunks.len();
+                        let down = self.down_chunks.len();
+                        panic!("no chunk available in pool (up:{}, down:{})", up, down);
+                    };
+
+                    let mut rendering_server = godot::engine::RenderingServer::singleton();
+                    rendering_server.instance_set_visible(down_chunk.instance, true);
+
+                    self.up_chunks.insert(chunk_key, down_chunk.up());
+                }
+            }
+
+            self.min_view_rect = Some(min_view_rect);
         }
 
-        let Some(chunk) = self.down_chunks.pop() else {
-            let up = self.up_chunks.len();
-            let down = self.down_chunks.len();
-            panic!("no chunk available in pool (up:{}, down:{})", up, down);
-        };
+        // update view chunk
 
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
-        rendering_server.instance_set_visible(chunk.instance, true);
-
-        self.up_chunks.insert(key, chunk.into());
-    }
-
-    #[func]
-    fn remove_view(&mut self, key: Vector2i) {
-        let key = [key.x, key.y];
-        let Some(chunk) = self.up_chunks.remove(&key) else {
-            panic!("chunk is not found ({}, {})", key[0], key[1]);
-        };
-
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
-        rendering_server.instance_set_visible(chunk.instance, false);
-
-        self.down_chunks.push(chunk.into());
-    }
-
-    #[func]
-    fn update_view(&mut self) {
-        for (key, up_chunk) in &mut self.up_chunks {
-            let Some(chunk) = self.inner.get_chunk(*key) else {
+        for (chunk_key, up_chunk) in &mut self.up_chunks {
+            let Some(chunk) = self.inner.get_chunk(*chunk_key) else {
                 continue;
             };
 
@@ -519,6 +541,15 @@ impl EntityField {
     // collision features
 
     #[func]
+    fn get_collision_rect(&self, entity_key: u32) -> Rect2 {
+        let rect = self.inner.get_collision_rect(entity_key).unwrap();
+        Rect2::from_corners(
+            Vector2::new(rect[0][0], rect[0][1]),
+            Vector2::new(rect[1][0], rect[1][1]),
+        )
+    }
+
+    #[func]
     fn has_collision_by_point(&self, point: Vector2) -> bool {
         let point = [point.x, point.y];
         self.inner.has_collision_by_point(point)
@@ -527,8 +558,8 @@ impl EntityField {
     #[func]
     fn get_collision_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_collision_by_point(point);
-        Array::from_iter(keys)
+        let entity_keys = self.inner.get_collision_by_point(point);
+        Array::from_iter(entity_keys)
     }
 
     #[func]
@@ -542,11 +573,20 @@ impl EntityField {
     fn get_collision_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_collision_by_rect([p0, p1]);
-        Array::from_iter(keys)
+        let entity_keys = self.inner.get_collision_by_rect([p0, p1]);
+        Array::from_iter(entity_keys)
     }
 
     // hint features
+
+    #[func]
+    fn get_hint_rect(&self, entity_key: u32) -> Rect2 {
+        let rect = self.inner.get_hint_rect(entity_key).unwrap();
+        Rect2::from_corners(
+            Vector2::new(rect[0][0], rect[0][1]),
+            Vector2::new(rect[1][0], rect[1][1]),
+        )
+    }
 
     #[func]
     fn has_hint_by_point(&self, point: Vector2) -> bool {
@@ -557,8 +597,8 @@ impl EntityField {
     #[func]
     fn get_hint_by_point(&self, point: Vector2) -> Array<u32> {
         let point = [point.x, point.y];
-        let keys = self.inner.get_hint_by_point(point);
-        Array::from_iter(keys)
+        let entity_keys = self.inner.get_hint_by_point(point);
+        Array::from_iter(entity_keys)
     }
 
     #[func]
@@ -572,7 +612,7 @@ impl EntityField {
     fn get_hint_by_rect(&self, rect: Rect2) -> Array<u32> {
         let p0 = [rect.position.x, rect.position.y];
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
-        let keys = self.inner.get_hint_by_rect([p0, p1]);
-        Array::from_iter(keys)
+        let entity_keys = self.inner.get_hint_by_rect([p0, p1]);
+        Array::from_iter(entity_keys)
     }
 }

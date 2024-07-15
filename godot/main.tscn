@@ -27,8 +27,8 @@ script = ExtResource("1_b2r8a")
 script = ExtResource("2_6wr23")
 world = NodePath("../World")
 camera = NodePath("../Camera3D")
-view_size = 2
 speed = 3.0
+view_size = 32.0
 
 [node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("world", "camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)

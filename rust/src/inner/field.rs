@@ -206,6 +206,11 @@ impl TileField {
     }
 
     #[inline]
+    pub fn get_chunk_size(&self) -> u32 {
+        self.chunk_size
+    }
+
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&TileChunk> {
         self.chunks.get(&chunk_key)
     }
@@ -223,6 +228,13 @@ impl TileField {
     }
 
     // collision features
+
+    #[inline]
+    pub fn get_collision_rect(&self, entity_key: u32) -> Result<[Vec2; 2], FieldError> {
+        let entity = self.get(entity_key)?;
+        let spec = self.specs.get(entity.id as usize).unwrap();
+        Ok(spec.collision_rect(entity.location).unwrap_or_default())
+    }
 
     #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
@@ -547,11 +559,23 @@ impl BlockField {
     }
 
     #[inline]
+    pub fn get_chunk_size(&self) -> u32 {
+        self.chunk_size
+    }
+
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&BlockChunk> {
         self.chunks.get(&chunk_key)
     }
 
     // spatial features
+
+    #[inline]
+    pub fn get_rect(&self, block_key: u32) -> Result<[IVec2; 2], FieldError> {
+        let block = self.get(block_key)?;
+        let spec = self.specs.get(block.id as usize).unwrap();
+        Ok(spec.rect(block.location))
+    }
 
     #[inline]
     pub fn has_by_point(&self, point: IVec2) -> bool {
@@ -584,6 +608,13 @@ impl BlockField {
     // collision features
 
     #[inline]
+    pub fn get_collision_rect(&self, block_key: u32) -> Result<[Vec2; 2], FieldError> {
+        let block = self.get(block_key)?;
+        let spec = self.specs.get(block.id as usize).unwrap();
+        Ok(spec.collision_rect(block.location).unwrap_or_default())
+    }
+
+    #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
         self.collision_ref.locate_at_point(&point).is_some()
     }
@@ -613,6 +644,13 @@ impl BlockField {
     }
 
     // hint features
+
+    #[inline]
+    pub fn get_hint_rect(&self, block_key: u32) -> Result<[Vec2; 2], FieldError> {
+        let block = self.get(block_key)?;
+        let spec = self.specs.get(block.id as usize).unwrap();
+        Ok(spec.hint_rect(block.location).unwrap_or_default())
+    }
 
     #[inline]
     pub fn has_hint_by_point(&self, point: Vec2) -> bool {
@@ -882,11 +920,23 @@ impl EntityField {
     }
 
     #[inline]
+    pub fn get_chunk_size(&self) -> u32 {
+        self.chunk_size
+    }
+
+    #[inline]
     pub fn get_chunk(&self, chunk_key: IVec2) -> Option<&EntityChunk> {
         self.chunks.get(&chunk_key)
     }
 
     // collision features
+
+    #[inline]
+    pub fn get_collision_rect(&self, entity_key: u32) -> Result<[Vec2; 2], FieldError> {
+        let entity = self.get(entity_key)?;
+        let spec = self.specs.get(entity.id as usize).unwrap();
+        Ok(spec.hint_rect(entity.location).unwrap_or_default())
+    }
 
     #[inline]
     pub fn has_collision_by_point(&self, point: Vec2) -> bool {
@@ -918,6 +968,13 @@ impl EntityField {
     }
 
     // hint features
+
+    #[inline]
+    pub fn get_hint_rect(&self, entity_key: u32) -> Result<[Vec2; 2], FieldError> {
+        let entity = self.get(entity_key)?;
+        let spec = self.specs.get(entity.id as usize).unwrap();
+        Ok(spec.hint_rect(entity.location).unwrap_or_default())
+    }
 
     #[inline]
     pub fn has_hint_by_point(&self, point: Vec2) -> bool {
