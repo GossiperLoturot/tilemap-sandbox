@@ -1,4 +1,4 @@
-pub type NodeKey = (std::any::TypeId, u32);
+pub type NodeKey = (std::any::TypeId, u32, u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NodeRef {
@@ -21,12 +21,14 @@ struct NodeRow<T> {
     ref_row_key: u32,
 }
 
-type NodeColumn<T> = slab::Slab<NodeRow<T>>;
+/// NodeColumn<T>(node_col, version)
+type NodeColumn<T> = (slab::Slab<NodeRow<T>>, u64);
 
 #[derive(Debug, Default)]
 pub struct NodeStore {
-    node_cols: ahash::AHashMap<std::any::TypeId, Box<dyn std::any::Any>>,
-    ref_cols: ahash::AHashMap<(NodeRef, std::any::TypeId), slab::Slab<u32>>,
+    node_cols: Vec<Box<dyn std::any::Any>>,
+    type_map: ahash::AHashMap<std::any::TypeId, u32>,
+    type_ref_map: ahash::AHashMap<(std::any::TypeId, NodeRef), (u32, slab::Slab<u32>)>,
 }
 
 impl NodeStore {
@@ -36,53 +38,66 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .entry(type_key)
-            .or_insert_with(|| Box::new(NodeColumn::<T>::new()))
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let col_key = *self.type_map.entry(type_key).or_insert_with(|| {
+            // initialize a new column
+
+            if self.node_cols.len() >= u32::MAX as usize {
+                panic!("capacity overflow");
+            }
+
+            self.node_cols.push(Box::new(NodeColumn::<T>::default()));
+            (self.node_cols.len() - 1) as u32
+        });
+
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, version) = unsafe { &mut *ptr }.as_mut();
+
+        if node_col.vacant_key() >= u32::MAX as usize {
+            panic!("capacity overflow");
+        }
 
         let row_key = node_col.vacant_key() as u32;
 
-        let ref_row_key = self
-            .ref_cols
-            .entry((r#ref, type_key))
-            .or_default()
-            .insert(row_key) as u32;
+        let (_, row_keys) = self
+            .type_ref_map
+            .entry((type_key, r#ref))
+            .or_insert_with(|| (col_key, Default::default()));
+        // ref_row_key is guaranteed to be less than u32::MAX.
+        let ref_row_key = row_keys.insert(row_key) as u32;
 
         node_col.insert(NodeRow {
             node,
             r#ref,
             ref_row_key,
         });
+        *version += 1;
 
-        Some((type_key, row_key))
+        Some((type_key, col_key, row_key))
     }
 
     pub fn remove<T>(&mut self, node_key: NodeKey) -> Option<(NodeRef, T)>
     where
         T: std::any::Any,
     {
-        let (type_key, row_key) = node_key;
+        let (type_key, col_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self
-            .node_cols
-            .get_mut(&type_key)?
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, version) = unsafe { &mut *ptr }.as_mut();
 
         let node_row = node_col.try_remove(row_key as usize)?;
+        *version += 1;
 
-        self.ref_cols
-            .get_mut(&(node_row.r#ref, type_key))
-            .unwrap()
-            .try_remove(node_row.ref_row_key as usize)
+        let (_, row_keys) = self
+            .type_ref_map
+            .get_mut(&(type_key, node_row.r#ref))
             .unwrap();
+        row_keys.try_remove(node_row.ref_row_key as usize).unwrap();
 
         Some((node_row.r#ref, node_row.node))
     }
@@ -91,17 +106,15 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
-        let (type_key, row_key) = node_key;
+        let (type_key, col_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self
-            .node_cols
-            .get(&type_key)?
-            .downcast_ref::<NodeColumn<T>>()
-            .unwrap();
+        let node_col = self.node_cols.get(col_key as usize).unwrap();
+        let ptr = node_col as *const _ as *const Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &*ptr }.as_ref();
 
         let node_row = node_col.get(row_key as usize)?;
 
@@ -112,17 +125,15 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
-        let (type_key, row_key) = node_key;
+        let (type_key, col_key, row_key) = node_key;
 
         if type_key != std::any::TypeId::of::<T>() {
             return None;
         }
 
-        let node_col = self
-            .node_cols
-            .get_mut(&type_key)?
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &mut *ptr }.as_mut();
 
         let node_row = node_col.get_mut(row_key as usize)?;
 
@@ -135,11 +146,11 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .get(&type_key)?
-            .downcast_ref::<NodeColumn<T>>()
-            .unwrap();
+        let col_key = *self.type_map.get(&type_key)?;
+
+        let node_col = self.node_cols.get(col_key as usize).unwrap();
+        let ptr = node_col as *const _ as *const Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &*ptr }.as_ref();
 
         let iter = node_col
             .iter()
@@ -154,11 +165,11 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .get_mut(&type_key)?
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let col_key = *self.type_map.get(&type_key)?;
+
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &mut *ptr }.as_mut();
 
         let iter = node_col
             .iter_mut()
@@ -173,20 +184,17 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .get(&type_key)?
-            .downcast_ref::<NodeColumn<T>>()
-            .unwrap();
+        let (col_key, row_keys) = self.type_ref_map.get(&(type_key, r#ref))?;
 
-        let iter = self
-            .ref_cols
-            .get(&(r#ref, type_key))?
-            .iter()
-            .map(|(_, row_key)| {
-                let node_row = node_col.get(*row_key as usize).unwrap();
-                &node_row.node
-            });
+        let node_col = self.node_cols.get(*col_key as usize).unwrap();
+        let ptr = node_col as *const _ as *const Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &*ptr }.as_ref();
+
+        let iter = row_keys.iter().map(|(_, row_key)| {
+            let node_row = node_col.get(*row_key as usize).unwrap();
+
+            &node_row.node
+        });
 
         Some(iter)
     }
@@ -200,21 +208,19 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .get_mut(&type_key)?
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let (col_key, row_keys) = self.type_ref_map.get(&(type_key, r#ref))?;
 
-        let iter = self
-            .ref_cols
-            .get(&(r#ref, type_key))?
-            .iter()
-            .map(|(_, row_key)| {
-                let node_row = node_col.get_mut(*row_key as usize).unwrap() as *mut NodeRow<T>;
-                let node_row = unsafe { &mut *node_row };
-                &mut node_row.node
-            });
+        let node_col = self.node_cols.get_mut(*col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, _) = unsafe { &mut *ptr }.as_mut();
+
+        let iter = row_keys.iter().map(|(_, row_key)| {
+            let node_row = node_col.get_mut(*row_key as usize).unwrap();
+            let ptr = node_row as *mut NodeRow<T>;
+            let node_row = unsafe { &mut *ptr };
+
+            &mut node_row.node
+        });
 
         Some(iter)
     }
@@ -225,21 +231,23 @@ impl NodeStore {
     {
         let type_key = std::any::TypeId::of::<T>();
 
-        let node_col = self
-            .node_cols
-            .get_mut(&type_key)?
-            .downcast_mut::<NodeColumn<T>>()
-            .unwrap();
+        let (col_key, row_keys) = self.type_ref_map.remove(&(type_key, r#ref))?;
 
-        let mut vec = vec![];
-        if let Some(ref_col) = self.ref_cols.remove(&(r#ref, type_key)) {
-            for (_, row_key) in ref_col {
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
+        let (node_col, version) = unsafe { &mut *ptr }.as_mut();
+
+        let nodes = row_keys
+            .into_iter()
+            .map(|(_, row_key)| {
                 let node_row = node_col.try_remove(row_key as usize).unwrap();
-                vec.push(node_row.node);
-            }
-        }
 
-        Some(vec)
+                node_row.node
+            })
+            .collect::<Vec<_>>();
+        *version += 1;
+
+        Some(nodes)
     }
 
     #[inline]
@@ -306,7 +314,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn crud_comp() {
+    fn crud_node() {
         let mut store = NodeStore::default();
         let key = store.insert(42, NodeRef::Global).unwrap();
 
@@ -320,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn comp_with_invalid_type() {
+    fn node_with_invalid_type() {
         let mut store = NodeStore::default();
         let key = store.insert(42, NodeRef::Global).unwrap();
 

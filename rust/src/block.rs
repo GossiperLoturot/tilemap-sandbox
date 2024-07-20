@@ -159,7 +159,7 @@ struct BlockChunkDown {
 impl BlockChunkDown {
     fn up(self) -> BlockChunkUp {
         BlockChunkUp {
-            serial: Default::default(),
+            version: Default::default(),
             material: self.material,
             multimesh: self.multimesh,
             instance: self.instance,
@@ -169,7 +169,7 @@ impl BlockChunkDown {
 
 #[derive(Debug, Clone)]
 struct BlockChunkUp {
-    serial: u64,
+    version: u64,
     material: Rid,
     multimesh: Rid,
     instance: Rid,
@@ -482,7 +482,7 @@ impl BlockField {
                 continue;
             };
 
-            if chunk.serial <= up_chunk.serial {
+            if chunk.version <= up_chunk.version {
                 continue;
             }
 
@@ -540,7 +540,7 @@ impl BlockField {
                 PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
             );
 
-            up_chunk.serial = chunk.serial;
+            up_chunk.version = chunk.version;
         }
     }
 

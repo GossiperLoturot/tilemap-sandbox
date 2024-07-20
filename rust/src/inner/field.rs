@@ -49,7 +49,7 @@ impl Tile {
 
 #[derive(Debug, Clone, Default)]
 pub struct TileChunk {
-    pub serial: u64,
+    pub version: u64,
     pub tiles: slab::Slab<Tile>,
 }
 
@@ -93,9 +93,15 @@ impl TileField {
             location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let tile_key = chunk.tiles.insert(tile) as u32;
-        chunk.serial += 1;
 
+        if chunk.tiles.vacant_key() >= u32::MAX as usize {
+            panic!("capacity overflow");
+        }
+
+        let tile_key = chunk.tiles.insert(tile) as u32;
+        chunk.version += 1;
+
+        // key is guaranteed to be less than u32::MAX.
         let key = self.stable_ref.insert((chunk_key, tile_key)) as u32;
 
         // spatial features
@@ -118,7 +124,7 @@ impl TileField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         let tile = chunk.tiles.try_remove(tile_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = &self.specs.get(tile.id as usize).unwrap();
 
@@ -141,7 +147,7 @@ impl TileField {
             .get(new_tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
-        // validate modification
+        // check by spatial features
         if !self
             .spatial_ref
             .get(&new_tile.location)
@@ -157,7 +163,7 @@ impl TileField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(chunk_key).unwrap();
         let tile = chunk.tiles.try_remove(*tile_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = self.specs.get(tile.id as usize).unwrap();
 
@@ -179,8 +185,9 @@ impl TileField {
             location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(*chunk_key).or_default();
+        // chunk.tiles.vacant_key() is guaranteed to be less than u32::MAX.
         *tile_key = chunk.tiles.insert(new_tile) as u32;
-        chunk.serial += 1;
+        chunk.version += 1;
 
         // spatial features
         self.spatial_ref.insert(location, key);
@@ -363,7 +370,7 @@ impl Block {
 
 #[derive(Debug, Clone, Default)]
 pub struct BlockChunk {
-    pub serial: u64,
+    pub version: u64,
     pub blocks: slab::Slab<Block>,
 }
 
@@ -409,9 +416,15 @@ impl BlockField {
             location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let block_key = chunk.blocks.insert(block) as u32;
-        chunk.serial += 1;
 
+        if chunk.blocks.vacant_key() >= u32::MAX as usize {
+            panic!("capacity overflow");
+        }
+
+        let block_key = chunk.blocks.insert(block) as u32;
+        chunk.version += 1;
+
+        // key is guaranteed to be less than u32::MAX.
         let key = self.stable_ref.insert((chunk_key, block_key)) as u32;
 
         // spatial features
@@ -444,7 +457,7 @@ impl BlockField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         let block = chunk.blocks.try_remove(block_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = &self.specs.get(block.id as usize).unwrap();
 
@@ -472,12 +485,12 @@ impl BlockField {
     }
 
     pub fn modify(&mut self, key: u32, new_block: Block) -> Result<Block, FieldError> {
-        // check by spatial features
-        let new_spec = &self
+        let new_spec = self
             .specs
             .get(new_block.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
+        // check by spatial features
         let rect = new_spec.rect(new_block.location);
         if !self.get_by_rect(rect).all(|other_key| other_key == key) {
             return Err(FieldError::Conflict);
@@ -490,7 +503,7 @@ impl BlockField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(chunk_key).unwrap();
         let block = chunk.blocks.try_remove(*block_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = self.specs.get(block.id as usize).unwrap();
 
@@ -522,8 +535,9 @@ impl BlockField {
             location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(*chunk_key).or_default();
+        // chunk.blocks.vacant_key() is guaranteed to be less than u32::MAX.
         *block_key = chunk.blocks.insert(new_block) as u32;
-        chunk.serial += 1;
+        chunk.version += 1;
 
         // spatial features
         let rect = new_spec.rect(location);
@@ -761,7 +775,7 @@ impl Entity {
 
 #[derive(Debug, Clone, Default)]
 pub struct EntityChunk {
-    pub serial: u64,
+    pub version: u64,
     pub entities: slab::Slab<Entity>,
 }
 
@@ -800,9 +814,15 @@ impl EntityField {
             location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
-        let entity_key = chunk.entities.insert(entity) as u32;
-        chunk.serial += 1;
 
+        if chunk.entities.vacant_key() >= u32::MAX as usize {
+            panic!("capacity overflow");
+        }
+
+        let entity_key = chunk.entities.insert(entity) as u32;
+        chunk.version += 1;
+
+        // key is guaranteed to be less than u32::MAX.
         let key = self.stable_ref.insert((chunk_key, entity_key)) as u32;
 
         // collision features
@@ -829,7 +849,7 @@ impl EntityField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         let entity = chunk.entities.try_remove(entity_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = &self.specs.get(entity.id as usize).unwrap();
 
@@ -851,7 +871,7 @@ impl EntityField {
     }
 
     pub fn modify(&mut self, key: u32, new_entity: Entity) -> Result<Entity, FieldError> {
-        let new_spec = &self
+        let new_spec = self
             .specs
             .get(new_entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
@@ -863,7 +883,7 @@ impl EntityField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(chunk_key).unwrap();
         let entity = chunk.entities.try_remove(*entity_key as usize).unwrap();
-        chunk.serial += 1;
+        chunk.version += 1;
 
         let spec = &self.specs.get(entity.id as usize).unwrap();
 
@@ -889,8 +909,9 @@ impl EntityField {
             location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
         let chunk = self.chunks.entry(*chunk_key).or_default();
+        // chunk.entities.vacant_key() is guaranteed to be less than u32::MAX.
         *entity_key = chunk.entities.insert(new_entity) as u32;
-        chunk.serial += 1;
+        chunk.version += 1;
 
         // collision features
         if let Some(rect) = new_spec.collision_rect(location) {
