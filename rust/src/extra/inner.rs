@@ -5,6 +5,7 @@ use crate::inner::*;
 pub struct BeforeCallback(pub Box<dyn Fn(&mut RootMut)>);
 pub struct AfterCallback(pub Box<dyn Fn(&mut RootMut)>);
 pub struct ForwardCallback(pub Box<dyn Fn(&mut RootMut, f32)>);
+pub struct ForwardLocalCallback(pub Box<dyn Fn(&mut RootMut, f32, [Vec2; 2])>);
 pub struct PlaceTileCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
 pub struct BreakTileCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
 pub struct PlaceBlockCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
@@ -28,6 +29,11 @@ pub fn after(root: &mut RootMut) {
 pub fn forward(root: &mut RootMut, delta_secs: f32) {
     let callbacks = root.callback_store.iter::<ForwardCallback>();
     callbacks.for_each(|f| f.0(root, delta_secs));
+}
+
+pub fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [Vec2; 2]) {
+    let callbacks = root.callback_store.iter::<ForwardLocalCallback>();
+    callbacks.for_each(|f| f.0(root, delta_secs, rect));
 }
 
 pub fn place_tile(root: &mut RootMut, tile: Tile) -> Result<u32, FieldError> {
@@ -106,45 +112,41 @@ pub fn move_entity_ex(root: &mut RootMut, entity_key: u32, new_location: Vec2) {
 
 #[derive(Debug, Clone)]
 pub struct GeneratorNode {
-    pub chunk_size: u32,
     pub prev_rect: Option<[IVec2; 2]>,
     pub visited_chunk: ahash::AHashSet<IVec2>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Generator {
-    pub chunk_size: u32,
-}
+pub struct Generator {}
 
 impl Generator {
+    const CHUNK_SIZE: u32 = 32;
+
     fn before(&self, root: &mut RootMut) {
         let node = GeneratorNode {
-            chunk_size: self.chunk_size,
             prev_rect: None,
             visited_chunk: Default::default(),
         };
-        root.node_store.insert(node, NodeRef::Global);
+        root.node_store.insert(RefKey::Global, SpcKey::GLOBAL, node);
     }
 
     fn after(&self, root: &mut RootMut) {
         root.node_store
-            .remove_by_ref::<GeneratorNode>(NodeRef::Global);
+            .remove_by_ref::<GeneratorNode>(RefKey::Global);
     }
 
     pub fn generate_chunk(&self, root: &mut RootMut, rect: [Vec2; 2]) {
-        let (_, node) = root.node_store.one_mut::<GeneratorNode>().unwrap();
-
-        let chunk_size = node.chunk_size;
+        let node_key = *root.node_store.iter::<GeneratorNode>().next().unwrap();
+        let (r#ref, spc, mut node) = root.node_store.pop::<GeneratorNode>(node_key).unwrap();
 
         #[rustfmt::skip]
         let rect = [[
-            rect[0][0].div_euclid(chunk_size as f32) as i32,
-            rect[0][1].div_euclid(chunk_size as f32) as i32, ], [
-            rect[1][0].div_euclid(chunk_size as f32) as i32,
-            rect[1][1].div_euclid(chunk_size as f32) as i32,
+            rect[0][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            rect[0][1].div_euclid(Self::CHUNK_SIZE as f32) as i32, ], [
+            rect[1][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            rect[1][1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
         ]];
 
-        let mut chunk_keys = vec![];
         if Some(rect) != node.prev_rect {
             for y in rect[0][1]..=rect[1][1] {
                 for x in rect[0][0]..=rect[1][0] {
@@ -154,49 +156,53 @@ impl Generator {
                         continue;
                     }
 
-                    chunk_keys.push(chunk_key);
-
                     node.visited_chunk.insert(chunk_key);
+
+                    for v in 0..Self::CHUNK_SIZE {
+                        for u in 0..Self::CHUNK_SIZE {
+                            let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
+                            let location = [
+                                x * Self::CHUNK_SIZE as i32 + u as i32,
+                                y * Self::CHUNK_SIZE as i32 + v as i32,
+                            ];
+                            let _ = place_tile(root, Tile::new(id, location, 0));
+                        }
+                    }
+
+                    for _ in 0..64 {
+                        let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=3);
+                        let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..Self::CHUNK_SIZE);
+                        let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..Self::CHUNK_SIZE);
+                        let location = [
+                            x * Self::CHUNK_SIZE as i32 + u as i32,
+                            y * Self::CHUNK_SIZE as i32 + v as i32,
+                        ];
+                        let _ = place_block(root, Block::new(id, location, 0));
+                    }
+
+                    for _ in 0..64 {
+                        let id = rand::Rng::gen_range(&mut rand::thread_rng(), 1..=5);
+                        let u = rand::Rng::gen_range(
+                            &mut rand::thread_rng(),
+                            0.0..Self::CHUNK_SIZE as f32,
+                        );
+                        let v = rand::Rng::gen_range(
+                            &mut rand::thread_rng(),
+                            0.0..Self::CHUNK_SIZE as f32,
+                        );
+                        let location = [
+                            x as f32 * Self::CHUNK_SIZE as f32 + u,
+                            y as f32 * Self::CHUNK_SIZE as f32 + v,
+                        ];
+                        let _ = place_entity(root, Entity::new(id, location, 0));
+                    }
                 }
             }
 
             node.prev_rect = Some(rect);
         }
 
-        for [x, y] in chunk_keys {
-            for v in 0..chunk_size {
-                for u in 0..chunk_size {
-                    let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
-                    let location = [
-                        x * chunk_size as i32 + u as i32,
-                        y * chunk_size as i32 + v as i32,
-                    ];
-                    let _ = place_tile(root, Tile::new(id, location, 0));
-                }
-            }
-
-            for _ in 0..64 {
-                let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=3);
-                let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
-                let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
-                let location = [
-                    x * chunk_size as i32 + u as i32,
-                    y * chunk_size as i32 + v as i32,
-                ];
-                let _ = place_block(root, Block::new(id, location, 0));
-            }
-
-            for _ in 0..4 {
-                let id = rand::Rng::gen_range(&mut rand::thread_rng(), 1..=5);
-                let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
-                let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
-                let location = [
-                    x as f32 * chunk_size as f32 + u,
-                    y as f32 * chunk_size as f32 + v,
-                ];
-                let _ = place_entity(root, Entity::new(id, location, 0));
-            }
-        }
+        root.node_store.push(node_key, r#ref, spc, node);
     }
 }
 
@@ -260,6 +266,7 @@ pub struct RandomWalk {
 
 impl RandomWalk {
     fn place_entity(&self, root: &mut RootMut, entity_key: u32) {
+        let entity = root.entity_field.get(entity_key).unwrap();
         let node = RandomWalkNode {
             min_rest_secs: self.min_rest_secs,
             max_rest_secs: self.max_rest_secs,
@@ -268,12 +275,16 @@ impl RandomWalk {
             speed: self.speed,
             state: RandomWalkState::Init,
         };
-        root.node_store.insert(node, NodeRef::Entity(entity_key));
+        root.node_store.insert(
+            RefKey::Entity(entity_key),
+            SpcKey::from(entity.location),
+            node,
+        );
     }
 
     fn break_entity(&self, root: &mut RootMut, entity_key: u32) {
         root.node_store
-            .remove_by_ref::<RandomWalkNode>(NodeRef::Entity(entity_key));
+            .remove_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key));
     }
 }
 
@@ -301,9 +312,12 @@ impl CallbackBundle for RandomWalk {
 pub struct RandomWalkForward;
 
 impl RandomWalkForward {
-    fn forward(root: &mut RootMut, delta_secs: f32) {
-        for (r#ref, node) in root.node_store.iter_mut::<RandomWalkNode>() {
-            let NodeRef::Entity(entity_key) = *r#ref else {
+    fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [Vec2; 2]) {
+        for node_key in root.node_store.detach_iter_by_rect::<RandomWalkNode>(rect) {
+            let (r#ref, mut spc, mut node) =
+                root.node_store.pop::<RandomWalkNode>(node_key).unwrap();
+
+            let RefKey::Entity(entity_key) = r#ref else {
                 unreachable!();
             };
 
@@ -344,36 +358,39 @@ impl RandomWalkForward {
                 }
                 RandomWalkState::Trip(destination) => {
                     let entity = root.entity_field.get(entity_key).unwrap();
-                    if entity.location == destination {
-                        node.state = RandomWalkState::WaitStart;
-                        continue;
-                    }
-                    let diff = [
-                        destination[0] - entity.location[0],
-                        destination[1] - entity.location[1],
-                    ];
-                    let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
-                    let direction = [diff[0] / distance, diff[1] / distance];
-                    let delta_distance = distance.min(node.speed * delta_secs);
-                    let location = [
-                        entity.location[0] + direction[0] * delta_distance,
-                        entity.location[1] + direction[1] * delta_distance,
-                    ];
-                    if move_entity(
-                        root.tile_field,
-                        root.block_field,
-                        root.entity_field,
-                        entity_key,
-                        location,
-                    )
-                    .is_ok()
-                    {
-                        node.state = RandomWalkState::Trip(destination);
+                    if entity.location != destination {
+                        let diff = [
+                            destination[0] - entity.location[0],
+                            destination[1] - entity.location[1],
+                        ];
+                        let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
+                        let direction = [diff[0] / distance, diff[1] / distance];
+                        let delta_distance = distance.min(node.speed * delta_secs);
+                        let location = [
+                            entity.location[0] + direction[0] * delta_distance,
+                            entity.location[1] + direction[1] * delta_distance,
+                        ];
+                        if move_entity(
+                            root.tile_field,
+                            root.block_field,
+                            root.entity_field,
+                            entity_key,
+                            location,
+                        )
+                        .is_ok()
+                        {
+                            spc = SpcKey::from(location);
+                            node.state = RandomWalkState::Trip(destination);
+                        } else {
+                            node.state = RandomWalkState::WaitStart;
+                        }
                     } else {
                         node.state = RandomWalkState::WaitStart;
                     }
                 }
             }
+
+            root.node_store.push(node_key, r#ref, spc, node);
         }
     }
 }
@@ -382,7 +399,7 @@ impl CallbackBundle for RandomWalkForward {
     fn insert(&self, builder: &mut CallbackStoreBuilder) {
         builder.insert(
             CallbackRef::Global,
-            ForwardCallback(Box::new(Self::forward)),
+            ForwardLocalCallback(Box::new(Self::forward_local)),
         );
     }
 }

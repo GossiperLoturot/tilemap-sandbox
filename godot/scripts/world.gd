@@ -117,7 +117,7 @@ func _ready():
 
 	var callback_store = CallbackStore.new_from(CallbackStoreDescriptor.new_from(
 		[
-			CallbackBundles.new_generator(32),
+			CallbackBundles.new_generator(),
 			CallbackBundles.new_random_walk_forward(),
 			CallbackBundles.new_random_walk(1, 3.0, 60.0, 1.0, 5.0, 0.5),
 			CallbackBundles.new_random_walk(2, 3.0, 60.0, 1.0, 5.0, 0.5),
@@ -141,6 +141,7 @@ func _ready():
 
 func _process(delta):
 	Actions.forward(_root, delta)
+	Actions.forward_local(_root, delta, min_view_rect)
 
 	Actions.generate_chunk(_root, min_view_rect)
 

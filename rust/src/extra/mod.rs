@@ -34,6 +34,22 @@ impl Actions {
     }
 
     #[func]
+    fn forward_local(mut root: Gd<Root>, delta_secs: f32, rect: Rect2) {
+        let mut root = root.bind_mut();
+        let mut root = root.as_mut();
+
+        #[rustfmt::skip]
+        let rect = [[
+            rect.position.x,
+            rect.position.y, ], [
+            rect.position.x + rect.size.x,
+            rect.position.y + rect.size.y,
+        ]];
+
+        extra_inner::forward_local(&mut root.inner(), delta_secs, rect);
+    }
+
+    #[func]
     fn place_tile(mut root: Gd<Root>, tile: Gd<Tile>) -> u32 {
         let mut root = root.bind_mut();
         let mut root = root.as_mut();
@@ -117,8 +133,8 @@ struct CallbackBundles;
 #[godot_api]
 impl CallbackBundles {
     #[func]
-    fn new_generator(chunk_size: u32) -> Gd<CallbackBundle> {
-        let bundle = Box::new(extra_inner::Generator { chunk_size });
+    fn new_generator() -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::Generator {});
         Gd::from_object(CallbackBundle::new(bundle))
     }
 
