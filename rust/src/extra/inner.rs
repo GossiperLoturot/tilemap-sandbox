@@ -98,14 +98,27 @@ pub fn generate_chunk(root: &mut RootMut, rect: [Vec2; 2]) {
     callback.for_each(|f| f.0(root, rect));
 }
 
-pub fn move_entity_ex(root: &mut RootMut, entity_key: u32, new_location: Vec2) {
-    let _ = move_entity(
-        root.tile_field,
-        root.block_field,
-        root.entity_field,
-        entity_key,
-        new_location,
-    );
+pub fn move_entity(
+    root: &mut RootMut,
+    entity_key: u32,
+    new_location: Vec2,
+) -> Result<(), FieldError> {
+    let entity = root.entity_field.get(entity_key)?;
+
+    if let Ok(rect) = root.entity_field.get_collision_rect(entity.id) {
+        if root.tile_field.has_collision_by_rect(rect) {
+            return Err(FieldError::Conflict);
+        }
+        if root.block_field.has_collision_by_rect(rect) {
+            return Err(FieldError::Conflict);
+        }
+    }
+
+    let mut new_entity = entity.clone();
+    new_entity.location = new_location;
+    root.entity_field.modify(entity_key, new_entity)?;
+
+    Ok(())
 }
 
 // generator callback
@@ -275,11 +288,8 @@ impl RandomWalk {
             speed: self.speed,
             state: RandomWalkState::Init,
         };
-        root.node_store.insert(
-            RefKey::Entity(entity_key),
-            SpcKey::from(entity.location),
-            node,
-        );
+        root.node_store
+            .insert(RefKey::Entity(entity_key), entity.location.into(), node);
     }
 
     fn break_entity(&self, root: &mut RootMut, entity_key: u32) {
@@ -309,11 +319,14 @@ impl CallbackBundle for RandomWalk {
 }
 
 #[derive(Debug, Clone)]
-pub struct RandomWalkForward;
+pub struct RandomWalkForwardLocal;
 
-impl RandomWalkForward {
+impl RandomWalkForwardLocal {
     fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [Vec2; 2]) {
-        for node_key in root.node_store.detach_iter_by_rect::<RandomWalkNode>(rect) {
+        for node_key in root
+            .node_store
+            .detach_iter_by_rect::<RandomWalkNode>([rect[0].into(), rect[1].into()])
+        {
             let (r#ref, mut spc, mut node) =
                 root.node_store.pop::<RandomWalkNode>(node_key).unwrap();
 
@@ -370,16 +383,8 @@ impl RandomWalkForward {
                             entity.location[0] + direction[0] * delta_distance,
                             entity.location[1] + direction[1] * delta_distance,
                         ];
-                        if move_entity(
-                            root.tile_field,
-                            root.block_field,
-                            root.entity_field,
-                            entity_key,
-                            location,
-                        )
-                        .is_ok()
-                        {
-                            spc = SpcKey::from(location);
+                        if move_entity(root, entity_key, location).is_ok() {
+                            spc = location.into();
                             node.state = RandomWalkState::Trip(destination);
                         } else {
                             node.state = RandomWalkState::WaitStart;
@@ -395,7 +400,7 @@ impl RandomWalkForward {
     }
 }
 
-impl CallbackBundle for RandomWalkForward {
+impl CallbackBundle for RandomWalkForwardLocal {
     fn insert(&self, builder: &mut CallbackStoreBuilder) {
         builder.insert(
             CallbackRef::Global,

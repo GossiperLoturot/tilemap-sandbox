@@ -118,7 +118,7 @@ func _ready():
 	var callback_store = CallbackStore.new_from(CallbackStoreDescriptor.new_from(
 		[
 			CallbackBundles.new_generator(),
-			CallbackBundles.new_random_walk_forward(),
+			CallbackBundles.new_random_walk_forward_local(),
 			CallbackBundles.new_random_walk(1, 3.0, 60.0, 1.0, 5.0, 0.5),
 			CallbackBundles.new_random_walk(2, 3.0, 60.0, 1.0, 5.0, 0.5),
 			CallbackBundles.new_random_walk(3, 3.0, 60.0, 1.0, 5.0, 0.5),

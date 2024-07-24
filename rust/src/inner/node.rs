@@ -31,7 +31,7 @@ impl SpcKey {
     pub const GLOBAL: SpcKey = SpcKey(SpcKeyKind::Global);
 }
 
-impl From<[i32; 2]> for SpcKey {
+impl From<IVec2> for SpcKey {
     fn from([x, y]: [i32; 2]) -> Self {
         SpcKey(SpcKeyKind::Local([
             x.div_euclid(CHUNK_SIZE as i32),
@@ -40,7 +40,7 @@ impl From<[i32; 2]> for SpcKey {
     }
 }
 
-impl From<[f32; 2]> for SpcKey {
+impl From<Vec2> for SpcKey {
     fn from([x, y]: [f32; 2]) -> Self {
         SpcKey(SpcKeyKind::Local([
             x.div_euclid(CHUNK_SIZE as f32) as i32,
@@ -143,7 +143,7 @@ impl NodeStore {
         let node_col = unsafe { &mut *ptr }.as_mut();
 
         let node_row = node_col.try_remove(row_key as usize)?;
-        let node = node_row.node.expect("node was popped");
+        let node = node_row.node.expect("node is popped");
 
         let (_, row_keys) = self.typ_map.get_mut(typ).unwrap();
         row_keys.try_remove(node_row.typ_row_key as usize).unwrap();
@@ -173,7 +173,7 @@ impl NodeStore {
         let node_col = unsafe { &*ptr }.as_ref();
 
         let node_row = node_col.get(row_key as usize)?;
-        let node = node_row.node.as_ref().expect("node was popped");
+        let node = node_row.node.as_ref().expect("node is popped");
 
         Some((&node_row.r#ref, &node_row.spc, node))
     }
@@ -195,7 +195,7 @@ impl NodeStore {
         let node_col = unsafe { &mut *ptr }.as_mut();
 
         let node_row = node_col.get_mut(row_key as usize)?;
-        let node = node_row.node.as_mut().expect("node was popped");
+        let node = node_row.node.as_mut().expect("node is popped");
 
         let (prev_ref, prev_spc) = (node_row.r#ref, node_row.spc);
         f(&mut node_row.r#ref, &mut node_row.spc, node);
@@ -247,7 +247,7 @@ impl NodeStore {
         let node_col = unsafe { &mut *ptr }.as_mut();
 
         let node_row = node_col.get_mut(row_key as usize)?;
-        let node = node_row.node.take().expect("node was already popped");
+        let node = node_row.node.take().expect("node is already popped");
 
         Some((node_row.r#ref, node_row.spc, node))
     }
@@ -270,7 +270,7 @@ impl NodeStore {
         let node_row = node_col.get_mut(row_key as usize)?;
         let old_node = std::mem::replace(&mut node_row.node, Some(node));
         if old_node.is_some() {
-            panic!("node was pushed");
+            panic!("node is already pushed");
         }
 
         let (prev_ref, prev_spc) = (node_row.r#ref, node_row.spc);
@@ -345,19 +345,19 @@ impl NodeStore {
         Some(iter)
     }
 
-    fn iter_by_rect_internal<T>(&self, rect: [Vec2; 2]) -> Option<impl Iterator<Item = &NodeKey>>
+    fn iter_by_rect_internal<T>(&self, rect: [SpcKey; 2]) -> Option<impl Iterator<Item = &NodeKey>>
     where
         T: std::any::Any,
     {
         let typ = std::any::TypeId::of::<T>();
 
-        let min = match SpcKey::from(rect[0]) {
+        let min = match rect[0] {
             SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => unreachable!(),
+            _ => return None,
         };
-        let max = match SpcKey::from(rect[0]) {
+        let max = match rect[1] {
             SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => unreachable!(),
+            _ => return None,
         };
 
         let mut iters = vec![];
@@ -372,19 +372,19 @@ impl NodeStore {
         Some(iters.into_iter().flatten())
     }
 
-    fn detach_iter_by_rect_internal<T>(&self, rect: [Vec2; 2]) -> Option<Vec<NodeKey>>
+    fn detach_iter_by_rect_internal<T>(&self, rect: [SpcKey; 2]) -> Option<Vec<NodeKey>>
     where
         T: std::any::Any,
     {
         let typ = std::any::TypeId::of::<T>();
 
-        let min = match SpcKey::from(rect[0]) {
+        let min = match rect[0] {
             SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => unreachable!(),
+            _ => return None,
         };
-        let max = match SpcKey::from(rect[0]) {
+        let max = match rect[1] {
             SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => unreachable!(),
+            _ => return None,
         };
 
         let mut iters = vec![];
@@ -465,7 +465,7 @@ impl NodeStore {
     }
 
     #[inline]
-    pub fn iter_by_rect<T>(&self, rect: [Vec2; 2]) -> impl Iterator<Item = &NodeKey>
+    pub fn iter_by_rect<T>(&self, rect: [SpcKey; 2]) -> impl Iterator<Item = &NodeKey>
     where
         T: std::any::Any,
     {
@@ -473,7 +473,7 @@ impl NodeStore {
     }
 
     #[inline]
-    pub fn detach_iter_by_rect<T>(&self, rect: [Vec2; 2]) -> Vec<NodeKey>
+    pub fn detach_iter_by_rect<T>(&self, rect: [SpcKey; 2]) -> Vec<NodeKey>
     where
         T: std::any::Any,
     {

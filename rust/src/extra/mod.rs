@@ -117,11 +117,11 @@ impl Actions {
     }
 
     #[func]
-    fn move_entity(mut root: Gd<Root>, entity_key: u32, new_location: Vector2) {
+    fn move_entity(mut root: Gd<Root>, entity_key: u32, new_location: Vector2) -> bool {
         let mut root = root.bind_mut();
         let mut root = root.as_mut();
         let new_location = [new_location.x, new_location.y];
-        extra_inner::move_entity_ex(&mut root.inner(), entity_key, new_location);
+        extra_inner::move_entity(&mut root.inner(), entity_key, new_location).is_ok()
     }
 }
 
@@ -159,8 +159,8 @@ impl CallbackBundles {
     }
 
     #[func]
-    fn new_random_walk_forward() -> Gd<CallbackBundle> {
-        let bundle = Box::new(extra_inner::RandomWalkForward);
+    fn new_random_walk_forward_local() -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::RandomWalkForwardLocal);
         Gd::from_object(CallbackBundle::new(bundle))
     }
 }

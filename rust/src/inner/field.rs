@@ -141,6 +141,7 @@ impl TileField {
         Ok(tile)
     }
 
+    // TODO: impl partial update
     pub fn modify(&mut self, key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
         let new_spec = self
             .specs
@@ -148,10 +149,10 @@ impl TileField {
             .ok_or(FieldError::InvalidId)?;
 
         // check by spatial features
-        if !self
+        if self
             .spatial_ref
             .get(&new_tile.location)
-            .map_or(true, |other_key| *other_key == key)
+            .is_some_and(|other_key| *other_key != key)
         {
             return Err(FieldError::Conflict);
         }
@@ -484,6 +485,7 @@ impl BlockField {
         Ok(block)
     }
 
+    // TODO: impl partial update
     pub fn modify(&mut self, key: u32, new_block: Block) -> Result<Block, FieldError> {
         let new_spec = self
             .specs
@@ -492,7 +494,7 @@ impl BlockField {
 
         // check by spatial features
         let rect = new_spec.rect(new_block.location);
-        if !self.get_by_rect(rect).all(|other_key| other_key == key) {
+        if self.get_by_rect(rect).any(|other_key| other_key != key) {
             return Err(FieldError::Conflict);
         }
 
@@ -870,6 +872,7 @@ impl EntityField {
         Ok(entity)
     }
 
+    // TODO: impl partial update
     pub fn modify(&mut self, key: u32, new_entity: Entity) -> Result<Entity, FieldError> {
         let new_spec = self
             .specs
@@ -1025,35 +1028,6 @@ impl EntityField {
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
     }
-}
-
-// utility functions
-
-pub fn move_entity(
-    tile_field: &TileField,
-    block_field: &BlockField,
-    entity_field: &mut EntityField,
-    entity_key: u32,
-    new_location: Vec2,
-) -> Result<(), FieldError> {
-    let entity = entity_field.get(entity_key)?;
-
-    let spec = &entity_field.specs.get(entity.id as usize).unwrap();
-
-    if let Some(rect) = spec.collision_rect(new_location) {
-        if tile_field.has_collision_by_rect(rect) {
-            return Err(FieldError::Conflict);
-        }
-        if block_field.has_collision_by_rect(rect) {
-            return Err(FieldError::Conflict);
-        }
-    }
-
-    let mut new_entity = entity.clone();
-    new_entity.location = new_location;
-    entity_field.modify(entity_key, new_entity)?;
-
-    Ok(())
 }
 
 #[cfg(test)]
