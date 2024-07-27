@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://scripts/cursor.gd" id="7_f7tes"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ur735"]
-render_priority = 0
+render_priority = 10
 shader = ExtResource("6_vhy0j")
 
 [sub_resource type="QuadMesh" id="QuadMesh_eh3sn"]
@@ -28,12 +28,11 @@ script = ExtResource("2_6wr23")
 world = NodePath("../World")
 camera = NodePath("../Camera3D")
 speed = 3.0
-view_size = 32.0
+view_size = 256.0
 
 [node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("world", "camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)
 mesh = SubResource("QuadMesh_eh3sn")
-skeleton = NodePath("../Camera3D")
 script = ExtResource("7_f7tes")
 world = NodePath("../World")
 camera = NodePath("../Camera3D")

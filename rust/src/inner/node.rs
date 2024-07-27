@@ -51,7 +51,7 @@ impl From<Vec2> for SpcKey {
 
 #[derive(Debug)]
 struct NodeRow<T> {
-    node: Option<T>,
+    node: T,
     typ_row_key: u32,
     r#ref: RefKey,
     ref_row_key: u32,
@@ -63,7 +63,7 @@ type NodeColumn<T> = slab::Slab<NodeRow<T>>;
 
 #[derive(Debug, Default)]
 pub struct NodeStore {
-    node_cols: Vec<(std::any::TypeId, Box<dyn std::any::Any>)>,
+    node_cols: Vec<Box<dyn std::any::Any>>,
     typ_map: ahash::AHashMap<std::any::TypeId, (u32, slab::Slab<NodeKey>)>,
     typ_ref_map: ahash::AHashMap<(std::any::TypeId, RefKey), (u32, slab::Slab<NodeKey>)>,
     typ_spc_map: ahash::AHashMap<(std::any::TypeId, SpcKey), (u32, slab::Slab<NodeKey>)>,
@@ -84,16 +84,13 @@ impl NodeStore {
                 panic!("capacity overflow");
             }
 
-            self.node_cols
-                .push((typ, Box::new(NodeColumn::<T>::default())));
+            self.node_cols.push(Box::new(NodeColumn::<T>::default()));
             (col_key as u32, Default::default())
         });
         let col_key = *col_key;
 
-        let (_, node_col) = self.node_cols.get_mut(col_key as usize).unwrap();
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
+        let node_col = self.node_cols.get_mut(col_key as usize)?;
+        let node_col = node_col.downcast_mut::<NodeColumn<T>>()?;
 
         // row_key is guaranteed to be less than u32::MAX.
         let row_key = node_col.vacant_key() as u32;
@@ -116,7 +113,7 @@ impl NodeStore {
         let spc_row_key = row_keys.insert((col_key, row_key)) as u32;
 
         node_col.insert(NodeRow {
-            node: Some(node),
+            node,
             typ_row_key,
             r#ref,
             ref_row_key,
@@ -131,30 +128,25 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
+        let typ = std::any::TypeId::of::<T>();
+
         let (col_key, row_key) = node_key;
 
-        let (typ, node_col) = self.node_cols.get_mut(col_key as usize).unwrap();
-
-        if typ != &std::any::TypeId::of::<T>() {
-            return None;
-        }
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
+        let node_col = self.node_cols.get_mut(col_key as usize)?;
+        let node_col = node_col.downcast_mut::<NodeColumn<T>>()?;
 
         let node_row = node_col.try_remove(row_key as usize)?;
-        let node = node_row.node.expect("node is popped");
 
-        let (_, row_keys) = self.typ_map.get_mut(typ).unwrap();
+        let (_, row_keys) = self.typ_map.get_mut(&typ).unwrap();
         row_keys.try_remove(node_row.typ_row_key as usize).unwrap();
 
-        let (_, row_keys) = self.typ_ref_map.get_mut(&(*typ, node_row.r#ref)).unwrap();
+        let (_, row_keys) = self.typ_ref_map.get_mut(&(typ, node_row.r#ref)).unwrap();
         row_keys.try_remove(node_row.ref_row_key as usize).unwrap();
 
-        let (_, row_keys) = self.typ_spc_map.get_mut(&(*typ, node_row.spc)).unwrap();
+        let (_, row_keys) = self.typ_spc_map.get_mut(&(typ, node_row.spc)).unwrap();
         row_keys.try_remove(node_row.spc_row_key as usize).unwrap();
 
-        Some((node_row.r#ref, node_row.spc, node))
+        Some((node_row.r#ref, node_row.spc, node_row.node))
     }
 
     pub fn get<T>(&self, node_key: NodeKey) -> Option<(&RefKey, &SpcKey, &T)>
@@ -163,19 +155,12 @@ impl NodeStore {
     {
         let (col_key, row_key) = node_key;
 
-        let (typ, node_col) = self.node_cols.get(col_key as usize)?;
-
-        if typ != &std::any::TypeId::of::<T>() {
-            return None;
-        }
-
-        let ptr = node_col as *const _ as *const Box<NodeColumn<T>>;
-        let node_col = unsafe { &*ptr }.as_ref();
+        let node_col = self.node_cols.get(col_key as usize)?;
+        let node_col = node_col.downcast_ref::<NodeColumn<T>>()?;
 
         let node_row = node_col.get(row_key as usize)?;
-        let node = node_row.node.as_ref().expect("node is popped");
 
-        Some((&node_row.r#ref, &node_row.spc, node))
+        Some((&node_row.r#ref, &node_row.spc, &node_row.node))
     }
 
     pub fn modify<T, F>(&mut self, node_key: NodeKey, f: F) -> Option<()>
@@ -183,30 +168,25 @@ impl NodeStore {
         T: std::any::Any,
         F: FnOnce(&mut RefKey, &mut SpcKey, &mut T),
     {
+        let typ = std::any::TypeId::of::<T>();
+
         let (col_key, row_key) = node_key;
 
-        let (typ, node_col) = self.node_cols.get_mut(col_key as usize)?;
-
-        if typ != &std::any::TypeId::of::<T>() {
-            return None;
-        }
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
+        let node_col = self.node_cols.get_mut(col_key as usize)?;
+        let node_col = node_col.downcast_mut::<NodeColumn<T>>()?;
 
         let node_row = node_col.get_mut(row_key as usize)?;
-        let node = node_row.node.as_mut().expect("node is popped");
 
         let (prev_ref, prev_spc) = (node_row.r#ref, node_row.spc);
-        f(&mut node_row.r#ref, &mut node_row.spc, node);
+        f(&mut node_row.r#ref, &mut node_row.spc, &mut node_row.node);
 
         if prev_ref != node_row.r#ref {
-            let (_, row_keys) = self.typ_ref_map.get_mut(&(*typ, prev_ref)).unwrap();
+            let (_, row_keys) = self.typ_ref_map.get_mut(&(typ, prev_ref)).unwrap();
             row_keys.try_remove(node_row.ref_row_key as usize).unwrap();
 
             let (_, row_keys) = self
                 .typ_ref_map
-                .entry((*typ, node_row.r#ref))
+                .entry((typ, node_row.r#ref))
                 .or_insert((col_key, Default::default()));
             // ref_row_key is guaranteed to be less than u32::MAX.
             let ref_row_key = row_keys.insert((col_key, node_row.ref_row_key)) as u32;
@@ -215,88 +195,12 @@ impl NodeStore {
         }
 
         if prev_spc != node_row.spc {
-            let (_, row_keys) = self.typ_spc_map.get_mut(&(*typ, prev_spc)).unwrap();
+            let (_, row_keys) = self.typ_spc_map.get_mut(&(typ, prev_spc)).unwrap();
             row_keys.try_remove(node_row.spc_row_key as usize).unwrap();
 
             let (_, row_keys) = self
                 .typ_spc_map
-                .entry((*typ, node_row.spc))
-                .or_insert((col_key, Default::default()));
-            // spc_row_key is guaranteed to be less than u32::MAX.
-            let spc_row_key = row_keys.insert((col_key, node_row.spc_row_key)) as u32;
-
-            node_row.spc_row_key = spc_row_key;
-        }
-
-        Some(())
-    }
-
-    pub fn pop<T>(&mut self, node_key: NodeKey) -> Option<(RefKey, SpcKey, T)>
-    where
-        T: std::any::Any,
-    {
-        let (col_key, row_key) = node_key;
-
-        let (typ, node_col) = self.node_cols.get_mut(col_key as usize)?;
-
-        if typ != &std::any::TypeId::of::<T>() {
-            return None;
-        }
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
-
-        let node_row = node_col.get_mut(row_key as usize)?;
-        let node = node_row.node.take().expect("node is already popped");
-
-        Some((node_row.r#ref, node_row.spc, node))
-    }
-
-    pub fn push<T>(&mut self, node_key: NodeKey, r#ref: RefKey, spc: SpcKey, node: T) -> Option<()>
-    where
-        T: std::any::Any,
-    {
-        let (col_key, row_key) = node_key;
-
-        let (typ, node_col) = self.node_cols.get_mut(col_key as usize)?;
-
-        if typ != &std::any::TypeId::of::<T>() {
-            return None;
-        }
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
-
-        let node_row = node_col.get_mut(row_key as usize)?;
-        let old_node = std::mem::replace(&mut node_row.node, Some(node));
-        if old_node.is_some() {
-            panic!("node is already pushed");
-        }
-
-        let (prev_ref, prev_spc) = (node_row.r#ref, node_row.spc);
-        (node_row.r#ref, node_row.spc) = (r#ref, spc);
-
-        if prev_ref != node_row.r#ref {
-            let (_, row_keys) = self.typ_ref_map.get_mut(&(*typ, prev_ref)).unwrap();
-            row_keys.try_remove(node_row.ref_row_key as usize).unwrap();
-
-            let (_, row_keys) = self
-                .typ_ref_map
-                .entry((*typ, node_row.r#ref))
-                .or_insert((col_key, Default::default()));
-            // ref_row_key is guaranteed to be less than u32::MAX.
-            let ref_row_key = row_keys.insert((col_key, node_row.ref_row_key)) as u32;
-
-            node_row.ref_row_key = ref_row_key;
-        }
-
-        if prev_spc != node_row.spc {
-            let (_, row_keys) = self.typ_spc_map.get_mut(&(*typ, prev_spc)).unwrap();
-            row_keys.try_remove(node_row.spc_row_key as usize).unwrap();
-
-            let (_, row_keys) = self
-                .typ_spc_map
-                .entry((*typ, node_row.spc))
+                .entry((typ, node_row.spc))
                 .or_insert((col_key, Default::default()));
             // spc_row_key is guaranteed to be less than u32::MAX.
             let spc_row_key = row_keys.insert((col_key, node_row.spc_row_key)) as u32;
@@ -316,16 +220,6 @@ impl NodeStore {
         Some(row_keys.iter().map(|(_, v)| v))
     }
 
-    fn detach_iter_internal<T>(&self) -> Option<Vec<NodeKey>>
-    where
-        T: std::any::Any,
-    {
-        let typ = std::any::TypeId::of::<T>();
-        let (_, row_keys) = self.typ_map.get(&typ)?;
-        let iter = row_keys.iter().map(|(_, v)| *v).collect::<Vec<_>>();
-        Some(iter)
-    }
-
     fn iter_by_ref_internal<T>(&self, r#ref: RefKey) -> Option<impl Iterator<Item = &NodeKey>>
     where
         T: std::any::Any,
@@ -333,16 +227,6 @@ impl NodeStore {
         let typ = std::any::TypeId::of::<T>();
         let (_, row_keys) = self.typ_ref_map.get(&(typ, r#ref))?;
         Some(row_keys.iter().map(|(_, v)| v))
-    }
-
-    fn detach_iter_by_ref_internal<T>(&self, r#ref: RefKey) -> Option<Vec<NodeKey>>
-    where
-        T: std::any::Any,
-    {
-        let typ = std::any::TypeId::of::<T>();
-        let (_, row_keys) = self.typ_ref_map.get(&(typ, r#ref))?;
-        let iter = row_keys.iter().map(|(_, v)| *v).collect::<Vec<_>>();
-        Some(iter)
     }
 
     fn iter_by_rect_internal<T>(&self, rect: [SpcKey; 2]) -> Option<impl Iterator<Item = &NodeKey>>
@@ -372,50 +256,21 @@ impl NodeStore {
         Some(iters.into_iter().flatten())
     }
 
-    fn detach_iter_by_rect_internal<T>(&self, rect: [SpcKey; 2]) -> Option<Vec<NodeKey>>
-    where
-        T: std::any::Any,
-    {
-        let typ = std::any::TypeId::of::<T>();
-
-        let min = match rect[0] {
-            SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => return None,
-        };
-        let max = match rect[1] {
-            SpcKey(SpcKeyKind::Local(chunk_key)) => chunk_key,
-            _ => return None,
-        };
-
-        let mut iters = vec![];
-        for y in min[1]..max[1] {
-            for x in min[0]..max[0] {
-                let spc = SpcKey(SpcKeyKind::Local([x, y]));
-                let (_, row_keys) = self.typ_spc_map.get(&(typ, spc))?;
-                iters.push(row_keys.iter().map(|(_, v)| *v));
-            }
-        }
-
-        Some(iters.into_iter().flatten().collect::<Vec<_>>())
-    }
-
     fn remove_by_ref_internal<T>(&mut self, r#ref: RefKey) -> Option<Vec<(RefKey, SpcKey, T)>>
     where
         T: std::any::Any,
     {
         let typ = std::any::TypeId::of::<T>();
+
         let (col_key, row_keys) = self.typ_ref_map.remove(&(typ, r#ref))?;
 
-        let (_, node_col) = self.node_cols.get_mut(col_key as usize).unwrap();
-
-        let ptr = node_col as *mut _ as *mut Box<NodeColumn<T>>;
-        let node_col = unsafe { &mut *ptr }.as_mut();
+        let node_col = self.node_cols.get_mut(col_key as usize).unwrap();
+        let node_col = node_col.downcast_mut::<NodeColumn<T>>()?;
 
         let nodes = row_keys
             .into_iter()
             .map(|(_, (_, row_key))| {
                 let node_row = node_col.try_remove(row_key as usize).unwrap();
-                let node = node_row.node.expect("node was popped");
 
                 let (_, row_keys) = self.typ_map.get_mut(&typ).unwrap();
                 // typ_row_key is guaranteed to be less than u32::MAX.
@@ -425,9 +280,10 @@ impl NodeStore {
                 // spc_row_key is guaranteed to be less than u32::MAX.
                 row_keys.try_remove(node_row.spc_row_key as usize).unwrap();
 
-                (node_row.r#ref, node_row.spc, node)
+                (node_row.r#ref, node_row.spc, node_row.node)
             })
             .collect::<Vec<_>>();
+
         Some(nodes)
     }
 
@@ -444,7 +300,15 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
-        self.detach_iter_internal::<T>().unwrap_or_default()
+        self.iter::<T>().copied().collect()
+    }
+
+    #[inline]
+    pub fn one<T>(&self) -> Option<&NodeKey>
+    where
+        T: std::any::Any,
+    {
+        self.iter::<T>().next()
     }
 
     #[inline]
@@ -460,8 +324,15 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
-        self.detach_iter_by_ref_internal::<T>(r#ref)
-            .unwrap_or_default()
+        self.iter_by_ref::<T>(r#ref).copied().collect()
+    }
+
+    #[inline]
+    pub fn one_by_ref<T>(&self, r#ref: RefKey) -> Option<&NodeKey>
+    where
+        T: std::any::Any,
+    {
+        self.iter_by_ref::<T>(r#ref).next()
     }
 
     #[inline]
@@ -477,8 +348,15 @@ impl NodeStore {
     where
         T: std::any::Any,
     {
-        self.detach_iter_by_rect_internal::<T>(rect)
-            .unwrap_or_default()
+        self.iter_by_rect::<T>(rect).copied().collect()
+    }
+
+    #[inline]
+    pub fn one_by_rect<T>(&self, rect: [SpcKey; 2]) -> Option<&NodeKey>
+    where
+        T: std::any::Any,
+    {
+        self.iter_by_rect::<T>(rect).next()
     }
 
     #[inline]

@@ -28,13 +28,13 @@ impl CallbackStoreBuilder {
     where
         T: std::any::Any,
     {
-        let type_id = std::any::TypeId::of::<T>();
+        let typ = std::any::TypeId::of::<T>();
 
         if self.callbacks.len() >= u32::MAX as usize {
             panic!("capacity overflow");
         }
 
-        self.callbacks.push((type_id, r#ref, Box::new(callback)));
+        self.callbacks.push((typ, r#ref, Box::new(callback)));
     }
 
     #[inline]
@@ -44,15 +44,15 @@ impl CallbackStoreBuilder {
 
     pub fn build(self) -> CallbackStore {
         let mut store = CallbackStore::default();
-        for (type_id, r#ref, callback) in self.callbacks {
+        for (typ, r#ref, callback) in self.callbacks {
             // key is guaranteed to be less than u32::MAX
             store.callbacks.push(callback);
             let key = (store.callbacks.len() - 1) as u32;
 
-            let ref_col_0 = store.ref_cols_0.entry((type_id,)).or_default();
+            let ref_col_0 = store.ref_cols_0.entry((typ,)).or_default();
             ref_col_0.push(key);
 
-            let ref_col_1 = store.ref_cols_1.entry((type_id, r#ref)).or_default();
+            let ref_col_1 = store.ref_cols_1.entry((typ, r#ref)).or_default();
             ref_col_1.push(key);
         }
         store
@@ -71,16 +71,29 @@ impl CallbackStore {
     where
         T: std::any::Any,
     {
-        let type_id = std::any::TypeId::of::<T>();
+        let typ = std::any::TypeId::of::<T>();
 
-        let ref_col = self.ref_cols_0.get(&(type_id,))?;
+        let ref_col = self.ref_cols_0.get(&(typ,))?;
 
         let iter = ref_col.iter().map(|key| {
             let callback = self.callbacks.get(*key as usize).unwrap();
-            let ptr = callback as *const _ as *const Box<T>;
-            let callback = unsafe { &*ptr }.as_ref();
+            callback.downcast_ref::<T>().unwrap()
+        });
 
-            callback
+        Some(iter)
+    }
+
+    fn iter_by_ref_internal<T>(&self, r#ref: CallbackRef) -> Option<impl Iterator<Item = &T>>
+    where
+        T: std::any::Any,
+    {
+        let typ = std::any::TypeId::of::<T>();
+
+        let ref_col = self.ref_cols_1.get(&(typ, r#ref))?;
+
+        let iter = ref_col.iter().map(|key| {
+            let callback = self.callbacks.get(*key as usize).unwrap();
+            callback.downcast_ref::<T>().unwrap()
         });
 
         Some(iter)
@@ -94,23 +107,12 @@ impl CallbackStore {
         self.iter_internal::<T>().into_iter().flatten()
     }
 
-    fn iter_by_ref_internal<T>(&self, r#ref: CallbackRef) -> Option<impl Iterator<Item = &T>>
+    #[inline]
+    pub fn one<T>(&self) -> Option<&T>
     where
         T: std::any::Any,
     {
-        let type_id = std::any::TypeId::of::<T>();
-
-        let ref_col = self.ref_cols_1.get(&(type_id, r#ref))?;
-
-        let iter = ref_col.iter().map(|key| {
-            let callback = self.callbacks.get(*key as usize).unwrap();
-            let ptr = callback as *const _ as *const Box<T>;
-            let callback = unsafe { &*ptr }.as_ref();
-
-            callback
-        });
-
-        Some(iter)
+        self.iter::<T>().next()
     }
 
     #[inline]
@@ -119,6 +121,14 @@ impl CallbackStore {
         T: std::any::Any,
     {
         self.iter_by_ref_internal::<T>(r#ref).into_iter().flatten()
+    }
+
+    #[inline]
+    pub fn one_by_ref<T>(&self, r#ref: CallbackRef) -> Option<&T>
+    where
+        T: std::any::Any,
+    {
+        self.iter_by_ref::<T>(r#ref).next()
     }
 }
 

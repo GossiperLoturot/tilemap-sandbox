@@ -33,7 +33,7 @@ struct TileFieldDescriptor {
     #[export]
     entries: Array<Gd<TileDescriptor>>,
     #[export]
-    shader: Gd<godot::engine::Shader>,
+    shaders: Array<Gd<godot::engine::Shader>>,
     #[export]
     world: Gd<godot::engine::World3D>,
 }
@@ -47,7 +47,7 @@ impl TileFieldDescriptor {
         output_image_size: u32,
         max_page_size: u32,
         entries: Array<Gd<TileDescriptor>>,
-        shader: Gd<godot::engine::Shader>,
+        shaders: Array<Gd<godot::engine::Shader>>,
         world: Gd<godot::engine::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
@@ -56,7 +56,7 @@ impl TileFieldDescriptor {
             output_image_size,
             max_page_size,
             entries,
-            shader,
+            shaders,
             world,
         })
     }
@@ -118,7 +118,7 @@ impl Tile {
 
 #[derive(Debug, Clone)]
 struct TileChunkDown {
-    material: Rid,
+    materials: Vec<Rid>,
     multimesh: Rid,
     instance: Rid,
 }
@@ -127,7 +127,7 @@ impl TileChunkDown {
     fn up(self) -> TileChunkUp {
         TileChunkUp {
             version: Default::default(),
-            material: self.material,
+            materials: self.materials,
             multimesh: self.multimesh,
             instance: self.instance,
         }
@@ -137,7 +137,7 @@ impl TileChunkDown {
 #[derive(Debug, Clone)]
 struct TileChunkUp {
     version: u64,
-    material: Rid,
+    materials: Vec<Rid>,
     multimesh: Rid,
     instance: Rid,
 }
@@ -145,7 +145,7 @@ struct TileChunkUp {
 impl TileChunkUp {
     fn down(self) -> TileChunkDown {
         TileChunkDown {
-            material: self.material,
+            materials: self.materials,
             multimesh: self.multimesh,
             instance: self.instance,
         }
@@ -272,7 +272,12 @@ impl TileField {
             })
             .collect::<Vec<_>>();
 
-        let shader = desc.shader.get_rid();
+        let shaders = desc
+            .shaders
+            .iter_shared()
+            .map(|shader| shader.get_rid())
+            .collect::<Vec<_>>();
+
         let mesh_data = {
             let mut data = VariantArray::new();
             data.resize(
@@ -308,13 +313,23 @@ impl TileField {
 
         let down_chunks = (0..desc.instance_size)
             .map(|_| {
-                let material = rendering_server.material_create();
-                rendering_server.material_set_shader(material, shader);
-                rendering_server.material_set_param(
-                    material,
-                    "texture_array".into(),
-                    texture_array.to_variant(),
-                );
+                let materials = shaders
+                    .iter()
+                    .map(|&shader| {
+                        let material = rendering_server.material_create();
+                        rendering_server.material_set_shader(material, shader);
+                        rendering_server.material_set_param(
+                            material,
+                            "texture_array".into(),
+                            texture_array.to_variant(),
+                        );
+                        material
+                    })
+                    .collect::<Vec<_>>();
+
+                (0..materials.len() - 1).for_each(|i| {
+                    rendering_server.material_set_next_pass(materials[i], materials[i + 1]);
+                });
 
                 let mesh = rendering_server.mesh_create();
                 rendering_server.mesh_add_surface_from_arrays(
@@ -322,7 +337,7 @@ impl TileField {
                     godot::engine::rendering_server::PrimitiveType::TRIANGLES,
                     mesh_data.clone(),
                 );
-                rendering_server.mesh_surface_set_material(mesh, 0, material);
+                rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
 
                 let multimesh = rendering_server.multimesh_create();
                 rendering_server.multimesh_set_mesh(multimesh, mesh);
@@ -337,7 +352,7 @@ impl TileField {
                 rendering_server.instance_set_visible(instance, false);
 
                 TileChunkDown {
-                    material,
+                    materials,
                     multimesh,
                     instance,
                 }
@@ -457,7 +472,7 @@ impl TileField {
                 std::hash::Hasher::write_i32(&mut hasher, tile.location[0]);
                 std::hash::Hasher::write_i32(&mut hasher, tile.location[1]);
                 let hash = std::hash::Hasher::finish(&hasher) as u16;
-                let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625; // -2^{-4} <= z <= 0
+                let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625 - 0.0625; // -2^{-3} <= z <= -2^{-4}
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = 1.0;
@@ -474,20 +489,24 @@ impl TileField {
             }
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
+
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
                 PackedFloat32Array::from(instance_buffer.as_slice()),
             );
-            rendering_server.material_set_param(
-                up_chunk.material,
-                "texcoord_buffer".into(),
-                PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
-            );
-            rendering_server.material_set_param(
-                up_chunk.material,
-                "page_buffer".into(),
-                PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
-            );
+
+            for &material in &up_chunk.materials {
+                rendering_server.material_set_param(
+                    material,
+                    "texcoord_buffer".into(),
+                    PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "page_buffer".into(),
+                    PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
+                );
+            }
 
             up_chunk.version = chunk.version;
         }

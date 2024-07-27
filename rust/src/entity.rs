@@ -55,7 +55,7 @@ struct EntityFieldDescriptor {
     #[export]
     entries: Array<Gd<EntityDescriptor>>,
     #[export]
-    shader: Gd<godot::engine::Shader>,
+    shaders: Array<Gd<godot::engine::Shader>>,
     #[export]
     world: Gd<godot::engine::World3D>,
 }
@@ -69,7 +69,7 @@ impl EntityFieldDescriptor {
         output_image_size: u32,
         max_page_size: u32,
         entries: Array<Gd<EntityDescriptor>>,
-        shader: Gd<godot::engine::Shader>,
+        shaders: Array<Gd<godot::engine::Shader>>,
         world: Gd<godot::engine::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(Self {
@@ -78,7 +78,7 @@ impl EntityFieldDescriptor {
             output_image_size,
             max_page_size,
             entries,
-            shader,
+            shaders,
             world,
         })
     }
@@ -147,7 +147,7 @@ struct EntitySpec {
 
 #[derive(Debug, Clone)]
 struct EntityChunkDown {
-    material: Rid,
+    materials: Vec<Rid>,
     multimesh: Rid,
     instance: Rid,
 }
@@ -156,7 +156,7 @@ impl EntityChunkDown {
     fn up(self) -> EntityChunkUp {
         EntityChunkUp {
             version: Default::default(),
-            material: self.material,
+            materials: self.materials,
             multimesh: self.multimesh,
             instance: self.instance,
         }
@@ -166,7 +166,7 @@ impl EntityChunkDown {
 #[derive(Debug, Clone)]
 struct EntityChunkUp {
     version: u64,
-    material: Rid,
+    materials: Vec<Rid>,
     multimesh: Rid,
     instance: Rid,
 }
@@ -174,7 +174,7 @@ struct EntityChunkUp {
 impl EntityChunkUp {
     fn down(self) -> EntityChunkDown {
         EntityChunkDown {
-            material: self.material,
+            materials: self.materials,
             multimesh: self.multimesh,
             instance: self.instance,
         }
@@ -320,7 +320,12 @@ impl EntityField {
             })
             .collect::<Vec<_>>();
 
-        let shader = desc.shader.get_rid();
+        let shaders = desc
+            .shaders
+            .iter_shared()
+            .map(|shader| shader.get_rid())
+            .collect::<Vec<_>>();
+
         let mesh_data = {
             let mut data = VariantArray::new();
             data.resize(
@@ -356,13 +361,23 @@ impl EntityField {
 
         let down_chunks = (0..desc.instance_size)
             .map(|_| {
-                let material = rendering_server.material_create();
-                rendering_server.material_set_shader(material, shader);
-                rendering_server.material_set_param(
-                    material,
-                    "texture_array".into(),
-                    texture_array.to_variant(),
-                );
+                let materials = shaders
+                    .iter()
+                    .map(|&shader| {
+                        let material = rendering_server.material_create();
+                        rendering_server.material_set_shader(material, shader);
+                        rendering_server.material_set_param(
+                            material,
+                            "texture_array".into(),
+                            texture_array.to_variant(),
+                        );
+                        material
+                    })
+                    .collect::<Vec<_>>();
+
+                (0..materials.len() - 1).for_each(|i| {
+                    rendering_server.material_set_next_pass(materials[i], materials[i + 1]);
+                });
 
                 let mesh = rendering_server.mesh_create();
                 rendering_server.mesh_add_surface_from_arrays(
@@ -370,7 +385,7 @@ impl EntityField {
                     godot::engine::rendering_server::PrimitiveType::TRIANGLES,
                     mesh_data.clone(),
                 );
-                rendering_server.mesh_surface_set_material(mesh, 0, material);
+                rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
 
                 let multimesh = rendering_server.multimesh_create();
                 rendering_server.multimesh_set_mesh(multimesh, mesh);
@@ -385,7 +400,7 @@ impl EntityField {
                 rendering_server.instance_set_visible(instance, false);
 
                 EntityChunkDown {
-                    material,
+                    materials,
                     multimesh,
                     instance,
                 }
@@ -519,20 +534,24 @@ impl EntityField {
             }
 
             let mut rendering_server = godot::engine::RenderingServer::singleton();
+
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
                 PackedFloat32Array::from(instance_buffer.as_slice()),
             );
-            rendering_server.material_set_param(
-                up_chunk.material,
-                "texcoord_buffer".into(),
-                PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
-            );
-            rendering_server.material_set_param(
-                up_chunk.material,
-                "page_buffer".into(),
-                PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
-            );
+
+            for &material in &up_chunk.materials {
+                rendering_server.material_set_param(
+                    material,
+                    "texcoord_buffer".into(),
+                    PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "page_buffer".into(),
+                    PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
+                );
+            }
 
             up_chunk.version = chunk.version;
         }

@@ -10,7 +10,7 @@ var _root: Root
 func _ready():
 	var tile_field = TileField.new_from(TileFieldDescriptor.new_from(
 		32,
-		256,
+		512,
 		2048,
 		8,
 		[
@@ -23,13 +23,15 @@ func _ready():
 				false,
 			)
 		] as Array[TileDescriptor],
-		preload("res://field.gdshader"),
+		[
+			preload("res://field.gdshader"),
+		] as Array[Shader],
 		get_world_3d()
 	))
 
 	var block_field = BlockField.new_from(BlockFieldDescriptor.new_from(
 		32,
-		256,
+		512,
 		2048,
 		8,
 		[
@@ -62,13 +64,16 @@ func _ready():
 				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 			)
 		] as Array[BlockDescriptor],
-		preload("res://field.gdshader"),
+		[
+			preload("res://field.gdshader"),
+			preload("res://field_shadow.gdshader")
+		] as Array[Shader],
 		get_world_3d()
 	))
 
 	var entity_field = EntityField.new_from(EntityFieldDescriptor.new_from(
 		32,
-		256,
+		512,
 		2048,
 		8,
 		[
@@ -109,7 +114,10 @@ func _ready():
 				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 			)
 		] as Array[EntityDescriptor],
-		preload("res://field.gdshader"),
+		[
+			preload("res://field.gdshader"),
+			preload("res://field_shadow.gdshader"),
+		] as Array[Shader],
 		get_world_3d()
 	))
 

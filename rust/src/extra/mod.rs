@@ -46,7 +46,11 @@ impl Actions {
             rect.position.y + rect.size.y,
         ]];
 
-        extra_inner::forward_local(&mut root.inner(), delta_secs, rect);
+        extra_inner::forward_local(
+            &mut root.inner(),
+            delta_secs,
+            [rect[0].into(), rect[1].into()],
+        );
     }
 
     #[func]
