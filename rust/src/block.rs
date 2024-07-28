@@ -193,6 +193,7 @@ pub(crate) struct BlockField {
     texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
+    free_handles: Vec<Rid>,
     min_view_rect: Option<[[i32; 2]; 2]>,
 }
 
@@ -217,6 +218,8 @@ impl BlockField {
     #[func]
     fn new_from(desc: Gd<BlockFieldDescriptor>) -> Gd<Self> {
         let desc = desc.bind();
+
+        let mut free_handles = vec![];
 
         let specs = desc
             .entries
@@ -314,6 +317,7 @@ impl BlockField {
             Array::from(images.as_slice()),
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
+        free_handles.push(texture_array);
 
         let mut iter = atlas.texcoords.into_iter();
         let texcoords = variants
@@ -325,63 +329,59 @@ impl BlockField {
             })
             .collect::<Vec<_>>();
 
-        let shaders = desc
-            .shaders
-            .iter_shared()
-            .map(|shader| shader.get_rid())
-            .collect::<Vec<_>>();
-
-        let mesh_data = {
-            let mut data = VariantArray::new();
-            data.resize(
-                godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
-                &Variant::nil(),
-            );
-            data.set(
-                godot::engine::rendering_server::ArrayType::VERTEX.ord() as usize,
-                PackedVector3Array::from(&[
-                    Vector3::new(0.0, 0.0, 0.0),
-                    Vector3::new(0.0, 1.0, 1.0),
-                    Vector3::new(1.0, 1.0, 1.0),
-                    Vector3::new(1.0, 0.0, 0.0),
-                ])
-                .to_variant(),
-            );
-            data.set(
-                godot::engine::rendering_server::ArrayType::TEX_UV.ord() as usize,
-                PackedVector2Array::from(&[
-                    Vector2::new(0.0, 1.0),
-                    Vector2::new(0.0, 0.0),
-                    Vector2::new(1.0, 0.0),
-                    Vector2::new(1.0, 1.0),
-                ])
-                .to_variant(),
-            );
-            data.set(
-                godot::engine::rendering_server::ArrayType::INDEX.ord() as usize,
-                PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
-            );
-            data
-        };
+        let mut mesh_data = VariantArray::new();
+        mesh_data.resize(
+            godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
+            &Variant::nil(),
+        );
+        mesh_data.set(
+            godot::engine::rendering_server::ArrayType::VERTEX.ord() as usize,
+            PackedVector3Array::from(&[
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(0.0, 1.0, 1.0),
+                Vector3::new(1.0, 1.0, 1.0),
+                Vector3::new(1.0, 0.0, 0.0),
+            ])
+            .to_variant(),
+        );
+        mesh_data.set(
+            godot::engine::rendering_server::ArrayType::TEX_UV.ord() as usize,
+            PackedVector2Array::from(&[
+                Vector2::new(0.0, 1.0),
+                Vector2::new(0.0, 0.0),
+                Vector2::new(1.0, 0.0),
+                Vector2::new(1.0, 1.0),
+            ])
+            .to_variant(),
+        );
+        mesh_data.set(
+            godot::engine::rendering_server::ArrayType::INDEX.ord() as usize,
+            PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
+        );
 
         let down_chunks = (0..desc.instance_size)
             .map(|_| {
-                let materials = shaders
-                    .iter()
-                    .map(|&shader| {
+                let materials = desc
+                    .shaders
+                    .iter_shared()
+                    .map(|shader| {
                         let material = rendering_server.material_create();
-                        rendering_server.material_set_shader(material, shader);
+                        rendering_server.material_set_shader(material, shader.get_rid());
                         rendering_server.material_set_param(
                             material,
                             "texture_array".into(),
                             texture_array.to_variant(),
                         );
+                        free_handles.push(material);
+
                         material
                     })
                     .collect::<Vec<_>>();
 
                 (0..materials.len() - 1).for_each(|i| {
-                    rendering_server.material_set_next_pass(materials[i], materials[i + 1]);
+                    let material = materials[i];
+                    let next_material = materials[i + 1];
+                    rendering_server.material_set_next_pass(material, next_material);
                 });
 
                 let mesh = rendering_server.mesh_create();
@@ -391,6 +391,7 @@ impl BlockField {
                     mesh_data.clone(),
                 );
                 rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
+                free_handles.push(mesh);
 
                 let multimesh = rendering_server.multimesh_create();
                 rendering_server.multimesh_set_mesh(multimesh, mesh);
@@ -399,10 +400,12 @@ impl BlockField {
                     Self::MAX_BUFFER_SIZE as i32,
                     godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
                 );
+                free_handles.push(multimesh);
 
                 let instance =
                     rendering_server.instance_create2(multimesh, desc.world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
+                free_handles.push(instance);
 
                 BlockChunkDown {
                     materials,
@@ -418,6 +421,7 @@ impl BlockField {
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
+            free_handles,
             min_view_rect: None,
         })
     }
@@ -677,5 +681,14 @@ impl BlockField {
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let block_keys = self.inner.get_hint_by_rect([p0, p1]);
         Array::from_iter(block_keys)
+    }
+}
+
+impl Drop for BlockField {
+    fn drop(&mut self) {
+        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        self.free_handles
+            .iter()
+            .for_each(|handle| rendering_server.free_rid(*handle));
     }
 }

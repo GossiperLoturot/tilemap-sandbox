@@ -189,6 +189,7 @@ pub(crate) struct EntityField {
     texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
+    free_handles: Vec<Rid>,
     min_view_rect: Option<[[i32; 2]; 2]>,
 }
 
@@ -213,6 +214,8 @@ impl EntityField {
     #[func]
     fn new_from(desc: Gd<EntityFieldDescriptor>) -> Gd<Self> {
         let desc = desc.bind();
+
+        let mut free_handles = vec![];
 
         let specs = desc
             .entries
@@ -309,6 +312,7 @@ impl EntityField {
             Array::from(images.as_slice()),
             godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
+        free_handles.push(texture_array);
 
         let mut iter = atlas.texcoords.into_iter();
         let texcoords = variants
@@ -318,12 +322,6 @@ impl EntityField {
                     .map(|_| iter.next().unwrap().to_f32())
                     .collect::<Vec<_>>()
             })
-            .collect::<Vec<_>>();
-
-        let shaders = desc
-            .shaders
-            .iter_shared()
-            .map(|shader| shader.get_rid())
             .collect::<Vec<_>>();
 
         let mesh_data = {
@@ -361,16 +359,19 @@ impl EntityField {
 
         let down_chunks = (0..desc.instance_size)
             .map(|_| {
-                let materials = shaders
-                    .iter()
-                    .map(|&shader| {
+                let materials = desc
+                    .shaders
+                    .iter_shared()
+                    .map(|shader| {
                         let material = rendering_server.material_create();
-                        rendering_server.material_set_shader(material, shader);
+                        rendering_server.material_set_shader(material, shader.get_rid());
                         rendering_server.material_set_param(
                             material,
                             "texture_array".into(),
                             texture_array.to_variant(),
                         );
+                        free_handles.push(material);
+
                         material
                     })
                     .collect::<Vec<_>>();
@@ -386,6 +387,7 @@ impl EntityField {
                     mesh_data.clone(),
                 );
                 rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
+                free_handles.push(mesh);
 
                 let multimesh = rendering_server.multimesh_create();
                 rendering_server.multimesh_set_mesh(multimesh, mesh);
@@ -394,10 +396,12 @@ impl EntityField {
                     Self::MAX_BUFFER_SIZE as i32,
                     godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
                 );
+                free_handles.push(multimesh);
 
                 let instance =
                     rendering_server.instance_create2(multimesh, desc.world.get_scenario());
                 rendering_server.instance_set_visible(instance, false);
+                free_handles.push(instance);
 
                 EntityChunkDown {
                     materials,
@@ -413,6 +417,7 @@ impl EntityField {
             texcoords,
             down_chunks,
             up_chunks: Default::default(),
+            free_handles,
             min_view_rect: None,
         })
     }
@@ -633,5 +638,14 @@ impl EntityField {
         let p1 = [rect.position.x + rect.size.x, rect.position.y + rect.size.y];
         let entity_keys = self.inner.get_hint_by_rect([p0, p1]);
         Array::from_iter(entity_keys)
+    }
+}
+
+impl Drop for EntityField {
+    fn drop(&mut self) {
+        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        self.free_handles
+            .iter()
+            .for_each(|handle| rendering_server.free_rid(*handle));
     }
 }
