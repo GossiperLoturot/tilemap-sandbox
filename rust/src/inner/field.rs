@@ -76,21 +76,19 @@ impl TileField {
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<u32, FieldError> {
-        let location = tile.location;
-
         let spec = self
             .specs
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
         // check by spatial features
-        if self.spatial_ref.contains_key(&location) {
+        if self.has_by_point(tile.location) {
             return Err(FieldError::Conflict);
         }
 
         let chunk_key = [
-            location[0].div_euclid(self.chunk_size as i32),
-            location[1].div_euclid(self.chunk_size as i32),
+            tile.location[0].div_euclid(self.chunk_size as i32),
+            tile.location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
 
@@ -98,21 +96,24 @@ impl TileField {
             panic!("capacity overflow");
         }
 
-        let tile_key = chunk.tiles.insert(tile) as u32;
-        chunk.version += 1;
-
         // key is guaranteed to be less than u32::MAX.
-        let key = self.stable_ref.insert((chunk_key, tile_key)) as u32;
+        let key = self.stable_ref.vacant_key() as u32;
 
         // spatial features
-        self.spatial_ref.insert(location, key);
+        self.spatial_ref.insert(tile.location, key);
 
         // collision features
-        if let Some(rect) = spec.collision_rect(location) {
+        if let Some(rect) = spec.collision_rect(tile.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
+
+        // key is guaranteed to be less than u32::MAX.
+        let tile_key = chunk.tiles.insert(tile) as u32;
+        chunk.version += 1;
+
+        self.stable_ref.insert((chunk_key, tile_key));
 
         Ok(key)
     }
@@ -124,46 +125,6 @@ impl TileField {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.chunks.get_mut(&chunk_key).unwrap();
         let tile = chunk.tiles.try_remove(tile_key as usize).unwrap();
-        chunk.version += 1;
-
-        let spec = &self.specs.get(tile.id as usize).unwrap();
-
-        // spatial features
-        self.spatial_ref.remove(&tile.location).unwrap();
-
-        // collision features
-        if let Some(rect) = spec.collision_rect(tile.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).unwrap();
-        }
-
-        Ok(tile)
-    }
-
-    // TODO: impl partial update
-    pub fn modify(&mut self, key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
-        let new_spec = self
-            .specs
-            .get(new_tile.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-
-        // check by spatial features
-        if self
-            .spatial_ref
-            .get(&new_tile.location)
-            .is_some_and(|other_key| *other_key != key)
-        {
-            return Err(FieldError::Conflict);
-        }
-
-        // remove old tile
-        let (chunk_key, tile_key) = self
-            .stable_ref
-            .get_mut(key as usize)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).unwrap();
-        let tile = chunk.tiles.try_remove(*tile_key as usize).unwrap();
         chunk.version += 1;
 
         let spec = self.specs.get(tile.id as usize).unwrap();
@@ -178,29 +139,80 @@ impl TileField {
             self.collision_ref.remove(&node).unwrap();
         }
 
-        let location = new_tile.location;
+        Ok(tile)
+    }
 
-        // insert new tile
-        *chunk_key = [
-            location[0].div_euclid(self.chunk_size as i32),
-            location[1].div_euclid(self.chunk_size as i32),
-        ];
-        let chunk = self.chunks.entry(*chunk_key).or_default();
-        // chunk.tiles.vacant_key() is guaranteed to be less than u32::MAX.
-        *tile_key = chunk.tiles.insert(new_tile) as u32;
-        chunk.version += 1;
+    pub fn modify(&mut self, key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
+        let (chunk_key, tile_key) = *self
+            .stable_ref
+            .get(key as usize)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(&chunk_key).unwrap();
+        let tile = chunk.tiles.get(tile_key as usize).unwrap();
 
-        // spatial features
-        self.spatial_ref.insert(location, key);
+        if tile.id != new_tile.id || tile.location != new_tile.location {
+            let spec = self.specs.get(tile.id as usize).unwrap();
 
-        // collision features
-        if let Some(rect) = new_spec.collision_rect(location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.insert(node);
+            let new_spec = self
+                .specs
+                .get(new_tile.id as usize)
+                .ok_or(FieldError::InvalidId)?;
+
+            // check by spatial features
+            if self
+                .get_by_point(new_tile.location)
+                .is_some_and(|other_key| other_key != key)
+            {
+                return Err(FieldError::Conflict);
+            }
+
+            // spatial features
+
+            self.spatial_ref.remove(&tile.location).unwrap();
+
+            self.spatial_ref.insert(new_tile.location, key);
+
+            // collision features
+
+            if let Some(rect) = spec.collision_rect(tile.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.remove(&node).unwrap();
+            }
+
+            if let Some(rect) = new_spec.collision_rect(new_tile.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.insert(node);
+            }
         }
 
-        Ok(tile)
+        let new_chunk_key = [
+            new_tile.location[0].div_euclid(self.chunk_size as i32),
+            new_tile.location[1].div_euclid(self.chunk_size as i32),
+        ];
+
+        // wheather to move tile to another chunk or not
+        if chunk_key != new_chunk_key {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let old_tile = chunk.tiles.try_remove(tile_key as usize).unwrap();
+            chunk.version += 1;
+
+            let new_chunk = self.chunks.entry(new_chunk_key).or_default();
+            let new_tile_key = new_chunk.tiles.insert(new_tile) as u32;
+            new_chunk.version += 1;
+
+            *self.stable_ref.get_mut(key as usize).unwrap() = (new_chunk_key, new_tile_key);
+
+            Ok(old_tile)
+        } else {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let tile = chunk.tiles.get_mut(tile_key as usize).unwrap();
+            let old_tile = std::mem::replace(tile, new_tile);
+            chunk.version += 1;
+
+            Ok(old_tile)
+        }
     }
 
     pub fn get(&self, key: u32) -> Result<&Tile, FieldError> {
@@ -400,21 +412,19 @@ impl BlockField {
     }
 
     pub fn insert(&mut self, block: Block) -> Result<u32, FieldError> {
-        let location = block.location;
-
-        let spec = &self
+        let spec = self
             .specs
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
         // check by spatial features
-        if self.has_by_rect(spec.rect(location)) {
+        if self.has_by_rect(spec.rect(block.location)) {
             return Err(FieldError::Conflict);
         }
 
         let chunk_key = [
-            location[0].div_euclid(self.chunk_size as i32),
-            location[1].div_euclid(self.chunk_size as i32),
+            block.location[0].div_euclid(self.chunk_size as i32),
+            block.location[1].div_euclid(self.chunk_size as i32),
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
 
@@ -422,31 +432,34 @@ impl BlockField {
             panic!("capacity overflow");
         }
 
-        let block_key = chunk.blocks.insert(block) as u32;
-        chunk.version += 1;
-
         // key is guaranteed to be less than u32::MAX.
-        let key = self.stable_ref.insert((chunk_key, block_key)) as u32;
+        let key = self.stable_ref.vacant_key() as u32;
 
         // spatial features
-        let rect = spec.rect(location);
+        let rect = spec.rect(block.location);
         let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
         let node = rstar::primitives::GeomWithData::new(rect, key);
         self.spatial_ref.insert(node);
 
         // collision features
-        if let Some(rect) = spec.collision_rect(location) {
+        if let Some(rect) = spec.collision_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = spec.hint_rect(location) {
+        if let Some(rect) = spec.hint_rect(block.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
         }
+
+        // block_key is guaranteed to be less than u32::MAX.
+        let block_key = chunk.blocks.insert(block) as u32;
+        chunk.version += 1;
+
+        self.stable_ref.insert((chunk_key, block_key));
 
         Ok(key)
     }
@@ -460,7 +473,7 @@ impl BlockField {
         let block = chunk.blocks.try_remove(block_key as usize).unwrap();
         chunk.version += 1;
 
-        let spec = &self.specs.get(block.id as usize).unwrap();
+        let spec = self.specs.get(block.id as usize).unwrap();
 
         // spatial features
         let rect = spec.rect(block.location);
@@ -485,83 +498,97 @@ impl BlockField {
         Ok(block)
     }
 
-    // TODO: impl partial update
     pub fn modify(&mut self, key: u32, new_block: Block) -> Result<Block, FieldError> {
-        let new_spec = self
-            .specs
-            .get(new_block.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-
-        // check by spatial features
-        let rect = new_spec.rect(new_block.location);
-        if self.get_by_rect(rect).any(|other_key| other_key != key) {
-            return Err(FieldError::Conflict);
-        }
-
-        // remove old block
-        let (chunk_key, block_key) = self
+        let (chunk_key, block_key) = *self
             .stable_ref
-            .get_mut(key as usize)
+            .get(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).unwrap();
-        let block = chunk.blocks.try_remove(*block_key as usize).unwrap();
-        chunk.version += 1;
+        let chunk = self.chunks.get(&chunk_key).unwrap();
+        let block = chunk.blocks.get(block_key as usize).unwrap();
 
-        let spec = self.specs.get(block.id as usize).unwrap();
+        if block.id != new_block.id || block.location != new_block.location {
+            let spec = self.specs.get(block.id as usize).unwrap();
 
-        // spatial features
-        let rect = spec.rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = &rstar::primitives::GeomWithData::new(rect, key);
-        self.spatial_ref.remove(node).unwrap();
+            let new_spec = self
+                .specs
+                .get(new_block.id as usize)
+                .ok_or(FieldError::InvalidId)?;
 
-        // collision features
-        if let Some(rect) = spec.collision_rect(block.location) {
+            // check by spatial features
+            if self
+                .get_by_rect(new_spec.rect(new_block.location))
+                .any(|other_key| other_key != key)
+            {
+                return Err(FieldError::Conflict);
+            }
+
+            // spatial features
+
+            let rect = spec.rect(block.location);
+            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let node = &rstar::primitives::GeomWithData::new(rect, key);
+            self.spatial_ref.remove(node).unwrap();
+
+            let rect = new_spec.rect(new_block.location);
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(&node).unwrap();
+            self.spatial_ref.insert(node);
+
+            // collision features
+
+            if let Some(rect) = spec.collision_rect(block.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.remove(&node).unwrap();
+            }
+
+            if let Some(rect) = new_spec.collision_rect(new_block.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.insert(node);
+            }
+
+            // hint features
+
+            if let Some(rect) = spec.hint_rect(block.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.hint_ref.remove(&node).unwrap();
+            }
+
+            if let Some(rect) = new_spec.hint_rect(new_block.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.hint_ref.insert(node);
+            }
         }
 
-        // hint features
-        if let Some(rect) = spec.hint_rect(block.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(&node).unwrap();
-        }
-
-        let location = new_block.location;
-
-        // insert new block
-        *chunk_key = [
-            location[0].div_euclid(self.chunk_size as i32),
-            location[1].div_euclid(self.chunk_size as i32),
+        let new_chunk_key = [
+            new_block.location[0].div_euclid(self.chunk_size as i32),
+            new_block.location[1].div_euclid(self.chunk_size as i32),
         ];
-        let chunk = self.chunks.entry(*chunk_key).or_default();
-        // chunk.blocks.vacant_key() is guaranteed to be less than u32::MAX.
-        *block_key = chunk.blocks.insert(new_block) as u32;
-        chunk.version += 1;
 
-        // spatial features
-        let rect = new_spec.rect(location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-        let node = rstar::primitives::GeomWithData::new(rect, key);
-        self.spatial_ref.insert(node);
+        // wheather to move block to another chunk or not
+        if chunk_key != new_chunk_key {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let old_block = chunk.blocks.try_remove(block_key as usize).unwrap();
+            chunk.version += 1;
 
-        // collision features
-        if let Some(rect) = new_spec.collision_rect(location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.insert(node);
+            let new_chunk = self.chunks.entry(new_chunk_key).or_default();
+            let new_block_key = new_chunk.blocks.insert(new_block) as u32;
+            new_chunk.version += 1;
+
+            *self.stable_ref.get_mut(key as usize).unwrap() = (new_chunk_key, new_block_key);
+
+            Ok(old_block)
+        } else {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let block = chunk.blocks.get_mut(block_key as usize).unwrap();
+            let old_block = std::mem::replace(block, new_block);
+            chunk.version += 1;
+
+            Ok(old_block)
         }
-
-        // hint features
-        if let Some(rect) = new_spec.hint_rect(location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.insert(node);
-        }
-
-        Ok(block)
     }
 
     pub fn get(&self, key: u32) -> Result<&Block, FieldError> {
@@ -804,16 +831,14 @@ impl EntityField {
     }
 
     pub fn insert(&mut self, entity: Entity) -> Result<u32, FieldError> {
-        let location = entity.location;
-
-        let spec = &self
+        let spec = self
             .specs
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
         let chunk_key = [
-            location[0].div_euclid(self.chunk_size as f32) as i32,
-            location[1].div_euclid(self.chunk_size as f32) as i32,
+            entity.location[0].div_euclid(self.chunk_size as f32) as i32,
+            entity.location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
         let chunk = self.chunks.entry(chunk_key).or_default();
 
@@ -821,25 +846,28 @@ impl EntityField {
             panic!("capacity overflow");
         }
 
-        let entity_key = chunk.entities.insert(entity) as u32;
-        chunk.version += 1;
-
         // key is guaranteed to be less than u32::MAX.
-        let key = self.stable_ref.insert((chunk_key, entity_key)) as u32;
+        let key = self.stable_ref.vacant_key() as u32;
 
         // collision features
-        if let Some(rect) = spec.collision_rect(location) {
+        if let Some(rect) = spec.collision_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.insert(node);
         }
 
         // hint features
-        if let Some(rect) = spec.hint_rect(location) {
+        if let Some(rect) = spec.hint_rect(entity.location) {
             let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.insert(node);
         }
+
+        // entity_key is guaranteed to be less than u32::MAX.
+        let entity_key = chunk.entities.insert(entity) as u32;
+        chunk.version += 1;
+
+        self.stable_ref.insert((chunk_key, entity_key));
 
         Ok(key)
     }
@@ -853,7 +881,7 @@ impl EntityField {
         let entity = chunk.entities.try_remove(entity_key as usize).unwrap();
         chunk.version += 1;
 
-        let spec = &self.specs.get(entity.id as usize).unwrap();
+        let spec = self.specs.get(entity.id as usize).unwrap();
 
         // collision features
         if let Some(rect) = spec.collision_rect(entity.location) {
@@ -872,65 +900,77 @@ impl EntityField {
         Ok(entity)
     }
 
-    // TODO: impl partial update
     pub fn modify(&mut self, key: u32, new_entity: Entity) -> Result<Entity, FieldError> {
-        let new_spec = self
-            .specs
-            .get(new_entity.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-
-        // remove old entity
-        let (chunk_key, entity_key) = self
+        let (chunk_key, entity_key) = *self
             .stable_ref
-            .get_mut(key as usize)
+            .get(key as usize)
             .ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get_mut(chunk_key).unwrap();
-        let entity = chunk.entities.try_remove(*entity_key as usize).unwrap();
-        chunk.version += 1;
+        let chunk = self.chunks.get(&chunk_key).unwrap();
+        let entity = chunk.entities.get(entity_key as usize).unwrap();
 
-        let spec = &self.specs.get(entity.id as usize).unwrap();
+        if entity.id != new_entity.id || entity.location != new_entity.location {
+            let spec = self.specs.get(entity.id as usize).unwrap();
 
-        // collision features
-        if let Some(rect) = spec.collision_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.remove(node).unwrap();
+            let new_spec = self
+                .specs
+                .get(new_entity.id as usize)
+                .ok_or(FieldError::InvalidId)?;
+
+            // collision features
+
+            if let Some(rect) = spec.collision_rect(entity.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.remove(&node).unwrap();
+            }
+
+            if let Some(rect) = new_spec.collision_rect(new_entity.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.collision_ref.insert(node);
+            }
+
+            // hint features
+
+            if let Some(rect) = spec.hint_rect(entity.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.hint_ref.remove(&node).unwrap();
+            }
+
+            if let Some(rect) = new_spec.hint_rect(new_entity.location) {
+                let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+                let node = rstar::primitives::GeomWithData::new(rect, key);
+                self.hint_ref.insert(node);
+            }
         }
 
-        // hint features
-        if let Some(rect) = spec.hint_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = &rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.remove(node).unwrap();
-        }
-
-        let location = new_entity.location;
-
-        // insert new entity
-        *chunk_key = [
-            location[0].div_euclid(self.chunk_size as f32) as i32,
-            location[1].div_euclid(self.chunk_size as f32) as i32,
+        let new_chunk_key = [
+            new_entity.location[0].div_euclid(self.chunk_size as f32) as i32,
+            new_entity.location[1].div_euclid(self.chunk_size as f32) as i32,
         ];
-        let chunk = self.chunks.entry(*chunk_key).or_default();
-        // chunk.entities.vacant_key() is guaranteed to be less than u32::MAX.
-        *entity_key = chunk.entities.insert(new_entity) as u32;
-        chunk.version += 1;
 
-        // collision features
-        if let Some(rect) = new_spec.collision_rect(location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.collision_ref.insert(node);
+        // wheather to move entity to another chunk or not
+        if chunk_key != new_chunk_key {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let old_entity = chunk.entities.try_remove(entity_key as usize).unwrap();
+            chunk.version += 1;
+
+            let new_chunk = self.chunks.entry(new_chunk_key).or_default();
+            let new_entity_key = new_chunk.entities.insert(new_entity) as u32;
+            new_chunk.version += 1;
+
+            *self.stable_ref.get_mut(key as usize).unwrap() = (new_chunk_key, new_entity_key);
+
+            Ok(old_entity)
+        } else {
+            let chunk = self.chunks.get_mut(&chunk_key).unwrap();
+            let entity = chunk.entities.get_mut(entity_key as usize).unwrap();
+            let old_entity = std::mem::replace(entity, new_entity);
+            chunk.version += 1;
+
+            Ok(old_entity)
         }
-
-        // hint features
-        if let Some(rect) = new_spec.hint_rect(location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
-            let node = rstar::primitives::GeomWithData::new(rect, key);
-            self.hint_ref.insert(node);
-        }
-
-        Ok(entity)
     }
 
     pub fn get(&self, key: u32) -> Result<&Entity, FieldError> {

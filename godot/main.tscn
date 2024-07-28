@@ -29,6 +29,7 @@ world = NodePath("../World")
 camera = NodePath("../Camera3D")
 speed = 3.0
 view_size = 256.0
+forward_size = 64.0
 
 [node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("world", "camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)

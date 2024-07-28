@@ -6,6 +6,7 @@ class_name Player
 @export var camera: Camera3D
 @export var speed: float
 @export var view_size: float
+@export var forward_size: float
 
 var _entity_key: int
 var _location: Vector2
@@ -41,6 +42,12 @@ func _process(delta):
 		_location.y - view_size,
 		view_size * 2,
 		view_size * 2
+	)
+	world.min_forward_rect = Rect2(
+		_location.x - forward_size,
+		_location.y - forward_size,
+		forward_size * 2,
+		forward_size * 2
 	)
 
 	Actions.move_entity(world._root, _entity_key, _location)
