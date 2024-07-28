@@ -71,6 +71,15 @@ impl Actions {
     }
 
     #[func]
+    fn modify_tile(mut root: Gd<Root>, tile_key: u32, new_tile: Gd<Tile>) -> Gd<Tile> {
+        let mut root = root.bind_mut();
+        let mut root = root.as_mut();
+        let new_tile = new_tile.bind().inner_ref().clone();
+        let tile = extra_inner::modify_tile(&mut root.inner(), tile_key, new_tile).unwrap();
+        Gd::from_object(Tile::new(tile))
+    }
+
+    #[func]
     fn place_block(mut root: Gd<Root>, block: Gd<Block>) -> u32 {
         let mut root = root.bind_mut();
         let mut root = root.as_mut();
@@ -88,6 +97,15 @@ impl Actions {
     }
 
     #[func]
+    fn modify_block(mut root: Gd<Root>, block_key: u32, new_block: Gd<Block>) -> Gd<Block> {
+        let mut root = root.bind_mut();
+        let mut root = root.as_mut();
+        let new_block = new_block.bind().inner_ref().clone();
+        let block = extra_inner::modify_block(&mut root.inner(), block_key, new_block).unwrap();
+        Gd::from_object(Block::new(block))
+    }
+
+    #[func]
     fn place_entity(mut root: Gd<Root>, entity: Gd<Entity>) -> u32 {
         let mut root = root.bind_mut();
         let mut root = root.as_mut();
@@ -101,6 +119,15 @@ impl Actions {
         let mut root = root.bind_mut();
         let mut root = root.as_mut();
         let entity = extra_inner::break_entity(&mut root.inner(), entity_key).unwrap();
+        Gd::from_object(Entity::new(entity))
+    }
+
+    #[func]
+    fn modify_entity(mut root: Gd<Root>, entity_key: u32, new_entity: Gd<Entity>) -> Gd<Entity> {
+        let mut root = root.bind_mut();
+        let mut root = root.as_mut();
+        let new_entity = new_entity.bind().inner_ref().clone();
+        let entity = extra_inner::modify_entity(&mut root.inner(), entity_key, new_entity).unwrap();
         Gd::from_object(Entity::new(entity))
     }
 
@@ -137,13 +164,25 @@ struct CallbackBundles;
 #[godot_api]
 impl CallbackBundles {
     #[func]
-    fn new_generator() -> Gd<CallbackBundle> {
-        let bundle = Box::new(extra_inner::Generator {});
+    fn new_base_tile(tile_id: u32) -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::BaseTile { tile_id });
         Gd::from_object(CallbackBundle::new(bundle))
     }
 
     #[func]
-    fn new_random_walk(
+    fn new_base_block(block_id: u32) -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::BaseBlock { block_id });
+        Gd::from_object(CallbackBundle::new(bundle))
+    }
+
+    #[func]
+    fn new_base_entity(entity_id: u32) -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::BaseEntity { entity_id });
+        Gd::from_object(CallbackBundle::new(bundle))
+    }
+
+    #[func]
+    fn new_animal_entity(
         entity_id: u32,
         min_rest_secs: f32,
         max_rest_secs: f32,
@@ -151,7 +190,7 @@ impl CallbackBundles {
         max_distance: f32,
         speed: f32,
     ) -> Gd<CallbackBundle> {
-        let bundle = Box::new(extra_inner::RandomWalk {
+        let bundle = Box::new(extra_inner::AnimalEntity {
             entity_id,
             min_rest_secs,
             max_rest_secs,
@@ -163,8 +202,14 @@ impl CallbackBundles {
     }
 
     #[func]
+    fn new_generator() -> Gd<CallbackBundle> {
+        let bundle = Box::new(extra_inner::Generator {});
+        Gd::from_object(CallbackBundle::new(bundle))
+    }
+
+    #[func]
     fn new_random_walk_forward_local() -> Gd<CallbackBundle> {
-        let bundle = Box::new(extra_inner::RandomWalkForwardLocal);
+        let bundle = Box::new(extra_inner::RandomWalkForwardLocal {});
         Gd::from_object(CallbackBundle::new(bundle))
     }
 }

@@ -7,14 +7,21 @@ pub struct AfterCallback(pub Box<dyn Fn(&mut RootMut)>);
 pub struct ForwardCallback(pub Box<dyn Fn(&mut RootMut, f32)>);
 pub struct ForwardLocalCallback(pub Box<dyn Fn(&mut RootMut, f32, [SpcKey; 2])>);
 
-pub struct PlaceTileCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
-pub struct BreakTileCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
+pub struct PlaceTileCallback(pub Box<dyn Fn(&mut RootMut, Tile) -> Result<u32, FieldError>>);
+pub struct BreakTileCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Tile, FieldError>>);
+pub struct ModifyTileCallback(pub Box<dyn Fn(&mut RootMut, u32, Tile) -> Result<Tile, FieldError>>);
 
-pub struct PlaceBlockCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
-pub struct BreakBlockCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
+pub struct PlaceBlockCallback(pub Box<dyn Fn(&mut RootMut, Block) -> Result<u32, FieldError>>);
+pub struct BreakBlockCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Block, FieldError>>);
+pub struct ModifyBlockCallback(
+    pub Box<dyn Fn(&mut RootMut, u32, Block) -> Result<Block, FieldError>>,
+);
 
-pub struct PlaceEntityCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
-pub struct BreakEntityCallback(pub Box<dyn Fn(&mut RootMut, u32)>);
+pub struct PlaceEntityCallback(pub Box<dyn Fn(&mut RootMut, Entity) -> Result<u32, FieldError>>);
+pub struct BreakEntityCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Entity, FieldError>>);
+pub struct ModifyEntityCallback(
+    pub Box<dyn Fn(&mut RootMut, u32, Entity) -> Result<Entity, FieldError>>,
+);
 
 pub struct GenerateCallback(pub Box<dyn Fn(&mut RootMut, [Vec2; 2])>);
 
@@ -41,60 +48,104 @@ pub fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [SpcKey; 2]) {
 }
 
 pub fn place_tile(root: &mut RootMut, tile: Tile) -> Result<u32, FieldError> {
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<PlaceTileCallback>(CallbackRef::Tile(tile.id));
-    let tile_key = root.tile_field.insert(tile)?;
-    callbacks.for_each(|f| f.0(root, tile_key));
-    Ok(tile_key)
+        .one_by_ref::<PlaceTileCallback>(CallbackRef::Tile(tile.id))
+        .unwrap();
+    callback.0(root, tile)
 }
 
 pub fn break_tile(root: &mut RootMut, tile_key: u32) -> Result<Tile, FieldError> {
     let tile = root.tile_field.get(tile_key)?;
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<BreakTileCallback>(CallbackRef::Tile(tile.id));
-    callbacks.for_each(|f| f.0(root, tile_key));
-    let tile = root.tile_field.remove(tile_key)?;
-    Ok(tile)
+        .one_by_ref::<BreakTileCallback>(CallbackRef::Tile(tile.id))
+        .unwrap();
+    callback.0(root, tile_key)
+}
+
+pub fn modify_tile(root: &mut RootMut, tile_key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
+    let old_tile = root.tile_field.get(tile_key)?;
+
+    if new_tile.id != old_tile.id {
+        panic!("no support for changing tile id in modify_tile");
+    }
+
+    let callback = root
+        .callback_store
+        .one_by_ref::<ModifyTileCallback>(CallbackRef::Tile(new_tile.id))
+        .unwrap();
+    callback.0(root, tile_key, new_tile)
 }
 
 pub fn place_block(root: &mut RootMut, block: Block) -> Result<u32, FieldError> {
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<PlaceBlockCallback>(CallbackRef::Block(block.id));
-    let block_key = root.block_field.insert(block)?;
-    callbacks.for_each(|f| f.0(root, block_key));
-    Ok(block_key)
+        .one_by_ref::<PlaceBlockCallback>(CallbackRef::Block(block.id))
+        .unwrap();
+    callback.0(root, block)
 }
 
 pub fn break_block(root: &mut RootMut, block_key: u32) -> Result<Block, FieldError> {
     let block = root.block_field.get(block_key)?;
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<BreakBlockCallback>(CallbackRef::Block(block.id));
-    callbacks.for_each(|f| f.0(root, block_key));
-    let block = root.block_field.remove(block_key)?;
-    Ok(block)
+        .one_by_ref::<BreakBlockCallback>(CallbackRef::Block(block.id))
+        .unwrap();
+    callback.0(root, block_key)
+}
+
+pub fn modify_block(
+    root: &mut RootMut,
+    block_key: u32,
+    new_block: Block,
+) -> Result<Block, FieldError> {
+    let old_block = root.block_field.get(block_key)?;
+
+    if new_block.id != old_block.id {
+        panic!("no support for changing block id in modify_block");
+    }
+
+    let callback = root
+        .callback_store
+        .one_by_ref::<ModifyBlockCallback>(CallbackRef::Block(new_block.id))
+        .unwrap();
+    callback.0(root, block_key, new_block)
 }
 
 pub fn place_entity(root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<PlaceEntityCallback>(CallbackRef::Entity(entity.id));
-    let entity_key = root.entity_field.insert(entity)?;
-    callbacks.for_each(|f| f.0(root, entity_key));
-    Ok(entity_key)
+        .one_by_ref::<PlaceEntityCallback>(CallbackRef::Entity(entity.id))
+        .unwrap();
+    callback.0(root, entity)
 }
 
 pub fn break_entity(root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
     let entity = root.entity_field.get(entity_key)?;
-    let callbacks = root
+    let callback = root
         .callback_store
-        .iter_by_ref::<BreakEntityCallback>(CallbackRef::Entity(entity.id));
-    callbacks.for_each(|f| f.0(root, entity_key));
-    let entity = root.entity_field.remove(entity_key)?;
-    Ok(entity)
+        .one_by_ref::<BreakEntityCallback>(CallbackRef::Entity(entity.id))
+        .unwrap();
+    callback.0(root, entity_key)
+}
+
+pub fn modify_entity(
+    root: &mut RootMut,
+    entity_key: u32,
+    new_entity: Entity,
+) -> Result<Entity, FieldError> {
+    let old_entity = root.entity_field.get(entity_key)?;
+
+    if new_entity.id != old_entity.id {
+        panic!("no support for changing entity id in modify_entity");
+    }
+
+    let callback = root
+        .callback_store
+        .one_by_ref::<ModifyEntityCallback>(CallbackRef::Entity(new_entity.id))
+        .unwrap();
+    callback.0(root, entity_key, new_entity)
 }
 
 pub fn generate_chunk(root: &mut RootMut, rect: [Vec2; 2]) {
@@ -102,14 +153,13 @@ pub fn generate_chunk(root: &mut RootMut, rect: [Vec2; 2]) {
     callback.for_each(|f| f.0(root, rect));
 }
 
+// TODO: fix this function
 pub fn move_entity(
     root: &mut RootMut,
     entity_key: u32,
     new_location: Vec2,
 ) -> Result<(), FieldError> {
-    let entity = root.entity_field.get(entity_key)?;
-
-    if let Ok(rect) = root.entity_field.get_collision_rect(entity.id) {
+    if let Ok(rect) = root.entity_field.get_collision_rect(entity_key) {
         if root.tile_field.has_collision_by_rect(rect) {
             return Err(FieldError::Conflict);
         }
@@ -118,11 +168,277 @@ pub fn move_entity(
         }
     }
 
-    let mut new_entity = entity.clone();
-    new_entity.location = new_location;
-    root.entity_field.modify(entity_key, new_entity)?;
+    let entity = root.entity_field.get(entity_key)?;
+    let new_entity = Entity {
+        location: new_location,
+        ..entity.clone()
+    };
+
+    modify_entity(root, entity_key, new_entity)?;
 
     Ok(())
+}
+
+// base tile callback
+
+#[derive(Debug, Clone)]
+pub struct BaseTile {
+    pub tile_id: u32,
+}
+
+impl BaseTile {
+    #[inline]
+    fn place_tile(&self, root: &mut RootMut, tile: Tile) -> Result<u32, FieldError> {
+        root.tile_field.insert(tile)
+    }
+
+    #[inline]
+    fn break_tile(&self, root: &mut RootMut, tile_key: u32) -> Result<Tile, FieldError> {
+        root.tile_field.remove(tile_key)
+    }
+
+    #[inline]
+    fn modify_tile(
+        &self,
+        root: &mut RootMut,
+        tile_key: u32,
+        new_tile: Tile,
+    ) -> Result<Tile, FieldError> {
+        root.tile_field.modify(tile_key, new_tile)
+    }
+}
+
+impl CallbackBundle for BaseTile {
+    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            CallbackRef::Tile(self.tile_id),
+            PlaceTileCallback(Box::new({
+                let slf = slf.clone();
+                move |root, tile| slf.place_tile(root, tile)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Tile(self.tile_id),
+            BreakTileCallback(Box::new({
+                let slf = slf.clone();
+                move |root, tile_key| slf.break_tile(root, tile_key)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Tile(self.tile_id),
+            ModifyTileCallback(Box::new({
+                let slf = slf.clone();
+                move |root, tile_key, new_tile| slf.modify_tile(root, tile_key, new_tile)
+            })),
+        );
+    }
+}
+
+// base block callback
+
+#[derive(Debug, Clone)]
+pub struct BaseBlock {
+    pub block_id: u32,
+}
+
+impl BaseBlock {
+    #[inline]
+    fn place_block(&self, root: &mut RootMut, block: Block) -> Result<u32, FieldError> {
+        root.block_field.insert(block)
+    }
+
+    #[inline]
+    fn break_block(&self, root: &mut RootMut, block_key: u32) -> Result<Block, FieldError> {
+        root.block_field.remove(block_key)
+    }
+
+    #[inline]
+    fn modify_block(
+        &self,
+        root: &mut RootMut,
+        block_key: u32,
+        new_block: Block,
+    ) -> Result<Block, FieldError> {
+        root.block_field.modify(block_key, new_block)
+    }
+}
+
+impl CallbackBundle for BaseBlock {
+    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            CallbackRef::Block(self.block_id),
+            PlaceBlockCallback(Box::new({
+                let slf = slf.clone();
+                move |root, block| slf.place_block(root, block)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Block(self.block_id),
+            BreakBlockCallback(Box::new({
+                let slf = slf.clone();
+                move |root, block_key| slf.break_block(root, block_key)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Block(self.block_id),
+            ModifyBlockCallback(Box::new({
+                let slf = slf.clone();
+                move |root, block_key, new_block| slf.modify_block(root, block_key, new_block)
+            })),
+        );
+    }
+}
+
+// base entity callback
+
+#[derive(Debug, Clone)]
+pub struct BaseEntity {
+    pub entity_id: u32,
+}
+
+impl BaseEntity {
+    #[inline]
+    fn place_entity(&self, root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
+        root.entity_field.insert(entity)
+    }
+
+    #[inline]
+    fn break_entity(&self, root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
+        root.entity_field.remove(entity_key)
+    }
+
+    #[inline]
+    fn modify_entity(
+        &self,
+        root: &mut RootMut,
+        entity_key: u32,
+        new_entity: Entity,
+    ) -> Result<Entity, FieldError> {
+        root.entity_field.modify(entity_key, new_entity)
+    }
+}
+
+impl CallbackBundle for BaseEntity {
+    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            PlaceEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity| slf.place_entity(root, entity)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            BreakEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity_key| slf.break_entity(root, entity_key)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            ModifyEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity_key, new_entity| slf.modify_entity(root, entity_key, new_entity)
+            })),
+        );
+    }
+}
+
+// animal entity callback
+
+#[derive(Debug, Clone)]
+pub struct AnimalEntity {
+    pub entity_id: u32,
+    pub min_rest_secs: f32,
+    pub max_rest_secs: f32,
+    pub min_distance: f32,
+    pub max_distance: f32,
+    pub speed: f32,
+}
+
+impl AnimalEntity {
+    #[inline]
+    fn place_entity(&self, root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
+        let location = entity.location;
+
+        let entity_key = root.entity_field.insert(entity)?;
+
+        let node = RandomWalkNode {
+            min_rest_secs: self.min_rest_secs,
+            max_rest_secs: self.max_rest_secs,
+            min_distance: self.min_distance,
+            max_distance: self.max_distance,
+            speed: self.speed,
+            state: RandomWalkState::Init,
+        };
+        root.node_store
+            .insert(RefKey::Entity(entity_key), SpcKey::from(location), node)
+            .unwrap();
+
+        Ok(entity_key)
+    }
+
+    #[inline]
+    fn break_entity(&self, root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
+        let node_key = *root
+            .node_store
+            .one_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key))
+            .unwrap();
+        root.node_store.remove::<RandomWalkNode>(node_key).unwrap();
+
+        root.entity_field.remove(entity_key)
+    }
+
+    #[inline]
+    fn modify_entity(
+        &self,
+        root: &mut RootMut,
+        entity_key: u32,
+        new_entity: Entity,
+    ) -> Result<Entity, FieldError> {
+        let location = new_entity.location;
+
+        let old_entity = root.entity_field.modify(entity_key, new_entity)?;
+
+        let node_key = *root
+            .node_store
+            .one_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key))
+            .unwrap();
+        root.node_store
+            .modify::<RandomWalkNode, _>(node_key, |_, spc, _| *spc = SpcKey::from(location));
+
+        Ok(old_entity)
+    }
+}
+
+impl CallbackBundle for AnimalEntity {
+    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+        let slf = std::rc::Rc::new(self.clone());
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            PlaceEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity_key| slf.place_entity(root, entity_key)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            BreakEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity_key| slf.break_entity(root, entity_key)
+            })),
+        );
+        builder.insert(
+            CallbackRef::Entity(self.entity_id),
+            ModifyEntityCallback(Box::new({
+                let slf = slf.clone();
+                move |root, entity_key, new_entity| slf.modify_entity(root, entity_key, new_entity)
+            })),
+        );
+    }
 }
 
 // generator callback
@@ -277,58 +593,7 @@ pub struct RandomWalkNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct RandomWalk {
-    pub entity_id: u32,
-    pub min_rest_secs: f32,
-    pub max_rest_secs: f32,
-    pub min_distance: f32,
-    pub max_distance: f32,
-    pub speed: f32,
-}
-
-impl RandomWalk {
-    fn place_entity(&self, root: &mut RootMut, entity_key: u32) {
-        let entity = root.entity_field.get(entity_key).unwrap();
-        let node = RandomWalkNode {
-            min_rest_secs: self.min_rest_secs,
-            max_rest_secs: self.max_rest_secs,
-            min_distance: self.min_distance,
-            max_distance: self.max_distance,
-            speed: self.speed,
-            state: RandomWalkState::Init,
-        };
-        root.node_store
-            .insert(RefKey::Entity(entity_key), entity.location.into(), node);
-    }
-
-    fn break_entity(&self, root: &mut RootMut, entity_key: u32) {
-        root.node_store
-            .remove_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key));
-    }
-}
-
-impl CallbackBundle for RandomWalk {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
-        let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            PlaceEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key| slf.place_entity(root, entity_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            BreakEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key| slf.break_entity(root, entity_key)
-            })),
-        );
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RandomWalkForwardLocal;
+pub struct RandomWalkForwardLocal {}
 
 impl RandomWalkForwardLocal {
     fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [SpcKey; 2]) {

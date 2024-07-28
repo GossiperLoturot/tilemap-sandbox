@@ -128,11 +128,18 @@ func _ready():
 		[
 			CallbackBundles.new_generator(),
 			CallbackBundles.new_random_walk_forward_local(),
-			CallbackBundles.new_random_walk(1, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_random_walk(2, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_random_walk(3, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_random_walk(4, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_random_walk(5, 3.0, 60.0, 1.0, 5.0, 0.5),
+			CallbackBundles.new_base_tile(0),
+			CallbackBundles.new_base_tile(1),
+			CallbackBundles.new_base_block(0),
+			CallbackBundles.new_base_block(1),
+			CallbackBundles.new_base_block(2),
+			CallbackBundles.new_base_block(3),
+			CallbackBundles.new_base_entity(0),
+			CallbackBundles.new_animal_entity(1, 3.0, 60.0, 1.0, 5.0, 0.5),
+			CallbackBundles.new_animal_entity(2, 3.0, 60.0, 1.0, 5.0, 0.5),
+			CallbackBundles.new_animal_entity(3, 3.0, 60.0, 1.0, 5.0, 0.5),
+			CallbackBundles.new_animal_entity(4, 3.0, 60.0, 1.0, 5.0, 0.5),
+			CallbackBundles.new_animal_entity(5, 3.0, 60.0, 1.0, 5.0, 0.5),
 		] as Array[CallbackBundle]
 	))
 
