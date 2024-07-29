@@ -162,16 +162,10 @@ func _process(delta):
 	Actions.generate_chunk(_root, min_view_rect)
 
 	# rendering
-	# _root.tile_field.update_view(min_view_rect)
-	# _root.block_field.update_view(min_view_rect)
-	# _root.entity_field.update_view(min_view_rect)
-	update_view()
-
-
-func update_view():
 	_root.tile_field.update_view(min_view_rect)
 	_root.block_field.update_view(min_view_rect)
 	_root.entity_field.update_view(min_view_rect)
+
 
 func _exit_tree():
 	# clean up world context
