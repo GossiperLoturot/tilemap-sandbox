@@ -159,11 +159,30 @@ pub fn move_entity(
     entity_key: u32,
     new_location: Vec2,
 ) -> Result<(), FieldError> {
+    let entity = root.entity_field.get(entity_key)?;
+
     if let Ok(rect) = root.entity_field.get_collision_rect(entity_key) {
+        let delta = [
+            new_location[0] - entity.location[0],
+            new_location[1] - entity.location[1],
+        ];
+
+        let rect = [
+            [rect[0][0] + delta[0], rect[0][1] + delta[1]],
+            [rect[1][0] + delta[0], rect[1][1] + delta[1]],
+        ];
+
         if root.tile_field.has_collision_by_rect(rect) {
             return Err(FieldError::Conflict);
         }
         if root.block_field.has_collision_by_rect(rect) {
+            return Err(FieldError::Conflict);
+        }
+        if root
+            .entity_field
+            .get_collision_by_rect(rect)
+            .any(|other_entity_key| other_entity_key != entity_key)
+        {
             return Err(FieldError::Conflict);
         }
     }
