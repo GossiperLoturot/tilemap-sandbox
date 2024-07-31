@@ -1,167 +1,215 @@
 use crate::inner::*;
 
-// callback definition
+// flow definition
 
-pub struct BeforeCallback(pub Box<dyn Fn(&mut RootMut)>);
-pub struct AfterCallback(pub Box<dyn Fn(&mut RootMut)>);
-pub struct ForwardCallback(pub Box<dyn Fn(&mut RootMut, f32)>);
-pub struct ForwardLocalCallback(pub Box<dyn Fn(&mut RootMut, f32, [SpcKey; 2])>);
+pub trait IResource {
+    fn before(&self, root: &mut Root);
+    fn after(&self, root: &mut Root);
+}
 
-pub struct PlaceTileCallback(pub Box<dyn Fn(&mut RootMut, Tile) -> Result<u32, FieldError>>);
-pub struct BreakTileCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Tile, FieldError>>);
-pub struct ModifyTileCallback(pub Box<dyn Fn(&mut RootMut, u32, Tile) -> Result<Tile, FieldError>>);
+pub trait ITile {
+    fn place_tile(&self, root: &mut Root, tile: Tile) -> Result<u32, FieldError>;
+    fn break_tile(&self, root: &mut Root, tile_key: u32) -> Result<Tile, FieldError>;
+    fn modify_tile(
+        &self,
+        root: &mut Root,
+        tile_key: u32,
+        new_tile: Tile,
+    ) -> Result<Tile, FieldError>;
+}
 
-pub struct PlaceBlockCallback(pub Box<dyn Fn(&mut RootMut, Block) -> Result<u32, FieldError>>);
-pub struct BreakBlockCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Block, FieldError>>);
-pub struct ModifyBlockCallback(
-    pub Box<dyn Fn(&mut RootMut, u32, Block) -> Result<Block, FieldError>>,
-);
+pub trait IBlock {
+    fn place_block(&self, root: &mut Root, block: Block) -> Result<u32, FieldError>;
+    fn break_block(&self, root: &mut Root, block_key: u32) -> Result<Block, FieldError>;
+    fn modify_block(
+        &self,
+        root: &mut Root,
+        block_key: u32,
+        new_block: Block,
+    ) -> Result<Block, FieldError>;
+}
 
-pub struct PlaceEntityCallback(pub Box<dyn Fn(&mut RootMut, Entity) -> Result<u32, FieldError>>);
-pub struct BreakEntityCallback(pub Box<dyn Fn(&mut RootMut, u32) -> Result<Entity, FieldError>>);
-pub struct ModifyEntityCallback(
-    pub Box<dyn Fn(&mut RootMut, u32, Entity) -> Result<Entity, FieldError>>,
-);
+pub trait IEntity {
+    fn place_entity(&self, root: &mut Root, entity: Entity) -> Result<u32, FieldError>;
+    fn break_entity(&self, root: &mut Root, entity_key: u32) -> Result<Entity, FieldError>;
+    fn modify_entity(
+        &self,
+        root: &mut Root,
+        entity_key: u32,
+        new_entity: Entity,
+    ) -> Result<Entity, FieldError>;
+}
 
-pub struct GenerateCallback(pub Box<dyn Fn(&mut RootMut, [Vec2; 2])>);
+pub trait IForward {
+    fn forward(&self, root: &mut Root, delta_secs: f32);
+}
+
+pub trait IForwardLocal {
+    fn forward_local(&self, root: &mut Root, delta_secs: f32, rect: [SpaceKey; 2]);
+}
+
+pub trait IGenerate {
+    fn generate_chunk(&self, root: &mut Root, rect: [Vec2; 2]);
+}
 
 // action
 
-pub fn before(root: &mut RootMut) {
-    let callbacks = root.callback_store.iter::<BeforeCallback>();
-    callbacks.for_each(|f| f.0(root));
+pub fn before(root: &mut Root) {
+    for flow in root
+        .flow_iter::<std::rc::Rc<dyn IResource>>()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        flow.before(root);
+    }
 }
 
-pub fn after(root: &mut RootMut) {
-    let callbacks = root.callback_store.iter::<AfterCallback>();
-    callbacks.for_each(|f| f.0(root));
+pub fn after(root: &mut Root) {
+    for flow in root
+        .flow_iter::<std::rc::Rc<dyn IResource>>()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        flow.after(root);
+    }
 }
 
-pub fn forward(root: &mut RootMut, delta_secs: f32) {
-    let callbacks = root.callback_store.iter::<ForwardCallback>();
-    callbacks.for_each(|f| f.0(root, delta_secs));
-}
-
-pub fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [SpcKey; 2]) {
-    let callbacks = root.callback_store.iter::<ForwardLocalCallback>();
-    callbacks.for_each(|f| f.0(root, delta_secs, rect));
-}
-
-pub fn place_tile(root: &mut RootMut, tile: Tile) -> Result<u32, FieldError> {
-    let callback = root
-        .callback_store
-        .one_by_ref::<PlaceTileCallback>(CallbackRef::Tile(tile.id))
+pub fn place_tile(root: &mut Root, tile: Tile) -> Result<u32, FieldError> {
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn ITile>>(FlowRef::Tile(tile.id))
+        .cloned()
         .unwrap();
-    callback.0(root, tile)
+    flow.place_tile(root, tile)
 }
 
-pub fn break_tile(root: &mut RootMut, tile_key: u32) -> Result<Tile, FieldError> {
-    let tile = root.tile_field.get(tile_key)?;
-    let callback = root
-        .callback_store
-        .one_by_ref::<BreakTileCallback>(CallbackRef::Tile(tile.id))
+pub fn break_tile(root: &mut Root, tile_key: u32) -> Result<Tile, FieldError> {
+    let tile = root.tile_get(tile_key)?;
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn ITile>>(FlowRef::Tile(tile.id))
+        .cloned()
         .unwrap();
-    callback.0(root, tile_key)
+    flow.break_tile(root, tile_key)
 }
 
-pub fn modify_tile(root: &mut RootMut, tile_key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
-    let old_tile = root.tile_field.get(tile_key)?;
+pub fn modify_tile(root: &mut Root, tile_key: u32, new_tile: Tile) -> Result<Tile, FieldError> {
+    let old_tile = root.tile_get(tile_key)?;
 
     if new_tile.id != old_tile.id {
         panic!("no support for changing tile id in modify_tile");
     }
 
-    let callback = root
-        .callback_store
-        .one_by_ref::<ModifyTileCallback>(CallbackRef::Tile(new_tile.id))
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn ITile>>(FlowRef::Tile(new_tile.id))
+        .cloned()
         .unwrap();
-    callback.0(root, tile_key, new_tile)
+    flow.modify_tile(root, tile_key, new_tile)
 }
 
-pub fn place_block(root: &mut RootMut, block: Block) -> Result<u32, FieldError> {
-    let callback = root
-        .callback_store
-        .one_by_ref::<PlaceBlockCallback>(CallbackRef::Block(block.id))
+pub fn place_block(root: &mut Root, block: Block) -> Result<u32, FieldError> {
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(block.id))
+        .cloned()
         .unwrap();
-    callback.0(root, block)
+    flow.place_block(root, block)
 }
 
-pub fn break_block(root: &mut RootMut, block_key: u32) -> Result<Block, FieldError> {
-    let block = root.block_field.get(block_key)?;
-    let callback = root
-        .callback_store
-        .one_by_ref::<BreakBlockCallback>(CallbackRef::Block(block.id))
+pub fn break_block(root: &mut Root, block_key: u32) -> Result<Block, FieldError> {
+    let block = root.block_get(block_key)?;
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(block.id))
+        .cloned()
         .unwrap();
-    callback.0(root, block_key)
+    flow.break_block(root, block_key)
 }
 
 pub fn modify_block(
-    root: &mut RootMut,
+    root: &mut Root,
     block_key: u32,
     new_block: Block,
 ) -> Result<Block, FieldError> {
-    let old_block = root.block_field.get(block_key)?;
+    let old_block = root.block_get(block_key)?;
 
     if new_block.id != old_block.id {
         panic!("no support for changing block id in modify_block");
     }
 
-    let callback = root
-        .callback_store
-        .one_by_ref::<ModifyBlockCallback>(CallbackRef::Block(new_block.id))
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(new_block.id))
+        .cloned()
         .unwrap();
-    callback.0(root, block_key, new_block)
+    flow.modify_block(root, block_key, new_block)
 }
 
-pub fn place_entity(root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
-    let callback = root
-        .callback_store
-        .one_by_ref::<PlaceEntityCallback>(CallbackRef::Entity(entity.id))
+pub fn place_entity(root: &mut Root, entity: Entity) -> Result<u32, FieldError> {
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(entity.id))
+        .cloned()
         .unwrap();
-    callback.0(root, entity)
+    flow.place_entity(root, entity)
 }
 
-pub fn break_entity(root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
-    let entity = root.entity_field.get(entity_key)?;
-    let callback = root
-        .callback_store
-        .one_by_ref::<BreakEntityCallback>(CallbackRef::Entity(entity.id))
+pub fn break_entity(root: &mut Root, entity_key: u32) -> Result<Entity, FieldError> {
+    let entity = root.entity_get(entity_key)?;
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(entity.id))
+        .cloned()
         .unwrap();
-    callback.0(root, entity_key)
+    flow.break_entity(root, entity_key)
 }
 
 pub fn modify_entity(
-    root: &mut RootMut,
+    root: &mut Root,
     entity_key: u32,
     new_entity: Entity,
 ) -> Result<Entity, FieldError> {
-    let old_entity = root.entity_field.get(entity_key)?;
+    let old_entity = root.entity_get(entity_key)?;
 
     if new_entity.id != old_entity.id {
         panic!("no support for changing entity id in modify_entity");
     }
 
-    let callback = root
-        .callback_store
-        .one_by_ref::<ModifyEntityCallback>(CallbackRef::Entity(new_entity.id))
+    let flow = root
+        .flow_one_by_ref::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(new_entity.id))
+        .cloned()
         .unwrap();
-    callback.0(root, entity_key, new_entity)
+    flow.modify_entity(root, entity_key, new_entity)
 }
 
-pub fn generate_chunk(root: &mut RootMut, rect: [Vec2; 2]) {
-    let callback = root.callback_store.iter::<GenerateCallback>();
-    callback.for_each(|f| f.0(root, rect));
+pub fn forward(root: &mut Root, delta_secs: f32) {
+    for flow in root
+        .flow_iter::<std::rc::Rc<dyn IForward>>()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        flow.forward(root, delta_secs);
+    }
+}
+
+pub fn forward_local(root: &mut Root, delta_secs: f32, rect: [SpaceKey; 2]) {
+    for flow in root
+        .flow_iter::<std::rc::Rc<dyn IForwardLocal>>()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        flow.forward_local(root, delta_secs, rect);
+    }
+}
+
+pub fn generate_chunk(root: &mut Root, rect: [Vec2; 2]) {
+    for flow in root
+        .flow_iter::<std::rc::Rc<dyn IGenerate>>()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        flow.generate_chunk(root, rect);
+    }
 }
 
 // TODO: fix this function
-pub fn move_entity(
-    root: &mut RootMut,
-    entity_key: u32,
-    new_location: Vec2,
-) -> Result<(), FieldError> {
-    let entity = root.entity_field.get(entity_key)?;
+pub fn move_entity(root: &mut Root, entity_key: u32, new_location: Vec2) -> Result<(), FieldError> {
+    let entity = root.entity_get(entity_key)?;
 
-    if let Ok(rect) = root.entity_field.get_collision_rect(entity_key) {
+    if let Ok(rect) = root.entity_get_collision_rect(entity_key) {
         let delta = [
             new_location[0] - entity.location[0],
             new_location[1] - entity.location[1],
@@ -172,22 +220,21 @@ pub fn move_entity(
             [rect[1][0] + delta[0], rect[1][1] + delta[1]],
         ];
 
-        if root.tile_field.has_collision_by_rect(rect) {
+        if root.tile_has_by_collision_rect(rect) {
             return Err(FieldError::Conflict);
         }
-        if root.block_field.has_collision_by_rect(rect) {
+        if root.block_has_by_collision_rect(rect) {
             return Err(FieldError::Conflict);
         }
         if root
-            .entity_field
-            .get_collision_by_rect(rect)
+            .entity_get_by_collision_rect(rect)
             .any(|other_entity_key| other_entity_key != entity_key)
         {
             return Err(FieldError::Conflict);
         }
     }
 
-    let entity = root.entity_field.get(entity_key)?;
+    let entity = root.entity_get(entity_key)?;
     let new_entity = Entity {
         location: new_location,
         ..entity.clone()
@@ -198,175 +245,115 @@ pub fn move_entity(
     Ok(())
 }
 
-// base tile callback
+// base tile flow
 
 #[derive(Debug, Clone)]
 pub struct BaseTile {
     pub tile_id: u32,
 }
 
-impl BaseTile {
+impl ITile for BaseTile {
     #[inline]
-    fn place_tile(&self, root: &mut RootMut, tile: Tile) -> Result<u32, FieldError> {
-        root.tile_field.insert(tile)
+    fn place_tile(&self, root: &mut Root, tile: Tile) -> Result<u32, FieldError> {
+        root.tile_insert(tile)
     }
 
     #[inline]
-    fn break_tile(&self, root: &mut RootMut, tile_key: u32) -> Result<Tile, FieldError> {
-        root.tile_field.remove(tile_key)
+    fn break_tile(&self, root: &mut Root, tile_key: u32) -> Result<Tile, FieldError> {
+        root.tile_remove(tile_key)
     }
 
     #[inline]
     fn modify_tile(
         &self,
-        root: &mut RootMut,
+        root: &mut Root,
         tile_key: u32,
         new_tile: Tile,
     ) -> Result<Tile, FieldError> {
-        root.tile_field.modify(tile_key, new_tile)
+        root.tile_modify(tile_key, new_tile)
     }
 }
 
-impl CallbackBundle for BaseTile {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+impl FlowBundle for BaseTile {
+    fn insert(&self, buf: &mut FlowBuffer) {
         let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Tile(self.tile_id),
-            PlaceTileCallback(Box::new({
-                let slf = slf.clone();
-                move |root, tile| slf.place_tile(root, tile)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Tile(self.tile_id),
-            BreakTileCallback(Box::new({
-                let slf = slf.clone();
-                move |root, tile_key| slf.break_tile(root, tile_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Tile(self.tile_id),
-            ModifyTileCallback(Box::new({
-                let slf = slf.clone();
-                move |root, tile_key, new_tile| slf.modify_tile(root, tile_key, new_tile)
-            })),
-        );
+        buf.register::<std::rc::Rc<dyn ITile>>(FlowRef::Tile(self.tile_id), slf);
     }
 }
 
-// base block callback
+// base block flow
 
 #[derive(Debug, Clone)]
 pub struct BaseBlock {
     pub block_id: u32,
 }
 
-impl BaseBlock {
+impl IBlock for BaseBlock {
     #[inline]
-    fn place_block(&self, root: &mut RootMut, block: Block) -> Result<u32, FieldError> {
-        root.block_field.insert(block)
+    fn place_block(&self, root: &mut Root, block: Block) -> Result<u32, FieldError> {
+        root.block_insert(block)
     }
 
     #[inline]
-    fn break_block(&self, root: &mut RootMut, block_key: u32) -> Result<Block, FieldError> {
-        root.block_field.remove(block_key)
+    fn break_block(&self, root: &mut Root, block_key: u32) -> Result<Block, FieldError> {
+        root.block_remove(block_key)
     }
 
     #[inline]
     fn modify_block(
         &self,
-        root: &mut RootMut,
+        root: &mut Root,
         block_key: u32,
         new_block: Block,
     ) -> Result<Block, FieldError> {
-        root.block_field.modify(block_key, new_block)
+        root.block_modify(block_key, new_block)
     }
 }
 
-impl CallbackBundle for BaseBlock {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+impl FlowBundle for BaseBlock {
+    fn insert(&self, buf: &mut FlowBuffer) {
         let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Block(self.block_id),
-            PlaceBlockCallback(Box::new({
-                let slf = slf.clone();
-                move |root, block| slf.place_block(root, block)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Block(self.block_id),
-            BreakBlockCallback(Box::new({
-                let slf = slf.clone();
-                move |root, block_key| slf.break_block(root, block_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Block(self.block_id),
-            ModifyBlockCallback(Box::new({
-                let slf = slf.clone();
-                move |root, block_key, new_block| slf.modify_block(root, block_key, new_block)
-            })),
-        );
+        buf.register::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(self.block_id), slf);
     }
 }
 
-// base entity callback
+// base entity flow
 
 #[derive(Debug, Clone)]
 pub struct BaseEntity {
     pub entity_id: u32,
 }
 
-impl BaseEntity {
+impl IEntity for BaseEntity {
     #[inline]
-    fn place_entity(&self, root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
-        root.entity_field.insert(entity)
+    fn place_entity(&self, root: &mut Root, entity: Entity) -> Result<u32, FieldError> {
+        root.entity_insert(entity)
     }
 
     #[inline]
-    fn break_entity(&self, root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
-        root.entity_field.remove(entity_key)
+    fn break_entity(&self, root: &mut Root, entity_key: u32) -> Result<Entity, FieldError> {
+        root.entity_remove(entity_key)
     }
 
     #[inline]
     fn modify_entity(
         &self,
-        root: &mut RootMut,
+        root: &mut Root,
         entity_key: u32,
         new_entity: Entity,
     ) -> Result<Entity, FieldError> {
-        root.entity_field.modify(entity_key, new_entity)
+        root.entity_modify(entity_key, new_entity)
     }
 }
 
-impl CallbackBundle for BaseEntity {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+impl FlowBundle for BaseEntity {
+    fn insert(&self, buf: &mut FlowBuffer) {
         let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            PlaceEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity| slf.place_entity(root, entity)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            BreakEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key| slf.break_entity(root, entity_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            ModifyEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key, new_entity| slf.modify_entity(root, entity_key, new_entity)
-            })),
-        );
+        buf.register::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(self.entity_id), slf);
     }
 }
 
-// animal entity callback
+// animal entity flow
 
 #[derive(Debug, Clone)]
 pub struct AnimalEntity {
@@ -378,14 +365,14 @@ pub struct AnimalEntity {
     pub speed: f32,
 }
 
-impl AnimalEntity {
+impl IEntity for AnimalEntity {
     #[inline]
-    fn place_entity(&self, root: &mut RootMut, entity: Entity) -> Result<u32, FieldError> {
+    fn place_entity(&self, root: &mut Root, entity: Entity) -> Result<u32, FieldError> {
         let location = entity.location;
 
-        let entity_key = root.entity_field.insert(entity)?;
+        let entity_key = root.entity_insert(entity)?;
 
-        let node = RandomWalkNode {
+        let tag = RandomWalkTag {
             min_rest_secs: self.min_rest_secs,
             max_rest_secs: self.max_rest_secs,
             min_distance: self.min_distance,
@@ -393,77 +380,57 @@ impl AnimalEntity {
             speed: self.speed,
             state: RandomWalkState::Init,
         };
-        root.node_store
-            .insert(RefKey::Entity(entity_key), SpcKey::from(location), node)
+        root.tag_insert(RefKey::Entity(entity_key), SpaceKey::from(location), tag)
             .unwrap();
 
         Ok(entity_key)
     }
 
     #[inline]
-    fn break_entity(&self, root: &mut RootMut, entity_key: u32) -> Result<Entity, FieldError> {
-        let node_key = *root
-            .node_store
-            .one_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key))
+    fn break_entity(&self, root: &mut Root, entity_key: u32) -> Result<Entity, FieldError> {
+        let tag_key = *root
+            .tag_one_by_ref::<RandomWalkTag>(RefKey::Entity(entity_key))
             .unwrap();
-        root.node_store.remove::<RandomWalkNode>(node_key).unwrap();
 
-        root.entity_field.remove(entity_key)
+        root.tag_remove::<RandomWalkTag>(tag_key).unwrap();
+
+        root.entity_remove(entity_key)
     }
 
     #[inline]
     fn modify_entity(
         &self,
-        root: &mut RootMut,
+        root: &mut Root,
         entity_key: u32,
         new_entity: Entity,
     ) -> Result<Entity, FieldError> {
         let location = new_entity.location;
 
-        let old_entity = root.entity_field.modify(entity_key, new_entity)?;
+        let old_entity = root.entity_modify(entity_key, new_entity)?;
 
-        let node_key = *root
-            .node_store
-            .one_by_ref::<RandomWalkNode>(RefKey::Entity(entity_key))
+        let tag_key = *root
+            .tag_one_by_ref::<RandomWalkTag>(RefKey::Entity(entity_key))
             .unwrap();
-        root.node_store
-            .modify::<RandomWalkNode, _>(node_key, |_, spc, _| *spc = SpcKey::from(location));
+
+        root.tag_modify::<RandomWalkTag>(tag_key, |_, spc, _| {
+            *spc = SpaceKey::from(location);
+        });
 
         Ok(old_entity)
     }
 }
 
-impl CallbackBundle for AnimalEntity {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+impl FlowBundle for AnimalEntity {
+    fn insert(&self, buf: &mut FlowBuffer) {
         let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            PlaceEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key| slf.place_entity(root, entity_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            BreakEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key| slf.break_entity(root, entity_key)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Entity(self.entity_id),
-            ModifyEntityCallback(Box::new({
-                let slf = slf.clone();
-                move |root, entity_key, new_entity| slf.modify_entity(root, entity_key, new_entity)
-            })),
-        );
+        buf.register::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(self.entity_id), slf);
     }
 }
 
-// generator callback
+// generator flow
 
 #[derive(Debug, Clone)]
-pub struct GeneratorNode {
+pub struct GeneratorTag {
     pub prev_rect: Option<[IVec2; 2]>,
     pub visited_chunk: ahash::AHashSet<IVec2>,
 }
@@ -471,55 +438,59 @@ pub struct GeneratorNode {
 #[derive(Debug, Clone)]
 pub struct Generator {}
 
-impl Generator {
-    const CHUNK_SIZE: u32 = 32;
-
-    fn before(&self, root: &mut RootMut) {
-        let node = GeneratorNode {
+impl IResource for Generator {
+    fn before(&self, root: &mut Root) {
+        let tag = GeneratorTag {
             prev_rect: None,
             visited_chunk: Default::default(),
         };
-        root.node_store.insert(RefKey::Global, SpcKey::GLOBAL, node);
+        root.tag_insert(RefKey::Global, SpaceKey::GLOBAL, tag)
+            .unwrap();
     }
 
-    fn after(&self, root: &mut RootMut) {
-        root.node_store
-            .remove_by_ref::<GeneratorNode>(RefKey::Global);
-    }
+    fn after(&self, root: &mut Root) {
+        let tag_key = *root.tag_one::<GeneratorTag>().unwrap();
 
-    pub fn generate_chunk(&self, root: &mut RootMut, rect: [Vec2; 2]) {
-        let node_key = *root.node_store.one::<GeneratorNode>().unwrap();
-        let (_, _, node) = root.node_store.get::<GeneratorNode>(node_key).unwrap();
+        root.tag_remove::<GeneratorTag>(tag_key);
+    }
+}
+
+impl IGenerate for Generator {
+    fn generate_chunk(&self, root: &mut Root, rect: [Vec2; 2]) {
+        const CHUNK_SIZE: u32 = 32;
+
+        let tag_key = *root.tag_one::<GeneratorTag>().unwrap();
+
+        let (_, _, tag) = root.tag_get::<GeneratorTag>(tag_key).unwrap();
 
         #[rustfmt::skip]
         let rect = [[
-            rect[0][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
-            rect[0][1].div_euclid(Self::CHUNK_SIZE as f32) as i32, ], [
-            rect[1][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
-            rect[1][1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            rect[0][0].div_euclid(CHUNK_SIZE as f32) as i32,
+            rect[0][1].div_euclid(CHUNK_SIZE as f32) as i32, ], [
+            rect[1][0].div_euclid(CHUNK_SIZE as f32) as i32,
+            rect[1][1].div_euclid(CHUNK_SIZE as f32) as i32,
         ]];
 
-        if Some(rect) != node.prev_rect {
+        if Some(rect) != tag.prev_rect {
             for y in rect[0][1]..=rect[1][1] {
                 for x in rect[0][0]..=rect[1][0] {
                     let chunk_key = [x, y];
 
-                    let (_, _, node) = root.node_store.get::<GeneratorNode>(node_key).unwrap();
-                    if node.visited_chunk.contains(&chunk_key) {
+                    let (_, _, tag) = root.tag_get::<GeneratorTag>(tag_key).unwrap();
+                    if tag.visited_chunk.contains(&chunk_key) {
                         continue;
                     }
 
-                    root.node_store
-                        .modify::<GeneratorNode, _>(node_key, |_, _, node| {
-                            node.visited_chunk.insert(chunk_key);
-                        });
+                    root.tag_modify::<GeneratorTag>(tag_key, |_, _, tag| {
+                        tag.visited_chunk.insert(chunk_key);
+                    });
 
-                    for v in 0..Self::CHUNK_SIZE {
-                        for u in 0..Self::CHUNK_SIZE {
+                    for v in 0..CHUNK_SIZE {
+                        for u in 0..CHUNK_SIZE {
                             let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
                             let location = [
-                                x * Self::CHUNK_SIZE as i32 + u as i32,
-                                y * Self::CHUNK_SIZE as i32 + v as i32,
+                                x * CHUNK_SIZE as i32 + u as i32,
+                                y * CHUNK_SIZE as i32 + v as i32,
                             ];
                             let _ = place_tile(root, Tile::new(id, location, 0));
                         }
@@ -527,70 +498,46 @@ impl Generator {
 
                     for _ in 0..64 {
                         let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=3);
-                        let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..Self::CHUNK_SIZE);
-                        let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..Self::CHUNK_SIZE);
+                        let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..CHUNK_SIZE);
+                        let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..CHUNK_SIZE);
                         let location = [
-                            x * Self::CHUNK_SIZE as i32 + u as i32,
-                            y * Self::CHUNK_SIZE as i32 + v as i32,
+                            x * CHUNK_SIZE as i32 + u as i32,
+                            y * CHUNK_SIZE as i32 + v as i32,
                         ];
                         let _ = place_block(root, Block::new(id, location, 0));
                     }
 
                     for _ in 0..64 {
                         let id = rand::Rng::gen_range(&mut rand::thread_rng(), 1..=5);
-                        let u = rand::Rng::gen_range(
-                            &mut rand::thread_rng(),
-                            0.0..Self::CHUNK_SIZE as f32,
-                        );
-                        let v = rand::Rng::gen_range(
-                            &mut rand::thread_rng(),
-                            0.0..Self::CHUNK_SIZE as f32,
-                        );
+                        let u =
+                            rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..CHUNK_SIZE as f32);
+                        let v =
+                            rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..CHUNK_SIZE as f32);
                         let location = [
-                            x as f32 * Self::CHUNK_SIZE as f32 + u,
-                            y as f32 * Self::CHUNK_SIZE as f32 + v,
+                            x as f32 * CHUNK_SIZE as f32 + u,
+                            y as f32 * CHUNK_SIZE as f32 + v,
                         ];
                         let _ = place_entity(root, Entity::new(id, location, 0));
                     }
                 }
             }
 
-            root.node_store
-                .modify::<GeneratorNode, _>(node_key, |_, _, node| {
-                    node.prev_rect = Some(rect);
-                });
+            root.tag_modify::<GeneratorTag>(tag_key, |_, _, tag| {
+                tag.prev_rect = Some(rect);
+            });
         }
     }
 }
 
-impl CallbackBundle for Generator {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
+impl FlowBundle for Generator {
+    fn insert(&self, buf: &mut FlowBuffer) {
         let slf = std::rc::Rc::new(self.clone());
-        builder.insert(
-            CallbackRef::Global,
-            BeforeCallback(Box::new({
-                let slf = slf.clone();
-                move |root| slf.before(root)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Global,
-            AfterCallback(Box::new({
-                let slf = slf.clone();
-                move |root| slf.after(root)
-            })),
-        );
-        builder.insert(
-            CallbackRef::Global,
-            GenerateCallback(Box::new({
-                let slf = slf.clone();
-                move |root, chunk_key| slf.generate_chunk(root, chunk_key)
-            })),
-        );
+        buf.register::<std::rc::Rc<dyn IResource>>(FlowRef::Global, slf.clone());
+        buf.register::<std::rc::Rc<dyn IGenerate>>(FlowRef::Global, slf);
     }
 }
 
-// random walk callback
+// random walk flow
 
 #[derive(Debug, Clone)]
 pub enum RandomWalkState {
@@ -602,7 +549,7 @@ pub enum RandomWalkState {
 }
 
 #[derive(Debug, Clone)]
-pub struct RandomWalkNode {
+pub struct RandomWalkTag {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
@@ -614,51 +561,48 @@ pub struct RandomWalkNode {
 #[derive(Debug, Clone)]
 pub struct RandomWalkForwardLocal {}
 
-impl RandomWalkForwardLocal {
-    fn forward_local(root: &mut RootMut, delta_secs: f32, rect: [SpcKey; 2]) {
-        for node_key in root.node_store.detach_iter_by_rect::<RandomWalkNode>(rect) {
-            let (r#ref, _, node) = root.node_store.get::<RandomWalkNode>(node_key).unwrap();
+impl IForwardLocal for RandomWalkForwardLocal {
+    fn forward_local(&self, root: &mut Root, delta_secs: f32, rect: [SpaceKey; 2]) {
+        for tag_key in root.tag_detach_iter_by_rect::<RandomWalkTag>(rect) {
+            let (r#ref, _, tag) = root.tag_get::<RandomWalkTag>(tag_key).unwrap();
 
-            let RefKey::Entity(entity_key) = *r#ref else {
-                unreachable!();
+            let entity_key = match *r#ref {
+                RefKey::Entity(entity_key) => entity_key,
+                _ => continue,
             };
 
-            match node.state {
+            match tag.state {
                 RandomWalkState::Init => {
-                    root.node_store
-                        .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                            node.state = RandomWalkState::WaitStart;
-                        });
+                    root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                        tag.state = RandomWalkState::WaitStart;
+                    });
                 }
                 RandomWalkState::WaitStart => {
                     let secs = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
-                        node.min_rest_secs..node.max_rest_secs,
+                        tag.min_rest_secs..tag.max_rest_secs,
                     );
-                    root.node_store
-                        .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                            node.state = RandomWalkState::Wait(secs);
-                        });
+                    root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                        tag.state = RandomWalkState::Wait(secs);
+                    });
                 }
                 RandomWalkState::Wait(secs) => {
                     let new_secs = secs - delta_secs;
                     if new_secs <= 0.0 {
-                        root.node_store
-                            .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                                node.state = RandomWalkState::TripStart;
-                            });
+                        root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                            tag.state = RandomWalkState::TripStart;
+                        });
                     } else {
-                        root.node_store
-                            .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                                node.state = RandomWalkState::Wait(new_secs);
-                            });
+                        root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                            tag.state = RandomWalkState::Wait(new_secs);
+                        });
                     }
                 }
                 RandomWalkState::TripStart => {
-                    let entity = root.entity_field.get(entity_key).unwrap();
+                    let entity = root.entity_get(entity_key).unwrap();
                     let distance = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
-                        node.min_distance..node.max_distance,
+                        tag.min_distance..tag.max_distance,
                     );
                     let direction = rand::Rng::gen_range(
                         &mut rand::thread_rng(),
@@ -668,13 +612,12 @@ impl RandomWalkForwardLocal {
                         entity.location[0] + distance * direction.cos(),
                         entity.location[1] + distance * direction.sin(),
                     ];
-                    root.node_store
-                        .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                            node.state = RandomWalkState::Trip(destination);
-                        });
+                    root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                        tag.state = RandomWalkState::Trip(destination);
+                    });
                 }
                 RandomWalkState::Trip(destination) => {
-                    let entity = root.entity_field.get(entity_key).unwrap();
+                    let entity = root.entity_get(entity_key).unwrap();
                     if entity.location != destination {
                         let diff = [
                             destination[0] - entity.location[0],
@@ -682,27 +625,24 @@ impl RandomWalkForwardLocal {
                         ];
                         let distance = (diff[0].powi(2) + diff[1].powi(2)).sqrt();
                         let direction = [diff[0] / distance, diff[1] / distance];
-                        let delta_distance = distance.min(node.speed * delta_secs);
+                        let delta_distance = distance.min(tag.speed * delta_secs);
                         let location = [
                             entity.location[0] + direction[0] * delta_distance,
                             entity.location[1] + direction[1] * delta_distance,
                         ];
                         if move_entity(root, entity_key, location).is_ok() {
-                            root.node_store
-                                .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                                    node.state = RandomWalkState::Trip(destination);
-                                });
+                            root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                                tag.state = RandomWalkState::Trip(destination);
+                            });
                         } else {
-                            root.node_store
-                                .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                                    node.state = RandomWalkState::WaitStart;
-                                });
+                            root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                                tag.state = RandomWalkState::WaitStart;
+                            });
                         }
                     } else {
-                        root.node_store
-                            .modify::<RandomWalkNode, _>(node_key, |_, _, node| {
-                                node.state = RandomWalkState::WaitStart;
-                            });
+                        root.tag_modify::<RandomWalkTag>(tag_key, |_, _, tag| {
+                            tag.state = RandomWalkState::WaitStart;
+                        });
                     }
                 }
             }
@@ -710,11 +650,9 @@ impl RandomWalkForwardLocal {
     }
 }
 
-impl CallbackBundle for RandomWalkForwardLocal {
-    fn insert(&self, builder: &mut CallbackStoreBuilder) {
-        builder.insert(
-            CallbackRef::Global,
-            ForwardLocalCallback(Box::new(Self::forward_local)),
-        );
+impl FlowBundle for RandomWalkForwardLocal {
+    fn insert(&self, buf: &mut FlowBuffer) {
+        let slf = std::rc::Rc::new(self.clone());
+        buf.register::<std::rc::Rc<dyn IForwardLocal>>(FlowRef::Global, slf);
     }
 }

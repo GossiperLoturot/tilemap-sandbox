@@ -9,146 +9,137 @@ var _root: Root
 
 
 func _ready():
-	var tile_field = TileField.new_from(TileFieldDescriptor.new_from(
-		32,
-		512,
-		2048,
-		8,
-		[
-			TileDescriptor.new_from(
-				[preload("res://images/surface_dirt.webp")] as Array[Image],
-				false,
+	_root = Root.create(
+		RootDescriptor.create(
+			TileFieldDescriptor.create(
+				32,
+				512,
+				2048,
+				8,
+				[
+					TileDescriptor.create(
+						[preload("res://images/surface_dirt.webp")] as Array[Image],
+						false,
+					),
+					TileDescriptor.create(
+						[preload("res://images/surface_grass.webp")] as Array[Image],
+						false,
+					)
+				] as Array[TileDescriptor],
+				[
+					preload("res://field.gdshader"),
+				] as Array[Shader],
+				get_world_3d()
 			),
-			TileDescriptor.new_from(
-				[preload("res://images/surface_grass.webp")] as Array[Image],
-				false,
+			BlockFieldDescriptor.create(
+				32,
+				512,
+				2048,
+				8,
+				[
+					BlockDescriptor.create(
+						[preload("res://images/dandelion.webp")] as Array[Image],
+						false,
+						Vector2i(1, 1),
+						Vector2(0.0, 0.0), Vector2(0.0, 0.0),
+						Vector2(1.0, 1.0), Vector2(0.0, 0.0),
+					),
+					BlockDescriptor.create(
+						[preload("res://images/fallen_leaves.webp")] as Array[Image],
+						false,
+						Vector2i(1, 1),
+						Vector2(0.0, 0.0), Vector2(0.0, 0.0),
+						Vector2(1.0, 1.0), Vector2(0.0, 0.0),
+					),
+					BlockDescriptor.create(
+						[preload("res://images/mix_grass.webp")] as Array[Image],
+						true,
+						Vector2i(1, 1),
+						Vector2(0.0, 0.0), Vector2(0.0, 0.0),
+						Vector2(1.0, 1.0), Vector2(0.0, 0.0),
+					),
+					BlockDescriptor.create(
+						[preload("res://images/mix_pebbles.webp")] as Array[Image],
+						false,
+						Vector2i(1, 1),
+						Vector2(0.0, 0.0), Vector2(0.0, 0.0),
+						Vector2(1.0, 1.0), Vector2(0.0, 0.0),
+					)
+				] as Array[BlockDescriptor],
+				[
+					preload("res://field.gdshader"),
+					preload("res://field_shadow.gdshader")
+				] as Array[Shader],
+				get_world_3d()
+			),
+			EntityFieldDescriptor.create(
+				32,
+				512,
+				2048,
+				8,
+				[
+					EntityDescriptor.create(
+						[preload("res://images/player.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
+					),
+					EntityDescriptor.create(
+						[preload("res://images/pig.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+					),
+					EntityDescriptor.create(
+						[preload("res://images/cow.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+					),
+					EntityDescriptor.create(
+						[preload("res://images/sheep.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
+					),
+					EntityDescriptor.create(
+						[preload("res://images/chiken.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
+					),
+					EntityDescriptor.create(
+						[preload("res://images/bird.webp")] as Array[Image],
+						true,
+						Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
+						Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
+					)
+				] as Array[EntityDescriptor],
+				[
+					preload("res://field.gdshader"),
+					preload("res://field_shadow.gdshader"),
+				] as Array[Shader],
+				get_world_3d()
+			),
+			FlowStoreDescriptor.create(
+				[
+					FlowDescriptors.new_generator(),
+					FlowDescriptors.new_random_walk_forward_local(),
+					FlowDescriptors.new_base_tile(0),
+					FlowDescriptors.new_base_tile(1),
+					FlowDescriptors.new_base_block(0),
+					FlowDescriptors.new_base_block(1),
+					FlowDescriptors.new_base_block(2),
+					FlowDescriptors.new_base_block(3),
+					FlowDescriptors.new_base_entity(0),
+					FlowDescriptors.new_animal_entity(1, 3.0, 60.0, 1.0, 5.0, 0.5),
+					FlowDescriptors.new_animal_entity(2, 3.0, 60.0, 1.0, 5.0, 0.5),
+					FlowDescriptors.new_animal_entity(3, 3.0, 60.0, 1.0, 5.0, 0.5),
+					FlowDescriptors.new_animal_entity(4, 3.0, 60.0, 1.0, 5.0, 0.5),
+					FlowDescriptors.new_animal_entity(5, 3.0, 60.0, 1.0, 5.0, 0.5),
+				] as Array[FlowDescriptor]
 			)
-		] as Array[TileDescriptor],
-		[
-			preload("res://field.gdshader"),
-		] as Array[Shader],
-		get_world_3d()
-	))
-
-	var block_field = BlockField.new_from(BlockFieldDescriptor.new_from(
-		32,
-		512,
-		2048,
-		8,
-		[
-			BlockDescriptor.new_from(
-				Vector2i(1, 1),
-				[preload("res://images/dandelion.webp")] as Array[Image],
-				false,
-				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			),
-			BlockDescriptor.new_from(
-				Vector2i(1, 1),
-				[preload("res://images/fallen_leaves.webp")] as Array[Image],
-				false,
-				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			),
-			BlockDescriptor.new_from(
-				Vector2i(1, 1),
-				[preload("res://images/mix_grass.webp")] as Array[Image],
-				true,
-				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			),
-			BlockDescriptor.new_from(
-				Vector2i(1, 1),
-				[preload("res://images/mix_pebbles.webp")] as Array[Image],
-				false,
-				Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-				Vector2(0.0, 0.0), Vector2(0.0, 0.0),
-			)
-		] as Array[BlockDescriptor],
-		[
-			preload("res://field.gdshader"),
-			preload("res://field_shadow.gdshader")
-		] as Array[Shader],
-		get_world_3d()
-	))
-
-	var entity_field = EntityField.new_from(EntityFieldDescriptor.new_from(
-		32,
-		512,
-		2048,
-		8,
-		[
-			EntityDescriptor.new_from(
-				[preload("res://images/player.webp")] as Array[Image],
-				true,
-				Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			),
-			EntityDescriptor.new_from(
-				[preload("res://images/pig.webp")] as Array[Image],
-				true,
-				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			),
-			EntityDescriptor.new_from(
-				[preload("res://images/cow.webp")] as Array[Image],
-				true,
-				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			),
-			EntityDescriptor.new_from(
-				[preload("res://images/sheep.webp")] as Array[Image],
-				true,
-				Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			),
-			EntityDescriptor.new_from(
-				[preload("res://images/chiken.webp")] as Array[Image],
-				true,
-				Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			),
-			EntityDescriptor.new_from(
-				[preload("res://images/bird.webp")] as Array[Image],
-				true,
-				Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-				Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-			)
-		] as Array[EntityDescriptor],
-		[
-			preload("res://field.gdshader"),
-			preload("res://field_shadow.gdshader"),
-		] as Array[Shader],
-		get_world_3d()
-	))
-
-	var node_store = NodeStore.new_from()
-
-	var callback_store = CallbackStore.new_from(CallbackStoreDescriptor.new_from(
-		[
-			CallbackBundles.new_generator(),
-			CallbackBundles.new_random_walk_forward_local(),
-			CallbackBundles.new_base_tile(0),
-			CallbackBundles.new_base_tile(1),
-			CallbackBundles.new_base_block(0),
-			CallbackBundles.new_base_block(1),
-			CallbackBundles.new_base_block(2),
-			CallbackBundles.new_base_block(3),
-			CallbackBundles.new_base_entity(0),
-			CallbackBundles.new_animal_entity(1, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_animal_entity(2, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_animal_entity(3, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_animal_entity(4, 3.0, 60.0, 1.0, 5.0, 0.5),
-			CallbackBundles.new_animal_entity(5, 3.0, 60.0, 1.0, 5.0, 0.5),
-		] as Array[CallbackBundle]
-	))
-
-	_root = Root.new_from(
-		tile_field,
-		block_field,
-		entity_field,
-		node_store,
-		callback_store,
+		)
 	)
 
 	# initialize world context
@@ -162,9 +153,7 @@ func _process(delta):
 	Actions.generate_chunk(_root, min_view_rect)
 
 	# rendering
-	_root.tile_field.update_view(min_view_rect)
-	_root.block_field.update_view(min_view_rect)
-	_root.entity_field.update_view(min_view_rect)
+	_root.update_view(min_view_rect)
 
 
 func _exit_tree():

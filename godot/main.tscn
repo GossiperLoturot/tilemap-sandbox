@@ -1,18 +1,8 @@
-[gd_scene load_steps=9 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=5 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" path="res://scripts/world.gd" id="1_b2r8a"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="2_6wr23"]
 [ext_resource type="Shader" path="res://vignette.gdshader" id="5_h8o78"]
-[ext_resource type="Shader" path="res://cursor.gdshader" id="6_vhy0j"]
-[ext_resource type="Script" path="res://scripts/cursor.gd" id="7_f7tes"]
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_ur735"]
-render_priority = 10
-shader = ExtResource("6_vhy0j")
-
-[sub_resource type="QuadMesh" id="QuadMesh_eh3sn"]
-material = SubResource("ShaderMaterial_ur735")
-center_offset = Vector3(0.5, 0.5, 0)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -37,13 +27,6 @@ camera = NodePath("../Camera3D")
 speed = 3.0
 view_size = 256.0
 forward_size = 64.0
-
-[node name="Cursor" type="MeshInstance3D" parent="." node_paths=PackedStringArray("world", "camera")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 64)
-mesh = SubResource("QuadMesh_eh3sn")
-script = ExtResource("7_f7tes")
-world = NodePath("../World")
-camera = NodePath("../Camera3D")
 
 [node name="VignetteFilter" type="ColorRect" parent="."]
 material = SubResource("ShaderMaterial_eft26")

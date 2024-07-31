@@ -15,7 +15,7 @@ var _interpolated_scroll: float
 
 
 func _ready():
-	_entity_key = Actions.place_entity(world._root, Entity.new_from(0, Vector2(), 0))
+	_entity_key = Actions.place_entity(world._root, Entity.create(0, Vector2(), 0))
 
 
 func _process(delta):
