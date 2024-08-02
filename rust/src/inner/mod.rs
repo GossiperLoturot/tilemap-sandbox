@@ -1,9 +1,11 @@
 pub use field::*;
 pub use flow::*;
+pub use resource::*;
 pub use tag::*;
 
 mod field;
 mod flow;
+mod resource;
 mod tag;
 
 pub type Vec2 = [f32; 2];
@@ -20,6 +22,7 @@ pub struct Root {
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
+    resource_store: ResourceStore,
     tag_store: TagStore,
     flow_store: FlowStore,
 }
@@ -31,6 +34,7 @@ impl Root {
             tile_field: TileField::new(desc.tile_field),
             block_field: BlockField::new(desc.block_field),
             entity_field: EntityField::new(desc.entity_field),
+            resource_store: Default::default(),
             tag_store: Default::default(),
             flow_store: FlowStore::new(desc.flow_store),
         }
@@ -314,6 +318,33 @@ impl Root {
         self.entity_field.get_by_hint_rect(rect)
     }
 
+    // resource
+
+    #[inline]
+    pub fn resource_insert<T: 'static>(&mut self, value: T) -> Option<()> {
+        self.resource_store.insert(value)
+    }
+
+    #[inline]
+    pub fn resource_remove<T: 'static>(&mut self) -> Option<T> {
+        self.resource_store.remove::<T>()
+    }
+
+    #[inline]
+    pub fn resource_has<T: 'static>(&self) -> bool {
+        self.resource_store.has::<T>()
+    }
+
+    #[inline]
+    pub fn resource_get<T: 'static>(&self) -> Option<&T> {
+        self.resource_store.get::<T>()
+    }
+
+    #[inline]
+    pub fn resource_get_mut<T: 'static>(&mut self) -> Option<&mut T> {
+        self.resource_store.get_mut::<T>()
+    }
+
     // tag
 
     #[inline]
@@ -358,16 +389,6 @@ impl Root {
     #[inline]
     pub fn tag_one<T: 'static>(&self) -> Option<&TagKey> {
         self.tag_store.one::<T>()
-    }
-
-    #[inline]
-    pub fn tag_iter_by_ref<T: 'static>(&self, r#ref: RefKey) -> impl Iterator<Item = &TagKey> {
-        self.tag_store.iter_by_ref::<T>(r#ref)
-    }
-
-    #[inline]
-    pub fn tag_detach_iter_by_ref<T: 'static>(&self, r#ref: RefKey) -> Vec<TagKey> {
-        self.tag_store.detach_iter_by_ref::<T>(r#ref)
     }
 
     #[inline]

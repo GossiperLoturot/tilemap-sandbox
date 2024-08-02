@@ -430,7 +430,7 @@ impl FlowBundle for AnimalEntity {
 // generator flow
 
 #[derive(Debug, Clone)]
-pub struct GeneratorTag {
+pub struct GeneratorResource {
     pub prev_rect: Option<[IVec2; 2]>,
     pub visited_chunk: ahash::AHashSet<IVec2>,
 }
@@ -440,28 +440,21 @@ pub struct Generator {}
 
 impl IResource for Generator {
     fn before(&self, root: &mut Root) {
-        let tag = GeneratorTag {
+        let resource = GeneratorResource {
             prev_rect: None,
             visited_chunk: Default::default(),
         };
-        root.tag_insert(RefKey::Global, SpaceKey::GLOBAL, tag)
-            .unwrap();
+        root.resource_insert(resource).unwrap();
     }
 
     fn after(&self, root: &mut Root) {
-        let tag_key = *root.tag_one::<GeneratorTag>().unwrap();
-
-        root.tag_remove::<GeneratorTag>(tag_key);
+        root.resource_remove::<GeneratorResource>();
     }
 }
 
 impl IGenerate for Generator {
     fn generate_chunk(&self, root: &mut Root, rect: [Vec2; 2]) {
         const CHUNK_SIZE: u32 = 32;
-
-        let tag_key = *root.tag_one::<GeneratorTag>().unwrap();
-
-        let (_, _, tag) = root.tag_get::<GeneratorTag>(tag_key).unwrap();
 
         #[rustfmt::skip]
         let rect = [[
@@ -471,19 +464,19 @@ impl IGenerate for Generator {
             rect[1][1].div_euclid(CHUNK_SIZE as f32) as i32,
         ]];
 
+        let tag = root.resource_get::<GeneratorResource>().unwrap();
         if Some(rect) != tag.prev_rect {
             for y in rect[0][1]..=rect[1][1] {
                 for x in rect[0][0]..=rect[1][0] {
                     let chunk_key = [x, y];
 
-                    let (_, _, tag) = root.tag_get::<GeneratorTag>(tag_key).unwrap();
+                    let tag = root.resource_get::<GeneratorResource>().unwrap();
                     if tag.visited_chunk.contains(&chunk_key) {
                         continue;
                     }
 
-                    root.tag_modify::<GeneratorTag>(tag_key, |_, _, tag| {
-                        tag.visited_chunk.insert(chunk_key);
-                    });
+                    let tag = root.resource_get_mut::<GeneratorResource>().unwrap();
+                    tag.visited_chunk.insert(chunk_key);
 
                     for v in 0..CHUNK_SIZE {
                         for u in 0..CHUNK_SIZE {
@@ -522,9 +515,8 @@ impl IGenerate for Generator {
                 }
             }
 
-            root.tag_modify::<GeneratorTag>(tag_key, |_, _, tag| {
-                tag.prev_rect = Some(rect);
-            });
+            let tag = root.resource_get_mut::<GeneratorResource>().unwrap();
+            tag.prev_rect = Some(rect);
         }
     }
 }

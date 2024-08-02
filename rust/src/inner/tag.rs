@@ -4,7 +4,6 @@ pub type TagKey = (u32, u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RefKey {
-    Global,
     /// `Tile(key)` means a reference to a tile instance corresponding to `key` in the
     /// `TileField`.
     Tile(u32),
@@ -16,36 +15,28 @@ pub enum RefKey {
     Entity(u32),
 }
 
-const CHUNK_SIZE: u32 = 32;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum SpaceKeyKind {
-    Global,
-    Local(IVec2),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SpaceKey(SpaceKeyKind);
+pub struct SpaceKey(IVec2);
 
 impl SpaceKey {
-    pub const GLOBAL: SpaceKey = SpaceKey(SpaceKeyKind::Global);
+    const CHUNK_SIZE: u32 = 32;
 }
 
 impl From<IVec2> for SpaceKey {
     fn from([x, y]: [i32; 2]) -> Self {
-        SpaceKey(SpaceKeyKind::Local([
-            x.div_euclid(CHUNK_SIZE as i32),
-            y.div_euclid(CHUNK_SIZE as i32),
-        ]))
+        SpaceKey([
+            x.div_euclid(Self::CHUNK_SIZE as i32),
+            y.div_euclid(Self::CHUNK_SIZE as i32),
+        ])
     }
 }
 
 impl From<Vec2> for SpaceKey {
     fn from([x, y]: [f32; 2]) -> Self {
-        SpaceKey(SpaceKeyKind::Local([
-            x.div_euclid(CHUNK_SIZE as f32) as i32,
-            y.div_euclid(CHUNK_SIZE as f32) as i32,
-        ]))
+        SpaceKey([
+            x.div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            y.div_euclid(Self::CHUNK_SIZE as f32) as i32,
+        ])
     }
 }
 
@@ -54,7 +45,6 @@ struct TagRow<T> {
     tag: T,
     typ_row_key: u32,
     r#ref: RefKey,
-    ref_row_key: u32,
     spc: SpaceKey,
     spc_row_key: u32,
 }
@@ -65,7 +55,7 @@ type TagColumn<T> = slab::Slab<TagRow<T>>;
 pub struct TagStore {
     tag_cols: Vec<Box<dyn std::any::Any>>,
     typ_map: ahash::AHashMap<std::any::TypeId, (u32, slab::Slab<TagKey>)>,
-    typ_ref_map: ahash::AHashMap<(std::any::TypeId, RefKey), (u32, slab::Slab<TagKey>)>,
+    typ_ref_map: ahash::AHashMap<(std::any::TypeId, RefKey), (u32, u32)>,
     typ_spc_map: ahash::AHashMap<(std::any::TypeId, SpaceKey), (u32, slab::Slab<TagKey>)>,
 }
 
@@ -75,6 +65,10 @@ impl TagStore {
         T: std::any::Any,
     {
         let typ = std::any::TypeId::of::<T>();
+
+        if self.typ_ref_map.contains_key(&(typ, r#ref)) {
+            return None;
+        }
 
         let (col_key, row_keys) = self.typ_map.entry(typ).or_insert_with(|| {
             // initialize a new column
@@ -98,12 +92,7 @@ impl TagStore {
         // typ_row_key is guaranteed to be less than u32::MAX.
         let typ_row_key = row_keys.insert((col_key, row_key)) as u32;
 
-        let (_, row_keys) = self
-            .typ_ref_map
-            .entry((typ, r#ref))
-            .or_insert_with(|| (col_key, Default::default()));
-        // ref_row_key is guaranteed to be less than u32::MAX.
-        let ref_row_key = row_keys.insert((col_key, row_key)) as u32;
+        self.typ_ref_map.insert((typ, r#ref), (col_key, row_key));
 
         let (_, row_keys) = self
             .typ_spc_map
@@ -116,7 +105,6 @@ impl TagStore {
             tag,
             typ_row_key,
             r#ref,
-            ref_row_key,
             spc,
             spc_row_key,
         });
@@ -140,8 +128,7 @@ impl TagStore {
         let (_, row_keys) = self.typ_map.get_mut(&typ).unwrap();
         row_keys.try_remove(tag_row.typ_row_key as usize).unwrap();
 
-        let (_, row_keys) = self.typ_ref_map.get_mut(&(typ, tag_row.r#ref)).unwrap();
-        row_keys.try_remove(tag_row.ref_row_key as usize).unwrap();
+        self.typ_ref_map.remove(&(typ, tag_row.r#ref)).unwrap();
 
         let (_, row_keys) = self.typ_spc_map.get_mut(&(typ, tag_row.spc)).unwrap();
         row_keys.try_remove(tag_row.spc_row_key as usize).unwrap();
@@ -170,29 +157,20 @@ impl TagStore {
         f(&mut tag_row.r#ref, &mut tag_row.spc, &mut tag_row.tag);
 
         if prev_ref != tag_row.r#ref {
-            let (_, row_keys) = self.typ_ref_map.get_mut(&(typ, prev_ref)).unwrap();
-            row_keys.try_remove(tag_row.ref_row_key as usize).unwrap();
-
-            let (_, row_keys) = self
-                .typ_ref_map
-                .entry((typ, tag_row.r#ref))
-                .or_insert((col_key, Default::default()));
-            // ref_row_key is guaranteed to be less than u32::MAX.
-            let ref_row_key = row_keys.insert((col_key, tag_row.ref_row_key)) as u32;
-
-            tag_row.ref_row_key = ref_row_key;
+            let tag_key = self.typ_ref_map.remove(&(typ, prev_ref)).unwrap();
+            self.typ_ref_map.insert((typ, tag_row.r#ref), tag_key);
         }
 
         if prev_spc != tag_row.spc {
             let (_, row_keys) = self.typ_spc_map.get_mut(&(typ, prev_spc)).unwrap();
-            row_keys.try_remove(tag_row.spc_row_key as usize).unwrap();
+            let tag_key = row_keys.try_remove(tag_row.spc_row_key as usize).unwrap();
 
             let (_, row_keys) = self
                 .typ_spc_map
                 .entry((typ, tag_row.spc))
                 .or_insert((col_key, Default::default()));
             // spc_row_key is guaranteed to be less than u32::MAX.
-            let spc_row_key = row_keys.insert((col_key, tag_row.spc_row_key)) as u32;
+            let spc_row_key = row_keys.insert(tag_key) as u32;
 
             tag_row.spc_row_key = spc_row_key;
         }
@@ -223,13 +201,12 @@ impl TagStore {
         Some(row_keys.iter().map(|(_, v)| v))
     }
 
-    fn iter_by_ref_internal<T>(&self, r#ref: RefKey) -> Option<impl Iterator<Item = &TagKey>>
+    fn one_by_ref_internal<T>(&self, r#ref: RefKey) -> Option<&TagKey>
     where
         T: std::any::Any,
     {
         let typ = std::any::TypeId::of::<T>();
-        let (_, row_keys) = self.typ_ref_map.get(&(typ, r#ref))?;
-        Some(row_keys.iter().map(|(_, v)| v))
+        self.typ_ref_map.get(&(typ, r#ref))
     }
 
     fn iter_by_rect_internal<T>(&self, rect: [SpaceKey; 2]) -> Option<impl Iterator<Item = &TagKey>>
@@ -238,56 +215,18 @@ impl TagStore {
     {
         let typ = std::any::TypeId::of::<T>();
 
-        let min = match rect[0] {
-            SpaceKey(SpaceKeyKind::Local(chunk_key)) => chunk_key,
-            _ => return None,
-        };
-        let max = match rect[1] {
-            SpaceKey(SpaceKeyKind::Local(chunk_key)) => chunk_key,
-            _ => return None,
-        };
+        let (min, max) = (rect[0].0, rect[1].0);
 
         let mut iters = vec![];
         for y in min[1]..max[1] {
             for x in min[0]..max[0] {
-                let spc = SpaceKey(SpaceKeyKind::Local([x, y]));
+                let spc = SpaceKey([x, y]);
                 let (_, row_keys) = self.typ_spc_map.get(&(typ, spc))?;
                 iters.push(row_keys.iter().map(|(_, v)| v));
             }
         }
 
         Some(iters.into_iter().flatten())
-    }
-
-    fn remove_by_ref_internal<T>(&mut self, r#ref: RefKey) -> Option<Vec<(RefKey, SpaceKey, T)>>
-    where
-        T: std::any::Any,
-    {
-        let typ = std::any::TypeId::of::<T>();
-
-        let (col_key, row_keys) = self.typ_ref_map.remove(&(typ, r#ref))?;
-
-        let tag_col = self.tag_cols.get_mut(col_key as usize).unwrap();
-        let tag_col = tag_col.downcast_mut::<TagColumn<T>>()?;
-
-        let rets = row_keys
-            .into_iter()
-            .map(|(_, (_, row_key))| {
-                let tag_row = tag_col.try_remove(row_key as usize).unwrap();
-
-                let (_, row_keys) = self.typ_map.get_mut(&typ).unwrap();
-                // typ_row_key is guaranteed to be less than u32::MAX.
-                row_keys.try_remove(tag_row.typ_row_key as usize).unwrap();
-
-                let (_, row_keys) = self.typ_spc_map.get_mut(&(typ, tag_row.spc)).unwrap();
-                // spc_row_key is guaranteed to be less than u32::MAX.
-                row_keys.try_remove(tag_row.spc_row_key as usize).unwrap();
-
-                (tag_row.r#ref, tag_row.spc, tag_row.tag)
-            })
-            .collect::<Vec<_>>();
-
-        Some(rets)
     }
 
     #[inline]
@@ -315,27 +254,11 @@ impl TagStore {
     }
 
     #[inline]
-    pub fn iter_by_ref<T>(&self, r#ref: RefKey) -> impl Iterator<Item = &TagKey>
-    where
-        T: std::any::Any,
-    {
-        self.iter_by_ref_internal::<T>(r#ref).into_iter().flatten()
-    }
-
-    #[inline]
-    pub fn detach_iter_by_ref<T>(&self, r#ref: RefKey) -> Vec<TagKey>
-    where
-        T: std::any::Any,
-    {
-        self.iter_by_ref::<T>(r#ref).copied().collect()
-    }
-
-    #[inline]
     pub fn one_by_ref<T>(&self, r#ref: RefKey) -> Option<&TagKey>
     where
         T: std::any::Any,
     {
-        self.iter_by_ref::<T>(r#ref).next()
+        self.one_by_ref_internal::<T>(r#ref)
     }
 
     #[inline]
@@ -361,14 +284,6 @@ impl TagStore {
     {
         self.iter_by_rect::<T>(rect).next()
     }
-
-    #[inline]
-    pub fn remove_by_ref<T>(&mut self, r#ref: RefKey) -> Vec<(RefKey, SpaceKey, T)>
-    where
-        T: std::any::Any,
-    {
-        self.remove_by_ref_internal::<T>(r#ref).unwrap_or_default()
-    }
 }
 
 #[cfg(test)]
@@ -378,15 +293,17 @@ mod tests {
     #[test]
     fn crud_tag() {
         let mut store = TagStore::default();
-        let key = store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
+        let key = store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
 
         assert_eq!(
             store.get::<i32>(key),
-            Some((&RefKey::Global, &SpaceKey::GLOBAL, &42))
+            Some((&RefKey::Tile(0), &SpaceKey::from([0, 0]), &42))
         );
         assert_eq!(
             store.remove::<i32>(key),
-            Some((RefKey::Global, SpaceKey::GLOBAL, 42))
+            Some((RefKey::Tile(0), SpaceKey::from([0, 0]), 42))
         );
 
         assert_eq!(store.get::<i32>(key), None);
@@ -396,7 +313,9 @@ mod tests {
     #[test]
     fn tag_with_invalid_type() {
         let mut store = TagStore::default();
-        let key = store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
+        let key = store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
 
         assert!(store.get::<()>(key).is_none());
         assert!(store.remove::<()>(key).is_none());
@@ -405,20 +324,24 @@ mod tests {
     #[test]
     fn iter() {
         let mut store = TagStore::default();
-        let k0 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 42).unwrap();
-        let k1 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 63).unwrap();
-        let k2 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, 42).unwrap();
-        let k3 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, ()).unwrap();
+        let k0 = store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
+        let k1 = store
+            .insert(RefKey::Tile(1), SpaceKey::from([0, 0]), 42)
+            .unwrap();
+        let k2 = store
+            .insert(RefKey::Tile(1), SpaceKey::from([0, 0]), ())
+            .unwrap();
 
         let mut iter = store.iter::<i32>();
         assert_eq!(iter.next(), Some(&k0));
         assert_eq!(iter.next(), Some(&k1));
-        assert_eq!(iter.next(), Some(&k2));
         assert_eq!(iter.next(), None);
         drop(iter);
 
         let mut iter = store.iter::<()>();
-        assert_eq!(iter.next(), Some(&k3));
+        assert_eq!(iter.next(), Some(&k2));
         assert_eq!(iter.next(), None);
         drop(iter);
     }
@@ -430,82 +353,42 @@ mod tests {
     }
 
     #[test]
-    fn iter_by_ref() {
+    fn one_by_ref() {
         let mut store = TagStore::default();
-        let k0 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 42).unwrap();
-        let k1 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 63).unwrap();
-        let k2 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, 42).unwrap();
-        let _k3 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, ()).unwrap();
+        let k0 = store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
+        let k1 = store
+            .insert(RefKey::Tile(1), SpaceKey::from([0, 0]), 42)
+            .unwrap();
+        let _k2 = store
+            .insert(RefKey::Tile(1), SpaceKey::from([0, 0]), ())
+            .unwrap();
 
-        let mut iter = store.iter_by_ref::<i32>(RefKey::Tile(0));
-        assert_eq!(iter.next(), Some(&k0));
-        assert_eq!(iter.next(), Some(&k1));
-        assert_eq!(iter.next(), None);
-        drop(iter);
+        let one = store.one_by_ref::<i32>(RefKey::Tile(0));
+        assert_eq!(one, Some(&k0));
 
-        let mut iter = store.iter_by_ref::<i32>(RefKey::Tile(1));
-        assert_eq!(iter.next(), Some(&k2));
-        assert_eq!(iter.next(), None);
+        let one = store.one_by_ref::<i32>(RefKey::Tile(1));
+        assert_eq!(one, Some(&k1));
     }
 
     #[test]
-    fn iter_by_ref_with_invalid_type() {
+    fn one_by_ref_with_invalid_type() {
         let mut store = TagStore::default();
-        store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
+        store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
 
-        assert!(store.iter_by_ref::<()>(RefKey::Global).next().is_none());
+        assert_eq!(store.one_by_ref::<()>(RefKey::Tile(0)), None);
     }
 
     #[test]
-    fn iter_by_ref_with_invalid_ref() {
+    fn one_by_ref_with_invalid_ref() {
         let mut store = TagStore::default();
-        store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
+        store
+            .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), 42)
+            .unwrap();
 
-        assert!(store.iter_by_ref::<i32>(RefKey::Tile(0)).next().is_none());
-    }
-
-    #[test]
-    fn remove_by_ref() {
-        let mut store = TagStore::default();
-        let _k1 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 42).unwrap();
-        let _k2 = store.insert(RefKey::Tile(0), SpaceKey::GLOBAL, 63).unwrap();
-        let k3 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, 42).unwrap();
-        let _k4 = store.insert(RefKey::Tile(1), SpaceKey::GLOBAL, ()).unwrap();
-
-        let vec = store.remove_by_ref::<i32>(RefKey::Tile(0));
-        assert_eq!(
-            vec,
-            vec![
-                (RefKey::Tile(0), SpaceKey::GLOBAL, 42),
-                (RefKey::Tile(0), SpaceKey::GLOBAL, 63)
-            ]
-        );
-
-        let vec = store.remove_by_ref::<()>(RefKey::Tile(1));
-        assert_eq!(vec, vec![(RefKey::Tile(1), SpaceKey::GLOBAL, ())]);
-
-        let mut iter = store.iter::<i32>();
-        assert_eq!(iter.next(), Some(&k3));
-        assert_eq!(iter.next(), None);
-        drop(iter);
-
-        let mut iter = store.iter::<()>();
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn remove_by_ref_with_invalid_type() {
-        let mut store = TagStore::default();
-        store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
-
-        assert_eq!(store.remove_by_ref::<()>(RefKey::Global), vec![]);
-    }
-
-    #[test]
-    fn remove_by_ref_with_invalid_ref() {
-        let mut store = TagStore::default();
-        store.insert(RefKey::Global, SpaceKey::GLOBAL, 42).unwrap();
-
-        assert_eq!(store.remove_by_ref::<i32>(RefKey::Tile(0)), vec![]);
+        assert_eq!(store.one_by_ref::<i32>(RefKey::Tile(1)), None);
     }
 }
