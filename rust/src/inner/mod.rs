@@ -367,8 +367,23 @@ impl Root {
         &mut self,
         tag_key: TagKey,
         f: impl FnOnce(&mut RefKey, &mut SpaceKey, &mut T),
-    ) {
-        self.tag_store.modify::<T>(tag_key, f);
+    ) -> Option<()> {
+        self.tag_store.modify::<T>(tag_key, f)
+    }
+
+    #[inline]
+    pub fn tag_remove_by_ref(&mut self, r#ref: RefKey) -> Option<()> {
+        self.tag_store.remove_by_ref(r#ref)
+    }
+
+    #[inline]
+    pub fn tag_modify_ref_by_ref(&mut self, r#ref: RefKey, new_ref: RefKey) -> Option<()> {
+        self.tag_store.modify_ref_by_ref(r#ref, new_ref)
+    }
+
+    #[inline]
+    pub fn tag_modify_spc_by_ref(&mut self, r#ref: RefKey, new_spc: SpaceKey) -> Option<()> {
+        self.tag_store.modify_spc_by_ref(r#ref, new_spc)
     }
 
     #[inline]
@@ -387,11 +402,6 @@ impl Root {
     }
 
     #[inline]
-    pub fn tag_one<T: 'static>(&self) -> Option<&TagKey> {
-        self.tag_store.one::<T>()
-    }
-
-    #[inline]
     pub fn tag_one_by_ref<T: 'static>(&self, r#ref: RefKey) -> Option<&TagKey> {
         self.tag_store.one_by_ref::<T>(r#ref)
     }
@@ -407,11 +417,6 @@ impl Root {
     #[inline]
     pub fn tag_detach_iter_by_rect<T: 'static>(&self, rect: [SpaceKey; 2]) -> Vec<TagKey> {
         self.tag_store.detach_iter_by_rect::<T>(rect)
-    }
-
-    #[inline]
-    pub fn tag_one_by_rect<T: 'static>(&self, rect: [SpaceKey; 2]) -> Option<&TagKey> {
-        self.tag_store.one_by_rect::<T>(rect)
     }
 
     // flow

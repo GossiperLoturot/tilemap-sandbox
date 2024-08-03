@@ -774,27 +774,6 @@ pub struct EntityProperty {
 }
 
 impl EntityProperty {
-    pub fn new(
-        collision_size: Vec2,
-        collision_offset: Vec2,
-        hint_size: Vec2,
-        hint_offset: Vec2,
-    ) -> Self {
-        if collision_size[0] < 0.0 || collision_size[1] < 0.0 {
-            panic!("collision size must be non-negative");
-        }
-        if hint_size[0] < 0.0 || hint_size[1] < 0.0 {
-            panic!("hint size must be non-negative");
-        }
-
-        Self {
-            collision_size,
-            collision_offset,
-            hint_size,
-            hint_offset,
-        }
-    }
-
     #[rustfmt::skip]
     fn collision_rect(&self, location: Vec2) -> Option<[Vec2; 2]> {
         if self.collision_size[0] * self.collision_size[1] == 0.0 {
@@ -860,6 +839,13 @@ impl EntityField {
     pub fn new(desc: EntityFieldDescriptor) -> Self {
         let mut props = vec![];
         for entity in desc.entities {
+            if entity.collision_size[0] < 0.0 || entity.collision_size[1] < 0.0 {
+                panic!("collision size must be non-negative");
+            }
+            if entity.hint_size[0] < 0.0 || entity.hint_size[1] < 0.0 {
+                panic!("hint size must be non-negative");
+            }
+
             props.push(EntityProperty {
                 collision_size: entity.collision_size,
                 collision_offset: entity.collision_offset,
@@ -1287,6 +1273,29 @@ mod tests {
     }
 
     #[test]
+    fn modify_tile_with_move() {
+        let mut field = TileField::new(TileFieldDescriptor {
+            chunk_size: 16,
+            tiles: vec![
+                TileDescriptor { collision: true },
+                TileDescriptor { collision: true },
+            ],
+        });
+
+        let key = field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
+
+        assert_eq!(
+            field.modify(key, Tile::new(1, [-1, 1000], 0)),
+            Ok(Tile::new(1, [-1, 3], 0))
+        );
+        assert_eq!(field.get(key), Ok(&Tile::new(1, [-1, 1000], 0)));
+        assert!(!field.has_by_point([-1, 3]));
+        assert_eq!(field.get_by_point([-1, 3]), None);
+        assert!(field.has_by_point([-1, 1000]));
+        assert_eq!(field.get_by_point([-1, 1000]), Some(key));
+    }
+
+    #[test]
     fn collision_tile() {
         let mut field = TileField::new(TileFieldDescriptor {
             chunk_size: 16,
@@ -1300,6 +1309,11 @@ mod tests {
         let key_1 = field.insert(Tile::new(1, [-1, 4], 0)).unwrap();
         let _key_2 = field.insert(Tile::new(1, [-1, 5], 0)).unwrap();
 
+        assert_eq!(
+            field.get_collision_rect(key_0),
+            Ok([[-1.0, 3.0], [0.0, 4.0]])
+        );
+
         let point = [-1.0, 4.0];
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
@@ -1311,6 +1325,75 @@ mod tests {
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
+
+        field.remove(key_0).unwrap();
+        assert_eq!(field.get_collision_rect(key_0), Err(FieldError::NotFound));
+    }
+
+    #[test]
+    fn tile_chunk() {
+        let mut field = TileField::new(TileFieldDescriptor {
+            chunk_size: 16,
+            tiles: vec![
+                TileDescriptor { collision: true },
+                TileDescriptor { collision: true },
+            ],
+        });
+        assert_eq!(field.get_chunk_size(), 16);
+
+        field.insert(Tile::new(1, [-1, 3], 0)).unwrap();
+        field.insert(Tile::new(1, [-1, 4], 0)).unwrap();
+        field.insert(Tile::new(1, [-1, 5], 0)).unwrap();
+
+        assert!(field.get_chunk([0, 0]).is_none());
+
+        let chunk_1 = field.get_chunk([-1, 0]).unwrap();
+        assert_eq!(chunk_1.tiles.len(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_field_with_invalid() {
+        BlockField::new(BlockFieldDescriptor {
+            chunk_size: 16,
+            blocks: vec![BlockDescriptor {
+                size: [-1, -1],
+                collision_size: [1.0, 1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [1.0, 1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_field_with_invalid_collision() {
+        BlockField::new(BlockFieldDescriptor {
+            chunk_size: 16,
+            blocks: vec![BlockDescriptor {
+                size: [1, 1],
+                collision_size: [-1.0, -1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [1.0, 1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn block_field_with_invalid_hint() {
+        BlockField::new(BlockFieldDescriptor {
+            chunk_size: 16,
+            blocks: vec![BlockDescriptor {
+                size: [1, 1],
+                collision_size: [1.0, 1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [-1.0, -1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
     }
 
     #[test]
@@ -1336,6 +1419,7 @@ mod tests {
         });
 
         let key = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+        assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
 
         assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 3], 0)));
         assert!(field.has_by_point([-1, 3]));
@@ -1346,6 +1430,8 @@ mod tests {
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert_eq!(field.remove(key), Err(FieldError::NotFound));
+
+        assert_eq!(field.get_rect(key), Err(FieldError::NotFound));
     }
 
     #[test]
@@ -1547,6 +1633,39 @@ mod tests {
     }
 
     #[test]
+    fn modify_block_with_move() {
+        let mut field = BlockField::new(BlockFieldDescriptor {
+            chunk_size: 16,
+            blocks: vec![
+                BlockDescriptor {
+                    size: [1, 1],
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+                BlockDescriptor {
+                    size: [1, 1],
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+            ],
+        });
+
+        let key = field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+
+        assert_eq!(
+            field.modify(key, Block::new(1, [-1, 1000], 0)),
+            Ok(Block::new(1, [-1, 3], 0))
+        );
+        assert_eq!(field.get(key), Ok(&Block::new(1, [-1, 1000], 0)));
+        assert!(field.has_by_point([-1, 1000]));
+        assert_eq!(field.get_by_point([-1, 1000]), Some(key));
+    }
+
+    #[test]
     fn collision_block() {
         let mut field = BlockField::new(BlockFieldDescriptor {
             chunk_size: 16,
@@ -1572,6 +1691,11 @@ mod tests {
         let key_1 = field.insert(Block::new(1, [-1, 4], 0)).unwrap();
         let _key_2 = field.insert(Block::new(1, [-1, 5], 0)).unwrap();
 
+        assert_eq!(
+            field.get_collision_rect(key_0),
+            Ok([[-1.0, 3.0], [0.0, 4.0]])
+        );
+
         let point = [-1.0, 4.0];
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
@@ -1583,6 +1707,9 @@ mod tests {
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
+
+        field.remove(key_0).unwrap();
+        assert_eq!(field.get_collision_rect(key_0), Err(FieldError::NotFound));
     }
 
     #[test]
@@ -1611,6 +1738,8 @@ mod tests {
         let key_1 = field.insert(Block::new(1, [-1, 4], 0)).unwrap();
         let _key_2 = field.insert(Block::new(1, [-1, 5], 0)).unwrap();
 
+        assert_eq!(field.get_hint_rect(key_0), Ok([[-1.0, 3.0], [0.0, 4.0]]));
+
         let point = [-1.0, 4.0];
         assert!(field.has_by_hint_point(point));
         let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
@@ -1622,6 +1751,70 @@ mod tests {
         let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
+
+        field.remove(key_0).unwrap();
+        assert_eq!(field.get_hint_rect(key_0), Err(FieldError::NotFound));
+    }
+
+    #[test]
+    fn block_chunk() {
+        let mut field = BlockField::new(BlockFieldDescriptor {
+            chunk_size: 16,
+            blocks: vec![
+                BlockDescriptor {
+                    size: [1, 1],
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+                BlockDescriptor {
+                    size: [1, 1],
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+            ],
+        });
+        assert_eq!(field.get_chunk_size(), 16);
+
+        field.insert(Block::new(1, [-1, 3], 0)).unwrap();
+        field.insert(Block::new(1, [-1, 4], 0)).unwrap();
+        field.insert(Block::new(1, [-1, 5], 0)).unwrap();
+
+        assert!(field.get_chunk([0, 0]).is_none());
+
+        let chunk_1 = field.get_chunk([-1, 0]).unwrap();
+        assert_eq!(chunk_1.blocks.len(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_field_with_invalid_collision() {
+        EntityField::new(EntityFieldDescriptor {
+            chunk_size: 16,
+            entities: vec![EntityDescriptor {
+                collision_size: [-1.0, -1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [1.0, 1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_field_with_invalid_hint() {
+        EntityField::new(EntityFieldDescriptor {
+            chunk_size: 16,
+            entities: vec![EntityDescriptor {
+                collision_size: [1.0, 1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [-1.0, -1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
     }
 
     #[test]
@@ -1810,6 +2003,35 @@ mod tests {
     }
 
     #[test]
+    fn modify_entity_with_move() {
+        let mut field = EntityField::new(EntityFieldDescriptor {
+            chunk_size: 16,
+            entities: vec![
+                EntityDescriptor {
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+                EntityDescriptor {
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+            ],
+        });
+
+        let key = field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
+
+        assert_eq!(
+            field.modify(key, Entity::new(1, [-1.0, 1000.0], 0)),
+            Ok(Entity::new(1, [-1.0, 3.0], 0))
+        );
+        assert_eq!(field.get(key), Ok(&Entity::new(1, [-1.0, 1000.0], 0)));
+    }
+
+    #[test]
     fn collision_entity() {
         let mut field = EntityField::new(EntityFieldDescriptor {
             chunk_size: 16,
@@ -1833,6 +2055,11 @@ mod tests {
         let key_1 = field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
         let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0], 0)).unwrap();
 
+        assert_eq!(
+            field.get_collision_rect(key_0),
+            Ok([[-1.0, 3.0], [0.0, 4.0]])
+        );
+
         let point = [-1.0, 4.0];
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
@@ -1844,6 +2071,9 @@ mod tests {
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
+
+        field.remove(key_0).unwrap();
+        assert_eq!(field.get_collision_rect(key_0), Err(FieldError::NotFound));
     }
 
     #[test]
@@ -1870,6 +2100,8 @@ mod tests {
         let key_1 = field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
         let _key_2 = field.insert(Entity::new(1, [-1.0, 5.0], 0)).unwrap();
 
+        assert_eq!(field.get_hint_rect(key_0), Ok([[-1.0, 3.0], [0.0, 4.0]]));
+
         let point = [-1.0, 4.0];
         assert!(field.has_by_hint_point(point));
         let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
@@ -1881,5 +2113,39 @@ mod tests {
         let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
+
+        field.remove(key_0).unwrap();
+        assert_eq!(field.get_hint_rect(key_0), Err(FieldError::NotFound));
+    }
+
+    #[test]
+    fn entity_chunk() {
+        let mut field = EntityField::new(EntityFieldDescriptor {
+            chunk_size: 16,
+            entities: vec![
+                EntityDescriptor {
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+                EntityDescriptor {
+                    collision_size: [1.0, 1.0],
+                    collision_offset: [0.0, 0.0],
+                    hint_size: [1.0, 1.0],
+                    hint_offset: [0.0, 0.0],
+                },
+            ],
+        });
+        assert_eq!(field.get_chunk_size(), 16);
+
+        field.insert(Entity::new(1, [-1.0, 3.0], 0)).unwrap();
+        field.insert(Entity::new(1, [-1.0, 4.0], 0)).unwrap();
+        field.insert(Entity::new(1, [-1.0, 5.0], 0)).unwrap();
+
+        assert!(field.get_chunk([0, 0]).is_none());
+
+        let chunk_1 = field.get_chunk([-1, 0]).unwrap();
+        assert_eq!(chunk_1.entities.len(), 3);
     }
 }
