@@ -119,3 +119,77 @@ impl FlowStore {
         self.iter_by_ref::<T>(r#ref).next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct BundleA;
+
+    impl FlowBundle for BundleA {
+        fn insert(&self, buf: &mut FlowBuffer) {
+            buf.register(FlowRef::Global, 42);
+            buf.register(FlowRef::Global, ());
+        }
+    }
+
+    struct BundleB;
+
+    impl FlowBundle for BundleB {
+        fn insert(&self, buf: &mut FlowBuffer) {
+            buf.register(FlowRef::Tile(0), 42);
+        }
+    }
+
+    #[test]
+    fn iter() {
+        let store = FlowStore::new(FlowStoreDescriptor {
+            bundles: vec![
+                FlowDescriptor {
+                    value: std::rc::Rc::new(BundleA),
+                },
+                FlowDescriptor {
+                    value: std::rc::Rc::new(BundleB),
+                },
+            ],
+        });
+
+        let mut iter = store.iter::<i32>();
+        assert_eq!(iter.next(), Some(&42));
+        assert_eq!(iter.next(), Some(&42));
+        assert_eq!(iter.next(), None);
+
+        let mut iter = store.iter::<()>();
+        assert_eq!(iter.next(), Some(&()));
+        assert_eq!(iter.next(), None);
+
+        assert_eq!(store.one::<i32>(), Some(&42));
+        assert_eq!(store.one::<i64>(), None);
+        assert_eq!(store.one::<()>(), Some(&()));
+    }
+
+    #[test]
+    fn iter_by_ref() {
+        let store = FlowStore::new(FlowStoreDescriptor {
+            bundles: vec![
+                FlowDescriptor {
+                    value: std::rc::Rc::new(BundleA),
+                },
+                FlowDescriptor {
+                    value: std::rc::Rc::new(BundleB),
+                },
+            ],
+        });
+
+        let mut iter = store.iter_by_ref::<i32>(FlowRef::Global);
+        assert_eq!(iter.next(), Some(&42));
+        assert_eq!(iter.next(), None);
+
+        let mut iter = store.iter_by_ref::<()>(FlowRef::Global);
+        assert_eq!(iter.next(), Some(&()));
+        assert_eq!(iter.next(), None);
+
+        assert_eq!(store.one_by_ref::<i32>(FlowRef::Tile(0)), Some(&42));
+        assert_eq!(store.one_by_ref::<()>(FlowRef::Tile(0)), None);
+    }
+}

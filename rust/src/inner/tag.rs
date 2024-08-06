@@ -548,12 +548,22 @@ mod tests {
             .insert(RefKey::Tile(0), SpaceKey::from([0, 0]), ())
             .unwrap();
 
-        store.remove_by_ref(RefKey::Tile(0)).unwrap();
+        assert_eq!(store.remove_by_ref(RefKey::Tile(0)), Some(()));
+        assert_eq!(store.remove_by_ref(RefKey::Tile(0)), None);
 
         assert_eq!(store.get::<i32>(key_0), None);
         assert_eq!(store.get::<()>(key_1), None);
         assert_eq!(store.one_by_ref::<i32>(RefKey::Tile(0)), None);
         assert_eq!(store.one_by_ref::<()>(RefKey::Tile(0)), None);
+
+        assert_eq!(
+            store.modify_ref_by_ref(RefKey::Tile(0), RefKey::Tile(1)),
+            None
+        );
+        assert_eq!(
+            store.modify_spc_by_ref(RefKey::Tile(0), SpaceKey::from([0, 0])),
+            None
+        );
     }
 
     #[test]
