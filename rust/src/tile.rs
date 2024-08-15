@@ -281,7 +281,7 @@ impl TileField {
         // update view chunk
 
         for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Some(chunk) = root.tile_get_chunk(*chunk_key) else {
+            let Ok(chunk) = root.tile_get_chunk(*chunk_key) else {
                 continue;
             };
 

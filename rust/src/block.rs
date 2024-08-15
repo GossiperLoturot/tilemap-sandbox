@@ -305,7 +305,7 @@ impl BlockField {
         // update view chunk
 
         for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Some(chunk) = root.block_get_chunk(*chunk_key) else {
+            let Ok(chunk) = root.block_get_chunk(*chunk_key) else {
                 continue;
             };
 

@@ -46,21 +46,24 @@ impl Actions {
     }
 
     #[func]
-    fn place_tile(mut root: Gd<Root>, tile: Gd<Tile>) -> u32 {
+    fn place_tile(mut root: Gd<Root>, tile: Gd<Tile>) -> Gd<TileKey> {
         let root = &mut root.bind_mut().inner;
         let tile = tile.bind().inner.clone();
-        extra_inner::place_tile(root, tile).unwrap()
+        let key = extra_inner::place_tile(root, tile).unwrap();
+        Gd::from_object(TileKey { inner: key })
     }
 
     #[func]
-    fn break_tile(mut root: Gd<Root>, tile_key: u32) -> Gd<Tile> {
+    fn break_tile(mut root: Gd<Root>, tile_key: Gd<TileKey>) -> Gd<Tile> {
+        let tile_key = tile_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let tile = extra_inner::break_tile(root, tile_key).unwrap();
         Gd::from_object(Tile { inner: tile })
     }
 
     #[func]
-    fn modify_tile(mut root: Gd<Root>, tile_key: u32, new_tile: Gd<Tile>) -> Gd<Tile> {
+    fn modify_tile(mut root: Gd<Root>, tile_key: Gd<TileKey>, new_tile: Gd<Tile>) -> Gd<Tile> {
+        let tile_key = tile_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let new_tile = new_tile.bind().inner.clone();
         let tile = extra_inner::modify_tile(root, tile_key, new_tile).unwrap();
@@ -68,21 +71,28 @@ impl Actions {
     }
 
     #[func]
-    fn place_block(mut root: Gd<Root>, block: Gd<Block>) -> u32 {
+    fn place_block(mut root: Gd<Root>, block: Gd<Block>) -> Gd<BlockKey> {
         let root = &mut root.bind_mut().inner;
         let block = block.bind().inner.clone();
-        extra_inner::place_block(root, block).unwrap()
+        let key = extra_inner::place_block(root, block).unwrap();
+        Gd::from_object(BlockKey { inner: key })
     }
 
     #[func]
-    fn break_block(mut root: Gd<Root>, block_key: u32) -> Gd<Block> {
+    fn break_block(mut root: Gd<Root>, block_key: Gd<BlockKey>) -> Gd<Block> {
+        let block_key = block_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let block = extra_inner::break_block(root, block_key).unwrap();
         Gd::from_object(Block { inner: block })
     }
 
     #[func]
-    fn modify_block(mut root: Gd<Root>, block_key: u32, new_block: Gd<Block>) -> Gd<Block> {
+    fn modify_block(
+        mut root: Gd<Root>,
+        block_key: Gd<BlockKey>,
+        new_block: Gd<Block>,
+    ) -> Gd<Block> {
+        let block_key = block_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let new_block = new_block.bind().inner.clone();
         let block = extra_inner::modify_block(root, block_key, new_block).unwrap();
@@ -90,21 +100,28 @@ impl Actions {
     }
 
     #[func]
-    fn place_entity(mut root: Gd<Root>, entity: Gd<Entity>) -> u32 {
+    fn place_entity(mut root: Gd<Root>, entity: Gd<Entity>) -> Gd<EntityKey> {
         let root = &mut root.bind_mut().inner;
         let entity = entity.bind().inner.clone();
-        extra_inner::place_entity(root, entity).unwrap()
+        let key = extra_inner::place_entity(root, entity).unwrap();
+        Gd::from_object(EntityKey { inner: key })
     }
 
     #[func]
-    fn break_entity(mut root: Gd<Root>, entity_key: u32) -> Gd<Entity> {
+    fn break_entity(mut root: Gd<Root>, entity_key: Gd<EntityKey>) -> Gd<Entity> {
+        let entity_key = entity_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let entity = extra_inner::break_entity(root, entity_key).unwrap();
         Gd::from_object(Entity { inner: entity })
     }
 
     #[func]
-    fn modify_entity(mut root: Gd<Root>, entity_key: u32, new_entity: Gd<Entity>) -> Gd<Entity> {
+    fn modify_entity(
+        mut root: Gd<Root>,
+        entity_key: Gd<EntityKey>,
+        new_entity: Gd<Entity>,
+    ) -> Gd<Entity> {
+        let entity_key = entity_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let new_entity = new_entity.bind().inner.clone();
         let entity = extra_inner::modify_entity(root, entity_key, new_entity).unwrap();
@@ -124,13 +141,6 @@ impl Actions {
         ]];
 
         extra_inner::generate_chunk(root, rect);
-    }
-
-    #[func]
-    fn move_entity(mut root: Gd<Root>, entity_key: u32, new_location: Vector2) -> bool {
-        let root = &mut root.bind_mut().inner;
-        let new_location = [new_location.x, new_location.y];
-        extra_inner::move_entity(root, entity_key, new_location).is_ok()
     }
 }
 
@@ -160,34 +170,8 @@ impl FlowDescriptors {
     }
 
     #[func]
-    fn new_animal_entity(
-        entity_id: u32,
-        min_rest_secs: f32,
-        max_rest_secs: f32,
-        min_distance: f32,
-        max_distance: f32,
-        speed: f32,
-    ) -> Gd<FlowDescriptor> {
-        let value = std::rc::Rc::new(extra_inner::AnimalEntity {
-            entity_id,
-            min_rest_secs,
-            max_rest_secs,
-            min_distance,
-            max_distance,
-            speed,
-        });
-        Gd::from_object(FlowDescriptor { value })
-    }
-
-    #[func]
     fn new_generator() -> Gd<FlowDescriptor> {
         let value = std::rc::Rc::new(extra_inner::Generator {});
-        Gd::from_object(FlowDescriptor { value })
-    }
-
-    #[func]
-    fn new_random_walk_forward_local() -> Gd<FlowDescriptor> {
-        let value = std::rc::Rc::new(extra_inner::RandomWalkForwardLocal {});
         Gd::from_object(FlowDescriptor { value })
     }
 }

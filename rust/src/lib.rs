@@ -14,6 +14,12 @@ unsafe impl ExtensionLibrary for Extension {}
 
 #[derive(GodotClass)]
 #[class(no_init)]
+pub struct TileKey {
+    pub inner: inner::TileKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 pub struct Tile {
     pub inner: inner::Tile,
 }
@@ -46,6 +52,12 @@ impl Tile {
 
 #[derive(GodotClass)]
 #[class(no_init)]
+pub struct BlockKey {
+    pub inner: inner::BlockKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 pub struct Block {
     pub inner: inner::Block,
 }
@@ -74,6 +86,12 @@ impl Block {
     fn get_variant(&self) -> u8 {
         self.inner.variant
     }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+pub struct EntityKey {
+    pub inner: inner::EntityKey,
 }
 
 #[derive(GodotClass)]
