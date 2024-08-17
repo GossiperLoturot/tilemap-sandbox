@@ -56,9 +56,9 @@ impl Root {
     pub fn tile_modify(
         &mut self,
         tile_key: TileKey,
-        new_tile: field::Tile,
-    ) -> Result<field::Tile, FieldError> {
-        self.tile_field.modify(tile_key, new_tile)
+        f: impl Fn(&mut field::Tile),
+    ) -> Result<field::TileKey, FieldError> {
+        self.tile_field.modify(tile_key, f)
     }
 
     #[inline]
@@ -134,9 +134,9 @@ impl Root {
     pub fn block_modify(
         &mut self,
         block_key: BlockKey,
-        new_block: field::Block,
-    ) -> Result<field::Block, FieldError> {
-        self.block_field.modify(block_key, new_block)
+        f: impl Fn(&mut field::Block),
+    ) -> Result<field::BlockKey, FieldError> {
+        self.block_field.modify(block_key, f)
     }
 
     #[inline]
@@ -252,9 +252,9 @@ impl Root {
     pub fn entity_modify(
         &mut self,
         entity_key: EntityKey,
-        new_entity: field::Entity,
-    ) -> Result<field::Entity, FieldError> {
-        self.entity_field.modify(entity_key, new_entity)
+        f: impl Fn(&mut field::Entity),
+    ) -> Result<field::EntityKey, FieldError> {
+        self.entity_field.modify(entity_key, f)
     }
 
     #[inline]
@@ -274,7 +274,10 @@ impl Root {
 
     // entity collision features
 
-    pub fn entity_get_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
+    pub fn entity_get_collision_rect(
+        &self,
+        entity_key: EntityKey,
+    ) -> Result<[Vec2; 2], FieldError> {
         self.entity_field.get_collision_rect(entity_key)
     }
 
@@ -284,7 +287,10 @@ impl Root {
     }
 
     #[inline]
-    pub fn entity_get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn entity_get_by_collision_point(
+        &self,
+        point: Vec2,
+    ) -> impl Iterator<Item = EntityKey> + '_ {
         self.entity_field.get_by_collision_point(point)
     }
 
@@ -294,7 +300,10 @@ impl Root {
     }
 
     #[inline]
-    pub fn entity_get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn entity_get_by_collision_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = EntityKey> + '_ {
         self.entity_field.get_by_collision_rect(rect)
     }
 

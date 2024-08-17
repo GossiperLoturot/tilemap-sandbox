@@ -10,34 +10,16 @@ pub trait IResource {
 pub trait ITile {
     fn place_tile(&self, root: &mut Root, tile: Tile) -> Result<TileKey, FieldError>;
     fn break_tile(&self, root: &mut Root, tile_key: TileKey) -> Result<Tile, FieldError>;
-    fn modify_tile(
-        &self,
-        root: &mut Root,
-        tile_key: TileKey,
-        new_tile: Tile,
-    ) -> Result<Tile, FieldError>;
 }
 
 pub trait IBlock {
     fn place_block(&self, root: &mut Root, block: Block) -> Result<BlockKey, FieldError>;
     fn break_block(&self, root: &mut Root, block_key: BlockKey) -> Result<Block, FieldError>;
-    fn modify_block(
-        &self,
-        root: &mut Root,
-        block_key: BlockKey,
-        new_block: Block,
-    ) -> Result<Block, FieldError>;
 }
 
 pub trait IEntity {
     fn place_entity(&self, root: &mut Root, entity: Entity) -> Result<EntityKey, FieldError>;
     fn break_entity(&self, root: &mut Root, entity_key: EntityKey) -> Result<Entity, FieldError>;
-    fn modify_entity(
-        &self,
-        root: &mut Root,
-        entity_key: EntityKey,
-        new_entity: Entity,
-    ) -> Result<Entity, FieldError>;
 }
 
 pub trait IForward {
@@ -91,20 +73,6 @@ pub fn break_tile(root: &mut Root, tile_key: TileKey) -> Result<Tile, FieldError
     flow.break_tile(root, tile_key)
 }
 
-pub fn modify_tile(root: &mut Root, tile_key: TileKey, new_tile: Tile) -> Result<Tile, FieldError> {
-    let old_tile = root.tile_get(tile_key)?;
-
-    if new_tile.id != old_tile.id {
-        panic!("no support for changing tile id in modify_tile");
-    }
-
-    let flow = root
-        .flow_one_by_ref::<std::rc::Rc<dyn ITile>>(FlowRef::Tile(new_tile.id))
-        .cloned()
-        .unwrap();
-    flow.modify_tile(root, tile_key, new_tile)
-}
-
 pub fn place_block(root: &mut Root, block: Block) -> Result<BlockKey, FieldError> {
     let flow = root
         .flow_one_by_ref::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(block.id))
@@ -122,24 +90,6 @@ pub fn break_block(root: &mut Root, block_key: BlockKey) -> Result<Block, FieldE
     flow.break_block(root, block_key)
 }
 
-pub fn modify_block(
-    root: &mut Root,
-    block_key: BlockKey,
-    new_block: Block,
-) -> Result<Block, FieldError> {
-    let old_block = root.block_get(block_key)?;
-
-    if new_block.id != old_block.id {
-        panic!("no support for changing block id in modify_block");
-    }
-
-    let flow = root
-        .flow_one_by_ref::<std::rc::Rc<dyn IBlock>>(FlowRef::Block(new_block.id))
-        .cloned()
-        .unwrap();
-    flow.modify_block(root, block_key, new_block)
-}
-
 pub fn place_entity(root: &mut Root, entity: Entity) -> Result<EntityKey, FieldError> {
     let flow = root
         .flow_one_by_ref::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(entity.id))
@@ -155,24 +105,6 @@ pub fn break_entity(root: &mut Root, entity_key: EntityKey) -> Result<Entity, Fi
         .cloned()
         .unwrap();
     flow.break_entity(root, entity_key)
-}
-
-pub fn modify_entity(
-    root: &mut Root,
-    entity_key: EntityKey,
-    new_entity: Entity,
-) -> Result<Entity, FieldError> {
-    let old_entity = root.entity_get(entity_key)?;
-
-    if new_entity.id != old_entity.id {
-        panic!("no support for changing entity id in modify_entity");
-    }
-
-    let flow = root
-        .flow_one_by_ref::<std::rc::Rc<dyn IEntity>>(FlowRef::Entity(new_entity.id))
-        .cloned()
-        .unwrap();
-    flow.modify_entity(root, entity_key, new_entity)
 }
 
 pub fn forward(root: &mut Root, delta_secs: f32) {
@@ -222,16 +154,6 @@ impl ITile for BaseTile {
     fn break_tile(&self, root: &mut Root, tile_key: TileKey) -> Result<Tile, FieldError> {
         root.tile_remove(tile_key)
     }
-
-    #[inline]
-    fn modify_tile(
-        &self,
-        root: &mut Root,
-        tile_key: TileKey,
-        new_tile: Tile,
-    ) -> Result<Tile, FieldError> {
-        root.tile_modify(tile_key, new_tile)
-    }
 }
 
 impl FlowBundle for BaseTile {
@@ -258,16 +180,6 @@ impl IBlock for BaseBlock {
     fn break_block(&self, root: &mut Root, block_key: BlockKey) -> Result<Block, FieldError> {
         root.block_remove(block_key)
     }
-
-    #[inline]
-    fn modify_block(
-        &self,
-        root: &mut Root,
-        block_key: BlockKey,
-        new_block: Block,
-    ) -> Result<Block, FieldError> {
-        root.block_modify(block_key, new_block)
-    }
 }
 
 impl FlowBundle for BaseBlock {
@@ -293,16 +205,6 @@ impl IEntity for BaseEntity {
     #[inline]
     fn break_entity(&self, root: &mut Root, entity_key: EntityKey) -> Result<Entity, FieldError> {
         root.entity_remove(entity_key)
-    }
-
-    #[inline]
-    fn modify_entity(
-        &self,
-        root: &mut Root,
-        entity_key: EntityKey,
-        new_entity: Entity,
-    ) -> Result<Entity, FieldError> {
-        root.entity_modify(entity_key, new_entity)
     }
 }
 
@@ -371,7 +273,14 @@ impl IGenerate for Generator {
                                 x * CHUNK_SIZE as i32 + u as i32,
                                 y * CHUNK_SIZE as i32 + v as i32,
                             ];
-                            let _ = place_tile(root, Tile::new(id, location, 0));
+                            let _ = place_tile(
+                                root,
+                                Tile {
+                                    id,
+                                    location,
+                                    variant: Default::default(),
+                                },
+                            );
                         }
                     }
 
@@ -383,7 +292,14 @@ impl IGenerate for Generator {
                             x * CHUNK_SIZE as i32 + u as i32,
                             y * CHUNK_SIZE as i32 + v as i32,
                         ];
-                        let _ = place_block(root, Block::new(id, location, 0));
+                        let _ = place_block(
+                            root,
+                            Block {
+                                id,
+                                location,
+                                variant: Default::default(),
+                            },
+                        );
                     }
 
                     for _ in 0..64 {
@@ -396,7 +312,14 @@ impl IGenerate for Generator {
                             x as f32 * CHUNK_SIZE as f32 + u,
                             y as f32 * CHUNK_SIZE as f32 + v,
                         ];
-                        let _ = place_entity(root, Entity::new(id, location, 0));
+                        let _ = place_entity(
+                            root,
+                            Entity {
+                                id,
+                                location,
+                                variant: 0,
+                            },
+                        );
                     }
                 }
             }

@@ -29,7 +29,11 @@ impl Tile {
     #[func]
     fn create(id: u32, location: Vector2i, variant: u8) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Tile::new(id, location, variant);
+        let inner = inner::Tile {
+            id,
+            location,
+            variant,
+        };
         Gd::from_object(Self { inner })
     }
 
@@ -67,7 +71,11 @@ impl Block {
     #[func]
     fn create(id: u32, location: Vector2i, variant: u8) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Block::new(id, location, variant);
+        let inner = inner::Block {
+            id,
+            location,
+            variant,
+        };
         Gd::from_object(Self { inner })
     }
 
@@ -105,7 +113,11 @@ impl Entity {
     #[func]
     fn create(id: u32, location: Vector2, variant: u8) -> Gd<Self> {
         let location = [location.x, location.y];
-        let inner = inner::Entity::new(id, location, variant);
+        let inner = inner::Entity {
+            id,
+            location,
+            variant,
+        };
         Gd::from_object(Self { inner })
     }
 

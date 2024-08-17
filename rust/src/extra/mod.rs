@@ -62,15 +62,6 @@ impl Actions {
     }
 
     #[func]
-    fn modify_tile(mut root: Gd<Root>, tile_key: Gd<TileKey>, new_tile: Gd<Tile>) -> Gd<Tile> {
-        let tile_key = tile_key.bind().inner;
-        let root = &mut root.bind_mut().inner;
-        let new_tile = new_tile.bind().inner.clone();
-        let tile = extra_inner::modify_tile(root, tile_key, new_tile).unwrap();
-        Gd::from_object(Tile { inner: tile })
-    }
-
-    #[func]
     fn place_block(mut root: Gd<Root>, block: Gd<Block>) -> Gd<BlockKey> {
         let root = &mut root.bind_mut().inner;
         let block = block.bind().inner.clone();
@@ -87,19 +78,6 @@ impl Actions {
     }
 
     #[func]
-    fn modify_block(
-        mut root: Gd<Root>,
-        block_key: Gd<BlockKey>,
-        new_block: Gd<Block>,
-    ) -> Gd<Block> {
-        let block_key = block_key.bind().inner;
-        let root = &mut root.bind_mut().inner;
-        let new_block = new_block.bind().inner.clone();
-        let block = extra_inner::modify_block(root, block_key, new_block).unwrap();
-        Gd::from_object(Block { inner: block })
-    }
-
-    #[func]
     fn place_entity(mut root: Gd<Root>, entity: Gd<Entity>) -> Gd<EntityKey> {
         let root = &mut root.bind_mut().inner;
         let entity = entity.bind().inner.clone();
@@ -112,19 +90,6 @@ impl Actions {
         let entity_key = entity_key.bind().inner;
         let root = &mut root.bind_mut().inner;
         let entity = extra_inner::break_entity(root, entity_key).unwrap();
-        Gd::from_object(Entity { inner: entity })
-    }
-
-    #[func]
-    fn modify_entity(
-        mut root: Gd<Root>,
-        entity_key: Gd<EntityKey>,
-        new_entity: Gd<Entity>,
-    ) -> Gd<Entity> {
-        let entity_key = entity_key.bind().inner;
-        let root = &mut root.bind_mut().inner;
-        let new_entity = new_entity.bind().inner.clone();
-        let entity = extra_inner::modify_entity(root, entity_key, new_entity).unwrap();
         Gd::from_object(Entity { inner: entity })
     }
 

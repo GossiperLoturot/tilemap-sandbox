@@ -14,7 +14,15 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(field.insert(Tile::new(0, [i as i32, 0], 0)).unwrap());
+                black_box(
+                    field
+                        .insert(Tile {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
             instance.elapsed()
         });
@@ -32,7 +40,15 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Tile::new(0, [i as i32, 0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Tile {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
@@ -55,12 +71,51 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Tile::new(0, [i as i32, 0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Tile {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
             for key in keys {
                 black_box(field.get(key).unwrap());
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("tile modify", |b| {
+        b.iter_custom(|iters| {
+            let mut field = TileField::new(TileFieldDescriptor {
+                chunk_size: 32,
+                tiles: vec![
+                    TileDescriptor { collision: false },
+                    TileDescriptor { collision: false },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Tile {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(field.modify(key, |tile| tile.location[1] += 1).unwrap());
             }
             instance.elapsed()
         });
@@ -90,7 +145,15 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(field.insert(Block::new(0, [i as i32, 0], 0)).unwrap());
+                black_box(
+                    field
+                        .insert(Block {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
             instance.elapsed()
         });
@@ -120,7 +183,15 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Block::new(0, [i as i32, 0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Block {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
@@ -155,12 +226,63 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Block::new(0, [i as i32, 0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Block {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
             for key in keys {
                 black_box(field.get(key).unwrap());
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("block modify", |b| {
+        b.iter_custom(|iters| {
+            let mut field = BlockField::new(BlockFieldDescriptor {
+                chunk_size: 32,
+                blocks: vec![
+                    BlockDescriptor {
+                        size: [1, 1],
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                    BlockDescriptor {
+                        size: [1, 1],
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Block {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(field.modify(key, |block| block.location[1] += 1).unwrap());
             }
             instance.elapsed()
         });
@@ -188,7 +310,15 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(field.insert(Entity::new(0, [i as f32, 0.0], 0)).unwrap());
+                black_box(
+                    field
+                        .insert(Entity {
+                            id: 0,
+                            location: [i as f32, 0.0],
+                            variant: 0,
+                        })
+                        .unwrap(),
+                );
             }
             instance.elapsed()
         });
@@ -216,7 +346,15 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Entity::new(0, [i as f32, 0.0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Entity {
+                            id: 0,
+                            location: [i as f32, 0.0],
+                            variant: 0,
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
@@ -249,12 +387,65 @@ fn benchmark(c: &mut Criterion) {
 
             let mut keys = vec![];
             for i in 0..iters {
-                keys.push(field.insert(Entity::new(0, [i as f32, 0.0], 0)).unwrap());
+                keys.push(
+                    field
+                        .insert(Entity {
+                            id: 0,
+                            location: [i as f32, 0.0],
+                            variant: 0,
+                        })
+                        .unwrap(),
+                );
             }
 
             let instance = std::time::Instant::now();
             for key in keys {
                 black_box(field.get(key).unwrap());
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("entity modify", |b| {
+        b.iter_custom(|iters| {
+            let mut field = EntityField::new(EntityFieldDescriptor {
+                chunk_size: 32,
+                entities: vec![
+                    EntityDescriptor {
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                    EntityDescriptor {
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Entity {
+                            id: 0,
+                            location: [i as f32, 0.0],
+                            variant: 0,
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(
+                    field
+                        .modify(key, |entity| entity.location[1] += 1.0)
+                        .unwrap(),
+                );
             }
             instance.elapsed()
         });
