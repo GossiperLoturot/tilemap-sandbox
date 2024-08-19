@@ -39,29 +39,30 @@ impl TileProperty {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Tile {
+pub struct Tile<T> {
     pub id: u32,
     pub location: IVec2,
     pub variant: u8,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct TileChunk {
-    pub version: u64,
-    pub tiles: slab::Slab<Tile>,
+    pub data: T,
 }
 
 #[derive(Debug, Clone)]
-pub struct TileField {
+pub struct TileChunk<T> {
+    pub version: u64,
+    pub tiles: slab::Slab<Tile<T>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TileField<T> {
     chunk_size: u32,
     props: Vec<TileProperty>,
-    chunks: Vec<TileChunk>,
+    chunks: Vec<TileChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     spatial_ref: ahash::AHashMap<IVec2, TileKey>,
     collision_ref: rstar::RTree<RectNode<Vec2, TileKey>>,
 }
 
-impl TileField {
+impl<T> TileField<T> {
     pub fn new(desc: TileFieldDescriptor) -> Self {
         let mut props = vec![];
         for tile in desc.tiles {
@@ -80,7 +81,7 @@ impl TileField {
         }
     }
 
-    pub fn insert(&mut self, tile: Tile) -> Result<TileKey, FieldError> {
+    pub fn insert(&mut self, tile: Tile<T>) -> Result<TileKey, FieldError> {
         let prop = self
             .props
             .get(tile.id as usize)
@@ -105,7 +106,10 @@ impl TileField {
             }
 
             let chunk_key = self.chunks.len() as u32;
-            self.chunks.push(Default::default());
+            self.chunks.push(TileChunk {
+                version: 0,
+                tiles: Default::default(),
+            });
             self.chunk_ref.insert(chunk_location, chunk_key);
             chunk_key
         };
@@ -136,7 +140,7 @@ impl TileField {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: TileKey) -> Result<Tile, FieldError> {
+    pub fn remove(&mut self, key: TileKey) -> Result<Tile<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -161,16 +165,26 @@ impl TileField {
         Ok(tile)
     }
 
-    pub fn modify(&mut self, key: TileKey, f: impl Fn(&mut Tile)) -> Result<TileKey, FieldError> {
+    pub fn modify(
+        &mut self,
+        key: TileKey,
+        f: impl Fn(&mut Tile<T>),
+    ) -> Result<TileKey, FieldError> {
         let (chunk_key, local_key) = key;
 
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
         let tile = chunk
             .tiles
-            .get(local_key as usize)
+            .get_mut(local_key as usize)
             .ok_or(FieldError::NotFound)?;
 
-        let mut new_tile = tile.clone();
+        // SAFETY: data in replaced old tile is not used after this.
+        let mut new_tile = Tile {
+            id: tile.id,
+            location: tile.location,
+            variant: tile.variant,
+            data: std::mem::replace(&mut tile.data, unsafe { std::mem::zeroed() }),
+        };
         f(&mut new_tile);
 
         if new_tile.id != tile.id {
@@ -200,7 +214,7 @@ impl TileField {
         Ok(key)
     }
 
-    pub fn get(&self, key: TileKey) -> Result<&Tile, FieldError> {
+    pub fn get(&self, key: TileKey) -> Result<&Tile<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -217,13 +231,18 @@ impl TileField {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: IVec2) -> Result<&TileChunk, FieldError> {
-        let chunk_key = *self.chunk_ref.get(&chunk_key).ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
-        Ok(chunk)
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&TileChunk<T>, FieldError> {
+        self.chunks
+            .get(chunk_key as usize)
+            .ok_or(FieldError::NotFound)
     }
 
     // spatial features
+
+    #[inline]
+    pub fn has_by_point(&self, point: IVec2) -> bool {
+        self.spatial_ref.contains_key(&point)
+    }
 
     #[inline]
     pub fn get_by_point(&self, point: IVec2) -> Option<TileKey> {
@@ -231,8 +250,8 @@ impl TileField {
     }
 
     #[inline]
-    pub fn has_by_point(&self, point: IVec2) -> bool {
-        self.spatial_ref.contains_key(&point)
+    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.chunk_ref.get(&chunk_location).copied()
     }
 
     // collision features
@@ -343,30 +362,31 @@ impl BlockProperty {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Block {
+pub struct Block<T> {
     pub id: u32,
     pub location: IVec2,
     pub variant: u8,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct BlockChunk {
-    pub version: u64,
-    pub blocks: slab::Slab<Block>,
+    pub data: T,
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockField {
+pub struct BlockChunk<T> {
+    pub version: u64,
+    pub blocks: slab::Slab<Block<T>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BlockField<T> {
     chunk_size: u32,
     props: Vec<BlockProperty>,
-    chunks: Vec<BlockChunk>,
+    chunks: Vec<BlockChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     spatial_ref: rstar::RTree<RectNode<IVec2, BlockKey>>,
     collision_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
     hint_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
 }
 
-impl BlockField {
+impl<T> BlockField<T> {
     pub fn new(desc: BlockFieldDescriptor) -> Self {
         let mut props = vec![];
         for block in desc.blocks {
@@ -400,7 +420,7 @@ impl BlockField {
         }
     }
 
-    pub fn insert(&mut self, block: Block) -> Result<BlockKey, FieldError> {
+    pub fn insert(&mut self, block: Block<T>) -> Result<BlockKey, FieldError> {
         let prop = self
             .props
             .get(block.id as usize)
@@ -425,7 +445,10 @@ impl BlockField {
             }
 
             let chunk_key = self.chunks.len() as u32;
-            self.chunks.push(Default::default());
+            self.chunks.push(BlockChunk {
+                version: 0,
+                blocks: Default::default(),
+            });
             self.chunk_ref.insert(chunk_location, chunk_key);
             chunk_key
         };
@@ -465,7 +488,7 @@ impl BlockField {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: BlockKey) -> Result<Block, FieldError> {
+    pub fn remove(&mut self, key: BlockKey) -> Result<Block<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -503,17 +526,22 @@ impl BlockField {
     pub fn modify(
         &mut self,
         key: BlockKey,
-        f: impl Fn(&mut Block),
+        f: impl Fn(&mut Block<T>),
     ) -> Result<BlockKey, FieldError> {
         let (chunk_key, local_key) = key;
 
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
         let block = chunk
             .blocks
-            .get(local_key as usize)
+            .get_mut(local_key as usize)
             .ok_or(FieldError::NotFound)?;
 
-        let mut new_block = block.clone();
+        let mut new_block = Block {
+            id: block.id,
+            location: block.location,
+            variant: block.variant,
+            data: std::mem::replace(&mut block.data, unsafe { std::mem::zeroed() }),
+        };
         f(&mut new_block);
 
         if new_block.id != block.id {
@@ -548,7 +576,7 @@ impl BlockField {
         Ok(key)
     }
 
-    pub fn get(&self, key: BlockKey) -> Result<&Block, FieldError> {
+    pub fn get(&self, key: BlockKey) -> Result<&Block<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -565,10 +593,10 @@ impl BlockField {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: IVec2) -> Result<&BlockChunk, FieldError> {
-        let chunk_key = *self.chunk_ref.get(&chunk_key).ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
-        Ok(chunk)
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&BlockChunk<T>, FieldError> {
+        self.chunks
+            .get(chunk_key as usize)
+            .ok_or(FieldError::NotFound)
     }
 
     // spatial features
@@ -606,6 +634,11 @@ impl BlockField {
         self.spatial_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
+    }
+
+    #[inline]
+    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.chunk_ref.get(&chunk_location).copied()
     }
 
     // collision features
@@ -740,29 +773,30 @@ impl EntityProperty {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Entity {
+pub struct Entity<T> {
     pub id: u32,
     pub location: Vec2,
     pub variant: u8,
+    pub data: T,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct EntityChunk {
+pub struct EntityChunk<T> {
     pub version: u64,
-    pub entities: slab::Slab<Entity>,
+    pub entities: slab::Slab<Entity<T>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityField {
+pub struct EntityField<T> {
     chunk_size: u32,
     props: Vec<EntityProperty>,
-    chunks: Vec<EntityChunk>,
+    chunks: Vec<EntityChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     collision_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
     hint_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
 }
 
-impl EntityField {
+impl<T> EntityField<T> {
     pub fn new(desc: EntityFieldDescriptor) -> Self {
         let mut props = vec![];
         for entity in desc.entities {
@@ -791,7 +825,7 @@ impl EntityField {
         }
     }
 
-    pub fn insert(&mut self, entity: Entity) -> Result<EntityKey, FieldError> {
+    pub fn insert(&mut self, entity: Entity<T>) -> Result<EntityKey, FieldError> {
         let prop = self
             .props
             .get(entity.id as usize)
@@ -811,7 +845,10 @@ impl EntityField {
             }
 
             let chunk_key = self.chunks.len() as u32;
-            self.chunks.push(Default::default());
+            self.chunks.push(EntityChunk {
+                version: 0,
+                entities: Default::default(),
+            });
             self.chunk_ref.insert(chunk_location, chunk_key);
             chunk_key
         };
@@ -845,7 +882,7 @@ impl EntityField {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: EntityKey) -> Result<Entity, FieldError> {
+    pub fn remove(&mut self, key: EntityKey) -> Result<Entity<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -877,17 +914,22 @@ impl EntityField {
     pub fn modify(
         &mut self,
         key: EntityKey,
-        f: impl Fn(&mut Entity),
+        f: impl Fn(&mut Entity<T>),
     ) -> Result<EntityKey, FieldError> {
         let (chunk_key, local_key) = key;
 
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
         let entity = chunk
             .entities
-            .get(local_key as usize)
+            .get_mut(local_key as usize)
             .ok_or(FieldError::NotFound)?;
 
-        let mut new_entity = entity.clone();
+        let mut new_entity = Entity {
+            id: entity.id,
+            location: entity.location,
+            variant: entity.variant,
+            data: std::mem::replace(&mut entity.data, unsafe { std::mem::zeroed() }),
+        };
         f(&mut new_entity);
 
         if new_entity.id != entity.id {
@@ -912,7 +954,7 @@ impl EntityField {
         Ok(key)
     }
 
-    pub fn get(&self, key: EntityKey) -> Result<&Entity, FieldError> {
+    pub fn get(&self, key: EntityKey) -> Result<&Entity<T>, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -929,10 +971,17 @@ impl EntityField {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: IVec2) -> Result<&EntityChunk, FieldError> {
-        let chunk_key = *self.chunk_ref.get(&chunk_key).ok_or(FieldError::NotFound)?;
-        let chunk = self.chunks.get(chunk_key as usize).unwrap();
-        Ok(chunk)
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&EntityChunk<T>, FieldError> {
+        self.chunks
+            .get(chunk_key as usize)
+            .ok_or(FieldError::NotFound)
+    }
+
+    // spatial features
+
+    #[inline]
+    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.chunk_ref.get(&chunk_location).copied()
     }
 
     // collision features
@@ -1031,6 +1080,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1039,7 +1089,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1049,7 +1100,8 @@ mod tests {
             Ok(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
 
@@ -1073,7 +1125,8 @@ mod tests {
             field.insert(Tile {
                 id: 2,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1085,13 +1138,15 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         assert_eq!(
             field.insert(Tile {
                 id: 0,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             }),
             Err(FieldError::Conflict)
         );
@@ -1100,7 +1155,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1122,6 +1178,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1131,7 +1188,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1145,7 +1203,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
 
@@ -1155,7 +1214,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
     }
@@ -1175,6 +1235,7 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -1182,6 +1243,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1199,7 +1261,8 @@ mod tests {
             Ok(&Tile {
                 id: 0,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1227,6 +1290,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1238,7 +1302,8 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 1000],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1262,6 +1327,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -1269,6 +1335,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key_2 = field
@@ -1276,6 +1343,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1316,6 +1384,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key1 = field
@@ -1323,6 +1392,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key2 = field
@@ -1330,19 +1400,21 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
-        assert!(field.get_chunk([0, 0]).is_err());
+        assert!(field.get_by_chunk_location([0, 0]).is_none());
 
-        let chunk = field.get_chunk([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.tiles.len(), 3);
     }
 
     #[test]
     #[should_panic]
     fn block_field_with_invalid() {
-        BlockField::new(BlockFieldDescriptor {
+        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [-1, -1],
@@ -1357,7 +1429,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn block_field_with_invalid_collision() {
-        BlockField::new(BlockFieldDescriptor {
+        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
@@ -1372,7 +1444,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn block_field_with_invalid_hint() {
-        BlockField::new(BlockFieldDescriptor {
+        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
@@ -1411,6 +1483,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
@@ -1420,7 +1493,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1430,7 +1504,8 @@ mod tests {
             Ok(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
 
@@ -1468,7 +1543,8 @@ mod tests {
             field.insert(Block {
                 id: 2,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1480,13 +1556,15 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         assert_eq!(
             field.insert(Block {
                 id: 0,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             }),
             Err(FieldError::Conflict)
         );
@@ -1495,7 +1573,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1529,6 +1608,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1538,7 +1618,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1552,7 +1633,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
 
@@ -1562,7 +1644,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
     }
@@ -1594,6 +1677,7 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -1601,6 +1685,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1618,7 +1703,8 @@ mod tests {
             Ok(&Block {
                 id: 0,
                 location: [-1, 3],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1658,6 +1744,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1669,7 +1756,8 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 1000],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1705,6 +1793,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -1712,6 +1801,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key_2 = field
@@ -1719,6 +1809,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1770,6 +1861,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -1777,6 +1869,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key_2 = field
@@ -1784,6 +1877,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1833,6 +1927,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key1 = field
@@ -1840,6 +1935,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key2 = field
@@ -1847,19 +1943,21 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
-        assert!(field.get_chunk([0, 0]).is_err());
+        assert!(field.get_by_chunk_location([0, 0]).is_none());
 
-        let chunk = field.get_chunk([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.blocks.len(), 3);
     }
 
     #[test]
     #[should_panic]
     fn entity_field_with_invalid_collision() {
-        EntityField::new(EntityFieldDescriptor {
+        let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             chunk_size: 16,
             entities: vec![EntityDescriptor {
                 collision_size: [-1.0, -1.0],
@@ -1873,7 +1971,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn entity_field_with_invalid_hint() {
-        EntityField::new(EntityFieldDescriptor {
+        let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             chunk_size: 16,
             entities: vec![EntityDescriptor {
                 collision_size: [1.0, 1.0],
@@ -1909,6 +2007,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1917,7 +2016,8 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
         assert_eq!(
@@ -1925,7 +2025,8 @@ mod tests {
             Ok(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
 
@@ -1957,7 +2058,8 @@ mod tests {
             field.insert(Entity {
                 id: 2,
                 location: [-1.0, 3.0],
-                variant: 0
+                variant: 0,
+                data: (),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1988,6 +2090,7 @@ mod tests {
                 id: 0,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -1999,7 +2102,8 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
 
@@ -2009,7 +2113,8 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
 
@@ -2019,7 +2124,8 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 1
+                variant: 1,
+                data: (),
             })
         );
     }
@@ -2049,6 +2155,7 @@ mod tests {
                 id: 0,
                 location: [-1.0, 4.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -2087,6 +2194,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -2098,7 +2206,8 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 1000.0],
-                variant: 0
+                variant: 0,
+                data: (),
             })
         );
     }
@@ -2128,6 +2237,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -2135,6 +2245,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key_2 = field
@@ -2142,6 +2253,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -2191,6 +2303,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let key_1 = field
@@ -2198,6 +2311,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key_2 = field
@@ -2205,6 +2319,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
@@ -2252,6 +2367,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key1 = field
@@ -2259,6 +2375,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
         let _key2 = field
@@ -2266,12 +2383,14 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 variant: 0,
+                data: (),
             })
             .unwrap();
 
-        assert!(field.get_chunk([0, 0]).is_err());
+        assert!(field.get_by_chunk_location([0, 0]).is_none());
 
-        let chunk = field.get_chunk([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.entities.len(), 3);
     }
 }

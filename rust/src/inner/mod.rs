@@ -1,54 +1,102 @@
 pub use field::*;
-pub use flow::*;
 pub use resource::*;
-pub use tag::*;
 
 mod field;
-mod flow;
 mod resource;
-mod tag;
 
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
 
-pub struct RootDescriptor {
+type RcVec<T> = std::rc::Rc<[T]>;
+
+pub trait Feature: Sized {
+    type Tile: TileFeature<Self> + Clone;
+    type Block: BlockFeature<Self> + Clone;
+    type Entity: EntityFeature<Self> + Clone;
+}
+
+pub trait TileFeature<T: Feature>: Sized {
+    type Item: Clone + Default;
+
+    fn after_place(&self, root: &mut Root<T>, key: TileKey);
+    fn before_break(&self, root: &mut Root<T>, key: TileKey);
+    fn forward(&self, root: &mut Root<T>, key: TileKey);
+}
+
+pub trait BlockFeature<T: Feature>: Sized {
+    type Item: Clone + Default;
+
+    fn after_place(&self, root: &mut Root<T>, key: TileKey);
+    fn before_break(&self, root: &mut Root<T>, key: TileKey);
+    fn forward(&self, root: &mut Root<T>, key: TileKey);
+}
+
+pub trait EntityFeature<T: Feature>: Sized {
+    type Item: Clone + Default;
+
+    fn after_place(&self, root: &mut Root<T>, key: TileKey);
+    fn before_break(&self, root: &mut Root<T>, key: TileKey);
+    fn forward(&self, root: &mut Root<T>, key: TileKey);
+}
+
+pub struct RootDescriptor<T: Feature> {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
-    pub flow_store: FlowStoreDescriptor,
+    pub tile_features: RcVec<T::Tile>,
+    pub block_features: RcVec<T::Block>,
+    pub entity_features: RcVec<T::Entity>,
 }
 
-pub struct Root {
-    tile_field: TileField,
-    block_field: BlockField,
-    entity_field: EntityField,
+pub struct Root<T: Feature> {
+    tile_field: TileField<<T::Tile as TileFeature<T>>::Item>,
+    block_field: BlockField<<T::Block as BlockFeature<T>>::Item>,
+    entity_field: EntityField<<T::Entity as EntityFeature<T>>::Item>,
+    tile_features: RcVec<T::Tile>,
+    block_features: RcVec<T::Block>,
+    entity_features: RcVec<T::Entity>,
     resource_store: ResourceStore,
-    tag_store: TagStore,
-    flow_store: FlowStore,
 }
 
-impl Root {
+impl<T: Feature> Root<T> {
     #[inline]
-    pub fn new(desc: RootDescriptor) -> Self {
+    pub fn new(desc: RootDescriptor<T>) -> Self {
         Self {
             tile_field: TileField::new(desc.tile_field),
             block_field: BlockField::new(desc.block_field),
             entity_field: EntityField::new(desc.entity_field),
+            tile_features: desc.tile_features,
+            block_features: desc.block_features,
+            entity_features: desc.entity_features,
             resource_store: Default::default(),
-            tag_store: Default::default(),
-            flow_store: FlowStore::new(desc.flow_store),
         }
     }
 
     // tile
 
-    #[inline]
-    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, FieldError> {
-        self.tile_field.insert(tile)
+    pub fn tile_insert(
+        &mut self,
+        tile: field::Tile<<T::Tile as TileFeature<T>>::Item>,
+    ) -> Result<TileKey, FieldError> {
+        let features = self.tile_features.clone();
+        let feature = features
+            .get(tile.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        let tile_key = self.tile_field.insert(tile)?;
+        feature.after_place(self, tile_key);
+        Ok(tile_key)
     }
 
-    #[inline]
-    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, FieldError> {
+    pub fn tile_remove(
+        &mut self,
+        tile_key: TileKey,
+    ) -> Result<field::Tile<<T::Tile as TileFeature<T>>::Item>, FieldError> {
+        let features = self.tile_features.clone();
+        let tile = self.tile_field.get(tile_key)?;
+        let feature = features
+            .get(tile.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature.before_break(self, tile_key);
         self.tile_field.remove(tile_key)
     }
 
@@ -56,13 +104,16 @@ impl Root {
     pub fn tile_modify(
         &mut self,
         tile_key: TileKey,
-        f: impl Fn(&mut field::Tile),
+        f: impl Fn(&mut field::Tile<<T::Tile as TileFeature<T>>::Item>),
     ) -> Result<field::TileKey, FieldError> {
         self.tile_field.modify(tile_key, f)
     }
 
     #[inline]
-    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile, FieldError> {
+    pub fn tile_get(
+        &self,
+        tile_key: TileKey,
+    ) -> Result<&field::Tile<<T::Tile as TileFeature<T>>::Item>, FieldError> {
         self.tile_field.get(tile_key)
     }
 
@@ -71,9 +122,40 @@ impl Root {
         self.tile_field.get_chunk_size()
     }
 
-    #[inline]
-    pub fn tile_get_chunk(&self, chunk_key: IVec2) -> Result<&field::TileChunk, FieldError> {
-        self.tile_field.get_chunk(chunk_key)
+    pub fn tile_get_chunk(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<&field::TileChunk<<T::Tile as TileFeature<T>>::Item>, FieldError> {
+        let chunk_key = self
+            .tile_field
+            .get_by_chunk_location(chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.tile_field.get_chunk(chunk_key).unwrap();
+        Ok(chunk)
+    }
+
+    pub fn tile_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+        let chunk_key = self
+            .tile_field
+            .get_by_chunk_location(chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.tile_field.get_chunk(chunk_key)?;
+
+        let mut local_keys = vec![];
+        for (local_key, _) in &chunk.tiles {
+            local_keys.push(local_key as u32);
+        }
+
+        let features = self.tile_features.clone();
+        for local_key in local_keys {
+            let tile_key = (Default::default(), local_key);
+            let tile = self.tile_field.get(tile_key).unwrap();
+            let feature = features
+                .get(tile.id as usize)
+                .ok_or(FieldError::InvalidId)?;
+            feature.forward(self, tile_key);
+        }
+        Ok(())
     }
 
     // tile spatial features
@@ -120,13 +202,29 @@ impl Root {
 
     // block
 
-    #[inline]
-    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
-        self.block_field.insert(block)
+    pub fn block_insert(
+        &mut self,
+        block: field::Block<<T::Block as BlockFeature<T>>::Item>,
+    ) -> Result<BlockKey, FieldError> {
+        let features = self.block_features.clone();
+        let feature = features
+            .get(block.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        let block_key = self.block_field.insert(block)?;
+        feature.after_place(self, block_key);
+        Ok(block_key)
     }
 
-    #[inline]
-    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, FieldError> {
+    pub fn block_remove(
+        &mut self,
+        block_key: BlockKey,
+    ) -> Result<field::Block<<T::Block as BlockFeature<T>>::Item>, FieldError> {
+        let features = self.block_features.clone();
+        let block = self.block_field.get(block_key)?;
+        let feature = features
+            .get(block.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature.before_break(self, block_key);
         self.block_field.remove(block_key)
     }
 
@@ -134,13 +232,16 @@ impl Root {
     pub fn block_modify(
         &mut self,
         block_key: BlockKey,
-        f: impl Fn(&mut field::Block),
+        f: impl Fn(&mut field::Block<<T::Block as BlockFeature<T>>::Item>),
     ) -> Result<field::BlockKey, FieldError> {
         self.block_field.modify(block_key, f)
     }
 
     #[inline]
-    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block, FieldError> {
+    pub fn block_get(
+        &self,
+        block_key: BlockKey,
+    ) -> Result<&field::Block<<T::Block as BlockFeature<T>>::Item>, FieldError> {
         self.block_field.get(block_key)
     }
 
@@ -149,13 +250,45 @@ impl Root {
         self.block_field.get_chunk_size()
     }
 
-    #[inline]
-    pub fn block_get_chunk(&self, chunk_key: IVec2) -> Result<&field::BlockChunk, FieldError> {
-        self.block_field.get_chunk(chunk_key)
+    pub fn block_get_chunk(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<&field::BlockChunk<<T::Block as BlockFeature<T>>::Item>, FieldError> {
+        let chunk_key = self
+            .tile_field
+            .get_by_chunk_location(chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.block_field.get_chunk(chunk_key).unwrap();
+        Ok(chunk)
+    }
+
+    pub fn block_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+        let chunk_key = self
+            .block_field
+            .get_by_chunk_location(chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.block_field.get_chunk(chunk_key)?;
+
+        let mut local_keys = vec![];
+        for (local_key, _) in &chunk.blocks {
+            local_keys.push(local_key as u32);
+        }
+
+        let features = self.block_features.clone();
+        for local_key in local_keys {
+            let block_key = (Default::default(), local_key);
+            let block = self.block_field.get(block_key).unwrap();
+            let feature = features
+                .get(block.id as usize)
+                .ok_or(FieldError::InvalidId)?;
+            feature.forward(self, block_key);
+        }
+        Ok(())
     }
 
     // block spatial features
 
+    #[inline]
     pub fn block_get_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], FieldError> {
         self.block_field.get_rect(block_key)
     }
@@ -182,6 +315,7 @@ impl Root {
 
     // block collision features
 
+    #[inline]
     pub fn block_get_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], FieldError> {
         self.block_field.get_collision_rect(block_key)
     }
@@ -238,13 +372,29 @@ impl Root {
 
     // entity
 
-    #[inline]
-    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
-        self.entity_field.insert(entity)
+    pub fn entity_insert(
+        &mut self,
+        entity: field::Entity<<T::Entity as EntityFeature<T>>::Item>,
+    ) -> Result<EntityKey, FieldError> {
+        let features = self.entity_features.clone();
+        let feature = features
+            .get(entity.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        let entity_key = self.entity_field.insert(entity)?;
+        feature.after_place(self, entity_key);
+        Ok(entity_key)
     }
 
-    #[inline]
-    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, FieldError> {
+    pub fn entity_remove(
+        &mut self,
+        entity_key: EntityKey,
+    ) -> Result<field::Entity<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
+        let features = self.entity_features.clone();
+        let entity = self.entity_field.get(entity_key)?;
+        let feature = features
+            .get(entity.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature.before_break(self, entity_key);
         self.entity_field.remove(entity_key)
     }
 
@@ -252,13 +402,16 @@ impl Root {
     pub fn entity_modify(
         &mut self,
         entity_key: EntityKey,
-        f: impl Fn(&mut field::Entity),
+        f: impl Fn(&mut field::Entity<<T::Entity as EntityFeature<T>>::Item>),
     ) -> Result<field::EntityKey, FieldError> {
         self.entity_field.modify(entity_key, f)
     }
 
     #[inline]
-    pub fn entity_get(&self, entity_key: EntityKey) -> Result<&field::Entity, FieldError> {
+    pub fn entity_get(
+        &self,
+        entity_key: EntityKey,
+    ) -> Result<&field::Entity<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
         self.entity_field.get(entity_key)
     }
 
@@ -267,13 +420,45 @@ impl Root {
         self.entity_field.get_chunk_size()
     }
 
-    #[inline]
-    pub fn entity_get_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, FieldError> {
-        self.entity_field.get_chunk(chunk_key)
+    pub fn entity_get_chunk(
+        &self,
+        chunk_key: IVec2,
+    ) -> Result<&field::EntityChunk<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
+        let chunk_key = self
+            .entity_field
+            .get_by_chunk_location(chunk_key)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.entity_field.get_chunk(chunk_key).unwrap();
+        Ok(chunk)
+    }
+
+    pub fn entity_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+        let chunk_key = self
+            .entity_field
+            .get_by_chunk_location(chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.entity_field.get_chunk(chunk_key)?;
+
+        let mut local_keys = vec![];
+        for (local_key, _) in &chunk.entities {
+            local_keys.push(local_key as u32);
+        }
+
+        let features = self.entity_features.clone();
+        for local_key in local_keys {
+            let entity_key = (Default::default(), local_key);
+            let entity = self.entity_field.get(entity_key).unwrap();
+            let feature = features
+                .get(entity.id as usize)
+                .ok_or(FieldError::InvalidId)?;
+            feature.forward(self, entity_key);
+        }
+        Ok(())
     }
 
     // entity collision features
 
+    #[inline]
     pub fn entity_get_collision_rect(
         &self,
         entity_key: EntityKey,
@@ -309,6 +494,7 @@ impl Root {
 
     // entity hint features
 
+    #[inline]
     pub fn entity_get_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
         self.entity_field.get_hint_rect(entity_key)
     }
@@ -336,124 +522,28 @@ impl Root {
     // resource
 
     #[inline]
-    pub fn resource_insert<T: 'static>(&mut self, value: T) -> Option<()> {
+    pub fn resource_insert<R: 'static>(&mut self, value: R) -> Option<()> {
         self.resource_store.insert(value)
     }
 
     #[inline]
-    pub fn resource_remove<T: 'static>(&mut self) -> Option<T> {
-        self.resource_store.remove::<T>()
+    pub fn resource_remove<R: 'static>(&mut self) -> Option<R> {
+        self.resource_store.remove::<R>()
     }
 
     #[inline]
-    pub fn resource_has<T: 'static>(&self) -> bool {
-        self.resource_store.has::<T>()
+    pub fn resource_has<R: 'static>(&self) -> bool {
+        self.resource_store.has::<R>()
     }
 
     #[inline]
-    pub fn resource_get<T: 'static>(&self) -> Option<&T> {
-        self.resource_store.get::<T>()
+    pub fn resource_get<R: 'static>(&self) -> Option<&R> {
+        self.resource_store.get::<R>()
     }
 
     #[inline]
-    pub fn resource_get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.resource_store.get_mut::<T>()
-    }
-
-    // tag
-
-    #[inline]
-    pub fn tag_insert<T: 'static>(
-        &mut self,
-        r#ref: RefKey,
-        spc: SpaceKey,
-        tag: T,
-    ) -> Option<TagKey> {
-        self.tag_store.insert(r#ref, spc, tag)
-    }
-
-    #[inline]
-    pub fn tag_remove<T: 'static>(&mut self, tag_key: TagKey) -> Option<(RefKey, SpaceKey, T)> {
-        self.tag_store.remove::<T>(tag_key)
-    }
-
-    #[inline]
-    pub fn tag_modify<T: 'static>(
-        &mut self,
-        tag_key: TagKey,
-        f: impl FnOnce(&mut RefKey, &mut SpaceKey, &mut T),
-    ) -> Option<()> {
-        self.tag_store.modify::<T>(tag_key, f)
-    }
-
-    #[inline]
-    pub fn tag_remove_by_ref(&mut self, r#ref: RefKey) -> Option<()> {
-        self.tag_store.remove_by_ref(r#ref)
-    }
-
-    #[inline]
-    pub fn tag_modify_ref_by_ref(&mut self, r#ref: RefKey, new_ref: RefKey) -> Option<()> {
-        self.tag_store.modify_ref_by_ref(r#ref, new_ref)
-    }
-
-    #[inline]
-    pub fn tag_modify_spc_by_ref(&mut self, r#ref: RefKey, new_spc: SpaceKey) -> Option<()> {
-        self.tag_store.modify_spc_by_ref(r#ref, new_spc)
-    }
-
-    #[inline]
-    pub fn tag_get<T: 'static>(&self, tag_key: TagKey) -> Option<(&RefKey, &SpaceKey, &T)> {
-        self.tag_store.get::<T>(tag_key)
-    }
-
-    #[inline]
-    pub fn tag_iter<T: 'static>(&self) -> impl Iterator<Item = &TagKey> {
-        self.tag_store.iter::<T>()
-    }
-
-    #[inline]
-    pub fn tag_detach_iter<T: 'static>(&self) -> Vec<TagKey> {
-        self.tag_store.detach_iter::<T>()
-    }
-
-    #[inline]
-    pub fn tag_one_by_ref<T: 'static>(&self, r#ref: RefKey) -> Option<&TagKey> {
-        self.tag_store.one_by_ref::<T>(r#ref)
-    }
-
-    #[inline]
-    pub fn tag_iter_by_rect<T: 'static>(
-        &self,
-        rect: [SpaceKey; 2],
-    ) -> impl Iterator<Item = &TagKey> {
-        self.tag_store.iter_by_rect::<T>(rect)
-    }
-
-    #[inline]
-    pub fn tag_detach_iter_by_rect<T: 'static>(&self, rect: [SpaceKey; 2]) -> Vec<TagKey> {
-        self.tag_store.detach_iter_by_rect::<T>(rect)
-    }
-
-    // flow
-
-    #[inline]
-    pub fn flow_iter<T: 'static>(&self) -> impl Iterator<Item = &T> {
-        self.flow_store.iter::<T>()
-    }
-
-    #[inline]
-    pub fn flow_one<T: 'static>(&self) -> Option<&T> {
-        self.flow_store.one::<T>()
-    }
-
-    #[inline]
-    pub fn flow_iter_by_ref<T: 'static>(&self, r#ref: FlowRef) -> impl Iterator<Item = &T> {
-        self.flow_store.iter_by_ref::<T>(r#ref)
-    }
-
-    #[inline]
-    pub fn flow_one_by_ref<T: 'static>(&self, r#ref: FlowRef) -> Option<&T> {
-        self.flow_store.one_by_ref::<T>(r#ref)
+    pub fn resource_get_mut<R: 'static>(&mut self) -> Option<&mut R> {
+        self.resource_store.get_mut::<R>()
     }
 }
 

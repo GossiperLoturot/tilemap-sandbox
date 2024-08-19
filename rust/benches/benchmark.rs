@@ -4,7 +4,7 @@ use tilemap_sandbox::inner::*;
 fn benchmark(c: &mut Criterion) {
     c.bench_function("tile add", |b| {
         b.iter_custom(|iters| {
-            let mut field = TileField::new(TileFieldDescriptor {
+            let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
                 chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
@@ -20,6 +20,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -30,7 +31,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("tile remove", |b| {
         b.iter_custom(|iters| {
-            let mut field = TileField::new(TileFieldDescriptor {
+            let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
                 chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
@@ -46,6 +47,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -61,7 +63,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("tile get", |b| {
         b.iter_custom(|iters| {
-            let mut field = TileField::new(TileFieldDescriptor {
+            let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
                 chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
@@ -77,6 +79,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -92,7 +95,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("tile modify", |b| {
         b.iter_custom(|iters| {
-            let mut field = TileField::new(TileFieldDescriptor {
+            let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
                 chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
@@ -108,6 +111,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -123,7 +127,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("block add", |b| {
         b.iter_custom(|iters| {
-            let mut field = BlockField::new(BlockFieldDescriptor {
+            let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
                 chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
@@ -151,6 +155,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -161,7 +166,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("block remove", |b| {
         b.iter_custom(|iters| {
-            let mut field = BlockField::new(BlockFieldDescriptor {
+            let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
                 chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
@@ -189,6 +194,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -204,7 +210,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("block get", |b| {
         b.iter_custom(|iters| {
-            let mut field = BlockField::new(BlockFieldDescriptor {
+            let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
                 chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
@@ -232,6 +238,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -247,7 +254,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("block modify", |b| {
         b.iter_custom(|iters| {
-            let mut field = BlockField::new(BlockFieldDescriptor {
+            let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
                 chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
@@ -275,6 +282,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -290,7 +298,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("entity add", |b| {
         b.iter_custom(|iters| {
-            let mut field = EntityField::new(EntityFieldDescriptor {
+            let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
                 chunk_size: 32,
                 entities: vec![
                     EntityDescriptor {
@@ -315,7 +323,8 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
-                            variant: 0,
+                            variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -326,7 +335,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("entity remove", |b| {
         b.iter_custom(|iters| {
-            let mut field = EntityField::new(EntityFieldDescriptor {
+            let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
                 chunk_size: 32,
                 entities: vec![
                     EntityDescriptor {
@@ -351,7 +360,8 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
-                            variant: 0,
+                            variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -367,7 +377,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("entity get", |b| {
         b.iter_custom(|iters| {
-            let mut field = EntityField::new(EntityFieldDescriptor {
+            let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
                 chunk_size: 32,
                 entities: vec![
                     EntityDescriptor {
@@ -392,7 +402,8 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
-                            variant: 0,
+                            variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -408,7 +419,7 @@ fn benchmark(c: &mut Criterion) {
 
     c.bench_function("entity modify", |b| {
         b.iter_custom(|iters| {
-            let mut field = EntityField::new(EntityFieldDescriptor {
+            let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
                 chunk_size: 32,
                 entities: vec![
                     EntityDescriptor {
@@ -433,7 +444,8 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
-                            variant: 0,
+                            variant: Default::default(),
+                            data: Default::default(),
                         })
                         .unwrap(),
                 );

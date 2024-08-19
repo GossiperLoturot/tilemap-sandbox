@@ -21,7 +21,7 @@ impl ResourceStore {
         let typ = std::any::TypeId::of::<T>();
 
         let resource = self.typ_map.remove(&typ)?;
-        resource.downcast::<ResourceRow<T>>().ok()?.take()
+        resource.downcast::<ResourceRow<T>>().unwrap().take()
     }
 
     pub fn has<T: 'static>(&self) -> bool {
@@ -34,14 +34,14 @@ impl ResourceStore {
         let typ = std::any::TypeId::of::<T>();
 
         let resource = self.typ_map.get(&typ)?;
-        resource.downcast_ref::<ResourceRow<T>>()?.as_ref()
+        resource.downcast_ref::<ResourceRow<T>>().unwrap().as_ref()
     }
 
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         let typ = std::any::TypeId::of::<T>();
 
         let resource = self.typ_map.get_mut(&typ)?;
-        resource.downcast_mut::<ResourceRow<T>>()?.as_mut()
+        resource.downcast_mut::<ResourceRow<T>>().unwrap().as_mut()
     }
 }
 

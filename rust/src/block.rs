@@ -3,7 +3,7 @@ use godot::prelude::*;
 use crate::inner;
 
 pub(crate) struct BlockDescriptor {
-    pub images: Vec<Gd<godot::engine::Image>>,
+    pub images: Vec<Gd<godot::classes::Image>>,
     pub z_along_y: bool,
     pub rendering_size: inner::Vec2,
     pub rendering_offset: inner::Vec2,
@@ -14,8 +14,8 @@ pub(crate) struct BlockFieldDescriptor {
     pub output_image_size: u32,
     pub max_page_size: u32,
     pub blocks: Vec<BlockDescriptor>,
-    pub shaders: Vec<Gd<godot::engine::Shader>>,
-    pub world: Gd<godot::engine::World3D>,
+    pub shaders: Vec<Gd<godot::classes::Shader>>,
+    pub world: Gd<godot::classes::World3D>,
 }
 
 struct BlockProperty {
@@ -121,11 +121,11 @@ impl BlockField {
         for texture in &atlas.textures {
             let data = texture.mip_maps[0].to_vec();
 
-            let image = godot::engine::Image::create_from_data(
+            let image = godot::classes::Image::create_from_data(
                 desc.output_image_size as i32,
                 desc.output_image_size as i32,
                 false,
-                godot::engine::image::Format::RGBA8,
+                godot::classes::image::Format::RGBA8,
                 PackedByteArray::from(data.as_slice()),
             )
             .unwrap();
@@ -133,10 +133,10 @@ impl BlockField {
             images.push(image);
         }
 
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
         let texture_array = rendering_server.texture_2d_layered_create(
             Array::from(images.as_slice()),
-            godot::engine::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
+            godot::classes::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
         free_handles.push(texture_array);
 
@@ -153,11 +153,11 @@ impl BlockField {
 
         let mut mesh_data = VariantArray::new();
         mesh_data.resize(
-            godot::engine::rendering_server::ArrayType::MAX.ord() as usize,
+            godot::classes::rendering_server::ArrayType::MAX.ord() as usize,
             &Variant::nil(),
         );
         mesh_data.set(
-            godot::engine::rendering_server::ArrayType::VERTEX.ord() as usize,
+            godot::classes::rendering_server::ArrayType::VERTEX.ord() as usize,
             PackedVector3Array::from(&[
                 Vector3::new(0.0, 0.0, 0.0),
                 Vector3::new(0.0, 1.0, 1.0),
@@ -167,7 +167,7 @@ impl BlockField {
             .to_variant(),
         );
         mesh_data.set(
-            godot::engine::rendering_server::ArrayType::TEX_UV.ord() as usize,
+            godot::classes::rendering_server::ArrayType::TEX_UV.ord() as usize,
             PackedVector2Array::from(&[
                 Vector2::new(0.0, 1.0),
                 Vector2::new(0.0, 0.0),
@@ -177,7 +177,7 @@ impl BlockField {
             .to_variant(),
         );
         mesh_data.set(
-            godot::engine::rendering_server::ArrayType::INDEX.ord() as usize,
+            godot::classes::rendering_server::ArrayType::INDEX.ord() as usize,
             PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
         );
 
@@ -206,7 +206,7 @@ impl BlockField {
             let mesh = rendering_server.mesh_create();
             rendering_server.mesh_add_surface_from_arrays(
                 mesh,
-                godot::engine::rendering_server::PrimitiveType::TRIANGLES,
+                godot::classes::rendering_server::PrimitiveType::TRIANGLES,
                 mesh_data.clone(),
             );
             rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
@@ -217,7 +217,7 @@ impl BlockField {
             rendering_server.multimesh_allocate_data(
                 multimesh,
                 Self::MAX_BUFFER_SIZE as i32,
-                godot::engine::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
+                godot::classes::rendering_server::MultimeshTransformFormat::TRANSFORM_3D,
             );
             free_handles.push(multimesh);
 
@@ -244,7 +244,11 @@ impl BlockField {
 
     // rendering features
 
-    pub fn update_view(&mut self, root: &inner::Root, min_view_rect: [inner::Vec2; 2]) {
+    pub fn update_view<T: inner::Feature>(
+        &mut self,
+        root: &inner::Root<T>,
+        min_view_rect: [inner::Vec2; 2],
+    ) {
         let chunk_size = root.block_get_chunk_size() as f32;
 
         #[rustfmt::skip]
@@ -272,7 +276,7 @@ impl BlockField {
             for chunk_key in chunk_keys {
                 let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
 
-                let mut rendering_server = godot::engine::RenderingServer::singleton();
+                let mut rendering_server = godot::classes::RenderingServer::singleton();
                 rendering_server.instance_set_visible(up_chunk.instance, false);
 
                 self.down_chunks.push(up_chunk.down());
@@ -292,7 +296,7 @@ impl BlockField {
                         panic!("no chunk available in pool (up:{}, down:{})", up, down);
                     };
 
-                    let mut rendering_server = godot::engine::RenderingServer::singleton();
+                    let mut rendering_server = godot::classes::RenderingServer::singleton();
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
                     self.up_chunks.insert(chunk_key, down_chunk.up());
@@ -350,7 +354,7 @@ impl BlockField {
                 page_buffer[i] = texcoord.page as f32;
             }
 
-            let mut rendering_server = godot::engine::RenderingServer::singleton();
+            let mut rendering_server = godot::classes::RenderingServer::singleton();
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
@@ -377,7 +381,7 @@ impl BlockField {
 
 impl Drop for BlockField {
     fn drop(&mut self) {
-        let mut rendering_server = godot::engine::RenderingServer::singleton();
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
         for free_handle in &self.free_handles {
             rendering_server.free_rid(*free_handle);
         }
