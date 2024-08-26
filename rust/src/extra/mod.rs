@@ -1,3 +1,4 @@
+use feature::Generator;
 use godot::prelude::*;
 
 mod feature;
@@ -378,21 +379,21 @@ impl Root {
 
     #[func]
     #[inline]
-    pub fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<crate::TileKey> {
+    fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<crate::TileKey> {
         let key = self.base.tile_insert(&tile.bind().base);
         Gd::from_object(key)
     }
 
     #[func]
     #[inline]
-    pub fn tile_remove(&mut self, key: Gd<crate::TileKey>) -> Gd<Tile> {
+    fn tile_remove(&mut self, key: Gd<crate::TileKey>) -> Gd<Tile> {
         let tile = self.base.tile_remove(key);
         Gd::from_object(Tile { base: tile })
     }
 
     #[func]
     #[inline]
-    pub fn tile_get(&self, key: Gd<crate::TileKey>) -> Gd<Tile> {
+    fn tile_get(&self, key: Gd<crate::TileKey>) -> Gd<Tile> {
         let tile = self.base.tile_get(key);
         Gd::from_object(Tile { base: tile })
     }
@@ -401,21 +402,21 @@ impl Root {
 
     #[func]
     #[inline]
-    pub fn block_insert(&mut self, block: Gd<Block>) -> Gd<crate::BlockKey> {
+    fn block_insert(&mut self, block: Gd<Block>) -> Gd<crate::BlockKey> {
         let key = self.base.block_insert(&block.bind().base);
         Gd::from_object(key)
     }
 
     #[func]
     #[inline]
-    pub fn block_remove(&mut self, key: Gd<crate::BlockKey>) -> Gd<Block> {
+    fn block_remove(&mut self, key: Gd<crate::BlockKey>) -> Gd<Block> {
         let block = self.base.block_remove(key);
         Gd::from_object(Block { base: block })
     }
 
     #[func]
     #[inline]
-    pub fn block_get(&self, key: Gd<crate::BlockKey>) -> Gd<Block> {
+    fn block_get(&self, key: Gd<crate::BlockKey>) -> Gd<Block> {
         let block = self.base.block_get(key);
         Gd::from_object(Block { base: block })
     }
@@ -424,21 +425,21 @@ impl Root {
 
     #[func]
     #[inline]
-    pub fn entity_insert(&mut self, entity: Gd<Entity>) -> Gd<crate::EntityKey> {
+    fn entity_insert(&mut self, entity: Gd<Entity>) -> Gd<crate::EntityKey> {
         let key = self.base.entity_insert(&entity.bind().base);
         Gd::from_object(key)
     }
 
     #[func]
     #[inline]
-    pub fn entity_remove(&mut self, key: Gd<crate::EntityKey>) -> Gd<Entity> {
+    fn entity_remove(&mut self, key: Gd<crate::EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_remove(key);
         Gd::from_object(Entity { base: entity })
     }
 
     #[func]
     #[inline]
-    pub fn entity_get(&self, key: Gd<crate::EntityKey>) -> Gd<Entity> {
+    fn entity_get(&self, key: Gd<crate::EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_get(key);
         Gd::from_object(Entity { base: entity })
     }
@@ -449,5 +450,28 @@ impl Root {
     #[inline]
     fn update_view(&mut self, min_rect: Rect2) {
         self.base.update_view(min_rect);
+    }
+
+    // extra
+
+    #[func]
+    #[inline]
+    fn init_generator(&mut self, chunk_size: u32) {
+        let resource = Generator::new(chunk_size);
+        self.base.base.resource_insert(resource);
+    }
+
+    #[func]
+    #[inline]
+    fn generate_chunk(&mut self, min_rect: Rect2) {
+        #[rustfmt::skip]
+        let min_rect = [[
+            min_rect.position.x,
+            min_rect.position.y, ], [
+            min_rect.position.x + min_rect.size.x,
+            min_rect.position.y + min_rect.size.y,
+        ]];
+
+        Generator::generate_chunk(&mut self.base.base, min_rect);
     }
 }

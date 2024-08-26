@@ -3,6 +3,7 @@ class_name World
 
 
 @export var min_forward_rect: Rect2
+@export var min_generate_rect: Rect2
 @export var min_view_rect: Rect2
 
 var _root: Root
@@ -136,10 +137,13 @@ func _ready():
 		)
 	)
 
+	_root.init_generator(32)
+
 
 func _process(_delta):
 	# logic
 	_root.forward(min_forward_rect)
+	_root.generate_chunk(min_generate_rect)
 
 	# rendering
 	_root.update_view(min_view_rect)
