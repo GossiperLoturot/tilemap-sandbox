@@ -6,3 +6,7 @@ rust/target/
 
 # Godot build
 build/
+
+# Shell scripts
+*.sh
+

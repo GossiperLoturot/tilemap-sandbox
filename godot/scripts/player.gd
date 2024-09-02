@@ -5,17 +5,11 @@ class_name Player
 @export var world: World
 @export var camera: Camera3D
 @export var speed: float
-@export var view_size: float
 @export var forward_size: float
 
-var _entity_key: int
 var _location: Vector2
 var _scroll: float
 var _interpolated_scroll: float
-
-
-func _ready():
-	_entity_key = Actions.place_entity(world._root, Entity.create(0, Vector2(), 0))
 
 
 func _process(delta):
@@ -37,17 +31,21 @@ func _process(delta):
 	camera.transform.origin.x = _location.x
 	camera.transform.origin.y = _location.y
 
-	world.min_view_rect = Rect2(
-		_location.x - view_size,
-		_location.y - view_size,
-		view_size * 2,
-		view_size * 2
-	)
 	world.min_forward_rect = Rect2(
 		_location.x - forward_size,
 		_location.y - forward_size,
 		forward_size * 2,
 		forward_size * 2
 	)
-
-	Actions.move_entity(world._root, _entity_key, _location)
+	world.min_generate_rect = Rect2(
+		_location.x - camera.size * 0.5,
+		_location.y - camera.size * 0.5,
+		camera.size,
+		camera.size
+	)
+	world.min_view_rect = Rect2(
+		_location.x - camera.size * 0.5,
+		_location.y - camera.size * 0.5,
+		camera.size,
+		camera.size
+	)
