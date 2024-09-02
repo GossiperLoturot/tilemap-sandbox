@@ -43,21 +43,63 @@ impl inner::EntityFeature<Feature> for EntityFeature {
 }
 
 #[derive(Clone)]
+#[non_exhaustive]
+pub enum GeneratorRule {
+    MarchingRandom {
+        seed: u32,
+        probability: f32,
+        id: u32,
+    },
+    MarchingFBM {
+        seed: u32,
+        probability: f32,
+        scale: f32,
+        id: u32,
+    },
+    SpawnRandom {
+        seed: u32,
+        probability: f32,
+        id: u32,
+    },
+    SpawnRandomGroup {
+        seed: u32,
+        probability: f32,
+        variance: f32,
+        group_size: u32,
+        id: u32,
+    },
+}
+
+#[derive(Clone)]
 pub struct Generator {
     chunk_size: u32,
+    tile_rules: Vec<GeneratorRule>,
+    block_rules: Vec<GeneratorRule>,
+    entity_rules: Vec<GeneratorRule>,
     visit: ahash::AHashSet<inner::IVec2>,
 }
 
 impl Generator {
-    pub fn new(chunk_size: u32) -> Self {
+    pub fn new(
+        chunk_size: u32,
+        tile_rules: Vec<GeneratorRule>,
+        block_rules: Vec<GeneratorRule>,
+        entity_rules: Vec<GeneratorRule>,
+    ) -> Self {
         Self {
             chunk_size,
+            tile_rules,
+            block_rules,
+            entity_rules,
             visit: ahash::AHashSet::new(),
         }
     }
 
     pub fn generate_chunk(root: &mut inner::Root<Feature>, min_rect: [inner::Vec2; 2]) {
-        let slf = root.resource_get::<Generator>().unwrap();
+        use noise::NoiseFn;
+
+        // TODO: Add manual taking ownership function by using closure
+        let mut slf = root.resource_remove::<Generator>().unwrap();
         let chunk_size = slf.chunk_size as i32;
 
         #[rustfmt::skip]
@@ -72,56 +114,145 @@ impl Generator {
             for x in min_rect[0][0]..=min_rect[1][0] {
                 let chunk_location = [x, y];
 
-                let slf = root.resource_get::<Generator>().unwrap();
                 if slf.visit.contains(&chunk_location) {
                     continue;
                 }
 
-                for v in 0..chunk_size {
-                    for u in 0..chunk_size {
-                        let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=1);
-                        let location = [x * chunk_size + u, y * chunk_size + v];
-                        let _ = root.tile_insert(inner::Tile {
+                // TODO: Move to a new module and separate functions enclosed by match arms
+                for rule in &slf.tile_rules {
+                    match rule.clone() {
+                        GeneratorRule::MarchingRandom {
+                            seed,
+                            probability,
                             id,
-                            location,
-                            variant: Default::default(),
-                            data: Default::default(),
-                        });
+                        } => {
+                            let noise = noise::Simplex::new(seed);
+
+                            for v in 0..chunk_size {
+                                for u in 0..chunk_size {
+                                    let location = [x * chunk_size + u, y * chunk_size + v];
+                                    let value =
+                                        noise.get([location[0] as f64, location[1] as f64]) as f32;
+                                    let value = value * 0.5 + 0.5;
+
+                                    if probability < value {
+                                        continue;
+                                    }
+
+                                    let _ = root.tile_insert(inner::Tile {
+                                        id,
+                                        location,
+                                        variant: Default::default(),
+                                        data: Default::default(),
+                                    });
+                                }
+                            }
+                        }
+                        GeneratorRule::MarchingFBM {
+                            seed,
+                            probability,
+                            scale,
+                            id,
+                        } => {
+                            let noise = noise::Fbm::<noise::Simplex>::new(seed);
+
+                            for v in 0..chunk_size {
+                                for u in 0..chunk_size {
+                                    let location = [x * chunk_size + u, y * chunk_size + v];
+                                    let value = noise.get([
+                                        (location[0] as f32 * scale) as f64,
+                                        (location[1] as f32 * scale) as f64,
+                                    ]) as f32;
+                                    let value = value * 0.5 + 0.5;
+
+                                    if probability < value {
+                                        continue;
+                                    }
+
+                                    let _ = root.tile_insert(inner::Tile {
+                                        id,
+                                        location,
+                                        variant: Default::default(),
+                                        data: Default::default(),
+                                    });
+                                }
+                            }
+                        }
+                        GeneratorRule::SpawnRandom {
+                            seed,
+                            probability,
+                            id,
+                        } => {
+                            // TODO: Change to hash function
+                            let noise = noise::Simplex::new(seed);
+
+                            let size = (probability / (chunk_size * chunk_size) as f32) as i32;
+                            for i in 1..=size {
+                                let u = noise.get([x as f64, y as f64, i as f64]);
+                                let v = noise.get([x as f64, y as f64, -i as f64]);
+                                let location = [
+                                    ((x as f32 + u as f32) * chunk_size as f32) as i32,
+                                    ((y as f32 + v as f32) * chunk_size as f32) as i32,
+                                ];
+
+                                let _ = root.tile_insert(inner::Tile {
+                                    id,
+                                    location,
+                                    variant: Default::default(),
+                                    data: Default::default(),
+                                });
+                            }
+                        }
+                        GeneratorRule::SpawnRandomGroup {
+                            seed,
+                            probability,
+                            variance,
+                            group_size,
+                            id,
+                        } => {
+                            // TODO: Change to hash function
+                            let noise = noise::Simplex::new(seed);
+
+                            let size = (probability / (chunk_size * chunk_size) as f32) as i32;
+                            for i in 1..=size {
+                                let u = noise.get([x as f64, y as f64, i as f64]);
+                                let v = noise.get([x as f64, y as f64, -i as f64]);
+                                let location = [
+                                    ((x as f32 + u as f32) * chunk_size as f32) as i32,
+                                    ((y as f32 + v as f32) * chunk_size as f32) as i32,
+                                ];
+
+                                for j in 0..group_size {
+                                    let s = noise.get([
+                                        x as f64,
+                                        y as f64,
+                                        (i as f32 + j as f32 / group_size as f32) as f64,
+                                    ]) as f32;
+                                    let t = noise.get([
+                                        x as f64,
+                                        y as f64,
+                                        -(i as f32 + j as f32 / group_size as f32) as f64,
+                                    ]) as f32;
+                                    let location = [
+                                        location[0] + (s * variance) as i32,
+                                        location[1] + (t * variance) as i32,
+                                    ];
+                                    let _ = root.tile_insert(inner::Tile {
+                                        id,
+                                        location,
+                                        variant: Default::default(),
+                                        data: Default::default(),
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
 
-                for _ in 0..16 {
-                    let id = rand::Rng::gen_range(&mut rand::thread_rng(), 0..=3);
-                    let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
-                    let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0..chunk_size);
-                    let location = [x * chunk_size + u, y * chunk_size + v];
-                    let _ = root.block_insert(inner::Block {
-                        id,
-                        location,
-                        variant: Default::default(),
-                        data: Default::default(),
-                    });
-                }
-
-                for _ in 0..16 {
-                    let id = rand::Rng::gen_range(&mut rand::thread_rng(), 1..=5);
-                    let u = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
-                    let v = rand::Rng::gen_range(&mut rand::thread_rng(), 0.0..chunk_size as f32);
-                    let location = [
-                        x as f32 * chunk_size as f32 + u,
-                        y as f32 * chunk_size as f32 + v,
-                    ];
-                    let _ = root.entity_insert(inner::Entity {
-                        id,
-                        location,
-                        variant: Default::default(),
-                        data: Default::default(),
-                    });
-                }
-
-                let slf = root.resource_get_mut::<Generator>().unwrap();
                 slf.visit.insert(chunk_location);
             }
         }
+
+        root.resource_insert(slf).unwrap();
     }
 }

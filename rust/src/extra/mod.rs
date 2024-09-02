@@ -1,4 +1,4 @@
-use feature::Generator;
+// TODO: Merge with `src/lib.rs` to simple the code by squash abstract layer.
 use godot::prelude::*;
 
 mod feature;
@@ -456,8 +456,8 @@ impl Root {
 
     #[func]
     #[inline]
-    fn init_generator(&mut self, chunk_size: u32) {
-        let resource = Generator::new(chunk_size);
+    fn init_generator(&mut self, generator: Gd<Generator>) {
+        let resource = generator.bind().base.clone();
         self.base.base.resource_insert(resource);
     }
 
@@ -472,6 +472,107 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        Generator::generate_chunk(&mut self.base.base, min_rect);
+        feature::Generator::generate_chunk(&mut self.base.base, min_rect);
+    }
+}
+
+// extra
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct GeneratorRule {
+    base: feature::GeneratorRule,
+}
+
+#[godot_api]
+impl GeneratorRule {
+    #[func]
+    #[inline]
+    fn create_marching_random(seed: u32, probability: f32, id: u32) -> Gd<Self> {
+        Gd::from_object(GeneratorRule {
+            base: feature::GeneratorRule::MarchingRandom {
+                seed,
+                probability,
+                id,
+            },
+        })
+    }
+
+    #[func]
+    #[inline]
+    fn create_marching_fbm(seed: u32, probability: f32, scale: f32, id: u32) -> Gd<Self> {
+        Gd::from_object(GeneratorRule {
+            base: feature::GeneratorRule::MarchingFBM {
+                seed,
+                probability,
+                scale,
+                id,
+            },
+        })
+    }
+
+    #[func]
+    #[inline]
+    fn create_spawn_random(seed: u32, probability: f32, id: u32) -> Gd<Self> {
+        Gd::from_object(GeneratorRule {
+            base: feature::GeneratorRule::SpawnRandom {
+                seed,
+                probability,
+                id,
+            },
+        })
+    }
+
+    #[func]
+    #[inline]
+    fn create_spawn_random_group(
+        seed: u32,
+        probability: f32,
+        variance: f32,
+        group_size: u32,
+        id: u32,
+    ) -> Gd<Self> {
+        Gd::from_object(GeneratorRule {
+            base: feature::GeneratorRule::SpawnRandomGroup {
+                seed,
+                probability,
+                variance,
+                group_size,
+                id,
+            },
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct Generator {
+    base: feature::Generator,
+}
+
+#[godot_api]
+impl Generator {
+    #[func]
+    #[inline]
+    fn create(
+        chunk_size: u32,
+        tile_rules: Array<Gd<GeneratorRule>>,
+        block_rules: Array<Gd<GeneratorRule>>,
+        entity_rules: Array<Gd<GeneratorRule>>,
+    ) -> Gd<Self> {
+        let tile_rules = tile_rules
+            .iter_shared()
+            .map(|rule| rule.bind().base.clone())
+            .collect::<Vec<_>>();
+        let block_rules = block_rules
+            .iter_shared()
+            .map(|rule| rule.bind().base.clone())
+            .collect::<Vec<_>>();
+        let entity_rules = entity_rules
+            .iter_shared()
+            .map(|rule| rule.bind().base.clone())
+            .collect::<Vec<_>>();
+        let base = feature::Generator::new(chunk_size, tile_rules, block_rules, entity_rules);
+        Gd::from_object(Generator { base })
     }
 }
