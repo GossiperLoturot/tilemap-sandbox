@@ -2,6 +2,7 @@
 use godot::prelude::*;
 
 mod feature;
+mod generator;
 
 #[derive(GodotClass)]
 #[class(no_init)]
@@ -472,7 +473,7 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        feature::Generator::generate_chunk(&mut self.base.base, min_rect);
+        generator::Generator::generate_chunk(&mut self.base.base, min_rect);
     }
 }
 
@@ -480,65 +481,70 @@ impl Root {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct GeneratorRule {
-    base: feature::GeneratorRule,
+struct GeneratorRuleDescriptor {
+    base: generator::GeneratorRuleDescriptor,
 }
 
 #[godot_api]
-impl GeneratorRule {
+impl GeneratorRuleDescriptor {
     #[func]
     #[inline]
-    fn create_marching_random(seed: u32, probability: f32, id: u32) -> Gd<Self> {
-        Gd::from_object(GeneratorRule {
-            base: feature::GeneratorRule::MarchingRandom {
-                seed,
-                probability,
-                id,
-            },
+    fn create_marching(seed: u32, prob: f32, id: u32) -> Gd<Self> {
+        Gd::from_object(GeneratorRuleDescriptor {
+            base: generator::GeneratorRuleDescriptor::Marching(
+                generator::GeneratorRuleMarchingDescriptor { seed, prob, id },
+            ),
         })
     }
 
     #[func]
     #[inline]
-    fn create_marching_fbm(seed: u32, probability: f32, scale: f32, id: u32) -> Gd<Self> {
-        Gd::from_object(GeneratorRule {
-            base: feature::GeneratorRule::MarchingFBM {
-                seed,
-                probability,
-                scale,
-                id,
-            },
+    fn create_spawn(seed: u32, prob: f32, id: u32) -> Gd<Self> {
+        Gd::from_object(GeneratorRuleDescriptor {
+            base: generator::GeneratorRuleDescriptor::Spawn(
+                generator::GeneratorRuleSpawnDescriptor { seed, prob, id },
+            ),
         })
     }
+}
 
+#[derive(GodotClass)]
+#[class(no_init)]
+struct GeneratorDescriptor {
+    base: generator::GeneratorDescriptor,
+}
+
+#[godot_api]
+impl GeneratorDescriptor {
     #[func]
     #[inline]
-    fn create_spawn_random(seed: u32, probability: f32, id: u32) -> Gd<Self> {
-        Gd::from_object(GeneratorRule {
-            base: feature::GeneratorRule::SpawnRandom {
-                seed,
-                probability,
-                id,
-            },
-        })
-    }
-
-    #[func]
-    #[inline]
-    fn create_spawn_random_group(
-        seed: u32,
-        probability: f32,
-        variance: f32,
-        group_size: u32,
-        id: u32,
+    fn create(
+        chunk_size: u32,
+        tile_rule_descriptors: Array<Gd<GeneratorRuleDescriptor>>,
+        block_rule_descriptors: Array<Gd<GeneratorRuleDescriptor>>,
+        entity_rule_descriptors: Array<Gd<GeneratorRuleDescriptor>>,
     ) -> Gd<Self> {
-        Gd::from_object(GeneratorRule {
-            base: feature::GeneratorRule::SpawnRandomGroup {
-                seed,
-                probability,
-                variance,
-                group_size,
-                id,
+        let mut tile_rules = vec![];
+        for rule in tile_rule_descriptors.iter_shared() {
+            tile_rules.push(rule.bind().base.clone())
+        }
+
+        let mut block_rules = vec![];
+        for rule in block_rule_descriptors.iter_shared() {
+            block_rules.push(rule.bind().base.clone())
+        }
+
+        let mut entity_rules = vec![];
+        for rule in entity_rule_descriptors.iter_shared() {
+            entity_rules.push(rule.bind().base.clone())
+        }
+
+        Gd::from_object(GeneratorDescriptor {
+            base: generator::GeneratorDescriptor {
+                chunk_size,
+                tile_rules,
+                block_rules,
+                entity_rules,
             },
         })
     }
@@ -547,32 +553,16 @@ impl GeneratorRule {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Generator {
-    base: feature::Generator,
+    base: generator::Generator,
 }
 
 #[godot_api]
 impl Generator {
     #[func]
     #[inline]
-    fn create(
-        chunk_size: u32,
-        tile_rules: Array<Gd<GeneratorRule>>,
-        block_rules: Array<Gd<GeneratorRule>>,
-        entity_rules: Array<Gd<GeneratorRule>>,
-    ) -> Gd<Self> {
-        let tile_rules = tile_rules
-            .iter_shared()
-            .map(|rule| rule.bind().base.clone())
-            .collect::<Vec<_>>();
-        let block_rules = block_rules
-            .iter_shared()
-            .map(|rule| rule.bind().base.clone())
-            .collect::<Vec<_>>();
-        let entity_rules = entity_rules
-            .iter_shared()
-            .map(|rule| rule.bind().base.clone())
-            .collect::<Vec<_>>();
-        let base = feature::Generator::new(chunk_size, tile_rules, block_rules, entity_rules);
-        Gd::from_object(Generator { base })
+    fn create(desc: Gd<GeneratorDescriptor>) -> Gd<Self> {
+        Gd::from_object(Generator {
+            base: generator::Generator::new(desc.bind().base.clone()),
+        })
     }
 }
