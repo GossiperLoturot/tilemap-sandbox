@@ -148,7 +148,7 @@ impl<T: Feature> Root<T> {
 
         let features = self.tile_features.clone();
         for local_key in local_keys {
-            let tile_key = (Default::default(), local_key);
+            let tile_key = (chunk_key, local_key);
             let tile = self.tile_field.get(tile_key).unwrap();
             let feature = features
                 .get(tile.id as usize)
@@ -276,7 +276,7 @@ impl<T: Feature> Root<T> {
 
         let features = self.block_features.clone();
         for local_key in local_keys {
-            let block_key = (Default::default(), local_key);
+            let block_key = (chunk_key, local_key);
             let block = self.block_field.get(block_key).unwrap();
             let feature = features
                 .get(block.id as usize)
@@ -446,7 +446,7 @@ impl<T: Feature> Root<T> {
 
         let features = self.entity_features.clone();
         for local_key in local_keys {
-            let entity_key = (Default::default(), local_key);
+            let entity_key = (chunk_key, local_key);
             let entity = self.entity_field.get(entity_key).unwrap();
             let feature = features
                 .get(entity.id as usize)
