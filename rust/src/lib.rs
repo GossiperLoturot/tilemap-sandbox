@@ -6,8 +6,6 @@ mod block;
 mod entity;
 mod tile;
 
-mod extra;
-
 struct Extension;
 
 #[gdextension]
@@ -15,128 +13,438 @@ unsafe impl ExtensionLibrary for Extension {}
 
 #[derive(GodotClass)]
 #[class(no_init)]
-pub struct TileKey {
-    pub base: inner::TileKey,
+struct TileKey {
+    base: inner::TileKey,
 }
 
 #[derive(GodotClass)]
 #[class(no_init)]
-pub struct BlockKey {
-    pub base: inner::BlockKey,
+struct Tile {
+    base: inner::Tile<inner::TileData>,
+}
+
+#[godot_api]
+impl Tile {
+    #[func]
+    fn create(id: u32, location: Vector2i) -> Gd<Self> {
+        let tile = inner::Tile {
+            id,
+            location: [location.x, location.y],
+            variant: Default::default(),
+            data: Default::default(),
+        };
+        Gd::from_object(Tile { base: tile })
+    }
 }
 
 #[derive(GodotClass)]
 #[class(no_init)]
-pub struct EntityKey {
-    pub base: inner::EntityKey,
+struct TileFeature {
+    base: inner::TileFeature,
 }
 
-#[rustfmt::skip]
-pub type Tile<T> = inner::Tile<<<T as inner::Feature>::Tile as inner::TileFeature<T>>::Item>;
-
-#[rustfmt::skip]
-pub type Block<T> = inner::Block<<<T as inner::Feature>::Block as inner::BlockFeature<T>>::Item>;
-
-#[rustfmt::skip]
-pub type Entity<T> = inner::Entity<<<T as inner::Feature>::Entity as inner::EntityFeature<T>>::Item>;
-
-// base descriptor
-
-#[derive(Clone)]
-pub struct TileDescriptor<T: inner::Feature> {
-    pub images: Array<Gd<godot::classes::Image>>,
-    pub collision: bool,
-    pub feature: T::Tile,
+#[godot_api]
+impl TileFeature {
+    #[func]
+    fn create() -> Gd<Self> {
+        let feature = Default::default();
+        Gd::from_object(TileFeature { base: feature })
+    }
 }
 
-#[derive(Clone)]
-pub struct TileFieldDescriptor<T: inner::Feature> {
-    pub chunk_size: u32,
-    pub instance_size: u32,
-    pub output_image_size: u32,
-    pub max_page_size: u32,
-    pub tiles: Vec<TileDescriptor<T>>,
-    pub shaders: Array<Gd<godot::classes::Shader>>,
-    pub world: Gd<godot::classes::World3D>,
+#[derive(GodotClass)]
+#[class(no_init)]
+struct TileDescriptor {
+    images: Array<Gd<godot::classes::Image>>,
+    collision: bool,
+    feature: Gd<TileFeature>,
 }
 
-#[derive(Clone)]
-pub struct BlockDescriptor<T: inner::Feature> {
-    pub images: Array<Gd<godot::classes::Image>>,
-    pub z_along_y: bool,
-    pub size: Vector2i,
-    pub collision_size: Vector2,
-    pub collision_offset: Vector2,
-    pub rendering_size: Vector2,
-    pub rendering_offset: Vector2,
-    pub feature: T::Block,
+#[godot_api]
+impl TileDescriptor {
+    #[func]
+    fn create(
+        images: Array<Gd<godot::classes::Image>>,
+        collision: bool,
+        feature: Gd<TileFeature>,
+    ) -> Gd<Self> {
+        Gd::from_object(TileDescriptor {
+            images,
+            collision,
+            feature,
+        })
+    }
 }
 
-#[derive(Clone)]
-pub struct BlockFieldDescriptor<T: inner::Feature> {
-    pub chunk_size: u32,
-    pub instance_size: u32,
-    pub output_image_size: u32,
-    pub max_page_size: u32,
-    pub blocks: Vec<BlockDescriptor<T>>,
-    pub shaders: Array<Gd<godot::classes::Shader>>,
-    pub world: Gd<godot::classes::World3D>,
+#[derive(GodotClass)]
+#[class(no_init)]
+struct TileFieldDescriptor {
+    chunk_size: u32,
+    instance_size: u32,
+    output_image_size: u32,
+    max_page_size: u32,
+    tiles: Array<Gd<TileDescriptor>>,
+    shaders: Array<Gd<godot::classes::Shader>>,
+    world: Gd<godot::classes::World3D>,
 }
 
-#[derive(Clone)]
-pub struct EntityDescriptor<T: inner::Feature> {
-    pub images: Array<Gd<godot::classes::Image>>,
-    pub z_along_y: bool,
-    pub collision_size: Vector2,
-    pub collision_offset: Vector2,
-    pub rendering_size: Vector2,
-    pub rendering_offset: Vector2,
-    pub feature: T::Entity,
+#[godot_api]
+impl TileFieldDescriptor {
+    #[func]
+    fn create(
+        chunk_size: u32,
+        instance_size: u32,
+        output_image_size: u32,
+        max_page_size: u32,
+        tiles: Array<Gd<TileDescriptor>>,
+        shaders: Array<Gd<godot::classes::Shader>>,
+        world: Gd<godot::classes::World3D>,
+    ) -> Gd<Self> {
+        Gd::from_object(TileFieldDescriptor {
+            chunk_size,
+            instance_size,
+            output_image_size,
+            max_page_size,
+            tiles,
+            shaders,
+            world,
+        })
+    }
 }
 
-#[derive(Clone)]
-pub struct EntityFieldDescriptor<T: inner::Feature> {
-    pub chunk_size: u32,
-    pub instance_size: u32,
-    pub output_image_size: u32,
-    pub max_page_size: u32,
-    pub entities: Vec<EntityDescriptor<T>>,
-    pub shaders: Array<Gd<godot::classes::Shader>>,
-    pub world: Gd<godot::classes::World3D>,
+#[derive(GodotClass)]
+#[class(no_init)]
+struct BlockKey {
+    base: inner::BlockKey,
 }
 
-#[derive(Clone)]
-pub struct RootDescriptor<T: inner::Feature> {
-    pub tile_field: TileFieldDescriptor<T>,
-    pub block_field: BlockFieldDescriptor<T>,
-    pub entity_field: EntityFieldDescriptor<T>,
+#[derive(GodotClass)]
+#[class(no_init)]
+struct Block {
+    base: inner::Block<inner::BlockData>,
 }
 
-/// base root
+#[godot_api]
+impl Block {
+    #[func]
+    fn create(id: u32, location: Vector2i) -> Gd<Self> {
+        let block = inner::Block {
+            id,
+            location: [location.x, location.y],
+            variant: Default::default(),
+            data: Default::default(),
+        };
+        Gd::from_object(Block { base: block })
+    }
+}
 
-pub struct Root<T: inner::Feature> {
-    pub base: inner::Root<T>,
+#[derive(GodotClass)]
+#[class(no_init)]
+struct BlockFeature {
+    base: inner::BlockFeature,
+}
 
+#[godot_api]
+impl BlockFeature {
+    #[func]
+    fn create() -> Gd<Self> {
+        let feature = Default::default();
+        Gd::from_object(BlockFeature { base: feature })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct BlockDescriptor {
+    images: Array<Gd<godot::classes::Image>>,
+    z_along_y: bool,
+    size: Vector2i,
+    collision_size: Vector2,
+    collision_offset: Vector2,
+    rendering_size: Vector2,
+    rendering_offset: Vector2,
+    feature: Gd<BlockFeature>,
+}
+
+#[godot_api]
+impl BlockDescriptor {
+    #[func]
+    fn create(
+        images: Array<Gd<godot::classes::Image>>,
+        z_along_y: bool,
+        size: Vector2i,
+        collision_size: Vector2,
+        collision_offset: Vector2,
+        rendering_size: Vector2,
+        rendering_offset: Vector2,
+        feature: Gd<BlockFeature>,
+    ) -> Gd<Self> {
+        Gd::from_object(BlockDescriptor {
+            images,
+            z_along_y,
+            size,
+            collision_size,
+            collision_offset,
+            rendering_size,
+            rendering_offset,
+            feature,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct BlockFieldDescriptor {
+    chunk_size: u32,
+    instance_size: u32,
+    output_image_size: u32,
+    max_page_size: u32,
+    blocks: Array<Gd<BlockDescriptor>>,
+    shaders: Array<Gd<godot::classes::Shader>>,
+    world: Gd<godot::classes::World3D>,
+}
+
+#[godot_api]
+impl BlockFieldDescriptor {
+    #[func]
+    fn create(
+        chunk_size: u32,
+        instance_size: u32,
+        output_image_size: u32,
+        max_page_size: u32,
+        blocks: Array<Gd<BlockDescriptor>>,
+        shaders: Array<Gd<godot::classes::Shader>>,
+        world: Gd<godot::classes::World3D>,
+    ) -> Gd<Self> {
+        Gd::from_object(BlockFieldDescriptor {
+            chunk_size,
+            instance_size,
+            output_image_size,
+            max_page_size,
+            blocks,
+            shaders,
+            world,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct EntityKey {
+    base: inner::EntityKey,
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct Entity {
+    base: inner::Entity<inner::EntityData>,
+}
+
+#[godot_api]
+impl Entity {
+    #[func]
+    fn create(id: u32, location: Vector2) -> Gd<Self> {
+        let entity = inner::Entity {
+            id,
+            location: [location.x, location.y],
+            variant: Default::default(),
+            data: Default::default(),
+        };
+        Gd::from_object(Entity { base: entity })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct EntityFeature {
+    base: inner::EntityFeature,
+}
+
+#[godot_api]
+impl EntityFeature {
+    #[func]
+    fn create() -> Gd<Self> {
+        let feature = Default::default();
+        Gd::from_object(EntityFeature { base: feature })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct EntityDescriptor {
+    images: Array<Gd<godot::classes::Image>>,
+    z_along_y: bool,
+    collision_size: Vector2,
+    collision_offset: Vector2,
+    rendering_size: Vector2,
+    rendering_offset: Vector2,
+    feature: Gd<EntityFeature>,
+}
+
+#[godot_api]
+impl EntityDescriptor {
+    #[func]
+    fn create(
+        images: Array<Gd<godot::classes::Image>>,
+        z_along_y: bool,
+        collision_size: Vector2,
+        collision_offset: Vector2,
+        rendering_size: Vector2,
+        rendering_offset: Vector2,
+        feature: Gd<EntityFeature>,
+    ) -> Gd<Self> {
+        Gd::from_object(EntityDescriptor {
+            images,
+            z_along_y,
+            collision_size,
+            collision_offset,
+            rendering_size,
+            rendering_offset,
+            feature,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct EntityFieldDescriptor {
+    chunk_size: u32,
+    instance_size: u32,
+    output_image_size: u32,
+    max_page_size: u32,
+    entities: Array<Gd<EntityDescriptor>>,
+    shaders: Array<Gd<godot::classes::Shader>>,
+    world: Gd<godot::classes::World3D>,
+}
+
+#[godot_api]
+impl EntityFieldDescriptor {
+    #[func]
+    fn create(
+        chunk_size: u32,
+        instance_size: u32,
+        output_image_size: u32,
+        max_page_size: u32,
+        entities: Array<Gd<EntityDescriptor>>,
+        shaders: Array<Gd<godot::classes::Shader>>,
+        world: Gd<godot::classes::World3D>,
+    ) -> Gd<Self> {
+        Gd::from_object(EntityFieldDescriptor {
+            chunk_size,
+            instance_size,
+            output_image_size,
+            max_page_size,
+            entities,
+            shaders,
+            world,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct GeneratorRuleDescriptor {
+    base: inner::GeneratorRuleDescriptor,
+}
+
+#[godot_api]
+impl GeneratorRuleDescriptor {
+    #[func]
+    fn create_marching(prob: f32, id: u32) -> Gd<Self> {
+        let rule = inner::GeneratorRuleMarchingDescriptor { prob, id };
+        let desc = inner::GeneratorRuleDescriptor::Marching(rule);
+        Gd::from_object(GeneratorRuleDescriptor { base: desc })
+    }
+
+    #[func]
+    fn create_spawn(prob: f32, id: u32) -> Gd<Self> {
+        let rule = inner::GeneratorRuleSpawnDescriptor { prob, id };
+        let desc = inner::GeneratorRuleDescriptor::Spawn(rule);
+        Gd::from_object(GeneratorRuleDescriptor { base: desc })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct GeneratorDescriptor {
+    chunk_size: u32,
+    tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
+    block_rules: Array<Gd<GeneratorRuleDescriptor>>,
+    entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
+}
+
+#[godot_api]
+impl GeneratorDescriptor {
+    #[func]
+    fn create(
+        chunk_size: u32,
+        tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
+        block_rules: Array<Gd<GeneratorRuleDescriptor>>,
+        entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
+    ) -> Gd<Self> {
+        Gd::from_object(GeneratorDescriptor {
+            chunk_size,
+            tile_rules,
+            block_rules,
+            entity_rules,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct RootDescriptor {
+    tile_field: Gd<TileFieldDescriptor>,
+    block_field: Gd<BlockFieldDescriptor>,
+    entity_field: Gd<EntityFieldDescriptor>,
+}
+
+#[godot_api]
+impl RootDescriptor {
+    #[func]
+    fn create(
+        tile_field: Gd<TileFieldDescriptor>,
+        block_field: Gd<BlockFieldDescriptor>,
+        entity_field: Gd<EntityFieldDescriptor>,
+    ) -> Gd<Self> {
+        Gd::from_object(RootDescriptor {
+            tile_field,
+            block_field,
+            entity_field,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct Root {
+    base: inner::Root,
     tile_field: tile::TileField,
     block_field: block::BlockField,
     entity_field: entity::EntityField,
 }
 
-impl<T: inner::Feature> Root<T> {
-    pub fn create(desc: &RootDescriptor<T>) -> Root<T> {
+#[godot_api]
+impl Root {
+    #[func]
+    fn create(desc: Gd<RootDescriptor>) -> Gd<Root> {
         // base
         let base = {
             let mut tile_features = vec![];
             let tile_field = {
-                let desc = &desc.tile_field;
+                let desc = desc.bind();
+                let desc = desc.tile_field.bind();
 
                 let mut tiles = vec![];
-                for tile in &desc.tiles {
+                for tile in desc.tiles.iter_shared() {
+                    let tile = tile.bind();
+
                     tiles.push(inner::TileDescriptor {
                         collision: tile.collision,
                     });
 
-                    tile_features.push(tile.feature.clone());
+                    let feature = &tile.feature.bind().base;
+                    tile_features.push(feature.clone());
                 }
 
                 inner::TileFieldDescriptor {
@@ -148,10 +456,13 @@ impl<T: inner::Feature> Root<T> {
 
             let mut block_features = vec![];
             let block_field = {
-                let desc = &desc.block_field;
+                let desc = desc.bind();
+                let desc = desc.block_field.bind();
 
                 let mut blocks = vec![];
-                for block in &desc.blocks {
+                for block in desc.blocks.iter_shared() {
+                    let block = block.bind();
+
                     blocks.push(inner::BlockDescriptor {
                         size: [block.size.x, block.size.y],
                         collision_size: [block.collision_size.x, block.collision_size.y],
@@ -160,7 +471,8 @@ impl<T: inner::Feature> Root<T> {
                         hint_offset: [block.rendering_offset.x, block.rendering_offset.y],
                     });
 
-                    block_features.push(block.feature.clone());
+                    let feature = &block.feature.bind().base;
+                    block_features.push(feature.clone());
                 }
 
                 inner::BlockFieldDescriptor {
@@ -172,10 +484,13 @@ impl<T: inner::Feature> Root<T> {
 
             let mut entity_features = vec![];
             let entity_field = {
-                let desc = &desc.entity_field;
+                let desc = desc.bind();
+                let desc = desc.entity_field.bind();
 
                 let mut entities = vec![];
-                for entity in &desc.entities {
+                for entity in desc.entities.iter_shared() {
+                    let entity = entity.bind();
+
                     entities.push(inner::EntityDescriptor {
                         collision_size: [entity.collision_size.x, entity.collision_size.y],
                         collision_offset: [entity.collision_offset.x, entity.collision_offset.y],
@@ -183,7 +498,8 @@ impl<T: inner::Feature> Root<T> {
                         hint_offset: [entity.rendering_offset.x, entity.rendering_offset.y],
                     });
 
-                    entity_features.push(entity.feature.clone());
+                    let feature = &entity.feature.bind().base;
+                    entity_features.push(feature.clone());
                 }
 
                 inner::EntityFieldDescriptor {
@@ -205,13 +521,16 @@ impl<T: inner::Feature> Root<T> {
 
         // tile field renderer
         let tile_field = {
-            let desc = &desc.tile_field;
+            let desc = desc.bind();
+            let desc = desc.tile_field.bind();
 
             let mut tiles = vec![];
-            for tile in &desc.tiles {
+            for tile in desc.tiles.iter_shared() {
+                let tile = tile.bind();
+
                 let mut images = vec![];
                 for image in tile.images.iter_shared() {
-                    images.push(image.clone());
+                    images.push(image);
                 }
 
                 tiles.push(tile::TileDescriptor { images });
@@ -219,7 +538,7 @@ impl<T: inner::Feature> Root<T> {
 
             let mut tile_shaders = vec![];
             for shader in desc.shaders.iter_shared() {
-                tile_shaders.push(shader.clone());
+                tile_shaders.push(shader);
             }
 
             tile::TileField::new(tile::TileFieldDescriptor {
@@ -234,13 +553,16 @@ impl<T: inner::Feature> Root<T> {
 
         // block field renderer
         let block_field = {
-            let desc = &desc.block_field;
+            let desc = desc.bind();
+            let desc = desc.block_field.bind();
 
             let mut blocks = vec![];
-            for block in &desc.blocks {
+            for block in desc.blocks.iter_shared() {
+                let block = block.bind();
+
                 let mut images = vec![];
                 for image in block.images.iter_shared() {
-                    images.push(image.clone());
+                    images.push(image);
                 }
 
                 blocks.push(block::BlockDescriptor {
@@ -253,7 +575,7 @@ impl<T: inner::Feature> Root<T> {
 
             let mut block_shaders = vec![];
             for shader in desc.shaders.iter_shared() {
-                block_shaders.push(shader.clone());
+                block_shaders.push(shader);
             }
 
             block::BlockField::new(block::BlockFieldDescriptor {
@@ -268,13 +590,16 @@ impl<T: inner::Feature> Root<T> {
 
         // entity field renderer
         let entity_field = {
-            let desc = &desc.entity_field;
+            let desc = desc.bind();
+            let desc = desc.entity_field.bind();
 
             let mut entities = vec![];
-            for entity in &desc.entities {
+            for entity in desc.entities.iter_shared() {
+                let entity = entity.bind();
+
                 let mut images = vec![];
                 for image in entity.images.iter_shared() {
-                    images.push(image.clone());
+                    images.push(image);
                 }
 
                 entities.push(entity::EntityDescriptor {
@@ -300,15 +625,86 @@ impl<T: inner::Feature> Root<T> {
             })
         };
 
-        Root {
+        Gd::from_object(Root {
             base,
             tile_field,
             block_field,
             entity_field,
-        }
+        })
     }
 
-    pub fn forward(&mut self, min_rect: Rect2) {
+    // tile
+
+    #[func]
+    fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<TileKey> {
+        let tile = &tile.bind().base;
+        let key = self.base.tile_insert(tile.clone()).unwrap();
+        Gd::from_object(TileKey { base: key })
+    }
+
+    #[func]
+    fn tile_remove(&mut self, key: Gd<TileKey>) -> Gd<Tile> {
+        let tile = self.base.tile_remove(key.bind().base).unwrap();
+        Gd::from_object(Tile { base: tile })
+    }
+
+    #[func]
+    fn tile_get(&self, key: Gd<TileKey>) -> Gd<Tile> {
+        let tile = self.base.tile_get(key.bind().base).unwrap().clone();
+        Gd::from_object(Tile { base: tile })
+    }
+
+    // block
+
+    #[func]
+    fn block_insert(&mut self, block: Gd<Block>) -> Gd<BlockKey> {
+        let block = &block.bind().base;
+        let key = self.base.block_insert(block.clone()).unwrap();
+        Gd::from_object(BlockKey { base: key })
+    }
+
+    #[func]
+    fn block_remove(&mut self, key: Gd<BlockKey>) -> Gd<Block> {
+        let block = self.base.block_remove(key.bind().base).unwrap();
+        Gd::from_object(Block { base: block })
+    }
+
+    #[func]
+    fn block_get(&self, key: Gd<BlockKey>) -> Gd<Block> {
+        let block = self.base.block_get(key.bind().base).unwrap().clone();
+        Gd::from_object(Block { base: block })
+    }
+
+    // entity
+
+    #[func]
+    fn entity_insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
+        let entity = &entity.bind().base;
+        let key = self.base.entity_insert(entity.clone()).unwrap();
+        Gd::from_object(EntityKey { base: key })
+    }
+
+    #[func]
+    fn entity_remove(&mut self, key: Gd<EntityKey>) -> Gd<Entity> {
+        let entity = self.base.entity_remove(key.bind().base).unwrap();
+        Gd::from_object(Entity { base: entity })
+    }
+
+    #[func]
+    fn entity_get(&self, key: Gd<EntityKey>) -> Gd<Entity> {
+        let entity = self.base.entity_get(key.bind().base).unwrap().clone();
+        Gd::from_object(Entity { base: entity })
+    }
+
+    // extra
+
+    #[func]
+    fn init_forward(&mut self) {
+        self.base.init_forward();
+    }
+
+    #[func]
+    fn forward_rect(&mut self, min_rect: Rect2) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -317,109 +713,58 @@ impl<T: inner::Feature> Root<T> {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        // tile
-        let chunk_size = self.base.tile_get_chunk_size() as f32;
-        #[rustfmt::skip]
-        let rect = [[
-            min_rect[0][0].div_euclid(chunk_size) as i32,
-            min_rect[0][1].div_euclid(chunk_size) as i32, ], [
-            min_rect[1][0].div_euclid(chunk_size) as i32,
-            min_rect[1][1].div_euclid(chunk_size) as i32,
-        ]];
-        for y in rect[0][1]..=rect[1][1] {
-            for x in rect[0][0]..=rect[1][0] {
-                let _ = self.base.tile_forward_chunk([x, y]);
-            }
+        self.base.forward_rect(min_rect);
+    }
+
+    #[func]
+    fn init_generator(&mut self, desc: Gd<GeneratorDescriptor>) {
+        let desc = desc.bind();
+
+        let mut tile_rules = vec![];
+        for rule in desc.tile_rules.iter_shared() {
+            let rule = &rule.bind().base;
+            tile_rules.push(rule.clone());
         }
 
-        // block
-        let chunk_size = self.base.block_get_chunk_size() as f32;
-        #[rustfmt::skip]
-        let rect = [[
-            min_rect[0][0].div_euclid(chunk_size) as i32,
-            min_rect[0][1].div_euclid(chunk_size) as i32, ], [
-            min_rect[1][0].div_euclid(chunk_size) as i32,
-            min_rect[1][1].div_euclid(chunk_size) as i32,
-        ]];
-        for y in rect[0][1]..=rect[1][1] {
-            for x in rect[0][0]..=rect[1][0] {
-                let _ = self.base.block_forward_chunk([x, y]);
-            }
+        let mut block_rules = vec![];
+        for rule in desc.block_rules.iter_shared() {
+            let rule = &rule.bind().base;
+            block_rules.push(rule.clone());
         }
 
-        // entity
-        let chunk_size = self.base.entity_get_chunk_size() as f32;
-        #[rustfmt::skip]
-        let rect = [[
-            min_rect[0][0].div_euclid(chunk_size) as i32,
-            min_rect[0][1].div_euclid(chunk_size) as i32, ], [
-            min_rect[1][0].div_euclid(chunk_size) as i32,
-            min_rect[1][1].div_euclid(chunk_size) as i32,
-        ]];
-        for y in rect[0][1]..=rect[1][1] {
-            for x in rect[0][0]..=rect[1][0] {
-                let _ = self.base.entity_forward_chunk([x, y]);
-            }
+        let mut entity_rules = vec![];
+        for rule in desc.entity_rules.iter_shared() {
+            let rule = &rule.bind().base;
+            entity_rules.push(rule.clone());
         }
+
+        let desc = inner::GeneratorDescriptor {
+            chunk_size: desc.chunk_size,
+            tile_rules,
+            block_rules,
+            entity_rules,
+        };
+
+        self.base.init_generator(desc);
     }
 
-    // tile
+    #[func]
+    fn generate_rect(&mut self, min_rect: Rect2) {
+        #[rustfmt::skip]
+        let min_rect = [[
+            min_rect.position.x,
+            min_rect.position.y, ], [
+            min_rect.position.x + min_rect.size.x,
+            min_rect.position.y + min_rect.size.y,
+        ]];
 
-    #[inline]
-    pub fn tile_insert(&mut self, tile: &Tile<T>) -> TileKey {
-        let key = self.base.tile_insert(tile.clone()).unwrap();
-        TileKey { base: key }
-    }
-
-    #[inline]
-    pub fn tile_remove(&mut self, key: Gd<TileKey>) -> Tile<T> {
-        self.base.tile_remove(key.bind().base).unwrap()
-    }
-
-    #[inline]
-    pub fn tile_get(&self, key: Gd<TileKey>) -> Tile<T> {
-        self.base.tile_get(key.bind().base).unwrap().clone()
-    }
-
-    // block
-
-    #[inline]
-    pub fn block_insert(&mut self, block: &Block<T>) -> BlockKey {
-        let key = self.base.block_insert(block.clone()).unwrap();
-        BlockKey { base: key }
-    }
-
-    #[inline]
-    pub fn block_remove(&mut self, key: Gd<BlockKey>) -> Block<T> {
-        self.base.block_remove(key.bind().base).unwrap()
-    }
-
-    #[inline]
-    pub fn block_get(&self, key: Gd<BlockKey>) -> Block<T> {
-        self.base.block_get(key.bind().base).unwrap().clone()
-    }
-
-    // entity
-
-    #[inline]
-    pub fn entity_insert(&mut self, entity: &Entity<T>) -> EntityKey {
-        let key = self.base.entity_insert(entity.clone()).unwrap();
-        EntityKey { base: key }
-    }
-
-    #[inline]
-    pub fn entity_remove(&mut self, key: Gd<EntityKey>) -> Entity<T> {
-        self.base.entity_remove(key.bind().base).unwrap()
-    }
-
-    #[inline]
-    pub fn entity_get(&self, key: Gd<EntityKey>) -> Entity<T> {
-        self.base.entity_get(key.bind().base).unwrap().clone()
+        self.base.generate_rect(min_rect);
     }
 
     // view
 
-    pub fn update_view(&mut self, min_rect: Rect2) {
+    #[func]
+    fn update_view(&mut self, min_rect: Rect2) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,

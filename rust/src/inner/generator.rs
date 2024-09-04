@@ -1,4 +1,3 @@
-use crate::extra::feature::*;
 use crate::inner;
 
 // generator rule descriptors
@@ -96,7 +95,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(desc: GeneratorDescriptor) -> Self {
+    pub fn init(root: &mut inner::Root, desc: GeneratorDescriptor) {
         let mut tile_rules = vec![];
         for rule in desc.tile_rules {
             tile_rules.push(GeneratorRule::new(rule));
@@ -112,16 +111,17 @@ impl Generator {
             entity_rules.push(GeneratorRule::new(rule));
         }
 
-        Self {
+        let generator = Self {
             chunk_size: desc.chunk_size,
             tile_rules,
             block_rules,
             entity_rules,
             visit: ahash::AHashSet::new(),
-        }
+        };
+        root.resource_insert(generator).unwrap();
     }
 
-    pub fn generate_chunk(root: &mut inner::Root<Feature>, min_rect: [inner::Vec2; 2]) {
+    pub fn generate_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
         let mut slf = root.resource_remove::<Generator>().unwrap();
 
         #[rustfmt::skip]
@@ -182,7 +182,7 @@ impl Generator {
 
     fn tile_marching_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
@@ -212,7 +212,7 @@ impl Generator {
 
     fn tile_spawn_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {
@@ -242,7 +242,7 @@ impl Generator {
 
     fn block_marching_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
@@ -272,7 +272,7 @@ impl Generator {
 
     fn block_spawn_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {
@@ -302,7 +302,7 @@ impl Generator {
 
     fn entity_marching_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
@@ -332,7 +332,7 @@ impl Generator {
 
     fn entity_spawn_generate_chunk(
         &self,
-        root: &mut inner::Root<Feature>,
+        root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {

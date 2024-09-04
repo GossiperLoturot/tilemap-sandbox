@@ -153,6 +153,8 @@ func _ready():
 		)
 	)
 
+	_root.init_forward()
+
 	var _generator_descriptor = GeneratorDescriptor.create(
 		32,
 		[
@@ -168,15 +170,14 @@ func _ready():
 			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_PIG)
 		] as Array[GeneratorRuleDescriptor]
 	)
-	var _generator = Generator.create(_generator_descriptor)
-	_root.init_generator(_generator)
+	_root.init_generator(_generator_descriptor)
 
 
 func _process(_delta):
 	# logic
-	_root.forward(min_forward_rect)
+	_root.forward_rect(min_forward_rect)
 
-	_root.generate_chunk(min_generate_rect)
+	_root.generate_rect(min_generate_rect)
 
 	# rendering
 	_root.update_view(min_view_rect)

@@ -1,7 +1,11 @@
 pub use field::*;
+pub use forward::*;
+pub use generator::*;
 pub use resource::*;
 
 mod field;
+mod forward;
+mod generator;
 mod resource;
 
 pub type Vec2 = [f32; 2];
@@ -9,58 +13,82 @@ pub type IVec2 = [i32; 2];
 
 type RcVec<T> = std::rc::Rc<[T]>;
 
-pub trait Feature: Sized {
-    type Tile: TileFeature<Self> + Clone;
-    type Block: BlockFeature<Self> + Clone;
-    type Entity: EntityFeature<Self> + Clone;
+#[derive(Clone, Default)]
+pub struct TileFeature;
+
+#[derive(Clone, Default)]
+pub struct TileData;
+
+pub trait TileFeatureTrait {
+    fn after_place(&self, root: &mut Root, key: TileKey);
+    fn before_break(&self, root: &mut Root, key: TileKey);
+    fn forward(&self, root: &mut Root, key: TileKey);
 }
 
-pub trait TileFeature<T: Feature>: Sized {
-    type Item: Clone + Default;
-
-    fn after_place(&self, root: &mut Root<T>, key: TileKey);
-    fn before_break(&self, root: &mut Root<T>, key: TileKey);
-    fn forward(&self, root: &mut Root<T>, key: TileKey);
+impl TileFeatureTrait for TileFeature {
+    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+    fn forward(&self, _root: &mut Root, _key: TileKey) {}
 }
 
-pub trait BlockFeature<T: Feature>: Sized {
-    type Item: Clone + Default;
-
-    fn after_place(&self, root: &mut Root<T>, key: TileKey);
-    fn before_break(&self, root: &mut Root<T>, key: TileKey);
-    fn forward(&self, root: &mut Root<T>, key: TileKey);
+pub trait BlockFeatureTrait {
+    fn after_place(&self, root: &mut Root, key: TileKey);
+    fn before_break(&self, root: &mut Root, key: TileKey);
+    fn forward(&self, root: &mut Root, key: TileKey);
 }
 
-pub trait EntityFeature<T: Feature>: Sized {
-    type Item: Clone + Default;
+#[derive(Clone, Default)]
+pub struct BlockFeature;
 
-    fn after_place(&self, root: &mut Root<T>, key: TileKey);
-    fn before_break(&self, root: &mut Root<T>, key: TileKey);
-    fn forward(&self, root: &mut Root<T>, key: TileKey);
+#[derive(Clone, Default)]
+pub struct BlockData;
+
+impl BlockFeatureTrait for BlockFeature {
+    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+    fn forward(&self, _root: &mut Root, _key: TileKey) {}
 }
 
-pub struct RootDescriptor<T: Feature> {
+pub trait EntityFeatureTrait {
+    fn after_place(&self, root: &mut Root, key: TileKey);
+    fn before_break(&self, root: &mut Root, key: TileKey);
+    fn forward(&self, root: &mut Root, key: TileKey);
+}
+
+#[derive(Clone, Default)]
+pub struct EntityFeature;
+
+#[derive(Clone, Default)]
+pub struct EntityData;
+
+impl EntityFeatureTrait for EntityFeature {
+    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+    fn forward(&self, _root: &mut Root, _key: TileKey) {}
+}
+
+pub struct RootDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
-    pub tile_features: RcVec<T::Tile>,
-    pub block_features: RcVec<T::Block>,
-    pub entity_features: RcVec<T::Entity>,
+    pub tile_features: RcVec<TileFeature>,
+    pub block_features: RcVec<BlockFeature>,
+    pub entity_features: RcVec<EntityFeature>,
 }
 
-pub struct Root<T: Feature> {
-    tile_field: TileField<<T::Tile as TileFeature<T>>::Item>,
-    block_field: BlockField<<T::Block as BlockFeature<T>>::Item>,
-    entity_field: EntityField<<T::Entity as EntityFeature<T>>::Item>,
-    tile_features: RcVec<T::Tile>,
-    block_features: RcVec<T::Block>,
-    entity_features: RcVec<T::Entity>,
+pub struct Root {
+    tile_field: TileField<TileData>,
+    block_field: BlockField<BlockData>,
+    entity_field: EntityField<EntityData>,
+    tile_features: RcVec<TileFeature>,
+    block_features: RcVec<BlockFeature>,
+    entity_features: RcVec<EntityFeature>,
     resource_store: ResourceStore,
 }
 
-impl<T: Feature> Root<T> {
+impl Root {
     #[inline]
-    pub fn new(desc: RootDescriptor<T>) -> Self {
+    pub fn new(desc: RootDescriptor) -> Self {
         Self {
             tile_field: TileField::new(desc.tile_field),
             block_field: BlockField::new(desc.block_field),
@@ -74,10 +102,7 @@ impl<T: Feature> Root<T> {
 
     // tile
 
-    pub fn tile_insert(
-        &mut self,
-        tile: field::Tile<<T::Tile as TileFeature<T>>::Item>,
-    ) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
@@ -87,10 +112,7 @@ impl<T: Feature> Root<T> {
         Ok(tile_key)
     }
 
-    pub fn tile_remove(
-        &mut self,
-        tile_key: TileKey,
-    ) -> Result<field::Tile<<T::Tile as TileFeature<T>>::Item>, FieldError> {
+    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile<TileData>, FieldError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
@@ -104,16 +126,13 @@ impl<T: Feature> Root<T> {
     pub fn tile_modify(
         &mut self,
         tile_key: TileKey,
-        f: impl Fn(&mut field::Tile<<T::Tile as TileFeature<T>>::Item>),
+        f: impl Fn(&mut field::Tile<TileData>),
     ) -> Result<field::TileKey, FieldError> {
         self.tile_field.modify(tile_key, f)
     }
 
     #[inline]
-    pub fn tile_get(
-        &self,
-        tile_key: TileKey,
-    ) -> Result<&field::Tile<<T::Tile as TileFeature<T>>::Item>, FieldError> {
+    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile<TileData>, FieldError> {
         self.tile_field.get(tile_key)
     }
 
@@ -125,7 +144,7 @@ impl<T: Feature> Root<T> {
     pub fn tile_get_chunk(
         &self,
         chunk_location: IVec2,
-    ) -> Result<&field::TileChunk<<T::Tile as TileFeature<T>>::Item>, FieldError> {
+    ) -> Result<&field::TileChunk<TileData>, FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -202,10 +221,7 @@ impl<T: Feature> Root<T> {
 
     // block
 
-    pub fn block_insert(
-        &mut self,
-        block: field::Block<<T::Block as BlockFeature<T>>::Item>,
-    ) -> Result<BlockKey, FieldError> {
+    pub fn block_insert(&mut self, block: field::Block<BlockData>) -> Result<BlockKey, FieldError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
@@ -218,7 +234,7 @@ impl<T: Feature> Root<T> {
     pub fn block_remove(
         &mut self,
         block_key: BlockKey,
-    ) -> Result<field::Block<<T::Block as BlockFeature<T>>::Item>, FieldError> {
+    ) -> Result<field::Block<BlockData>, FieldError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
@@ -232,16 +248,13 @@ impl<T: Feature> Root<T> {
     pub fn block_modify(
         &mut self,
         block_key: BlockKey,
-        f: impl Fn(&mut field::Block<<T::Block as BlockFeature<T>>::Item>),
+        f: impl Fn(&mut field::Block<BlockData>),
     ) -> Result<field::BlockKey, FieldError> {
         self.block_field.modify(block_key, f)
     }
 
     #[inline]
-    pub fn block_get(
-        &self,
-        block_key: BlockKey,
-    ) -> Result<&field::Block<<T::Block as BlockFeature<T>>::Item>, FieldError> {
+    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block<BlockData>, FieldError> {
         self.block_field.get(block_key)
     }
 
@@ -253,7 +266,7 @@ impl<T: Feature> Root<T> {
     pub fn block_get_chunk(
         &self,
         chunk_location: IVec2,
-    ) -> Result<&field::BlockChunk<<T::Block as BlockFeature<T>>::Item>, FieldError> {
+    ) -> Result<&field::BlockChunk<BlockData>, FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -374,7 +387,7 @@ impl<T: Feature> Root<T> {
 
     pub fn entity_insert(
         &mut self,
-        entity: field::Entity<<T::Entity as EntityFeature<T>>::Item>,
+        entity: field::Entity<EntityData>,
     ) -> Result<EntityKey, FieldError> {
         let features = self.entity_features.clone();
         let feature = features
@@ -388,7 +401,7 @@ impl<T: Feature> Root<T> {
     pub fn entity_remove(
         &mut self,
         entity_key: EntityKey,
-    ) -> Result<field::Entity<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
+    ) -> Result<field::Entity<EntityData>, FieldError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
@@ -402,7 +415,7 @@ impl<T: Feature> Root<T> {
     pub fn entity_modify(
         &mut self,
         entity_key: EntityKey,
-        f: impl Fn(&mut field::Entity<<T::Entity as EntityFeature<T>>::Item>),
+        f: impl Fn(&mut field::Entity<EntityData>),
     ) -> Result<field::EntityKey, FieldError> {
         self.entity_field.modify(entity_key, f)
     }
@@ -411,7 +424,7 @@ impl<T: Feature> Root<T> {
     pub fn entity_get(
         &self,
         entity_key: EntityKey,
-    ) -> Result<&field::Entity<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
+    ) -> Result<&field::Entity<EntityData>, FieldError> {
         self.entity_field.get(entity_key)
     }
 
@@ -423,7 +436,7 @@ impl<T: Feature> Root<T> {
     pub fn entity_get_chunk(
         &self,
         chunk_key: IVec2,
-    ) -> Result<&field::EntityChunk<<T::Entity as EntityFeature<T>>::Item>, FieldError> {
+    ) -> Result<&field::EntityChunk<EntityData>, FieldError> {
         let chunk_key = self
             .entity_field
             .get_by_chunk_location(chunk_key)
@@ -544,6 +557,28 @@ impl<T: Feature> Root<T> {
     #[inline]
     pub fn resource_get_mut<R: 'static>(&mut self) -> Option<&mut R> {
         self.resource_store.get_mut::<R>()
+    }
+
+    // extra
+
+    #[inline]
+    pub fn init_forward(&mut self) {
+        Forward::init(self);
+    }
+
+    #[inline]
+    pub fn forward_rect(&mut self, min_rect: [Vec2; 2]) {
+        Forward::forward_rect(self, min_rect);
+    }
+
+    #[inline]
+    pub fn init_generator(&mut self, desc: GeneratorDescriptor) {
+        Generator::init(self, desc);
+    }
+
+    #[inline]
+    pub fn generate_rect(&mut self, min_rect: [Vec2; 2]) {
+        Generator::generate_rect(self, min_rect);
     }
 }
 

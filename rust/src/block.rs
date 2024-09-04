@@ -66,7 +66,7 @@ pub(crate) struct BlockField {
     down_chunks: Vec<BlockChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, BlockChunkUp>,
     free_handles: Vec<Rid>,
-    min_view_rect: Option<[[i32; 2]; 2]>,
+    min_rect: Option<[[i32; 2]; 2]>,
 }
 
 impl BlockField {
@@ -238,36 +238,32 @@ impl BlockField {
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
-            min_view_rect: None,
+            min_rect: None,
         }
     }
 
     // rendering features
 
-    pub fn update_view<T: inner::Feature>(
-        &mut self,
-        root: &inner::Root<T>,
-        min_view_rect: [inner::Vec2; 2],
-    ) {
+    pub fn update_view(&mut self, root: &inner::Root, min_rect: [inner::Vec2; 2]) {
         let chunk_size = root.block_get_chunk_size() as f32;
 
         #[rustfmt::skip]
-        let min_view_rect = [[
-            min_view_rect[0][0].div_euclid(chunk_size) as i32,
-            min_view_rect[0][1].div_euclid(chunk_size) as i32, ], [
-            min_view_rect[1][0].div_euclid(chunk_size) as i32,
-            min_view_rect[1][1].div_euclid(chunk_size) as i32,
+        let min_rect = [[
+            min_rect[0][0].div_euclid(chunk_size) as i32,
+            min_rect[0][1].div_euclid(chunk_size) as i32, ], [
+            min_rect[1][0].div_euclid(chunk_size) as i32,
+            min_rect[1][1].div_euclid(chunk_size) as i32,
         ]];
 
         // remove/insert view chunk
 
-        if Some(min_view_rect) != self.min_view_rect {
+        if Some(min_rect) != self.min_rect {
             let mut chunk_keys = vec![];
             for (chunk_key, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_key[0] < min_view_rect[0][0] || min_view_rect[1][0] < chunk_key[0];
+                    chunk_key[0] < min_rect[0][0] || min_rect[1][0] < chunk_key[0];
                 let is_out_of_range_y =
-                    chunk_key[1] < min_view_rect[0][1] || min_view_rect[1][1] < chunk_key[1];
+                    chunk_key[1] < min_rect[0][1] || min_rect[1][1] < chunk_key[1];
                 if is_out_of_range_x || is_out_of_range_y {
                     chunk_keys.push(*chunk_key);
                 }
@@ -282,8 +278,8 @@ impl BlockField {
                 self.down_chunks.push(up_chunk.down());
             }
 
-            for y in min_view_rect[0][1]..=min_view_rect[1][1] {
-                for x in min_view_rect[0][0]..=min_view_rect[1][0] {
+            for y in min_rect[0][1]..=min_rect[1][1] {
+                for x in min_rect[0][0]..=min_rect[1][0] {
                     let chunk_key = [x, y];
 
                     if self.up_chunks.contains_key(&chunk_key) {
@@ -303,7 +299,7 @@ impl BlockField {
                 }
             }
 
-            self.min_view_rect = Some(min_view_rect);
+            self.min_rect = Some(min_rect);
         }
 
         // update view chunk
