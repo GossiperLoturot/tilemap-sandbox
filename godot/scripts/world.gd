@@ -156,16 +156,16 @@ func _ready():
 	var _generator_descriptor = GeneratorDescriptor.create(
 		32,
 		[
-			GeneratorRuleDescriptor.create_marching(0, 0.5, TILE_GRASS),
-			GeneratorRuleDescriptor.create_marching(0, 1.0, TILE_DIRT)
+			GeneratorRuleDescriptor.create_marching(0.5, TILE_GRASS),
+			GeneratorRuleDescriptor.create_marching(1.0, TILE_DIRT)
 		] as Array[GeneratorRuleDescriptor],
 		[
-			GeneratorRuleDescriptor.create_spawn(0, 0.01, BLOCK_FALLEN_LEAVES),
-			GeneratorRuleDescriptor.create_spawn(0, 0.01, BLOCK_MIX_GRASS)
+			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
+			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_GRASS)
 		] as Array[GeneratorRuleDescriptor],
 		[
-			GeneratorRuleDescriptor.create_spawn(0, 0.01, ENTITY_COW),
-			GeneratorRuleDescriptor.create_spawn(0, 0.01, ENTITY_PIG)
+			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_COW),
+			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_PIG)
 		] as Array[GeneratorRuleDescriptor]
 	)
 	var _generator = Generator.create(_generator_descriptor)

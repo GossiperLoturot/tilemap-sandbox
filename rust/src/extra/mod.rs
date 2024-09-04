@@ -489,20 +489,20 @@ struct GeneratorRuleDescriptor {
 impl GeneratorRuleDescriptor {
     #[func]
     #[inline]
-    fn create_marching(seed: u32, prob: f32, id: u32) -> Gd<Self> {
+    fn create_marching(prob: f32, id: u32) -> Gd<Self> {
         Gd::from_object(GeneratorRuleDescriptor {
             base: generator::GeneratorRuleDescriptor::Marching(
-                generator::GeneratorRuleMarchingDescriptor { seed, prob, id },
+                generator::GeneratorRuleMarchingDescriptor { prob, id },
             ),
         })
     }
 
     #[func]
     #[inline]
-    fn create_spawn(seed: u32, prob: f32, id: u32) -> Gd<Self> {
+    fn create_spawn(prob: f32, id: u32) -> Gd<Self> {
         Gd::from_object(GeneratorRuleDescriptor {
             base: generator::GeneratorRuleDescriptor::Spawn(
-                generator::GeneratorRuleSpawnDescriptor { seed, prob, id },
+                generator::GeneratorRuleSpawnDescriptor { prob, id },
             ),
         })
     }

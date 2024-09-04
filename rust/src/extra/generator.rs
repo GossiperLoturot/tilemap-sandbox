@@ -5,14 +5,12 @@ use crate::inner;
 
 #[derive(Clone)]
 pub struct GeneratorRuleMarchingDescriptor {
-    pub seed: u32,
     pub prob: f32,
     pub id: u32,
 }
 
 #[derive(Clone)]
 pub struct GeneratorRuleSpawnDescriptor {
-    pub seed: u32,
     pub prob: f32,
     pub id: u32,
 }
@@ -37,7 +35,6 @@ pub struct GeneratorDescriptor {
 
 #[derive(Clone)]
 struct GeneratorRuleMarching {
-    noise: noise::Simplex,
     prob: f32,
     id: u32,
 }
@@ -45,7 +42,6 @@ struct GeneratorRuleMarching {
 impl GeneratorRuleMarching {
     pub fn new(desc: GeneratorRuleMarchingDescriptor) -> Self {
         Self {
-            noise: noise::Simplex::new(desc.seed),
             prob: desc.prob,
             id: desc.id,
         }
@@ -54,7 +50,6 @@ impl GeneratorRuleMarching {
 
 #[derive(Clone)]
 struct GeneratorRuleSpawn {
-    noise: noise::Simplex,
     prob: f32,
     id: u32,
 }
@@ -62,7 +57,6 @@ struct GeneratorRuleSpawn {
 impl GeneratorRuleSpawn {
     pub fn new(desc: GeneratorRuleSpawnDescriptor) -> Self {
         Self {
-            noise: noise::Simplex::new(desc.seed),
             prob: desc.prob,
             id: desc.id,
         }
@@ -192,7 +186,7 @@ impl Generator {
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         for y in 0..self.chunk_size as i32 {
             for x in 0..self.chunk_size as i32 {
@@ -200,9 +194,8 @@ impl Generator {
                     chunk_location[0] * self.chunk_size as i32 + x,
                     chunk_location[1] * self.chunk_size as i32 + y,
                 ];
-                let value = rule.noise.get([location[0] as f64, location[1] as f64]) as f32;
-                let value = value * 0.5 + 0.5;
 
+                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -223,18 +216,19 @@ impl Generator {
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
-        for i in 1..=size {
-            let u = rule.noise.get([x as f64, y as f64, i as f64]) * 0.5 + 0.5;
-            let v = rule.noise.get([x as f64, y as f64, -i as f64]) * 0.5 + 0.5;
+        for _ in 0..size {
+            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+
             let location = [
-                ((x as f32 + u as f32) * self.chunk_size as f32) as i32,
-                ((y as f32 + v as f32) * self.chunk_size as f32) as i32,
+                x * self.chunk_size as i32 + u,
+                y * self.chunk_size as i32 + v,
             ];
 
             let _ = root.tile_insert(inner::Tile {
@@ -252,7 +246,7 @@ impl Generator {
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         for y in 0..self.chunk_size as i32 {
             for x in 0..self.chunk_size as i32 {
@@ -260,9 +254,8 @@ impl Generator {
                     chunk_location[0] * self.chunk_size as i32 + x,
                     chunk_location[1] * self.chunk_size as i32 + y,
                 ];
-                let value = rule.noise.get([location[0] as f64, location[1] as f64]) as f32;
-                let value = value * 0.5 + 0.5;
 
+                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -283,18 +276,19 @@ impl Generator {
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
-        for i in 1..=size {
-            let u = rule.noise.get([x as f64, y as f64, i as f64]) * 0.5 + 0.5;
-            let v = rule.noise.get([x as f64, y as f64, -i as f64]) * 0.5 + 0.5;
+        for _ in 0..size {
+            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+
             let location = [
-                ((x as f32 + u as f32) * self.chunk_size as f32) as i32,
-                ((y as f32 + v as f32) * self.chunk_size as f32) as i32,
+                x * self.chunk_size as i32 + u,
+                y * self.chunk_size as i32 + v,
             ];
 
             let _ = root.block_insert(inner::Block {
@@ -312,7 +306,7 @@ impl Generator {
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         for y in 0..self.chunk_size as i32 {
             for x in 0..self.chunk_size as i32 {
@@ -320,9 +314,8 @@ impl Generator {
                     (chunk_location[0] * self.chunk_size as i32 + x) as f32,
                     (chunk_location[1] * self.chunk_size as i32 + y) as f32,
                 ];
-                let value = rule.noise.get([location[0] as f64, location[1] as f64]) as f32;
-                let value = value * 0.5 + 0.5;
 
+                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -343,18 +336,19 @@ impl Generator {
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
     ) {
-        use noise::NoiseFn;
+        let mut rng = rand::thread_rng();
 
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
-        for i in 1..=size {
-            let u = rule.noise.get([x as f64, y as f64, i as f64]) * 0.5 + 0.5;
-            let v = rule.noise.get([x as f64, y as f64, -i as f64]) * 0.5 + 0.5;
+        for _ in 0..size {
+            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+
             let location = [
-                (x as f32 + u as f32) * self.chunk_size as f32,
-                (y as f32 + v as f32) * self.chunk_size as f32,
+                (x * self.chunk_size as i32) as f32 + u as f32,
+                (y * self.chunk_size as i32) as f32 + v as f32,
             ];
 
             let _ = root.entity_insert(inner::Entity {
