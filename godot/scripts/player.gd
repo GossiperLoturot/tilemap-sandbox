@@ -6,6 +6,7 @@ class_name Player
 @export var camera: Camera3D
 @export var speed: float
 @export var forward_size: float
+@export var view_size_over: float
 
 var _location: Vector2
 var _scroll: float
@@ -31,6 +32,8 @@ func _process(delta):
 	camera.transform.origin.x = _location.x
 	camera.transform.origin.y = _location.y
 
+	var view_size = camera.size * 0.5 + view_size_over
+
 	world.min_forward_rect = Rect2(
 		_location.x - forward_size,
 		_location.y - forward_size,
@@ -38,14 +41,14 @@ func _process(delta):
 		forward_size * 2
 	)
 	world.min_generate_rect = Rect2(
-		_location.x - camera.size * 0.5,
-		_location.y - camera.size * 0.5,
-		camera.size,
-		camera.size
+		_location.x - view_size,
+		_location.y - view_size,
+		view_size * 2,
+		view_size * 2
 	)
 	world.min_view_rect = Rect2(
-		_location.x - camera.size * 0.5,
-		_location.y - camera.size * 0.5,
-		camera.size,
-		camera.size
+		_location.x - view_size,
+		_location.y - view_size,
+		view_size * 2,
+		view_size * 2
 	)

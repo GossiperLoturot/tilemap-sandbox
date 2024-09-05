@@ -26,6 +26,7 @@ world = NodePath("../World")
 camera = NodePath("../Camera3D")
 speed = 4.0
 forward_size = 32.0
+view_size_over = 8.0
 
 [node name="VignetteFilter" type="ColorRect" parent="."]
 material = SubResource("ShaderMaterial_eft26")

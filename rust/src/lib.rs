@@ -46,8 +46,8 @@ struct TileFeature {
 #[godot_api]
 impl TileFeature {
     #[func]
-    fn create() -> Gd<Self> {
-        let feature = Default::default();
+    fn create_empty() -> Gd<Self> {
+        let feature: inner::TileFeature = inner::TileFeatureEmpty.into();
         Gd::from_object(TileFeature { base: feature })
     }
 }
@@ -147,8 +147,8 @@ struct BlockFeature {
 #[godot_api]
 impl BlockFeature {
     #[func]
-    fn create() -> Gd<Self> {
-        let feature = Default::default();
+    fn create_empty() -> Gd<Self> {
+        let feature: inner::BlockFeature = inner::BlockFeatureEmpty.into();
         Gd::from_object(BlockFeature { base: feature })
     }
 }
@@ -263,8 +263,27 @@ struct EntityFeature {
 #[godot_api]
 impl EntityFeature {
     #[func]
-    fn create() -> Gd<Self> {
-        let feature = Default::default();
+    fn create_empty() -> Gd<Self> {
+        let feature: inner::EntityFeature = inner::EntityFeatureEmpty.into();
+        Gd::from_object(EntityFeature { base: feature })
+    }
+
+    #[func]
+    fn create_animal(
+        min_rest_secs: f32,
+        max_rest_secs: f32,
+        min_distance: f32,
+        max_distance: f32,
+        speed: f32,
+    ) -> Gd<Self> {
+        let feature: inner::EntityFeature = inner::EntityFeatureAnimal {
+            min_rest_secs,
+            max_rest_secs,
+            min_distance,
+            max_distance,
+            speed,
+        }
+        .into();
         Gd::from_object(EntityFeature { base: feature })
     }
 }
@@ -704,7 +723,7 @@ impl Root {
     }
 
     #[func]
-    fn forward_rect(&mut self, min_rect: Rect2) {
+    fn forward_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -713,7 +732,7 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.forward_rect(min_rect);
+        self.base.forward_rect(min_rect, delta_secs);
     }
 
     #[func]

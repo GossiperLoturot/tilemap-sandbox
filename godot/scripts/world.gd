@@ -33,12 +33,12 @@ func _ready():
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
 		[preload("res://images/surface_dirt.webp")] as Array[Image],
 		false,
-		TileFeature.create(),
+		TileFeature.create_empty()
 	)
 	tile_descriptors[TILE_GRASS] = TileDescriptor.create(
 		[preload("res://images/surface_grass.webp")] as Array[Image],
 		false,
-		TileFeature.create(),
+		TileFeature.create_empty()
 	)
 
 	var block_descriptors: Array[BlockDescriptor] = []
@@ -49,7 +49,7 @@ func _ready():
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 		Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-		BlockFeature.create(),
+		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_FALLEN_LEAVES] = BlockDescriptor.create(
 		[preload("res://images/fallen_leaves.webp")] as Array[Image],
@@ -57,7 +57,7 @@ func _ready():
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 		Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-		BlockFeature.create(),
+		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_MIX_GRASS] = BlockDescriptor.create(
 		[preload("res://images/mix_grass.webp")] as Array[Image],
@@ -65,7 +65,7 @@ func _ready():
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 		Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-		BlockFeature.create(),
+		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_MIX_PEBBLES] = BlockDescriptor.create(
 		[preload("res://images/mix_pebbles.webp")] as Array[Image],
@@ -73,7 +73,7 @@ func _ready():
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
 		Vector2(1.0, 1.0), Vector2(0.0, 0.0),
-		BlockFeature.create(),
+		BlockFeature.create_empty()
 	)
 
 	var entity_descriptors: Array[EntityDescriptor] = []
@@ -83,42 +83,42 @@ func _ready():
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_empty()
 	)
 	entity_descriptors[ENTITY_PIG] = EntityDescriptor.create(
 		[preload("res://images/pig.webp")] as Array[Image],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_COW] = EntityDescriptor.create(
 		[preload("res://images/cow.webp")] as Array[Image],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_SHEEP] = EntityDescriptor.create(
 		[preload("res://images/sheep.webp")] as Array[Image],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_CHICKET] = EntityDescriptor.create(
 		[preload("res://images/chiken.webp")] as Array[Image],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_BIRD] = EntityDescriptor.create(
 		[preload("res://images/bird.webp")] as Array[Image],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create(),
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 
 	_root = Root.create(
@@ -173,9 +173,9 @@ func _ready():
 	_root.init_generator(_generator_descriptor)
 
 
-func _process(_delta):
+func _process(delta_secs):
 	# logic
-	_root.forward_rect(min_forward_rect)
+	_root.forward_rect(min_forward_rect, delta_secs)
 
 	_root.generate_rect(min_generate_rect)
 

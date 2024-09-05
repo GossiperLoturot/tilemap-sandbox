@@ -1,8 +1,12 @@
+pub use animal::*;
+pub use feature::*;
 pub use field::*;
 pub use forward::*;
 pub use generator::*;
 pub use resource::*;
 
+mod animal;
+mod feature;
 mod field;
 mod forward;
 mod generator;
@@ -13,58 +17,69 @@ pub type IVec2 = [i32; 2];
 
 type RcVec<T> = std::rc::Rc<[T]>;
 
-#[derive(Clone, Default)]
-pub struct TileFeature;
+#[enum_dispatch::enum_dispatch(TileFeatureTrait)]
+#[non_exhaustive]
+#[derive(Clone)]
+pub enum TileFeature {
+    Empty(TileFeatureEmpty),
+}
 
+#[non_exhaustive]
 #[derive(Clone, Default)]
-pub struct TileData;
+pub enum TileData {
+    #[default]
+    Empty,
+}
 
+#[enum_dispatch::enum_dispatch]
 pub trait TileFeatureTrait {
     fn after_place(&self, root: &mut Root, key: TileKey);
     fn before_break(&self, root: &mut Root, key: TileKey);
-    fn forward(&self, root: &mut Root, key: TileKey);
+    fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
 }
 
-impl TileFeatureTrait for TileFeature {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey) {}
+#[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
+#[non_exhaustive]
+#[derive(Clone)]
+pub enum BlockFeature {
+    Empty(BlockFeatureEmpty),
 }
 
+#[non_exhaustive]
+#[derive(Clone, Default)]
+pub enum BlockData {
+    #[default]
+    Empty,
+}
+
+#[enum_dispatch::enum_dispatch]
 pub trait BlockFeatureTrait {
-    fn after_place(&self, root: &mut Root, key: TileKey);
-    fn before_break(&self, root: &mut Root, key: TileKey);
-    fn forward(&self, root: &mut Root, key: TileKey);
+    fn after_place(&self, root: &mut Root, key: BlockKey);
+    fn before_break(&self, root: &mut Root, key: BlockKey);
+    fn forward(&self, root: &mut Root, key: BlockKey, delta_secs: f32);
 }
 
-#[derive(Clone, Default)]
-pub struct BlockFeature;
-
-#[derive(Clone, Default)]
-pub struct BlockData;
-
-impl BlockFeatureTrait for BlockFeature {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey) {}
+#[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
+#[non_exhaustive]
+#[derive(Clone)]
+pub enum EntityFeature {
+    Empty(EntityFeatureEmpty),
+    Animal(EntityFeatureAnimal),
 }
 
+#[non_exhaustive]
+#[derive(Clone, Default)]
+pub enum EntityData {
+    #[default]
+    Empty,
+    Animal(EntityDataAnimal),
+}
+
+#[enum_dispatch::enum_dispatch]
 pub trait EntityFeatureTrait {
     fn after_place(&self, root: &mut Root, key: TileKey);
     fn before_break(&self, root: &mut Root, key: TileKey);
-    fn forward(&self, root: &mut Root, key: TileKey);
-}
-
-#[derive(Clone, Default)]
-pub struct EntityFeature;
-
-#[derive(Clone, Default)]
-pub struct EntityData;
-
-impl EntityFeatureTrait for EntityFeature {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey) {}
+    fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
 }
 
 pub struct RootDescriptor {
@@ -126,7 +141,7 @@ impl Root {
     pub fn tile_modify(
         &mut self,
         tile_key: TileKey,
-        f: impl Fn(&mut field::Tile<TileData>),
+        f: impl FnOnce(&mut field::Tile<TileData>),
     ) -> Result<field::TileKey, FieldError> {
         self.tile_field.modify(tile_key, f)
     }
@@ -153,7 +168,11 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn tile_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+    pub fn tile_forward_chunk(
+        &mut self,
+        chunk_location: IVec2,
+        delta_secs: f32,
+    ) -> Result<(), FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -172,7 +191,7 @@ impl Root {
             let feature = features
                 .get(tile.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, tile_key);
+            feature.forward(self, tile_key, delta_secs);
         }
         Ok(())
     }
@@ -248,7 +267,7 @@ impl Root {
     pub fn block_modify(
         &mut self,
         block_key: BlockKey,
-        f: impl Fn(&mut field::Block<BlockData>),
+        f: impl FnOnce(&mut field::Block<BlockData>),
     ) -> Result<field::BlockKey, FieldError> {
         self.block_field.modify(block_key, f)
     }
@@ -275,7 +294,11 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn block_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+    pub fn block_forward_chunk(
+        &mut self,
+        chunk_location: IVec2,
+        delta_secs: f32,
+    ) -> Result<(), FieldError> {
         let chunk_key = self
             .block_field
             .get_by_chunk_location(chunk_location)
@@ -294,7 +317,7 @@ impl Root {
             let feature = features
                 .get(block.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, block_key);
+            feature.forward(self, block_key, delta_secs);
         }
         Ok(())
     }
@@ -415,7 +438,7 @@ impl Root {
     pub fn entity_modify(
         &mut self,
         entity_key: EntityKey,
-        f: impl Fn(&mut field::Entity<EntityData>),
+        f: impl FnOnce(&mut field::Entity<EntityData>),
     ) -> Result<field::EntityKey, FieldError> {
         self.entity_field.modify(entity_key, f)
     }
@@ -445,7 +468,11 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn entity_forward_chunk(&mut self, chunk_location: IVec2) -> Result<(), FieldError> {
+    pub fn entity_forward_chunk(
+        &mut self,
+        chunk_location: IVec2,
+        delta_secs: f32,
+    ) -> Result<(), FieldError> {
         let chunk_key = self
             .entity_field
             .get_by_chunk_location(chunk_location)
@@ -464,7 +491,7 @@ impl Root {
             let feature = features
                 .get(entity.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, entity_key);
+            feature.forward(self, entity_key, delta_secs);
         }
         Ok(())
     }
@@ -567,8 +594,8 @@ impl Root {
     }
 
     #[inline]
-    pub fn forward_rect(&mut self, min_rect: [Vec2; 2]) {
-        Forward::forward_rect(self, min_rect);
+    pub fn forward_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
+        Forward::forward_rect(self, min_rect, delta_secs);
     }
 
     #[inline]

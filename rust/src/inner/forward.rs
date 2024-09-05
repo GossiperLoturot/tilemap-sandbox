@@ -9,7 +9,7 @@ impl Forward {
         root.resource_insert(forward).unwrap();
     }
 
-    pub fn forward_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
+    pub fn forward_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2], delta_secs: f32) {
         let slf = root.resource_remove::<Forward>().unwrap();
 
         // tile
@@ -23,7 +23,7 @@ impl Forward {
         ]];
         for y in rect[0][1]..=rect[1][1] {
             for x in rect[0][0]..=rect[1][0] {
-                let _ = root.tile_forward_chunk([x, y]);
+                let _ = root.tile_forward_chunk([x, y], delta_secs);
             }
         }
 
@@ -38,7 +38,7 @@ impl Forward {
         ]];
         for y in rect[0][1]..=rect[1][1] {
             for x in rect[0][0]..=rect[1][0] {
-                let _ = root.block_forward_chunk([x, y]);
+                let _ = root.block_forward_chunk([x, y], delta_secs);
             }
         }
 
@@ -53,7 +53,7 @@ impl Forward {
         ]];
         for y in rect[0][1]..=rect[1][1] {
             for x in rect[0][0]..=rect[1][0] {
-                let _ = root.entity_forward_chunk([x, y]);
+                let _ = root.entity_forward_chunk([x, y], delta_secs);
             }
         }
 

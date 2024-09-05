@@ -168,7 +168,7 @@ impl<T> TileField<T> {
     pub fn modify(
         &mut self,
         key: TileKey,
-        f: impl Fn(&mut Tile<T>),
+        f: impl FnOnce(&mut Tile<T>),
     ) -> Result<TileKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -210,6 +210,8 @@ impl<T> TileField<T> {
 
             return Ok(key);
         }
+
+        tile.data = new_tile.data;
 
         Ok(key)
     }
@@ -526,7 +528,7 @@ impl<T> BlockField<T> {
     pub fn modify(
         &mut self,
         key: BlockKey,
-        f: impl Fn(&mut Block<T>),
+        f: impl FnOnce(&mut Block<T>),
     ) -> Result<BlockKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -572,6 +574,8 @@ impl<T> BlockField<T> {
 
             return Ok(key);
         }
+
+        block.data = new_block.data;
 
         Ok(key)
     }
@@ -914,7 +918,7 @@ impl<T> EntityField<T> {
     pub fn modify(
         &mut self,
         key: EntityKey,
-        f: impl Fn(&mut Entity<T>),
+        f: impl FnOnce(&mut Entity<T>),
     ) -> Result<EntityKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -950,6 +954,8 @@ impl<T> EntityField<T> {
 
             return Ok(key);
         }
+
+        entity.data = new_entity.data;
 
         Ok(key)
     }
