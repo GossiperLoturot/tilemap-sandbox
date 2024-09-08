@@ -2,8 +2,12 @@ use godot::prelude::*;
 
 use crate::inner;
 
+pub(crate) struct TileImageDescriptor {
+    pub frames: Vec<Gd<godot::classes::Image>>,
+}
+
 pub(crate) struct TileDescriptor {
-    pub images: Vec<Gd<godot::classes::Image>>,
+    pub images: Vec<TileImageDescriptor>,
 }
 
 pub(crate) struct TileFieldDescriptor {
@@ -50,7 +54,6 @@ impl TileChunkUp {
 }
 
 pub(crate) struct TileField {
-    texcoords: Vec<Vec<image_atlas::Texcoord32>>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, TileChunkUp>,
     free_handles: Vec<Rid>,
@@ -63,28 +66,30 @@ impl TileField {
     pub fn new(desc: TileFieldDescriptor) -> Self {
         let mut free_handles = vec![];
 
-        let mut variants = vec![];
+        let mut index_meta = vec![];
         let mut entries = vec![];
-        for tile in &desc.tiles {
-            variants.push(tile.images.len() as u8);
+        for (i, tile) in desc.tiles.into_iter().enumerate() {
+            for (j, image) in tile.images.into_iter().enumerate() {
+                for (k, frame) in image.frames.into_iter().enumerate() {
+                    let width = frame.get_width() as u32;
+                    let height = frame.get_height() as u32;
 
-            for image in &tile.images {
-                let width = image.get_width() as u32;
-                let height = image.get_height() as u32;
-
-                let mut image_rgba8 = image::RgbaImage::new(width, height);
-                for y in 0..height {
-                    for x in 0..width {
-                        let color = image.get_pixel(x as i32, y as i32);
-                        let rgba8 = image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
-                        image_rgba8.put_pixel(x, y, rgba8);
+                    let mut image_rgba8 = image::RgbaImage::new(width, height);
+                    for y in 0..height {
+                        for x in 0..width {
+                            let color = frame.get_pixel(x as i32, y as i32);
+                            let rgba8 =
+                                image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
+                            image_rgba8.put_pixel(x, y, rgba8);
+                        }
                     }
-                }
 
-                entries.push(image_atlas::AtlasEntry {
-                    texture: image_rgba8,
-                    mip: image_atlas::AtlasEntryMipOption::Clamp,
-                });
+                    entries.push(image_atlas::AtlasEntry {
+                        texture: image_rgba8,
+                        mip: image_atlas::AtlasEntryMipOption::Clamp,
+                    });
+                    index_meta.push((i as u32, j as u32, k as u32));
+                }
             }
         }
 
@@ -119,16 +124,52 @@ impl TileField {
         );
         free_handles.push(texture_array);
 
-        let mut iter = atlas.texcoords.into_iter();
-        let mut texcoords = vec![];
-        for variant in variants {
-            let mut sub_texcoords = vec![];
-            for _ in 0..variant {
-                let texcoord = iter.next().unwrap();
-                sub_texcoords.push(texcoord.to_f32());
+        let mut hierarchy: Vec<Vec<Vec<u32>>> = Default::default();
+        for (index, (i, j, k)) in index_meta.into_iter().enumerate() {
+            while hierarchy.len() <= i as usize {
+                hierarchy.push(Default::default());
             }
-            texcoords.push(sub_texcoords);
+            let hierarchy = &mut hierarchy[i as usize];
+
+            while hierarchy.len() <= j as usize {
+                hierarchy.push(Default::default());
+            }
+            let hierarchy = &mut hierarchy[j as usize];
+
+            while hierarchy.len() <= k as usize {
+                hierarchy.push(Default::default());
+            }
+            let hierarchy = &mut hierarchy[k as usize];
+
+            *hierarchy = index as u32;
         }
+        let mut fst_index_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+        let mut snd_index_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+        let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
+        let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+        let (mut fst_size, mut snd_size, mut thd_size) = (0, 0, 0);
+        for fst in hierarchy {
+            fst_index_buffer[fst_size] = snd_size as f32;
+            for snd in fst {
+                snd_index_buffer[snd_size] = thd_size as f32;
+                for thd in snd {
+                    let texcoord = atlas.texcoords[thd as usize].to_f32();
+                    texcoord_buffer[thd_size * 4] = texcoord.min_x;
+                    texcoord_buffer[thd_size * 4 + 1] = texcoord.min_y;
+                    texcoord_buffer[thd_size * 4 + 2] = texcoord.max_x - texcoord.min_x;
+                    texcoord_buffer[thd_size * 4 + 3] = texcoord.max_y - texcoord.min_y;
+                    page_buffer[thd_size] = texcoord.page as f32;
+
+                    thd_size += 1;
+                }
+                snd_size += 1;
+            }
+            fst_size += 1;
+        }
+        let fst_index_buffer = PackedFloat32Array::from(fst_index_buffer.as_slice());
+        let snd_index_buffer = PackedFloat32Array::from(snd_index_buffer.as_slice());
+        let texcoord_buffer = PackedFloat32Array::from(texcoord_buffer.as_slice());
+        let page_buffer = PackedFloat32Array::from(page_buffer.as_slice());
 
         let mut mesh_data = VariantArray::new();
         mesh_data.resize(
@@ -171,6 +212,26 @@ impl TileField {
                     "texture_array".into(),
                     texture_array.to_variant(),
                 );
+                rendering_server.material_set_param(
+                    material,
+                    "fst_index_buffer".into(),
+                    fst_index_buffer.to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "snd_index_buffer".into(),
+                    snd_index_buffer.to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "texcoord_buffer".into(),
+                    texcoord_buffer.to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "page_buffer".into(),
+                    page_buffer.to_variant(),
+                );
                 free_handles.push(material);
 
                 materials.push(material)
@@ -212,7 +273,6 @@ impl TileField {
         }
 
         Self {
-            texcoords,
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
@@ -290,8 +350,7 @@ impl TileField {
             }
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
-            let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
-            let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+            let mut extra_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 2];
 
             for (i, (_, tile)) in chunk
                 .tiles
@@ -319,14 +378,8 @@ impl TileField {
                 instance_buffer[i * 12 + 10] = 1.0;
                 instance_buffer[i * 12 + 11] = z_offset;
 
-                let texcoord = &self.texcoords[tile.id as usize];
-                let texcoord = &texcoord[usize::min(tile.variant as usize, texcoord.len() - 1)];
-                texcoord_buffer[i * 4] = texcoord.min_x;
-                texcoord_buffer[i * 4 + 1] = texcoord.min_y;
-                texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
-                texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
-
-                page_buffer[i] = texcoord.page as f32;
+                extra_buffer[i * 2] = tile.id as f32;
+                extra_buffer[i * 2 + 1] = tile.variant as f32;
             }
 
             let mut rendering_server = godot::classes::RenderingServer::singleton();
@@ -339,13 +392,8 @@ impl TileField {
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "texcoord_buffer".into(),
-                    PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
-                );
-                rendering_server.material_set_param(
-                    *material,
-                    "page_buffer".into(),
-                    PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
+                    "extra_buffer".into(),
+                    PackedFloat32Array::from(extra_buffer.as_slice()).to_variant(),
                 );
             }
 

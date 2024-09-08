@@ -54,8 +54,22 @@ impl TileFeature {
 
 #[derive(GodotClass)]
 #[class(no_init)]
+struct TileImageDescriptor {
+    frames: Array<Gd<godot::classes::Image>>,
+}
+
+#[godot_api]
+impl TileImageDescriptor {
+    #[func]
+    fn create(frames: Array<Gd<godot::classes::Image>>) -> Gd<Self> {
+        Gd::from_object(TileImageDescriptor { frames })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 struct TileDescriptor {
-    images: Array<Gd<godot::classes::Image>>,
+    images: Array<Gd<TileImageDescriptor>>,
     collision: bool,
     feature: Gd<TileFeature>,
 }
@@ -64,7 +78,7 @@ struct TileDescriptor {
 impl TileDescriptor {
     #[func]
     fn create(
-        images: Array<Gd<godot::classes::Image>>,
+        images: Array<Gd<TileImageDescriptor>>,
         collision: bool,
         feature: Gd<TileFeature>,
     ) -> Gd<Self> {
@@ -549,7 +563,13 @@ impl Root {
 
                 let mut images = vec![];
                 for image in tile.images.iter_shared() {
-                    images.push(image);
+                    let image = image.bind();
+
+                    let mut frames = vec![];
+                    for image in image.frames.iter_shared() {
+                        frames.push(image);
+                    }
+                    images.push(tile::TileImageDescriptor { frames });
                 }
 
                 tiles.push(tile::TileDescriptor { images });
