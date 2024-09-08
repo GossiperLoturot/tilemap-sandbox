@@ -31,12 +31,24 @@ func _ready():
 	var tile_descriptors: Array[TileDescriptor] = []
 	tile_descriptors.resize(TILE_ID_SIZE)
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
-		[preload("res://images/surface_dirt.webp")] as Array[Image],
+		[
+			TileImageDescriptor.create(
+				[
+					preload("res://images/surface_dirt.webp")
+				] as Array[Image]
+			)
+		] as Array[TileImageDescriptor],
 		false,
 		TileFeature.create_empty()
 	)
 	tile_descriptors[TILE_GRASS] = TileDescriptor.create(
-		[preload("res://images/surface_grass.webp")] as Array[Image],
+		[
+			TileImageDescriptor.create(
+				[
+					preload("res://images/surface_grass.webp"),
+					preload("res://images/surface_dirt.webp")
+				] as Array[Image])
+		] as Array[TileImageDescriptor],
 		false,
 		TileFeature.create_empty()
 	)
@@ -129,7 +141,7 @@ func _ready():
 				2048,
 				8,
 				tile_descriptors,
-				[preload("res://field.gdshader")] as Array[Shader],
+				[preload("res://new_field.gdshader")] as Array[Shader],
 				get_world_3d()
 			),
 			BlockFieldDescriptor.create(

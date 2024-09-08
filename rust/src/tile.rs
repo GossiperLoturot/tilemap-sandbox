@@ -19,6 +19,11 @@ pub(crate) struct TileFieldDescriptor {
     pub world: Gd<godot::classes::World3D>,
 }
 
+struct ComputeIndex {
+    start: u32,
+    end: u32,
+}
+
 struct TileChunkDown {
     materials: Vec<Rid>,
     multimesh: Rid,
@@ -54,6 +59,7 @@ impl TileChunkUp {
 }
 
 pub(crate) struct TileField {
+    compute_index: Vec<Vec<ComputeIndex>>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, TileChunkUp>,
     free_handles: Vec<Rid>,
@@ -61,12 +67,13 @@ pub(crate) struct TileField {
 }
 
 impl TileField {
-    const MAX_BUFFER_SIZE: u32 = 1024;
+    const COMPUTE_TEXTURE_SIZE: usize = 1024;
+    const MAX_BUFFER_SIZE: usize = 1024;
 
     pub fn new(desc: TileFieldDescriptor) -> Self {
         let mut free_handles = vec![];
 
-        let mut index_meta = vec![];
+        let mut index = vec![];
         let mut entries = vec![];
         for (i, tile) in desc.tiles.into_iter().enumerate() {
             for (j, image) in tile.images.into_iter().enumerate() {
@@ -88,7 +95,7 @@ impl TileField {
                         texture: image_rgba8,
                         mip: image_atlas::AtlasEntryMipOption::Clamp,
                     });
-                    index_meta.push((i as u32, j as u32, k as u32));
+                    index.push((i as u32, j as u32, k as u32));
                 }
             }
         }
@@ -124,8 +131,33 @@ impl TileField {
         );
         free_handles.push(texture_array);
 
+        let mut compute_data =
+            vec![0.0; Self::COMPUTE_TEXTURE_SIZE * Self::COMPUTE_TEXTURE_SIZE * 4];
+        for (i, texcoord) in atlas.texcoords.into_iter().enumerate() {
+            let texcoord = texcoord.to_f32();
+            compute_data[i * 8] = texcoord.min_x;
+            compute_data[i * 8 + 1] = texcoord.min_y;
+            compute_data[i * 8 + 2] = texcoord.max_x - texcoord.min_x;
+            compute_data[i * 8 + 3] = texcoord.max_y - texcoord.min_y;
+
+            compute_data[i * 8 + 4] = texcoord.page as f32;
+            compute_data[i * 8 + 5] = 0.0;
+            compute_data[i * 8 + 6] = 0.0;
+            compute_data[i * 8 + 7] = 0.0;
+        }
+        let compute_image = godot::classes::Image::create_from_data(
+            Self::COMPUTE_TEXTURE_SIZE as i32,
+            Self::COMPUTE_TEXTURE_SIZE as i32,
+            false,
+            godot::classes::image::Format::RGBAF,
+            PackedFloat32Array::from(compute_data.as_slice()).to_byte_array(),
+        )
+        .unwrap();
+        let compute_texture = rendering_server.texture_2d_create(compute_image);
+        free_handles.push(compute_texture);
+
         let mut hierarchy: Vec<Vec<Vec<u32>>> = Default::default();
-        for (index, (i, j, k)) in index_meta.into_iter().enumerate() {
+        for (index, (i, j, k)) in index.into_iter().enumerate() {
             while hierarchy.len() <= i as usize {
                 hierarchy.push(Default::default());
             }
@@ -139,37 +171,18 @@ impl TileField {
             while hierarchy.len() <= k as usize {
                 hierarchy.push(Default::default());
             }
-            let hierarchy = &mut hierarchy[k as usize];
-
-            *hierarchy = index as u32;
+            hierarchy[k as usize] = index as u32;
         }
-        let mut fst_index_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
-        let mut snd_index_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
-        let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
-        let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
-        let (mut fst_size, mut snd_size, mut thd_size) = (0, 0, 0);
-        for fst in hierarchy {
-            fst_index_buffer[fst_size] = snd_size as f32;
-            for snd in fst {
-                snd_index_buffer[snd_size] = thd_size as f32;
-                for thd in snd {
-                    let texcoord = atlas.texcoords[thd as usize].to_f32();
-                    texcoord_buffer[thd_size * 4] = texcoord.min_x;
-                    texcoord_buffer[thd_size * 4 + 1] = texcoord.min_y;
-                    texcoord_buffer[thd_size * 4 + 2] = texcoord.max_x - texcoord.min_x;
-                    texcoord_buffer[thd_size * 4 + 3] = texcoord.max_y - texcoord.min_y;
-                    page_buffer[thd_size] = texcoord.page as f32;
-
-                    thd_size += 1;
-                }
-                snd_size += 1;
+        let mut compute_index = vec![];
+        for hierarchy in hierarchy {
+            let mut sub_compute_index = vec![];
+            for hierarchy in hierarchy {
+                let start = hierarchy[0];
+                let end = hierarchy[hierarchy.len() - 1];
+                sub_compute_index.push(ComputeIndex { start, end });
             }
-            fst_size += 1;
+            compute_index.push(sub_compute_index);
         }
-        let fst_index_buffer = PackedFloat32Array::from(fst_index_buffer.as_slice());
-        let snd_index_buffer = PackedFloat32Array::from(snd_index_buffer.as_slice());
-        let texcoord_buffer = PackedFloat32Array::from(texcoord_buffer.as_slice());
-        let page_buffer = PackedFloat32Array::from(page_buffer.as_slice());
 
         let mut mesh_data = VariantArray::new();
         mesh_data.resize(
@@ -214,23 +227,8 @@ impl TileField {
                 );
                 rendering_server.material_set_param(
                     material,
-                    "fst_index_buffer".into(),
-                    fst_index_buffer.to_variant(),
-                );
-                rendering_server.material_set_param(
-                    material,
-                    "snd_index_buffer".into(),
-                    snd_index_buffer.to_variant(),
-                );
-                rendering_server.material_set_param(
-                    material,
-                    "texcoord_buffer".into(),
-                    texcoord_buffer.to_variant(),
-                );
-                rendering_server.material_set_param(
-                    material,
-                    "page_buffer".into(),
-                    page_buffer.to_variant(),
+                    "compute_texture".into(),
+                    compute_texture.to_variant(),
                 );
                 free_handles.push(material);
 
@@ -273,6 +271,7 @@ impl TileField {
         }
 
         Self {
+            compute_index,
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
@@ -349,15 +348,10 @@ impl TileField {
                 continue;
             }
 
-            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
-            let mut extra_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 2];
+            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
+            let mut uniform_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
 
-            for (i, (_, tile)) in chunk
-                .tiles
-                .iter()
-                .take(Self::MAX_BUFFER_SIZE as usize)
-                .enumerate()
-            {
+            for (i, (_, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate() {
                 instance_buffer[i * 12] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
@@ -373,13 +367,17 @@ impl TileField {
                 std::hash::Hasher::write_i32(&mut hasher, tile.location[1]);
                 let hash = std::hash::Hasher::finish(&hasher) as u16;
                 let z_offset = (hash as f32 / u16::MAX as f32) * -0.0625 - 0.0625; // -2^{-3} <= z <= -2^{-4}
+
                 instance_buffer[i * 12 + 8] = 0.0;
                 instance_buffer[i * 12 + 9] = 0.0;
                 instance_buffer[i * 12 + 10] = 1.0;
                 instance_buffer[i * 12 + 11] = z_offset;
 
-                extra_buffer[i * 2] = tile.id as f32;
-                extra_buffer[i * 2 + 1] = tile.variant as f32;
+                let compute_index = &self.compute_index[tile.id as usize][tile.variant as usize];
+                uniform_buffer[i * 4] = compute_index.start as i32;
+                uniform_buffer[i * 4 + 1] = compute_index.end as i32;
+                uniform_buffer[i * 4 + 2] = 0;
+                uniform_buffer[i * 4 + 3] = 0;
             }
 
             let mut rendering_server = godot::classes::RenderingServer::singleton();
@@ -392,8 +390,8 @@ impl TileField {
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "extra_buffer".into(),
-                    PackedFloat32Array::from(extra_buffer.as_slice()).to_variant(),
+                    "uniform_buffer".into(),
+                    PackedInt32Array::from(uniform_buffer.as_slice()).to_variant(),
                 );
             }
 
