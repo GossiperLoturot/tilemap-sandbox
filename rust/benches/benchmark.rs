@@ -5,7 +5,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("tile add", |b| {
         b.iter_custom(|iters| {
             let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
-                chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
                     TileDescriptor { collision: false },
@@ -20,6 +19,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -32,7 +32,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("tile remove", |b| {
         b.iter_custom(|iters| {
             let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
-                chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
                     TileDescriptor { collision: false },
@@ -47,6 +46,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -64,7 +64,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("tile get", |b| {
         b.iter_custom(|iters| {
             let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
-                chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
                     TileDescriptor { collision: false },
@@ -79,6 +78,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -96,7 +96,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("tile modify", |b| {
         b.iter_custom(|iters| {
             let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
-                chunk_size: 32,
                 tiles: vec![
                     TileDescriptor { collision: false },
                     TileDescriptor { collision: false },
@@ -111,7 +110,40 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(field.modify(key, |tile| tile.location[1] += 1).unwrap());
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("tile modify with large data", |b| {
+        b.iter_custom(|iters| {
+            let mut field: TileField<Vec<u8>> = TileField::new(TileFieldDescriptor {
+                tiles: vec![
+                    TileDescriptor { collision: false },
+                    TileDescriptor { collision: false },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Tile {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                            tick: Default::default(),
+                            data: Some(vec![0; 1024]),
                         })
                         .unwrap(),
                 );

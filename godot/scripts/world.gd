@@ -33,9 +33,10 @@ func _ready():
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
 		[
 			TileImageDescriptor.create(
-				[
-					preload("res://images/surface_dirt.webp")
-				] as Array[Image]
+				[preload("res://images/surface_dirt.webp")] as Array[Image],
+				0,
+				true,
+				false
 			)
 		] as Array[TileImageDescriptor],
 		false,
@@ -47,7 +48,11 @@ func _ready():
 				[
 					preload("res://images/surface_grass.webp"),
 					preload("res://images/surface_dirt.webp")
-				] as Array[Image])
+				] as Array[Image],
+				24,
+				true,
+				false
+			)
 		] as Array[TileImageDescriptor],
 		false,
 		TileFeature.create_empty()
@@ -136,10 +141,6 @@ func _ready():
 	_root = Root.create(
 		RootDescriptor.create(
 			TileFieldDescriptor.create(
-				32,
-				512,
-				2048,
-				8,
 				tile_descriptors,
 				[preload("res://new_field.gdshader")] as Array[Shader],
 				get_world_3d()
@@ -190,6 +191,8 @@ func _process(delta_secs):
 	_root.forward_rect(min_forward_rect, delta_secs)
 
 	_root.generate_rect(min_generate_rect)
+
+	_root.tick_forward(delta_secs)
 
 	# rendering
 	_root.update_view(min_view_rect)

@@ -201,9 +201,10 @@ impl Generator {
                 }
 
                 let _ = root.tile_insert(inner::Tile {
-                    id: rule.id,
+                    id: rule.id as u16,
                     location,
                     variant: Default::default(),
+                    tick: Default::default(),
                     data: Default::default(),
                 });
             }
@@ -232,9 +233,10 @@ impl Generator {
             ];
 
             let _ = root.tile_insert(inner::Tile {
-                id: rule.id,
+                id: rule.id as u16,
                 location,
                 variant: Default::default(),
+                tick: Default::default(),
                 data: Default::default(),
             });
         }

@@ -4,6 +4,7 @@ pub use field::*;
 pub use forward::*;
 pub use generator::*;
 pub use resource::*;
+pub use tick::*;
 
 mod animal;
 mod feature;
@@ -11,6 +12,7 @@ mod field;
 mod forward;
 mod generator;
 mod resource;
+mod tick;
 
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
@@ -25,11 +27,7 @@ pub enum TileFeature {
 }
 
 #[non_exhaustive]
-#[derive(Clone, Default)]
-pub enum TileData {
-    #[default]
-    Empty,
-}
+pub enum TileData {}
 
 #[enum_dispatch::enum_dispatch]
 pub trait TileFeatureTrait {
@@ -99,6 +97,7 @@ pub struct Root {
     block_features: RcVec<BlockFeature>,
     entity_features: RcVec<EntityFeature>,
     resource_store: ResourceStore,
+    tick_store: TickStore,
 }
 
 impl Root {
@@ -112,16 +111,18 @@ impl Root {
             block_features: desc.block_features,
             entity_features: desc.entity_features,
             resource_store: Default::default(),
+            tick_store: Default::default(),
         }
     }
 
     // tile
 
-    pub fn tile_insert(&mut self, tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, mut tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
+        tile.tick = self.tick_store.get();
         let tile_key = self.tile_field.insert(tile)?;
         feature.after_place(self, tile_key);
         Ok(tile_key)
@@ -584,6 +585,23 @@ impl Root {
     #[inline]
     pub fn resource_get_mut<R: 'static>(&mut self) -> Option<&mut R> {
         self.resource_store.get_mut::<R>()
+    }
+
+    // tick
+
+    #[inline]
+    pub fn tick_per_secs(&self) -> u64 {
+        self.tick_store.per_secs()
+    }
+
+    #[inline]
+    pub fn tick_get(&self) -> u64 {
+        self.tick_store.get()
+    }
+
+    #[inline]
+    pub fn tick_forward(&mut self, delta_secs: f32) {
+        self.tick_store.forward(delta_secs);
     }
 
     // extra

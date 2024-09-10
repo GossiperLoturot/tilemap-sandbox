@@ -20,20 +20,15 @@ struct TileKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Tile {
-    base: inner::Tile<inner::TileData>,
+    id: u16,
+    location: Vector2i,
 }
 
 #[godot_api]
 impl Tile {
     #[func]
-    fn create(id: u32, location: Vector2i) -> Gd<Self> {
-        let tile = inner::Tile {
-            id,
-            location: [location.x, location.y],
-            variant: Default::default(),
-            data: Default::default(),
-        };
-        Gd::from_object(Tile { base: tile })
+    fn create(id: u16, location: Vector2i) -> Gd<Self> {
+        Gd::from_object(Tile { id, location })
     }
 }
 
@@ -56,13 +51,26 @@ impl TileFeature {
 #[class(no_init)]
 struct TileImageDescriptor {
     frames: Array<Gd<godot::classes::Image>>,
+    step_tick: u16,
+    is_loop: bool,
+    is_local_tick: bool,
 }
 
 #[godot_api]
 impl TileImageDescriptor {
     #[func]
-    fn create(frames: Array<Gd<godot::classes::Image>>) -> Gd<Self> {
-        Gd::from_object(TileImageDescriptor { frames })
+    fn create(
+        frames: Array<Gd<godot::classes::Image>>,
+        step_tick: u16,
+        is_loop: bool,
+        is_local_tick: bool,
+    ) -> Gd<Self> {
+        Gd::from_object(TileImageDescriptor {
+            frames,
+            step_tick,
+            is_loop,
+            is_local_tick,
+        })
     }
 }
 
@@ -93,10 +101,6 @@ impl TileDescriptor {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct TileFieldDescriptor {
-    chunk_size: u32,
-    instance_size: u32,
-    output_image_size: u32,
-    max_page_size: u32,
     tiles: Array<Gd<TileDescriptor>>,
     shaders: Array<Gd<godot::classes::Shader>>,
     world: Gd<godot::classes::World3D>,
@@ -106,19 +110,11 @@ struct TileFieldDescriptor {
 impl TileFieldDescriptor {
     #[func]
     fn create(
-        chunk_size: u32,
-        instance_size: u32,
-        output_image_size: u32,
-        max_page_size: u32,
         tiles: Array<Gd<TileDescriptor>>,
         shaders: Array<Gd<godot::classes::Shader>>,
         world: Gd<godot::classes::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(TileFieldDescriptor {
-            chunk_size,
-            instance_size,
-            output_image_size,
-            max_page_size,
             tiles,
             shaders,
             world,
@@ -480,10 +476,7 @@ impl Root {
                     tile_features.push(feature.clone());
                 }
 
-                inner::TileFieldDescriptor {
-                    chunk_size: desc.chunk_size,
-                    tiles,
-                }
+                inner::TileFieldDescriptor { tiles }
             };
             let tile_features = tile_features.into();
 
@@ -569,7 +562,13 @@ impl Root {
                     for image in image.frames.iter_shared() {
                         frames.push(image);
                     }
-                    images.push(tile::TileImageDescriptor { frames });
+
+                    images.push(tile::TileImageDescriptor {
+                        frames,
+                        step_tick: image.step_tick,
+                        is_local_tick: image.is_local_tick,
+                        is_loop: image.is_loop,
+                    });
                 }
 
                 tiles.push(tile::TileDescriptor { images });
@@ -581,9 +580,6 @@ impl Root {
             }
 
             tile::TileField::new(tile::TileFieldDescriptor {
-                instance_size: desc.instance_size,
-                output_image_size: desc.output_image_size,
-                max_page_size: desc.max_page_size,
                 tiles,
                 shaders: tile_shaders,
                 world: desc.world.clone(),
@@ -676,21 +672,34 @@ impl Root {
 
     #[func]
     fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<TileKey> {
-        let tile = &tile.bind().base;
-        let key = self.base.tile_insert(tile.clone()).unwrap();
+        let tile = &tile.bind();
+        let tile = inner::Tile {
+            id: tile.id,
+            location: [tile.location.x, tile.location.y],
+            variant: Default::default(),
+            tick: Default::default(),
+            data: Default::default(),
+        };
+        let key = self.base.tile_insert(tile).unwrap();
         Gd::from_object(TileKey { base: key })
     }
 
     #[func]
     fn tile_remove(&mut self, key: Gd<TileKey>) -> Gd<Tile> {
         let tile = self.base.tile_remove(key.bind().base).unwrap();
-        Gd::from_object(Tile { base: tile })
+        Gd::from_object(Tile {
+            id: tile.id,
+            location: Vector2i::new(tile.location[0], tile.location[1]),
+        })
     }
 
     #[func]
     fn tile_get(&self, key: Gd<TileKey>) -> Gd<Tile> {
-        let tile = self.base.tile_get(key.bind().base).unwrap().clone();
-        Gd::from_object(Tile { base: tile })
+        let tile = self.base.tile_get(key.bind().base).unwrap();
+        Gd::from_object(Tile {
+            id: tile.id,
+            location: Vector2i::new(tile.location[0], tile.location[1]),
+        })
     }
 
     // block
@@ -733,6 +742,23 @@ impl Root {
     fn entity_get(&self, key: Gd<EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_get(key.bind().base).unwrap().clone();
         Gd::from_object(Entity { base: entity })
+    }
+
+    // tick
+
+    #[func]
+    fn tick_per_secs(&self) -> u64 {
+        self.base.tick_per_secs()
+    }
+
+    #[func]
+    fn tick_get(&self) -> u64 {
+        self.base.tick_get()
+    }
+
+    #[func]
+    fn tick_forward(&mut self, delta_secs: f32) {
+        self.base.tick_forward(delta_secs);
     }
 
     // extra

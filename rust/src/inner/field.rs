@@ -13,7 +13,6 @@ pub struct TileDescriptor {
 
 #[derive(Debug, Clone)]
 pub struct TileFieldDescriptor {
-    pub chunk_size: u32,
     pub tiles: Vec<TileDescriptor>,
 }
 
@@ -40,10 +39,11 @@ impl TileProperty {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tile<T> {
-    pub id: u32,
+    pub id: u16,
     pub location: IVec2,
     pub variant: u8,
-    pub data: T,
+    pub tick: u64,
+    pub data: Option<T>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,7 +54,6 @@ pub struct TileChunk<T> {
 
 #[derive(Debug, Clone)]
 pub struct TileField<T> {
-    chunk_size: u32,
     props: Vec<TileProperty>,
     chunks: Vec<TileChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
@@ -63,6 +62,8 @@ pub struct TileField<T> {
 }
 
 impl<T> TileField<T> {
+    const CHUNK_SIZE: u32 = 32;
+
     pub fn new(desc: TileFieldDescriptor) -> Self {
         let mut props = vec![];
         for tile in desc.tiles {
@@ -72,7 +73,6 @@ impl<T> TileField<T> {
         }
 
         Self {
-            chunk_size: desc.chunk_size,
             props,
             chunks: Default::default(),
             chunk_ref: Default::default(),
@@ -93,8 +93,8 @@ impl<T> TileField<T> {
         }
 
         let chunk_location = [
-            tile.location[0].div_euclid(self.chunk_size as i32),
-            tile.location[1].div_euclid(self.chunk_size as i32),
+            tile.location[0].div_euclid(Self::CHUNK_SIZE as i32),
+            tile.location[1].div_euclid(Self::CHUNK_SIZE as i32),
         ];
 
         // get or allocate chunk
@@ -183,7 +183,8 @@ impl<T> TileField<T> {
             id: tile.id,
             location: tile.location,
             variant: tile.variant,
-            data: std::mem::replace(&mut tile.data, unsafe { std::mem::zeroed() }),
+            tick: tile.tick,
+            data: tile.data.take(),
         };
         f(&mut new_tile);
 
@@ -203,7 +204,7 @@ impl<T> TileField<T> {
             return Ok(key);
         }
 
-        if new_tile.variant != tile.variant {
+        if new_tile.variant != tile.variant || new_tile.tick != tile.tick {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.tiles.get_mut(local_key as usize).unwrap() = new_tile;
             chunk.version += 1;
@@ -229,7 +230,7 @@ impl<T> TileField<T> {
 
     #[inline]
     pub fn get_chunk_size(&self) -> u32 {
-        self.chunk_size
+        Self::CHUNK_SIZE
     }
 
     #[inline]
@@ -1073,8 +1074,7 @@ mod tests {
 
     #[test]
     fn crud_tile() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1085,8 +1085,9 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1095,8 +1096,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1106,8 +1108,9 @@ mod tests {
             Ok(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -1119,8 +1122,7 @@ mod tests {
 
     #[test]
     fn insert_tile_with_invalid() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1131,8 +1133,9 @@ mod tests {
             field.insert(Tile {
                 id: 2,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1143,16 +1146,18 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         assert_eq!(
             field.insert(Tile {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
@@ -1161,8 +1166,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1171,8 +1177,7 @@ mod tests {
 
     #[test]
     fn modify_tile() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1184,7 +1189,8 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1195,7 +1201,8 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1210,7 +1217,8 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -1221,15 +1229,56 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
+            })
+        );
+    }
+
+    #[test]
+    fn modify_tile_with_data() {
+        let mut field: TileField<Vec<u8>> = TileField::new(TileFieldDescriptor {
+            tiles: vec![TileDescriptor { collision: true }],
+        });
+
+        let key = field
+            .insert(Tile {
+                id: 0,
+                location: [0, 0],
+                variant: 0,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+            .unwrap();
+
+        let key = field.modify(key, |tile| tile.variant = 1).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Tile {
+                id: 0,
+                location: [0, 0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+        );
+
+        let key = field.modify(key, |_| {}).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Tile {
+                id: 0,
+                location: [0, 0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
             })
         );
     }
 
     #[test]
     fn modify_tile_with_invalid() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1240,16 +1289,18 @@ mod tests {
             .insert(Tile {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1267,8 +1318,9 @@ mod tests {
             Ok(&Tile {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1283,8 +1335,7 @@ mod tests {
 
     #[test]
     fn modify_tile_with_move() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1295,8 +1346,9 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1308,8 +1360,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 1000],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1320,8 +1373,7 @@ mod tests {
 
     #[test]
     fn collision_tile() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1332,24 +1384,27 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 5],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1376,37 +1431,39 @@ mod tests {
 
     #[test]
     fn tile_chunk() {
-        let mut field = TileField::new(TileFieldDescriptor {
-            chunk_size: 16,
+        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 16);
+        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 5],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 

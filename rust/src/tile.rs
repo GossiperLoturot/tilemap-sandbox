@@ -4,6 +4,9 @@ use crate::inner;
 
 pub(crate) struct TileImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
+    pub step_tick: u16,
+    pub is_loop: bool,
+    pub is_local_tick: bool,
 }
 
 pub(crate) struct TileDescriptor {
@@ -11,17 +14,17 @@ pub(crate) struct TileDescriptor {
 }
 
 pub(crate) struct TileFieldDescriptor {
-    pub instance_size: u32,
-    pub output_image_size: u32,
-    pub max_page_size: u32,
     pub tiles: Vec<TileDescriptor>,
     pub shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
 }
 
-struct ComputeIndex {
-    start: u32,
-    end: u32,
+struct ImageHead {
+    start_texcoord_id: u32,
+    end_texcoord_id: u32,
+    step_tick: u16,
+    is_loop: bool,
+    is_local_tick: bool,
 }
 
 struct TileChunkDown {
@@ -59,7 +62,7 @@ impl TileChunkUp {
 }
 
 pub(crate) struct TileField {
-    compute_index: Vec<Vec<ComputeIndex>>,
+    image_heads: Vec<Vec<ImageHead>>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, TileChunkUp>,
     free_handles: Vec<Rid>,
@@ -67,17 +70,32 @@ pub(crate) struct TileField {
 }
 
 impl TileField {
-    const COMPUTE_TEXTURE_SIZE: usize = 1024;
+    const INSTANCE_SIZE: usize = 512;
+    const OUTPUT_IMAGE_SIZE: usize = 1024;
+    const MAX_PAGE_SIZE: usize = 8;
+    const BAKE_TEXTURE_SIZE: usize = 1024;
     const MAX_BUFFER_SIZE: usize = 1024;
 
     pub fn new(desc: TileFieldDescriptor) -> Self {
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+
         let mut free_handles = vec![];
 
-        let mut index = vec![];
-        let mut entries = vec![];
-        for (i, tile) in desc.tiles.into_iter().enumerate() {
-            for (j, image) in tile.images.into_iter().enumerate() {
-                for (k, frame) in image.frames.into_iter().enumerate() {
+        let mut image_heads = vec![];
+        let mut image_bodies = vec![];
+        for tile in desc.tiles {
+            let mut sub_image_heads = vec![];
+
+            for image in tile.images {
+                sub_image_heads.push(ImageHead {
+                    start_texcoord_id: image_bodies.len() as u32,
+                    end_texcoord_id: image_bodies.len() as u32 + image.frames.len() as u32,
+                    step_tick: image.step_tick,
+                    is_loop: image.is_loop,
+                    is_local_tick: image.is_local_tick,
+                });
+
+                for frame in image.frames {
                     let width = frame.get_width() as u32;
                     let height = frame.get_height() as u32;
 
@@ -91,20 +109,25 @@ impl TileField {
                         }
                     }
 
-                    entries.push(image_atlas::AtlasEntry {
-                        texture: image_rgba8,
-                        mip: image_atlas::AtlasEntryMipOption::Clamp,
-                    });
-                    index.push((i as u32, j as u32, k as u32));
+                    image_bodies.push(image_rgba8);
                 }
             }
+
+            image_heads.push(sub_image_heads);
         }
 
+        let mut atlas_entries = vec![];
+        for image_body in image_bodies {
+            atlas_entries.push(image_atlas::AtlasEntry {
+                texture: image_body,
+                mip: image_atlas::AtlasEntryMipOption::Clamp,
+            });
+        }
         let atlas = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
-            size: desc.output_image_size,
-            max_page_count: desc.max_page_size,
+            size: Self::OUTPUT_IMAGE_SIZE as u32,
+            max_page_count: Self::MAX_PAGE_SIZE as u32,
             mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
-            entries: &entries,
+            entries: &atlas_entries,
         })
         .unwrap();
 
@@ -113,8 +136,8 @@ impl TileField {
             let data = texture.mip_maps[0].to_vec();
 
             let image = godot::classes::Image::create_from_data(
-                desc.output_image_size as i32,
-                desc.output_image_size as i32,
+                Self::OUTPUT_IMAGE_SIZE as i32,
+                Self::OUTPUT_IMAGE_SIZE as i32,
                 false,
                 godot::classes::image::Format::RGBA8,
                 PackedByteArray::from(data.as_slice()),
@@ -124,65 +147,35 @@ impl TileField {
             images.push(image);
         }
 
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
         let texture_array = rendering_server.texture_2d_layered_create(
             Array::from(images.as_slice()),
             godot::classes::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
         free_handles.push(texture_array);
 
-        let mut compute_data =
-            vec![0.0; Self::COMPUTE_TEXTURE_SIZE * Self::COMPUTE_TEXTURE_SIZE * 4];
+        let mut bake_data = vec![0.0; Self::BAKE_TEXTURE_SIZE * Self::BAKE_TEXTURE_SIZE * 4];
         for (i, texcoord) in atlas.texcoords.into_iter().enumerate() {
             let texcoord = texcoord.to_f32();
-            compute_data[i * 8] = texcoord.min_x;
-            compute_data[i * 8 + 1] = texcoord.min_y;
-            compute_data[i * 8 + 2] = texcoord.max_x - texcoord.min_x;
-            compute_data[i * 8 + 3] = texcoord.max_y - texcoord.min_y;
+            bake_data[i * 8] = texcoord.min_x;
+            bake_data[i * 8 + 1] = texcoord.min_y;
+            bake_data[i * 8 + 2] = texcoord.max_x - texcoord.min_x;
+            bake_data[i * 8 + 3] = texcoord.max_y - texcoord.min_y;
 
-            compute_data[i * 8 + 4] = texcoord.page as f32;
-            compute_data[i * 8 + 5] = 0.0;
-            compute_data[i * 8 + 6] = 0.0;
-            compute_data[i * 8 + 7] = 0.0;
+            bake_data[i * 8 + 4] = texcoord.page as f32;
+            bake_data[i * 8 + 5] = 0.0;
+            bake_data[i * 8 + 6] = 0.0;
+            bake_data[i * 8 + 7] = 0.0;
         }
-        let compute_image = godot::classes::Image::create_from_data(
-            Self::COMPUTE_TEXTURE_SIZE as i32,
-            Self::COMPUTE_TEXTURE_SIZE as i32,
+        let bake_image = godot::classes::Image::create_from_data(
+            Self::BAKE_TEXTURE_SIZE as i32,
+            Self::BAKE_TEXTURE_SIZE as i32,
             false,
             godot::classes::image::Format::RGBAF,
-            PackedFloat32Array::from(compute_data.as_slice()).to_byte_array(),
+            PackedFloat32Array::from(bake_data.as_slice()).to_byte_array(),
         )
         .unwrap();
-        let compute_texture = rendering_server.texture_2d_create(compute_image);
-        free_handles.push(compute_texture);
-
-        let mut hierarchy: Vec<Vec<Vec<u32>>> = Default::default();
-        for (index, (i, j, k)) in index.into_iter().enumerate() {
-            while hierarchy.len() <= i as usize {
-                hierarchy.push(Default::default());
-            }
-            let hierarchy = &mut hierarchy[i as usize];
-
-            while hierarchy.len() <= j as usize {
-                hierarchy.push(Default::default());
-            }
-            let hierarchy = &mut hierarchy[j as usize];
-
-            while hierarchy.len() <= k as usize {
-                hierarchy.push(Default::default());
-            }
-            hierarchy[k as usize] = index as u32;
-        }
-        let mut compute_index = vec![];
-        for hierarchy in hierarchy {
-            let mut sub_compute_index = vec![];
-            for hierarchy in hierarchy {
-                let start = hierarchy[0];
-                let end = hierarchy[hierarchy.len() - 1];
-                sub_compute_index.push(ComputeIndex { start, end });
-            }
-            compute_index.push(sub_compute_index);
-        }
+        let bake_texture = rendering_server.texture_2d_create(bake_image);
+        free_handles.push(bake_texture);
 
         let mut mesh_data = VariantArray::new();
         mesh_data.resize(
@@ -215,7 +208,7 @@ impl TileField {
         );
 
         let mut down_chunks = vec![];
-        for _ in 0..desc.instance_size {
+        for _ in 0..Self::INSTANCE_SIZE {
             let mut materials = vec![];
             for shader in &desc.shaders {
                 let material = rendering_server.material_create();
@@ -227,8 +220,8 @@ impl TileField {
                 );
                 rendering_server.material_set_param(
                     material,
-                    "compute_texture".into(),
-                    compute_texture.to_variant(),
+                    "bake_texture".into(),
+                    bake_texture.to_variant(),
                 );
                 free_handles.push(material);
 
@@ -271,7 +264,7 @@ impl TileField {
         }
 
         Self {
-            compute_index,
+            image_heads,
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
@@ -280,6 +273,8 @@ impl TileField {
     }
 
     pub fn update_view(&mut self, root: &inner::Root, min_rect: [inner::Vec2; 2]) {
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+
         let chunk_size = root.tile_get_chunk_size() as f32;
 
         #[rustfmt::skip]
@@ -307,7 +302,6 @@ impl TileField {
             for chunk_key in chunk_keys {
                 let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
 
-                let mut rendering_server = godot::classes::RenderingServer::singleton();
                 rendering_server.instance_set_visible(up_chunk.instance, false);
 
                 self.down_chunks.push(up_chunk.down());
@@ -327,7 +321,6 @@ impl TileField {
                         panic!("no chunk available in pool (up:{}, down:{})", up, down);
                     };
 
-                    let mut rendering_server = godot::classes::RenderingServer::singleton();
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
                     self.up_chunks.insert(chunk_key, down_chunk.up());
@@ -344,12 +337,20 @@ impl TileField {
                 continue;
             };
 
+            for material in &up_chunk.materials {
+                rendering_server.material_set_param(
+                    *material,
+                    "tick".into(),
+                    (root.tick_get() as i32).to_variant(),
+                );
+            }
+
             if chunk.version <= up_chunk.version {
                 continue;
             }
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
-            let mut uniform_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
+            let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
 
             for (i, (_, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate() {
                 instance_buffer[i * 12] = 2.0;
@@ -373,14 +374,14 @@ impl TileField {
                 instance_buffer[i * 12 + 10] = 1.0;
                 instance_buffer[i * 12 + 11] = z_offset;
 
-                let compute_index = &self.compute_index[tile.id as usize][tile.variant as usize];
-                uniform_buffer[i * 4] = compute_index.start as i32;
-                uniform_buffer[i * 4 + 1] = compute_index.end as i32;
-                uniform_buffer[i * 4 + 2] = 0;
-                uniform_buffer[i * 4 + 3] = 0;
+                let image_head = &self.image_heads[tile.id as usize][tile.variant as usize];
+                head_buffer[i * 4] = image_head.start_texcoord_id as i32;
+                head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
+                head_buffer[i * 4 + 2] = image_head.step_tick as i32
+                    | (image_head.is_loop as i32) << 16
+                    | (image_head.is_local_tick as i32) << 17;
+                head_buffer[i * 4 + 3] = tile.tick as i32;
             }
-
-            let mut rendering_server = godot::classes::RenderingServer::singleton();
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
@@ -390,8 +391,8 @@ impl TileField {
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "uniform_buffer".into(),
-                    PackedInt32Array::from(uniform_buffer.as_slice()).to_variant(),
+                    "head_buffer".into(),
+                    PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
                 );
             }
 
