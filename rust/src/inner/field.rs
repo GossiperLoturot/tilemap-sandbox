@@ -738,7 +738,6 @@ pub struct EntityDescriptor {
 
 #[derive(Debug, Clone)]
 pub struct EntityFieldDescriptor {
-    pub chunk_size: u32,
     pub entities: Vec<EntityDescriptor>,
 }
 
@@ -780,10 +779,11 @@ impl EntityProperty {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Entity<T> {
-    pub id: u32,
+    pub id: u16,
     pub location: Vec2,
     pub variant: u8,
-    pub data: T,
+    pub tick: u64,
+    pub data: Option<T>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -794,7 +794,6 @@ pub struct EntityChunk<T> {
 
 #[derive(Debug, Clone)]
 pub struct EntityField<T> {
-    chunk_size: u32,
     props: Vec<EntityProperty>,
     chunks: Vec<EntityChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
@@ -803,6 +802,8 @@ pub struct EntityField<T> {
 }
 
 impl<T> EntityField<T> {
+    const CHUNK_SIZE: u32 = 32;
+
     pub fn new(desc: EntityFieldDescriptor) -> Self {
         let mut props = vec![];
         for entity in desc.entities {
@@ -822,7 +823,6 @@ impl<T> EntityField<T> {
         }
 
         Self {
-            chunk_size: desc.chunk_size,
             props,
             chunks: Default::default(),
             chunk_ref: Default::default(),
@@ -838,8 +838,8 @@ impl<T> EntityField<T> {
             .ok_or(FieldError::InvalidId)?;
 
         let chunk_location = [
-            entity.location[0].div_euclid(self.chunk_size as f32) as i32,
-            entity.location[1].div_euclid(self.chunk_size as f32) as i32,
+            entity.location[0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            entity.location[1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
         ];
 
         // get or allocate chunk
@@ -934,7 +934,8 @@ impl<T> EntityField<T> {
             id: entity.id,
             location: entity.location,
             variant: entity.variant,
-            data: std::mem::replace(&mut entity.data, unsafe { std::mem::zeroed() }),
+            tick: entity.tick,
+            data: entity.data.take(),
         };
         f(&mut new_entity);
 
@@ -975,7 +976,7 @@ impl<T> EntityField<T> {
 
     #[inline]
     pub fn get_chunk_size(&self) -> u32 {
-        self.chunk_size
+        Self::CHUNK_SIZE
     }
 
     #[inline]
@@ -2042,7 +2043,7 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 16);
+        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Block {
@@ -2083,7 +2084,6 @@ mod tests {
     #[should_panic]
     fn entity_field_with_invalid_collision() {
         let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
             entities: vec![EntityDescriptor {
                 collision_size: [-1.0, -1.0],
                 collision_offset: [0.0, 0.0],
@@ -2097,7 +2097,6 @@ mod tests {
     #[should_panic]
     fn entity_field_with_invalid_hint() {
         let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
             entities: vec![EntityDescriptor {
                 collision_size: [1.0, 1.0],
                 collision_offset: [0.0, 0.0],
@@ -2109,8 +2108,7 @@ mod tests {
 
     #[test]
     fn crud_entity() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2131,8 +2129,9 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2141,8 +2140,9 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert_eq!(
@@ -2150,8 +2150,9 @@ mod tests {
             Ok(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -2161,8 +2162,7 @@ mod tests {
 
     #[test]
     fn insert_entity_with_invalid() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2183,8 +2183,9 @@ mod tests {
             field.insert(Entity {
                 id: 2,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -2192,8 +2193,7 @@ mod tests {
 
     #[test]
     fn modify_entity() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2215,7 +2215,8 @@ mod tests {
                 id: 0,
                 location: [-1.0, 3.0],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2228,7 +2229,8 @@ mod tests {
                 id: 0,
                 location: [-1.0, 4.0],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -2239,7 +2241,8 @@ mod tests {
                 id: 0,
                 location: [-1.0, 4.0],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -2250,15 +2253,61 @@ mod tests {
                 id: 0,
                 location: [-1.0, 4.0],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
+            })
+        );
+    }
+
+    #[test]
+    fn modify_entity_with_data() {
+        let mut field: EntityField<Vec<u8>> = EntityField::new(EntityFieldDescriptor {
+            entities: vec![EntityDescriptor {
+                collision_size: [1.0, 1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [1.0, 1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
+
+        let key = field
+            .insert(Entity {
+                id: 0,
+                location: [0.0, 0.0],
+                variant: 0,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+            .unwrap();
+
+        let key = field.modify(key, |entity| entity.variant = 1).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Entity {
+                id: 0,
+                location: [0.0, 0.0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+        );
+
+        let key = field.modify(key, |_| {}).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Entity {
+                id: 0,
+                location: [0.0, 0.0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
             })
         );
     }
 
     #[test]
     fn modify_entity_with_invalid() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2279,8 +2328,9 @@ mod tests {
             .insert(Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2296,8 +2346,7 @@ mod tests {
 
     #[test]
     fn modify_entity_with_move() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2318,8 +2367,9 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2331,16 +2381,16 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 1000.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
     }
 
     #[test]
     fn collision_entity() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2361,24 +2411,27 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2405,8 +2458,7 @@ mod tests {
 
     #[test]
     fn hint_entity() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2427,24 +2479,27 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -2468,8 +2523,7 @@ mod tests {
 
     #[test]
     fn entity_chunk() {
-        let mut field = EntityField::new(EntityFieldDescriptor {
-            chunk_size: 16,
+        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2485,30 +2539,33 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 16);
+        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 

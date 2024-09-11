@@ -2,17 +2,21 @@ use godot::prelude::*;
 
 use crate::inner;
 
+pub(crate) struct EntityImageDescriptor {
+    pub frames: Vec<Gd<godot::classes::Image>>,
+    pub step_tick: u16,
+    pub is_loop: bool,
+    pub is_local_tick: bool,
+}
+
 pub(crate) struct EntityDescriptor {
-    pub images: Vec<Gd<godot::classes::Image>>,
+    pub images: Vec<EntityImageDescriptor>,
     pub z_along_y: bool,
     pub rendering_size: inner::Vec2,
     pub rendering_offset: inner::Vec2,
 }
 
 pub(crate) struct EntityFieldDescriptor {
-    pub instance_size: u32,
-    pub output_image_size: u32,
-    pub max_page_size: u32,
     pub entities: Vec<EntityDescriptor>,
     pub shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
@@ -22,6 +26,14 @@ struct EntityProperty {
     z_along_y: bool,
     rendering_size: inner::Vec2,
     rendering_offset: inner::Vec2,
+}
+
+struct ImageHead {
+    start_texcoord_id: u32,
+    end_texcoord_id: u32,
+    step_tick: u16,
+    is_loop: bool,
+    is_local_tick: bool,
 }
 
 struct EntityChunkDown {
@@ -60,7 +72,7 @@ impl EntityChunkUp {
 
 pub(crate) struct EntityField {
     props: Vec<EntityProperty>,
-    texcoords: Vec<Vec<image_atlas::Texcoord32>>,
+    image_heads: Vec<Vec<ImageHead>>,
     down_chunks: Vec<EntityChunkDown>,
     up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
     free_handles: Vec<Rid>,
@@ -68,9 +80,15 @@ pub(crate) struct EntityField {
 }
 
 impl EntityField {
-    const MAX_BUFFER_SIZE: u32 = 1024;
+    const INSTANCE_SIZE: usize = 512;
+    const OUTPUT_IMAGE_SIZE: usize = 1024;
+    const MAX_PAGE_SIZE: usize = 8;
+    const BAKE_TEXTURE_SIZE: usize = 1024;
+    const MAX_BUFFER_SIZE: usize = 1024;
 
     pub fn new(desc: EntityFieldDescriptor) -> Self {
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+
         let mut free_handles = vec![];
 
         let mut props = vec![];
@@ -82,36 +100,53 @@ impl EntityField {
             });
         }
 
-        let mut variants = vec![];
-        let mut entries = vec![];
-        for entity in &desc.entities {
-            variants.push(entity.images.len() as u8);
+        let mut image_heads = vec![];
+        let mut image_bodies = vec![];
+        for entity in desc.entities {
+            let mut sub_image_heads = vec![];
 
-            for image in &entity.images {
-                let width = image.get_width() as u32;
-                let height = image.get_height() as u32;
-
-                let mut image_rgba8 = image::RgbaImage::new(width, height);
-                for y in 0..height {
-                    for x in 0..width {
-                        let color = image.get_pixel(x as i32, y as i32);
-                        let rgba8 = image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
-                        image_rgba8.put_pixel(x, y, rgba8);
-                    }
-                }
-
-                entries.push(image_atlas::AtlasEntry {
-                    texture: image_rgba8,
-                    mip: image_atlas::AtlasEntryMipOption::Clamp,
+            for image in entity.images {
+                sub_image_heads.push(ImageHead {
+                    start_texcoord_id: image_bodies.len() as u32,
+                    end_texcoord_id: image_bodies.len() as u32 + image.frames.len() as u32,
+                    step_tick: image.step_tick,
+                    is_loop: image.is_loop,
+                    is_local_tick: image.is_local_tick,
                 });
+
+                for frame in image.frames {
+                    let width = frame.get_width() as u32;
+                    let height = frame.get_height() as u32;
+
+                    let mut image_rgba8 = image::RgbaImage::new(width, height);
+                    for y in 0..height {
+                        for x in 0..width {
+                            let color = frame.get_pixel(x as i32, y as i32);
+                            let rgba8 =
+                                image::Rgba([color.r8(), color.g8(), color.b8(), color.a8()]);
+                            image_rgba8.put_pixel(x, y, rgba8);
+                        }
+                    }
+
+                    image_bodies.push(image_rgba8);
+                }
             }
+
+            image_heads.push(sub_image_heads);
         }
 
+        let mut atlas_entries = vec![];
+        for image_body in image_bodies {
+            atlas_entries.push(image_atlas::AtlasEntry {
+                texture: image_body,
+                mip: image_atlas::AtlasEntryMipOption::Clamp,
+            });
+        }
         let atlas = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
-            size: desc.output_image_size,
-            max_page_count: desc.max_page_size,
+            size: Self::OUTPUT_IMAGE_SIZE as u32,
+            max_page_count: Self::MAX_PAGE_SIZE as u32,
             mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
-            entries: &entries,
+            entries: &atlas_entries,
         })
         .unwrap();
 
@@ -120,8 +155,8 @@ impl EntityField {
             let data = texture.mip_maps[0].to_vec();
 
             let image = godot::classes::Image::create_from_data(
-                desc.output_image_size as i32,
-                desc.output_image_size as i32,
+                Self::OUTPUT_IMAGE_SIZE as i32,
+                Self::OUTPUT_IMAGE_SIZE as i32,
                 false,
                 godot::classes::image::Format::RGBA8,
                 PackedByteArray::from(data.as_slice()),
@@ -131,23 +166,35 @@ impl EntityField {
             images.push(image);
         }
 
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
         let texture_array = rendering_server.texture_2d_layered_create(
             Array::from(images.as_slice()),
             godot::classes::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
         free_handles.push(texture_array);
 
-        let mut iter = atlas.texcoords.into_iter();
-        let mut texcoords = vec![];
-        for variant in variants {
-            let mut sub_texcoords = vec![];
-            for _ in 0..variant {
-                let texcoord = iter.next().unwrap();
-                sub_texcoords.push(texcoord.to_f32());
-            }
-            texcoords.push(sub_texcoords);
+        let mut bake_data = vec![0.0; Self::BAKE_TEXTURE_SIZE * Self::BAKE_TEXTURE_SIZE * 4];
+        for (i, texcoord) in atlas.texcoords.into_iter().enumerate() {
+            let texcoord = texcoord.to_f32();
+            bake_data[i * 8] = texcoord.min_x;
+            bake_data[i * 8 + 1] = texcoord.min_y;
+            bake_data[i * 8 + 2] = texcoord.max_x - texcoord.min_x;
+            bake_data[i * 8 + 3] = texcoord.max_y - texcoord.min_y;
+
+            bake_data[i * 8 + 4] = texcoord.page as f32;
+            bake_data[i * 8 + 5] = 0.0;
+            bake_data[i * 8 + 6] = 0.0;
+            bake_data[i * 8 + 7] = 0.0;
         }
+        let bake_image = godot::classes::Image::create_from_data(
+            Self::BAKE_TEXTURE_SIZE as i32,
+            Self::BAKE_TEXTURE_SIZE as i32,
+            false,
+            godot::classes::image::Format::RGBAF,
+            PackedFloat32Array::from(bake_data.as_slice()).to_byte_array(),
+        )
+        .unwrap();
+        let bake_texture = rendering_server.texture_2d_create(bake_image);
+        free_handles.push(bake_texture);
 
         let mut mesh_data = VariantArray::new();
         mesh_data.resize(
@@ -180,7 +227,7 @@ impl EntityField {
         );
 
         let mut down_chunks = vec![];
-        for _ in 0..desc.instance_size {
+        for _ in 0..Self::INSTANCE_SIZE {
             let mut materials = vec![];
             for shader in &desc.shaders {
                 let material = rendering_server.material_create();
@@ -189,6 +236,11 @@ impl EntityField {
                     material,
                     "texture_array".into(),
                     texture_array.to_variant(),
+                );
+                rendering_server.material_set_param(
+                    material,
+                    "bake_texture".into(),
+                    bake_texture.to_variant(),
                 );
                 free_handles.push(material);
 
@@ -232,7 +284,7 @@ impl EntityField {
 
         Self {
             props,
-            texcoords,
+            image_heads,
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
@@ -241,6 +293,8 @@ impl EntityField {
     }
 
     pub fn update_view(&mut self, root: &inner::Root, min_rect: [inner::Vec2; 2]) {
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+
         let chunk_size = root.entity_get_chunk_size() as f32;
 
         #[rustfmt::skip]
@@ -267,7 +321,6 @@ impl EntityField {
             for chunk_key in chunk_keys {
                 let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
 
-                let mut rendering_server = godot::classes::RenderingServer::singleton();
                 rendering_server.instance_set_visible(up_chunk.instance, false);
 
                 self.down_chunks.push(up_chunk.down());
@@ -287,7 +340,6 @@ impl EntityField {
                         panic!("no chunk available in pool (up:{}, down:{})", up, down);
                     };
 
-                    let mut rendering_server = godot::classes::RenderingServer::singleton();
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
                     self.up_chunks.insert(chunk_key, down_chunk.up());
@@ -304,18 +356,25 @@ impl EntityField {
                 continue;
             };
 
+            for material in &up_chunk.materials {
+                rendering_server.material_set_param(
+                    *material,
+                    "tick".into(),
+                    (root.tick_get() as i32).to_variant(),
+                );
+            }
+
             if chunk.version <= up_chunk.version {
                 continue;
             }
 
-            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 12];
-            let mut texcoord_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize * 4];
-            let mut page_buffer = [0.0; Self::MAX_BUFFER_SIZE as usize];
+            let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
+            let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
 
             for (i, (_, entity)) in chunk
                 .entities
                 .iter()
-                .take(Self::MAX_BUFFER_SIZE as usize)
+                .take(Self::MAX_BUFFER_SIZE)
                 .enumerate()
             {
                 let prop = &self.props[entity.id as usize];
@@ -335,17 +394,14 @@ impl EntityField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let texcoord = &self.texcoords[entity.id as usize];
-                let texcoord = &texcoord[usize::min(entity.variant as usize, texcoord.len() - 1)];
-                texcoord_buffer[i * 4] = texcoord.min_x;
-                texcoord_buffer[i * 4 + 1] = texcoord.min_y;
-                texcoord_buffer[i * 4 + 2] = texcoord.max_x - texcoord.min_x;
-                texcoord_buffer[i * 4 + 3] = texcoord.max_y - texcoord.min_y;
-
-                page_buffer[i] = texcoord.page as f32;
+                let image_head = &self.image_heads[entity.id as usize][entity.variant as usize];
+                head_buffer[i * 4] = image_head.start_texcoord_id as i32;
+                head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
+                head_buffer[i * 4 + 2] = image_head.step_tick as i32
+                    | (image_head.is_loop as i32) << 16
+                    | (image_head.is_local_tick as i32) << 17;
+                head_buffer[i * 4 + 3] = entity.tick as i32;
             }
-
-            let mut rendering_server = godot::classes::RenderingServer::singleton();
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
@@ -355,13 +411,8 @@ impl EntityField {
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "texcoord_buffer".into(),
-                    PackedFloat32Array::from(texcoord_buffer.as_slice()).to_variant(),
-                );
-                rendering_server.material_set_param(
-                    *material,
-                    "page_buffer".into(),
-                    PackedFloat32Array::from(page_buffer.as_slice()).to_variant(),
+                    "head_buffer".into(),
+                    PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
                 );
             }
 

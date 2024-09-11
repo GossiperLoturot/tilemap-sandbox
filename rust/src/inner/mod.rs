@@ -27,6 +27,7 @@ pub enum TileFeature {
 }
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum TileData {}
 
 #[enum_dispatch::enum_dispatch]
@@ -44,6 +45,7 @@ pub enum BlockFeature {
 }
 
 #[non_exhaustive]
+#[derive(Clone)]
 pub enum BlockData {}
 
 #[enum_dispatch::enum_dispatch]
@@ -62,10 +64,8 @@ pub enum EntityFeature {
 }
 
 #[non_exhaustive]
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub enum EntityData {
-    #[default]
-    Empty,
     Animal(EntityDataAnimal),
 }
 

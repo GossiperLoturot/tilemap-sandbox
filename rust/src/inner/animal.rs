@@ -31,14 +31,14 @@ pub struct EntityFeatureAnimal {
 impl EntityFeatureTrait for EntityFeatureAnimal {
     fn after_place(&self, root: &mut Root, key: TileKey) {
         root.entity_modify(key, |entity| {
-            entity.data = EntityData::Animal(EntityDataAnimal {
+            entity.data = Some(EntityData::Animal(EntityDataAnimal {
                 min_rest_secs: self.min_rest_secs,
                 max_rest_secs: self.max_rest_secs,
                 min_distance: self.min_distance,
                 max_distance: self.max_distance,
                 speed: self.speed,
                 state: EntityDataAnimalState::Init,
-            })
+            }))
         })
         .unwrap();
     }
@@ -48,7 +48,7 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).unwrap().clone();
 
-        let EntityData::Animal(data) = &mut entity.data else {
+        let Some(EntityData::Animal(data)) = &mut entity.data else {
             return;
         };
 

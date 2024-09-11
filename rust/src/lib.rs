@@ -257,20 +257,15 @@ struct EntityKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Entity {
-    base: inner::Entity<inner::EntityData>,
+    id: u16,
+    location: Vector2,
 }
 
 #[godot_api]
 impl Entity {
     #[func]
-    fn create(id: u32, location: Vector2) -> Gd<Self> {
-        let entity = inner::Entity {
-            id,
-            location: [location.x, location.y],
-            variant: Default::default(),
-            data: Default::default(),
-        };
-        Gd::from_object(Entity { base: entity })
+    fn create(id: u16, location: Vector2) -> Gd<Self> {
+        Gd::from_object(Entity { id, location })
     }
 }
 
@@ -310,8 +305,35 @@ impl EntityFeature {
 
 #[derive(GodotClass)]
 #[class(no_init)]
+struct EntityImageDescriptor {
+    frames: Array<Gd<godot::classes::Image>>,
+    step_tick: u16,
+    is_loop: bool,
+    is_local_tick: bool,
+}
+
+#[godot_api]
+impl EntityImageDescriptor {
+    #[func]
+    fn create(
+        frames: Array<Gd<godot::classes::Image>>,
+        step_tick: u16,
+        is_loop: bool,
+        is_local_tick: bool,
+    ) -> Gd<Self> {
+        Gd::from_object(EntityImageDescriptor {
+            frames,
+            step_tick,
+            is_loop,
+            is_local_tick,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 struct EntityDescriptor {
-    images: Array<Gd<godot::classes::Image>>,
+    images: Array<Gd<EntityImageDescriptor>>,
     z_along_y: bool,
     collision_size: Vector2,
     collision_offset: Vector2,
@@ -324,7 +346,7 @@ struct EntityDescriptor {
 impl EntityDescriptor {
     #[func]
     fn create(
-        images: Array<Gd<godot::classes::Image>>,
+        images: Array<Gd<EntityImageDescriptor>>,
         z_along_y: bool,
         collision_size: Vector2,
         collision_offset: Vector2,
@@ -347,10 +369,6 @@ impl EntityDescriptor {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct EntityFieldDescriptor {
-    chunk_size: u32,
-    instance_size: u32,
-    output_image_size: u32,
-    max_page_size: u32,
     entities: Array<Gd<EntityDescriptor>>,
     shaders: Array<Gd<godot::classes::Shader>>,
     world: Gd<godot::classes::World3D>,
@@ -360,19 +378,11 @@ struct EntityFieldDescriptor {
 impl EntityFieldDescriptor {
     #[func]
     fn create(
-        chunk_size: u32,
-        instance_size: u32,
-        output_image_size: u32,
-        max_page_size: u32,
         entities: Array<Gd<EntityDescriptor>>,
         shaders: Array<Gd<godot::classes::Shader>>,
         world: Gd<godot::classes::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(EntityFieldDescriptor {
-            chunk_size,
-            instance_size,
-            output_image_size,
-            max_page_size,
             entities,
             shaders,
             world,
@@ -389,14 +399,14 @@ struct GeneratorRuleDescriptor {
 #[godot_api]
 impl GeneratorRuleDescriptor {
     #[func]
-    fn create_marching(prob: f32, id: u32) -> Gd<Self> {
+    fn create_marching(prob: f32, id: u16) -> Gd<Self> {
         let rule = inner::GeneratorRuleMarchingDescriptor { prob, id };
         let desc = inner::GeneratorRuleDescriptor::Marching(rule);
         Gd::from_object(GeneratorRuleDescriptor { base: desc })
     }
 
     #[func]
-    fn create_spawn(prob: f32, id: u32) -> Gd<Self> {
+    fn create_spawn(prob: f32, id: u16) -> Gd<Self> {
         let rule = inner::GeneratorRuleSpawnDescriptor { prob, id };
         let desc = inner::GeneratorRuleDescriptor::Spawn(rule);
         Gd::from_object(GeneratorRuleDescriptor { base: desc })
@@ -406,7 +416,6 @@ impl GeneratorRuleDescriptor {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct GeneratorDescriptor {
-    chunk_size: u32,
     tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
     block_rules: Array<Gd<GeneratorRuleDescriptor>>,
     entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
@@ -416,13 +425,11 @@ struct GeneratorDescriptor {
 impl GeneratorDescriptor {
     #[func]
     fn create(
-        chunk_size: u32,
         tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
         block_rules: Array<Gd<GeneratorRuleDescriptor>>,
         entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
     ) -> Gd<Self> {
         Gd::from_object(GeneratorDescriptor {
-            chunk_size,
             tile_rules,
             block_rules,
             entity_rules,
@@ -535,10 +542,7 @@ impl Root {
                     entity_features.push(feature.clone());
                 }
 
-                inner::EntityFieldDescriptor {
-                    chunk_size: desc.chunk_size,
-                    entities,
-                }
+                inner::EntityFieldDescriptor { entities }
             };
             let entity_features = entity_features.into();
 
@@ -650,7 +654,19 @@ impl Root {
 
                 let mut images = vec![];
                 for image in entity.images.iter_shared() {
-                    images.push(image);
+                    let image = image.bind();
+
+                    let mut frames = vec![];
+                    for image in image.frames.iter_shared() {
+                        frames.push(image);
+                    }
+
+                    images.push(entity::EntityImageDescriptor {
+                        frames,
+                        step_tick: image.step_tick,
+                        is_local_tick: image.is_local_tick,
+                        is_loop: image.is_loop,
+                    });
                 }
 
                 entities.push(entity::EntityDescriptor {
@@ -667,9 +683,6 @@ impl Root {
             }
 
             entity::EntityField::new(entity::EntityFieldDescriptor {
-                instance_size: desc.instance_size,
-                output_image_size: desc.output_image_size,
-                max_page_size: desc.max_page_size,
                 entities,
                 shaders: entity_shaders,
                 world: desc.world.clone(),
@@ -688,7 +701,7 @@ impl Root {
 
     #[func]
     fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<TileKey> {
-        let tile = &tile.bind();
+        let tile = tile.bind();
         let tile = inner::Tile {
             id: tile.id,
             location: [tile.location.x, tile.location.y],
@@ -722,7 +735,7 @@ impl Root {
 
     #[func]
     fn block_insert(&mut self, block: Gd<Block>) -> Gd<BlockKey> {
-        let block = &block.bind();
+        let block = block.bind();
         let block = inner::Block {
             id: block.id,
             location: [block.location.x, block.location.y],
@@ -756,21 +769,34 @@ impl Root {
 
     #[func]
     fn entity_insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
-        let entity = &entity.bind().base;
-        let key = self.base.entity_insert(entity.clone()).unwrap();
+        let entity = entity.bind();
+        let entity = inner::Entity {
+            id: entity.id,
+            location: [entity.location.x, entity.location.y],
+            variant: Default::default(),
+            tick: Default::default(),
+            data: Default::default(),
+        };
+        let key = self.base.entity_insert(entity).unwrap();
         Gd::from_object(EntityKey { base: key })
     }
 
     #[func]
     fn entity_remove(&mut self, key: Gd<EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_remove(key.bind().base).unwrap();
-        Gd::from_object(Entity { base: entity })
+        Gd::from_object(Entity {
+            id: entity.id,
+            location: Vector2::new(entity.location[0], entity.location[1]),
+        })
     }
 
     #[func]
     fn entity_get(&self, key: Gd<EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_get(key.bind().base).unwrap().clone();
-        Gd::from_object(Entity { base: entity })
+        Gd::from_object(Entity {
+            id: entity.id,
+            location: Vector2::new(entity.location[0], entity.location[1]),
+        })
     }
 
     // tick
@@ -833,7 +859,6 @@ impl Root {
         }
 
         let desc = inner::GeneratorDescriptor {
-            chunk_size: desc.chunk_size,
             tile_rules,
             block_rules,
             entity_rules,

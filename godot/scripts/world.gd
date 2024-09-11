@@ -127,42 +127,87 @@ func _ready():
 	var entity_descriptors: Array[EntityDescriptor] = []
 	entity_descriptors.resize(ENTITY_ID_SIZE)
 	entity_descriptors[ENTITY_PLAYER] = EntityDescriptor.create(
-		[preload("res://images/player.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/player.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
 		EntityFeature.create_empty()
 	)
 	entity_descriptors[ENTITY_PIG] = EntityDescriptor.create(
-		[preload("res://images/pig.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/pig.webp"),
+					preload("res://images/cow.webp")
+				] as Array[Image],
+				24,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
 		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_COW] = EntityDescriptor.create(
-		[preload("res://images/cow.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/cow.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
 		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_SHEEP] = EntityDescriptor.create(
-		[preload("res://images/sheep.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/sheep.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
 		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_CHICKET] = EntityDescriptor.create(
-		[preload("res://images/chiken.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/chiken.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
 		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
 	)
 	entity_descriptors[ENTITY_BIRD] = EntityDescriptor.create(
-		[preload("res://images/bird.webp")] as Array[Image],
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/bird.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
@@ -173,19 +218,15 @@ func _ready():
 		RootDescriptor.create(
 			TileFieldDescriptor.create(
 				tile_descriptors,
-				[preload("res://new_field.gdshader")] as Array[Shader],
+				[preload("res://field.gdshader")] as Array[Shader],
 				get_world_3d()
 			),
 			BlockFieldDescriptor.create(
 				block_descriptors,
-				[preload("res://new_field.gdshader")] as Array[Shader],
+				[preload("res://field.gdshader"), preload("res://field_shadow.gdshader")] as Array[Shader],
 				get_world_3d()
 			),
 			EntityFieldDescriptor.create(
-				32,
-				512,
-				2048,
-				8,
 				entity_descriptors,
 				[preload("res://field.gdshader"), preload("res://field_shadow.gdshader")] as Array[Shader],
 				get_world_3d()
@@ -196,7 +237,6 @@ func _ready():
 	_root.init_forward()
 
 	var _generator_descriptor = GeneratorDescriptor.create(
-		32,
 		[
 			GeneratorRuleDescriptor.create_marching(0.5, TILE_GRASS),
 			GeneratorRuleDescriptor.create_marching(1.0, TILE_DIRT)

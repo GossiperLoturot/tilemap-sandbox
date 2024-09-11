@@ -5,13 +5,13 @@ use crate::inner;
 #[derive(Clone)]
 pub struct GeneratorRuleMarchingDescriptor {
     pub prob: f32,
-    pub id: u32,
+    pub id: u16,
 }
 
 #[derive(Clone)]
 pub struct GeneratorRuleSpawnDescriptor {
     pub prob: f32,
-    pub id: u32,
+    pub id: u16,
 }
 
 #[derive(Clone)]
@@ -24,7 +24,6 @@ pub enum GeneratorRuleDescriptor {
 
 #[derive(Clone)]
 pub struct GeneratorDescriptor {
-    pub chunk_size: u32,
     pub tile_rules: Vec<GeneratorRuleDescriptor>,
     pub block_rules: Vec<GeneratorRuleDescriptor>,
     pub entity_rules: Vec<GeneratorRuleDescriptor>,
@@ -35,7 +34,7 @@ pub struct GeneratorDescriptor {
 #[derive(Clone)]
 struct GeneratorRuleMarching {
     prob: f32,
-    id: u32,
+    id: u16,
 }
 
 impl GeneratorRuleMarching {
@@ -50,7 +49,7 @@ impl GeneratorRuleMarching {
 #[derive(Clone)]
 struct GeneratorRuleSpawn {
     prob: f32,
-    id: u32,
+    id: u16,
 }
 
 impl GeneratorRuleSpawn {
@@ -87,7 +86,6 @@ impl GeneratorRule {
 
 #[derive(Clone)]
 pub struct Generator {
-    chunk_size: u32,
     tile_rules: Vec<GeneratorRule>,
     block_rules: Vec<GeneratorRule>,
     entity_rules: Vec<GeneratorRule>,
@@ -95,6 +93,8 @@ pub struct Generator {
 }
 
 impl Generator {
+    const CHUNK_SIZE: u32 = 32;
+
     pub fn init(root: &mut inner::Root, desc: GeneratorDescriptor) {
         let mut tile_rules = vec![];
         for rule in desc.tile_rules {
@@ -112,7 +112,6 @@ impl Generator {
         }
 
         let generator = Self {
-            chunk_size: desc.chunk_size,
             tile_rules,
             block_rules,
             entity_rules,
@@ -126,10 +125,10 @@ impl Generator {
 
         #[rustfmt::skip]
         let min_rect = [[
-            min_rect[0][0].div_euclid(slf.chunk_size as f32) as i32,
-            min_rect[0][1].div_euclid(slf.chunk_size as f32) as i32, ], [
-            min_rect[1][0].div_euclid(slf.chunk_size as f32) as i32,
-            min_rect[1][1].div_euclid(slf.chunk_size as f32) as i32,
+            min_rect[0][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            min_rect[0][1].div_euclid(Self::CHUNK_SIZE as f32) as i32, ], [
+            min_rect[1][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
+            min_rect[1][1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
         ]];
 
         for y in min_rect[0][1]..=min_rect[1][1] {
@@ -188,11 +187,11 @@ impl Generator {
     ) {
         let mut rng = rand::thread_rng();
 
-        for y in 0..self.chunk_size as i32 {
-            for x in 0..self.chunk_size as i32 {
+        for y in 0..Self::CHUNK_SIZE as i32 {
+            for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
-                    chunk_location[0] * self.chunk_size as i32 + x,
-                    chunk_location[1] * self.chunk_size as i32 + y,
+                    chunk_location[0] * Self::CHUNK_SIZE as i32 + x,
+                    chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
                 let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
@@ -201,7 +200,7 @@ impl Generator {
                 }
 
                 let _ = root.tile_insert(inner::Tile {
-                    id: rule.id as u16,
+                    id: rule.id,
                     location,
                     variant: Default::default(),
                     tick: Default::default(),
@@ -222,18 +221,18 @@ impl Generator {
         let x = chunk_location[0];
         let y = chunk_location[1];
 
-        let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
+        let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
-                x * self.chunk_size as i32 + u,
-                y * self.chunk_size as i32 + v,
+                x * Self::CHUNK_SIZE as i32 + u,
+                y * Self::CHUNK_SIZE as i32 + v,
             ];
 
             let _ = root.tile_insert(inner::Tile {
-                id: rule.id as u16,
+                id: rule.id,
                 location,
                 variant: Default::default(),
                 tick: Default::default(),
@@ -250,11 +249,11 @@ impl Generator {
     ) {
         let mut rng = rand::thread_rng();
 
-        for y in 0..self.chunk_size as i32 {
-            for x in 0..self.chunk_size as i32 {
+        for y in 0..Self::CHUNK_SIZE as i32 {
+            for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
-                    chunk_location[0] * self.chunk_size as i32 + x,
-                    chunk_location[1] * self.chunk_size as i32 + y,
+                    chunk_location[0] * Self::CHUNK_SIZE as i32 + x,
+                    chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
                 let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
@@ -263,7 +262,7 @@ impl Generator {
                 }
 
                 let _ = root.block_insert(inner::Block {
-                    id: rule.id as u16,
+                    id: rule.id,
                     location,
                     variant: Default::default(),
                     tick: Default::default(),
@@ -284,18 +283,18 @@ impl Generator {
         let x = chunk_location[0];
         let y = chunk_location[1];
 
-        let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
+        let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
-                x * self.chunk_size as i32 + u,
-                y * self.chunk_size as i32 + v,
+                x * Self::CHUNK_SIZE as i32 + u,
+                y * Self::CHUNK_SIZE as i32 + v,
             ];
 
             let _ = root.block_insert(inner::Block {
-                id: rule.id as u16,
+                id: rule.id,
                 location,
                 variant: Default::default(),
                 tick: Default::default(),
@@ -312,11 +311,11 @@ impl Generator {
     ) {
         let mut rng = rand::thread_rng();
 
-        for y in 0..self.chunk_size as i32 {
-            for x in 0..self.chunk_size as i32 {
+        for y in 0..Self::CHUNK_SIZE as i32 {
+            for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
-                    (chunk_location[0] * self.chunk_size as i32 + x) as f32,
-                    (chunk_location[1] * self.chunk_size as i32 + y) as f32,
+                    (chunk_location[0] * Self::CHUNK_SIZE as i32 + x) as f32,
+                    (chunk_location[1] * Self::CHUNK_SIZE as i32 + y) as f32,
                 ];
 
                 let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
@@ -328,6 +327,7 @@ impl Generator {
                     id: rule.id,
                     location,
                     variant: Default::default(),
+                    tick: Default::default(),
                     data: Default::default(),
                 });
             }
@@ -345,20 +345,21 @@ impl Generator {
         let x = chunk_location[0];
         let y = chunk_location[1];
 
-        let size = (rule.prob * (self.chunk_size * self.chunk_size) as f32) as i32;
+        let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..self.chunk_size as i32);
+            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
-                (x * self.chunk_size as i32) as f32 + u as f32,
-                (y * self.chunk_size as i32) as f32 + v as f32,
+                (x * Self::CHUNK_SIZE as i32) as f32 + u as f32,
+                (y * Self::CHUNK_SIZE as i32) as f32 + v as f32,
             ];
 
             let _ = root.entity_insert(inner::Entity {
                 id: rule.id,
                 location,
                 variant: Default::default(),
+                tick: Default::default(),
                 data: Default::default(),
             });
         }
