@@ -33,8 +33,11 @@ func _ready():
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
 		[
 			TileImageDescriptor.create(
-				[preload("res://images/surface_dirt.webp")] as Array[Image],
-				0,
+				[
+					preload("res://images/surface_dirt.webp"),
+					preload("res://images/surface_grass.webp")
+				] as Array[Image],
+				24,
 				true,
 				false
 			)
@@ -45,11 +48,8 @@ func _ready():
 	tile_descriptors[TILE_GRASS] = TileDescriptor.create(
 		[
 			TileImageDescriptor.create(
-				[
-					preload("res://images/surface_grass.webp"),
-					preload("res://images/surface_dirt.webp")
-				] as Array[Image],
-				24,
+				[preload("res://images/surface_grass.webp")] as Array[Image],
+				0,
 				true,
 				false
 			)
@@ -61,7 +61,17 @@ func _ready():
 	var block_descriptors: Array[BlockDescriptor] = []
 	block_descriptors.resize(BLOCK_ID_SIZE)
 	block_descriptors[BLOCK_DANDELION] = BlockDescriptor.create(
-		[preload("res://images/dandelion.webp")] as Array[Image],
+		[
+			BlockImageDescriptor.create(
+				[
+					preload("res://images/dandelion.webp"),
+					preload("res://images/fallen_leaves.webp")
+				] as Array[Image],
+				24,
+				true,
+				false
+			)
+		] as Array[BlockImageDescriptor],
 		false,
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
@@ -69,7 +79,14 @@ func _ready():
 		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_FALLEN_LEAVES] = BlockDescriptor.create(
-		[preload("res://images/fallen_leaves.webp")] as Array[Image],
+		[
+			BlockImageDescriptor.create(
+				[preload("res://images/fallen_leaves.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[BlockImageDescriptor],
 		false,
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
@@ -77,7 +94,14 @@ func _ready():
 		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_MIX_GRASS] = BlockDescriptor.create(
-		[preload("res://images/mix_grass.webp")] as Array[Image],
+		[
+			BlockImageDescriptor.create(
+				[preload("res://images/mix_grass.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[BlockImageDescriptor],
 		true,
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
@@ -85,7 +109,14 @@ func _ready():
 		BlockFeature.create_empty()
 	)
 	block_descriptors[BLOCK_MIX_PEBBLES] = BlockDescriptor.create(
-		[preload("res://images/mix_pebbles.webp")] as Array[Image],
+		[
+			BlockImageDescriptor.create(
+				[preload("res://images/mix_pebbles.webp")] as Array[Image],
+				0,
+				true,
+				false
+			)
+		] as Array[BlockImageDescriptor],
 		false,
 		Vector2i(1, 1),
 		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
@@ -146,12 +177,8 @@ func _ready():
 				get_world_3d()
 			),
 			BlockFieldDescriptor.create(
-				32,
-				512,
-				2048,
-				8,
 				block_descriptors,
-				[preload("res://field.gdshader"), preload("res://field_shadow.gdshader")] as Array[Shader],
+				[preload("res://new_field.gdshader")] as Array[Shader],
 				get_world_3d()
 			),
 			EntityFieldDescriptor.create(
@@ -175,8 +202,10 @@ func _ready():
 			GeneratorRuleDescriptor.create_marching(1.0, TILE_DIRT)
 		] as Array[GeneratorRuleDescriptor],
 		[
+			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_DANDELION),
 			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
-			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_GRASS)
+			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_GRASS),
+			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_PEBBLES)
 		] as Array[GeneratorRuleDescriptor],
 		[
 			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_COW),

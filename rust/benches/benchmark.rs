@@ -125,7 +125,7 @@ fn benchmark(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("tile modify with large data", |b| {
+    c.bench_function("tile modify with data", |b| {
         b.iter_custom(|iters| {
             let mut field: TileField<Vec<u8>> = TileField::new(TileFieldDescriptor {
                 tiles: vec![
@@ -160,7 +160,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("block add", |b| {
         b.iter_custom(|iters| {
             let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-                chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
                         size: [1, 1],
@@ -187,6 +186,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -199,7 +199,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("block remove", |b| {
         b.iter_custom(|iters| {
             let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-                chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
                         size: [1, 1],
@@ -226,6 +225,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -243,7 +243,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("block get", |b| {
         b.iter_custom(|iters| {
             let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-                chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
                         size: [1, 1],
@@ -270,6 +269,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -287,7 +287,6 @@ fn benchmark(c: &mut Criterion) {
     c.bench_function("block modify", |b| {
         b.iter_custom(|iters| {
             let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-                chunk_size: 32,
                 blocks: vec![
                     BlockDescriptor {
                         size: [1, 1],
@@ -314,6 +313,7 @@ fn benchmark(c: &mut Criterion) {
                             id: 0,
                             location: [i as i32, 0],
                             variant: Default::default(),
+                            tick: Default::default(),
                             data: Default::default(),
                         })
                         .unwrap(),
@@ -323,6 +323,50 @@ fn benchmark(c: &mut Criterion) {
             let instance = std::time::Instant::now();
             for key in keys {
                 black_box(field.modify(key, |block| block.location[1] += 1).unwrap());
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("block modify with data", |b| {
+        b.iter_custom(|iters| {
+            let mut field: BlockField<Vec<u8>> = BlockField::new(BlockFieldDescriptor {
+                blocks: vec![
+                    BlockDescriptor {
+                        size: [1, 1],
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                    BlockDescriptor {
+                        size: [1, 1],
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Block {
+                            id: 0,
+                            location: [i as i32, 0],
+                            variant: Default::default(),
+                            tick: Default::default(),
+                            data: Some(vec![0; 1024]),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(field.modify(key, |tile| tile.location[1] += 1).unwrap());
             }
             instance.elapsed()
         });

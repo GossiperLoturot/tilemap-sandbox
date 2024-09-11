@@ -131,20 +131,15 @@ struct BlockKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Block {
-    base: inner::Block<inner::BlockData>,
+    id: u16,
+    location: Vector2i,
 }
 
 #[godot_api]
 impl Block {
     #[func]
-    fn create(id: u32, location: Vector2i) -> Gd<Self> {
-        let block = inner::Block {
-            id,
-            location: [location.x, location.y],
-            variant: Default::default(),
-            data: Default::default(),
-        };
-        Gd::from_object(Block { base: block })
+    fn create(id: u16, location: Vector2i) -> Gd<Self> {
+        Gd::from_object(Block { id, location })
     }
 }
 
@@ -165,8 +160,35 @@ impl BlockFeature {
 
 #[derive(GodotClass)]
 #[class(no_init)]
+struct BlockImageDescriptor {
+    frames: Array<Gd<godot::classes::Image>>,
+    step_tick: u16,
+    is_loop: bool,
+    is_local_tick: bool,
+}
+
+#[godot_api]
+impl BlockImageDescriptor {
+    #[func]
+    fn create(
+        frames: Array<Gd<godot::classes::Image>>,
+        step_tick: u16,
+        is_loop: bool,
+        is_local_tick: bool,
+    ) -> Gd<Self> {
+        Gd::from_object(BlockImageDescriptor {
+            frames,
+            step_tick,
+            is_loop,
+            is_local_tick,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 struct BlockDescriptor {
-    images: Array<Gd<godot::classes::Image>>,
+    images: Array<Gd<BlockImageDescriptor>>,
     z_along_y: bool,
     size: Vector2i,
     collision_size: Vector2,
@@ -180,7 +202,7 @@ struct BlockDescriptor {
 impl BlockDescriptor {
     #[func]
     fn create(
-        images: Array<Gd<godot::classes::Image>>,
+        images: Array<Gd<BlockImageDescriptor>>,
         z_along_y: bool,
         size: Vector2i,
         collision_size: Vector2,
@@ -205,10 +227,6 @@ impl BlockDescriptor {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct BlockFieldDescriptor {
-    chunk_size: u32,
-    instance_size: u32,
-    output_image_size: u32,
-    max_page_size: u32,
     blocks: Array<Gd<BlockDescriptor>>,
     shaders: Array<Gd<godot::classes::Shader>>,
     world: Gd<godot::classes::World3D>,
@@ -218,19 +236,11 @@ struct BlockFieldDescriptor {
 impl BlockFieldDescriptor {
     #[func]
     fn create(
-        chunk_size: u32,
-        instance_size: u32,
-        output_image_size: u32,
-        max_page_size: u32,
         blocks: Array<Gd<BlockDescriptor>>,
         shaders: Array<Gd<godot::classes::Shader>>,
         world: Gd<godot::classes::World3D>,
     ) -> Gd<Self> {
         Gd::from_object(BlockFieldDescriptor {
-            chunk_size,
-            instance_size,
-            output_image_size,
-            max_page_size,
             blocks,
             shaders,
             world,
@@ -501,10 +511,7 @@ impl Root {
                     block_features.push(feature.clone());
                 }
 
-                inner::BlockFieldDescriptor {
-                    chunk_size: desc.chunk_size,
-                    blocks,
-                }
+                inner::BlockFieldDescriptor { blocks }
             };
             let block_features = block_features.into();
 
@@ -597,7 +604,19 @@ impl Root {
 
                 let mut images = vec![];
                 for image in block.images.iter_shared() {
-                    images.push(image);
+                    let image = image.bind();
+
+                    let mut frames = vec![];
+                    for image in image.frames.iter_shared() {
+                        frames.push(image);
+                    }
+
+                    images.push(block::BlockImageDescriptor {
+                        frames,
+                        step_tick: image.step_tick,
+                        is_local_tick: image.is_local_tick,
+                        is_loop: image.is_loop,
+                    });
                 }
 
                 blocks.push(block::BlockDescriptor {
@@ -614,9 +633,6 @@ impl Root {
             }
 
             block::BlockField::new(block::BlockFieldDescriptor {
-                instance_size: desc.instance_size,
-                output_image_size: desc.output_image_size,
-                max_page_size: desc.max_page_size,
                 blocks,
                 shaders: block_shaders,
                 world: desc.world.clone(),
@@ -706,21 +722,34 @@ impl Root {
 
     #[func]
     fn block_insert(&mut self, block: Gd<Block>) -> Gd<BlockKey> {
-        let block = &block.bind().base;
-        let key = self.base.block_insert(block.clone()).unwrap();
+        let block = &block.bind();
+        let block = inner::Block {
+            id: block.id,
+            location: [block.location.x, block.location.y],
+            variant: Default::default(),
+            tick: Default::default(),
+            data: Default::default(),
+        };
+        let key = self.base.block_insert(block).unwrap();
         Gd::from_object(BlockKey { base: key })
     }
 
     #[func]
     fn block_remove(&mut self, key: Gd<BlockKey>) -> Gd<Block> {
         let block = self.base.block_remove(key.bind().base).unwrap();
-        Gd::from_object(Block { base: block })
+        Gd::from_object(Block {
+            id: block.id,
+            location: Vector2i::new(block.location[0], block.location[1]),
+        })
     }
 
     #[func]
     fn block_get(&self, key: Gd<BlockKey>) -> Gd<Block> {
-        let block = self.base.block_get(key.bind().base).unwrap().clone();
-        Gd::from_object(Block { base: block })
+        let block = self.base.block_get(key.bind().base).unwrap();
+        Gd::from_object(Block {
+            id: block.id,
+            location: Vector2i::new(block.location[0], block.location[1]),
+        })
     }
 
     // entity

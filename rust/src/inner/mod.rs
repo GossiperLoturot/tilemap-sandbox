@@ -44,11 +44,7 @@ pub enum BlockFeature {
 }
 
 #[non_exhaustive]
-#[derive(Clone, Default)]
-pub enum BlockData {
-    #[default]
-    Empty,
-}
+pub enum BlockData {}
 
 #[enum_dispatch::enum_dispatch]
 pub trait BlockFeatureTrait {

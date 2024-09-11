@@ -311,7 +311,6 @@ pub struct BlockDescriptor {
 
 #[derive(Debug, Clone)]
 pub struct BlockFieldDescriptor {
-    pub chunk_size: u32,
     pub blocks: Vec<BlockDescriptor>,
 }
 
@@ -366,10 +365,11 @@ impl BlockProperty {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block<T> {
-    pub id: u32,
+    pub id: u16,
     pub location: IVec2,
     pub variant: u8,
-    pub data: T,
+    pub tick: u64,
+    pub data: Option<T>,
 }
 
 #[derive(Debug, Clone)]
@@ -380,7 +380,6 @@ pub struct BlockChunk<T> {
 
 #[derive(Debug, Clone)]
 pub struct BlockField<T> {
-    chunk_size: u32,
     props: Vec<BlockProperty>,
     chunks: Vec<BlockChunk<T>>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
@@ -390,6 +389,8 @@ pub struct BlockField<T> {
 }
 
 impl<T> BlockField<T> {
+    const CHUNK_SIZE: u32 = 32;
+
     pub fn new(desc: BlockFieldDescriptor) -> Self {
         let mut props = vec![];
         for block in desc.blocks {
@@ -413,7 +414,6 @@ impl<T> BlockField<T> {
         }
 
         Self {
-            chunk_size: desc.chunk_size,
             props,
             chunks: Default::default(),
             chunk_ref: Default::default(),
@@ -435,8 +435,8 @@ impl<T> BlockField<T> {
         }
 
         let chunk_location = [
-            block.location[0].div_euclid(self.chunk_size as i32),
-            block.location[1].div_euclid(self.chunk_size as i32),
+            block.location[0].div_euclid(Self::CHUNK_SIZE as i32),
+            block.location[1].div_euclid(Self::CHUNK_SIZE as i32),
         ];
 
         // get or allocate chunk
@@ -543,7 +543,8 @@ impl<T> BlockField<T> {
             id: block.id,
             location: block.location,
             variant: block.variant,
-            data: std::mem::replace(&mut block.data, unsafe { std::mem::zeroed() }),
+            tick: block.tick,
+            data: block.data.take(),
         };
         f(&mut new_block);
 
@@ -594,7 +595,7 @@ impl<T> BlockField<T> {
 
     #[inline]
     pub fn get_chunk_size(&self) -> u32 {
-        self.chunk_size
+        Self::CHUNK_SIZE
     }
 
     #[inline]
@@ -1478,7 +1479,6 @@ mod tests {
     #[should_panic]
     fn block_field_with_invalid() {
         let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [-1, -1],
                 collision_size: [1.0, 1.0],
@@ -1493,7 +1493,6 @@ mod tests {
     #[should_panic]
     fn block_field_with_invalid_collision() {
         let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
                 collision_size: [-1.0, -1.0],
@@ -1508,7 +1507,6 @@ mod tests {
     #[should_panic]
     fn block_field_with_invalid_hint() {
         let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
                 collision_size: [1.0, 1.0],
@@ -1521,8 +1519,7 @@ mod tests {
 
     #[test]
     fn crud_block() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1545,8 +1542,9 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
@@ -1556,8 +1554,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1567,8 +1566,9 @@ mod tests {
             Ok(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -1582,8 +1582,7 @@ mod tests {
 
     #[test]
     fn insert_block_with_invalid() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1606,8 +1605,9 @@ mod tests {
             field.insert(Block {
                 id: 2,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1618,16 +1618,18 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         assert_eq!(
             field.insert(Block {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
@@ -1636,8 +1638,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1646,8 +1649,7 @@ mod tests {
 
     #[test]
     fn modify_block() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1671,7 +1673,8 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1682,7 +1685,8 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 0,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1697,7 +1701,8 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
 
@@ -1708,15 +1713,62 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 variant: 1,
-                data: (),
+                tick: Default::default(),
+                data: Default::default(),
+            })
+        );
+    }
+
+    #[test]
+    fn modify_block_with_data() {
+        let mut field: BlockField<Vec<u8>> = BlockField::new(BlockFieldDescriptor {
+            blocks: vec![BlockDescriptor {
+                size: [1, 1],
+                collision_size: [1.0, 1.0],
+                collision_offset: [0.0, 0.0],
+                hint_size: [1.0, 1.0],
+                hint_offset: [0.0, 0.0],
+            }],
+        });
+
+        let key = field
+            .insert(Block {
+                id: 0,
+                location: [0, 0],
+                variant: 0,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+            .unwrap();
+
+        let key = field.modify(key, |block| block.variant = 1).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Block {
+                id: 0,
+                location: [0, 0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
+            })
+        );
+
+        let key = field.modify(key, |_| {}).unwrap();
+        assert_eq!(
+            field.get(key),
+            Ok(&Block {
+                id: 0,
+                location: [0, 0],
+                variant: 1,
+                tick: Default::default(),
+                data: Some(vec![0; 1024]),
             })
         );
     }
 
     #[test]
     fn modify_block_with_invalid() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1739,16 +1791,18 @@ mod tests {
             .insert(Block {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1766,8 +1820,9 @@ mod tests {
             Ok(&Block {
                 id: 0,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1782,8 +1837,7 @@ mod tests {
 
     #[test]
     fn modify_block_with_move() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1806,8 +1860,9 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1819,8 +1874,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 1000],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1831,8 +1887,7 @@ mod tests {
 
     #[test]
     fn collision_block() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1855,24 +1910,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1899,8 +1957,7 @@ mod tests {
 
     #[test]
     fn hint_block() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1923,24 +1980,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
@@ -1964,8 +2024,7 @@ mod tests {
 
     #[test]
     fn block_chunk() {
-        let mut field = BlockField::new(BlockFieldDescriptor {
-            chunk_size: 16,
+        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1989,24 +2048,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
-                variant: 0,
-                data: (),
+                variant: Default::default(),
+                tick: Default::default(),
+                data: Default::default(),
             })
             .unwrap();
 
