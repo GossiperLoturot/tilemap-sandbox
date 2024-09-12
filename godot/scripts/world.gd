@@ -33,13 +33,9 @@ func _ready():
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
 		[
 			TileImageDescriptor.create(
-				[
-					preload("res://images/surface_dirt.webp"),
-					preload("res://images/surface_grass.webp")
-				] as Array[Image],
-				24,
-				true,
-				false
+				[preload("res://images/surface_dirt.webp")] as Array[Image],
+				0,
+				true
 			)
 		] as Array[TileImageDescriptor],
 		false,
@@ -50,8 +46,7 @@ func _ready():
 			TileImageDescriptor.create(
 				[preload("res://images/surface_grass.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[TileImageDescriptor],
 		false,
@@ -63,13 +58,9 @@ func _ready():
 	block_descriptors[BLOCK_DANDELION] = BlockDescriptor.create(
 		[
 			BlockImageDescriptor.create(
-				[
-					preload("res://images/dandelion.webp"),
-					preload("res://images/fallen_leaves.webp")
-				] as Array[Image],
-				24,
-				true,
-				false
+				[preload("res://images/dandelion.webp")] as Array[Image],
+				0,
+				true
 			)
 		] as Array[BlockImageDescriptor],
 		false,
@@ -83,8 +74,7 @@ func _ready():
 			BlockImageDescriptor.create(
 				[preload("res://images/fallen_leaves.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[BlockImageDescriptor],
 		false,
@@ -98,8 +88,7 @@ func _ready():
 			BlockImageDescriptor.create(
 				[preload("res://images/mix_grass.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[BlockImageDescriptor],
 		true,
@@ -113,8 +102,7 @@ func _ready():
 			BlockImageDescriptor.create(
 				[preload("res://images/mix_pebbles.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[BlockImageDescriptor],
 		false,
@@ -131,8 +119,7 @@ func _ready():
 			EntityImageDescriptor.create(
 				[preload("res://images/player.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
@@ -143,75 +130,75 @@ func _ready():
 	entity_descriptors[ENTITY_PIG] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
+				[preload("res://images/pig.webp")] as Array[Image],
+				0,
+				true
+			),
+			EntityImageDescriptor.create(
 				[
 					preload("res://images/pig.webp"),
 					preload("res://images/cow.webp")
 				] as Array[Image],
 				24,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
 	entity_descriptors[ENTITY_COW] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
 				[preload("res://images/cow.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
 	)
 	entity_descriptors[ENTITY_SHEEP] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
 				[preload("res://images/sheep.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
 	)
 	entity_descriptors[ENTITY_CHICKET] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
 				[preload("res://images/chiken.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
 	)
 	entity_descriptors[ENTITY_BIRD] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
 				[preload("res://images/bird.webp")] as Array[Image],
 				0,
-				true,
-				false
+				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
 	)
 
 	_root = Root.create(
@@ -238,19 +225,19 @@ func _ready():
 
 	var _generator_descriptor = GeneratorDescriptor.create(
 		[
-			GeneratorRuleDescriptor.create_marching(0.5, TILE_GRASS),
-			GeneratorRuleDescriptor.create_marching(1.0, TILE_DIRT)
-		] as Array[GeneratorRuleDescriptor],
+			GeneratorRule.create_marching(0.5, TILE_GRASS),
+			GeneratorRule.create_marching(1.0, TILE_DIRT)
+		] as Array[GeneratorRule],
 		[
-			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_DANDELION),
-			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
-			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_GRASS),
-			GeneratorRuleDescriptor.create_spawn(0.05, BLOCK_MIX_PEBBLES)
-		] as Array[GeneratorRuleDescriptor],
+			GeneratorRule.create_spawn(0.05, BLOCK_DANDELION),
+			GeneratorRule.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
+			GeneratorRule.create_spawn(0.05, BLOCK_MIX_GRASS),
+			GeneratorRule.create_spawn(0.05, BLOCK_MIX_PEBBLES)
+		] as Array[GeneratorRule],
 		[
-			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_COW),
-			GeneratorRuleDescriptor.create_spawn(0.001, ENTITY_PIG)
-		] as Array[GeneratorRuleDescriptor]
+			GeneratorRule.create_spawn(0.001, ENTITY_COW),
+			GeneratorRule.create_spawn(0.001, ENTITY_PIG)
+		] as Array[GeneratorRule]
 	)
 	_root.init_generator(_generator_descriptor)
 

@@ -18,9 +18,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -45,9 +45,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -77,9 +77,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -109,9 +109,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -141,9 +141,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Some(vec![0; 1024]),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Some(vec![0; 1024]),
                         })
                         .unwrap(),
                 );
@@ -185,9 +185,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Block {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -224,9 +224,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Block {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -268,9 +268,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Block {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -312,9 +312,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Block {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -356,9 +356,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Block {
                             id: 0,
                             location: [i as i32, 0],
+                            data: Some(vec![0; 1024]),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Some(vec![0; 1024]),
                         })
                         .unwrap(),
                 );
@@ -398,9 +398,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -435,9 +435,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -477,9 +477,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -519,9 +519,9 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Entity {
                             id: 0,
                             location: [i as f32, 0.0],
+                            data: Default::default(),
                             variant: Default::default(),
                             tick: Default::default(),
-                            data: Default::default(),
                         })
                         .unwrap(),
                 );
@@ -534,6 +534,48 @@ fn benchmark(c: &mut Criterion) {
                         .modify(key, |entity| entity.location[1] += 1.0)
                         .unwrap(),
                 );
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("entity modify with data", |b| {
+        b.iter_custom(|iters| {
+            let mut field: EntityField<Vec<u8>> = EntityField::new(EntityFieldDescriptor {
+                entities: vec![
+                    EntityDescriptor {
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                    EntityDescriptor {
+                        collision_size: [1.0, 1.0],
+                        collision_offset: [0.0, 0.0],
+                        hint_size: [1.0, 1.0],
+                        hint_offset: [0.0, 0.0],
+                    },
+                ],
+            });
+
+            let mut keys = vec![];
+            for i in 0..iters {
+                keys.push(
+                    field
+                        .insert(Entity {
+                            id: 0,
+                            location: [i as f32, 0.0],
+                            data: Some(vec![0; 1024]),
+                            variant: Default::default(),
+                            tick: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for key in keys {
+                black_box(field.modify(key, |tile| tile.location[1] += 1.0).unwrap());
             }
             instance.elapsed()
         });

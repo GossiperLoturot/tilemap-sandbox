@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum EntityDataAnimalState {
     Init,
     WaitStart,
@@ -9,7 +9,7 @@ pub enum EntityDataAnimalState {
     Trip(Vec2),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EntityDataAnimal {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
@@ -19,13 +19,15 @@ pub struct EntityDataAnimal {
     pub state: EntityDataAnimalState,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EntityFeatureAnimal {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
     pub max_distance: f32,
     pub speed: f32,
+    pub idle_variant: u8,
+    pub walk_variant: u8,
 }
 
 impl EntityFeatureTrait for EntityFeatureAnimal {
@@ -59,19 +61,24 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
                 data.state = EntityDataAnimalState::WaitStart;
             }
             EntityDataAnimalState::WaitStart => {
-                data.state = EntityDataAnimalState::WaitStart;
+                entity.variant = Some(self.idle_variant);
+                entity.tick = Some(root.tick_get() as u32);
+
                 let secs = rng.gen_range(data.min_rest_secs..data.max_rest_secs);
                 data.state = EntityDataAnimalState::Wait(secs);
             }
             EntityDataAnimalState::Wait(secs) => {
-                let new_secs = secs - delta_secs;
                 if secs <= 0.0 {
                     data.state = EntityDataAnimalState::TripStart;
                 } else {
+                    let new_secs = secs - delta_secs;
                     data.state = EntityDataAnimalState::Wait(new_secs);
                 }
             }
             EntityDataAnimalState::TripStart => {
+                entity.variant = Some(self.walk_variant);
+                entity.tick = Some(root.tick_get() as u32);
+
                 let angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0);
                 let distance = rng.gen_range(data.min_distance..data.max_distance);
                 let destination = [

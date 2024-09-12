@@ -20,15 +20,21 @@ struct TileKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Tile {
-    id: u16,
-    location: Vector2i,
+    base: inner::Tile<inner::TileData>,
 }
 
 #[godot_api]
 impl Tile {
     #[func]
     fn create(id: u16, location: Vector2i) -> Gd<Self> {
-        Gd::from_object(Tile { id, location })
+        let tile = inner::Tile {
+            id,
+            location: [location.x, location.y],
+            data: Default::default(),
+            variant: Default::default(),
+            tick: Default::default(),
+        };
+        Gd::from_object(Tile { base: tile })
     }
 }
 
@@ -53,23 +59,16 @@ struct TileImageDescriptor {
     frames: Array<Gd<godot::classes::Image>>,
     step_tick: u16,
     is_loop: bool,
-    is_local_tick: bool,
 }
 
 #[godot_api]
 impl TileImageDescriptor {
     #[func]
-    fn create(
-        frames: Array<Gd<godot::classes::Image>>,
-        step_tick: u16,
-        is_loop: bool,
-        is_local_tick: bool,
-    ) -> Gd<Self> {
+    fn create(frames: Array<Gd<godot::classes::Image>>, step_tick: u16, is_loop: bool) -> Gd<Self> {
         Gd::from_object(TileImageDescriptor {
             frames,
             step_tick,
             is_loop,
-            is_local_tick,
         })
     }
 }
@@ -131,15 +130,21 @@ struct BlockKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Block {
-    id: u16,
-    location: Vector2i,
+    base: inner::Block<inner::BlockData>,
 }
 
 #[godot_api]
 impl Block {
     #[func]
     fn create(id: u16, location: Vector2i) -> Gd<Self> {
-        Gd::from_object(Block { id, location })
+        let block = inner::Block {
+            id,
+            location: [location.x, location.y],
+            data: Default::default(),
+            variant: Default::default(),
+            tick: Default::default(),
+        };
+        Gd::from_object(Block { base: block })
     }
 }
 
@@ -164,23 +169,16 @@ struct BlockImageDescriptor {
     frames: Array<Gd<godot::classes::Image>>,
     step_tick: u16,
     is_loop: bool,
-    is_local_tick: bool,
 }
 
 #[godot_api]
 impl BlockImageDescriptor {
     #[func]
-    fn create(
-        frames: Array<Gd<godot::classes::Image>>,
-        step_tick: u16,
-        is_loop: bool,
-        is_local_tick: bool,
-    ) -> Gd<Self> {
+    fn create(frames: Array<Gd<godot::classes::Image>>, step_tick: u16, is_loop: bool) -> Gd<Self> {
         Gd::from_object(BlockImageDescriptor {
             frames,
             step_tick,
             is_loop,
-            is_local_tick,
         })
     }
 }
@@ -257,15 +255,21 @@ struct EntityKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Entity {
-    id: u16,
-    location: Vector2,
+    base: inner::Entity<inner::EntityData>,
 }
 
 #[godot_api]
 impl Entity {
     #[func]
     fn create(id: u16, location: Vector2) -> Gd<Self> {
-        Gd::from_object(Entity { id, location })
+        let entity = inner::Entity {
+            id,
+            location: [location.x, location.y],
+            data: Default::default(),
+            variant: Default::default(),
+            tick: Default::default(),
+        };
+        Gd::from_object(Entity { base: entity })
     }
 }
 
@@ -290,6 +294,8 @@ impl EntityFeature {
         min_distance: f32,
         max_distance: f32,
         speed: f32,
+        idle_variant: u8,
+        walk_variant: u8,
     ) -> Gd<Self> {
         let feature: inner::EntityFeature = inner::EntityFeatureAnimal {
             min_rest_secs,
@@ -297,6 +303,8 @@ impl EntityFeature {
             min_distance,
             max_distance,
             speed,
+            idle_variant,
+            walk_variant,
         }
         .into();
         Gd::from_object(EntityFeature { base: feature })
@@ -309,23 +317,16 @@ struct EntityImageDescriptor {
     frames: Array<Gd<godot::classes::Image>>,
     step_tick: u16,
     is_loop: bool,
-    is_local_tick: bool,
 }
 
 #[godot_api]
 impl EntityImageDescriptor {
     #[func]
-    fn create(
-        frames: Array<Gd<godot::classes::Image>>,
-        step_tick: u16,
-        is_loop: bool,
-        is_local_tick: bool,
-    ) -> Gd<Self> {
+    fn create(frames: Array<Gd<godot::classes::Image>>, step_tick: u16, is_loop: bool) -> Gd<Self> {
         Gd::from_object(EntityImageDescriptor {
             frames,
             step_tick,
             is_loop,
-            is_local_tick,
         })
     }
 }
@@ -392,42 +393,42 @@ impl EntityFieldDescriptor {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct GeneratorRuleDescriptor {
-    base: inner::GeneratorRuleDescriptor,
+struct GeneratorRule {
+    base: inner::GeneratorRule,
 }
 
 #[godot_api]
-impl GeneratorRuleDescriptor {
+impl GeneratorRule {
     #[func]
     fn create_marching(prob: f32, id: u16) -> Gd<Self> {
-        let rule = inner::GeneratorRuleMarchingDescriptor { prob, id };
-        let desc = inner::GeneratorRuleDescriptor::Marching(rule);
-        Gd::from_object(GeneratorRuleDescriptor { base: desc })
+        let rule = inner::GeneratorRuleMarching { prob, id };
+        let desc = inner::GeneratorRule::Marching(rule);
+        Gd::from_object(GeneratorRule { base: desc })
     }
 
     #[func]
     fn create_spawn(prob: f32, id: u16) -> Gd<Self> {
-        let rule = inner::GeneratorRuleSpawnDescriptor { prob, id };
-        let desc = inner::GeneratorRuleDescriptor::Spawn(rule);
-        Gd::from_object(GeneratorRuleDescriptor { base: desc })
+        let rule = inner::GeneratorRuleSpawn { prob, id };
+        let desc = inner::GeneratorRule::Spawn(rule);
+        Gd::from_object(GeneratorRule { base: desc })
     }
 }
 
 #[derive(GodotClass)]
 #[class(no_init)]
 struct GeneratorDescriptor {
-    tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
-    block_rules: Array<Gd<GeneratorRuleDescriptor>>,
-    entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
+    tile_rules: Array<Gd<GeneratorRule>>,
+    block_rules: Array<Gd<GeneratorRule>>,
+    entity_rules: Array<Gd<GeneratorRule>>,
 }
 
 #[godot_api]
 impl GeneratorDescriptor {
     #[func]
     fn create(
-        tile_rules: Array<Gd<GeneratorRuleDescriptor>>,
-        block_rules: Array<Gd<GeneratorRuleDescriptor>>,
-        entity_rules: Array<Gd<GeneratorRuleDescriptor>>,
+        tile_rules: Array<Gd<GeneratorRule>>,
+        block_rules: Array<Gd<GeneratorRule>>,
+        entity_rules: Array<Gd<GeneratorRule>>,
     ) -> Gd<Self> {
         Gd::from_object(GeneratorDescriptor {
             tile_rules,
@@ -577,7 +578,6 @@ impl Root {
                     images.push(tile::TileImageDescriptor {
                         frames,
                         step_tick: image.step_tick,
-                        is_local_tick: image.is_local_tick,
                         is_loop: image.is_loop,
                     });
                 }
@@ -618,7 +618,6 @@ impl Root {
                     images.push(block::BlockImageDescriptor {
                         frames,
                         step_tick: image.step_tick,
-                        is_local_tick: image.is_local_tick,
                         is_loop: image.is_loop,
                     });
                 }
@@ -664,7 +663,6 @@ impl Root {
                     images.push(entity::EntityImageDescriptor {
                         frames,
                         step_tick: image.step_tick,
-                        is_local_tick: image.is_local_tick,
                         is_loop: image.is_loop,
                     });
                 }
@@ -701,67 +699,43 @@ impl Root {
 
     #[func]
     fn tile_insert(&mut self, tile: Gd<Tile>) -> Gd<TileKey> {
-        let tile = tile.bind();
-        let tile = inner::Tile {
-            id: tile.id,
-            location: [tile.location.x, tile.location.y],
-            variant: Default::default(),
-            tick: Default::default(),
-            data: Default::default(),
-        };
-        let key = self.base.tile_insert(tile).unwrap();
+        let tile = &tile.bind().base;
+        let key = self.base.tile_insert(tile.clone()).unwrap();
         Gd::from_object(TileKey { base: key })
     }
 
     #[func]
     fn tile_remove(&mut self, key: Gd<TileKey>) -> Gd<Tile> {
         let tile = self.base.tile_remove(key.bind().base).unwrap();
-        Gd::from_object(Tile {
-            id: tile.id,
-            location: Vector2i::new(tile.location[0], tile.location[1]),
-        })
+        Gd::from_object(Tile { base: tile })
     }
 
     #[func]
     fn tile_get(&self, key: Gd<TileKey>) -> Gd<Tile> {
         let tile = self.base.tile_get(key.bind().base).unwrap();
-        Gd::from_object(Tile {
-            id: tile.id,
-            location: Vector2i::new(tile.location[0], tile.location[1]),
-        })
+        Gd::from_object(Tile { base: tile.clone() })
     }
 
     // block
 
     #[func]
     fn block_insert(&mut self, block: Gd<Block>) -> Gd<BlockKey> {
-        let block = block.bind();
-        let block = inner::Block {
-            id: block.id,
-            location: [block.location.x, block.location.y],
-            variant: Default::default(),
-            tick: Default::default(),
-            data: Default::default(),
-        };
-        let key = self.base.block_insert(block).unwrap();
+        let block = &block.bind().base;
+        let key = self.base.block_insert(block.clone()).unwrap();
         Gd::from_object(BlockKey { base: key })
     }
 
     #[func]
     fn block_remove(&mut self, key: Gd<BlockKey>) -> Gd<Block> {
         let block = self.base.block_remove(key.bind().base).unwrap();
-        Gd::from_object(Block {
-            id: block.id,
-            location: Vector2i::new(block.location[0], block.location[1]),
-        })
+        Gd::from_object(Block { base: block })
     }
 
     #[func]
     fn block_get(&self, key: Gd<BlockKey>) -> Gd<Block> {
         let block = self.base.block_get(key.bind().base).unwrap();
         Gd::from_object(Block {
-            id: block.id,
-            location: Vector2i::new(block.location[0], block.location[1]),
+            base: block.clone(),
         })
     }
 
@@ -769,15 +743,8 @@ impl Root {
 
     #[func]
     fn entity_insert(&mut self, entity: Gd<Entity>) -> Gd<EntityKey> {
-        let entity = entity.bind();
-        let entity = inner::Entity {
-            id: entity.id,
-            location: [entity.location.x, entity.location.y],
-            variant: Default::default(),
-            tick: Default::default(),
-            data: Default::default(),
-        };
-        let key = self.base.entity_insert(entity).unwrap();
+        let entity = &entity.bind().base;
+        let key = self.base.entity_insert(entity.clone()).unwrap();
         Gd::from_object(EntityKey { base: key })
     }
 
@@ -785,8 +752,7 @@ impl Root {
     fn entity_remove(&mut self, key: Gd<EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_remove(key.bind().base).unwrap();
         Gd::from_object(Entity {
-            id: entity.id,
-            location: Vector2::new(entity.location[0], entity.location[1]),
+            base: entity.clone(),
         })
     }
 
@@ -794,8 +760,7 @@ impl Root {
     fn entity_get(&self, key: Gd<EntityKey>) -> Gd<Entity> {
         let entity = self.base.entity_get(key.bind().base).unwrap().clone();
         Gd::from_object(Entity {
-            id: entity.id,
-            location: Vector2::new(entity.location[0], entity.location[1]),
+            base: entity.clone(),
         })
     }
 

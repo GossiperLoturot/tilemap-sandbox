@@ -24,12 +24,11 @@ void vertex() {
 	int end_texcoord_id = head_buffer[INSTANCE_ID].y;
 	int step_tick = head_buffer[INSTANCE_ID].z & 0xFFFF;
 	int is_loop = head_buffer[INSTANCE_ID].z >> 16 & 0x1;
-	int is_local_tick = head_buffer[INSTANCE_ID].z >> 17 & 0x1;
 	int tick_offset = head_buffer[INSTANCE_ID].w;
 
 	int texcoord_id = start_texcoord_id;
 	if (step_tick > 0) {
-		int step_id = (tick - tick_offset * is_local_tick) / step_tick;
+		int step_id = (tick - tick_offset) / step_tick;
 		int step_size = end_texcoord_id - start_texcoord_id;
 
 		if (is_loop != 0) {

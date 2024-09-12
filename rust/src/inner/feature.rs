@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TileFeatureEmpty;
 
 impl TileFeatureTrait for TileFeatureEmpty {
@@ -11,7 +11,7 @@ impl TileFeatureTrait for TileFeatureEmpty {
     fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BlockFeatureEmpty;
 
 impl BlockFeatureTrait for BlockFeatureEmpty {
@@ -22,7 +22,7 @@ impl BlockFeatureTrait for BlockFeatureEmpty {
     fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct EntityFeatureEmpty;
 
 impl EntityFeatureTrait for EntityFeatureEmpty {

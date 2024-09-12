@@ -41,9 +41,9 @@ impl TileProperty {
 pub struct Tile<T> {
     pub id: u16,
     pub location: IVec2,
-    pub variant: u8,
-    pub tick: u64,
     pub data: Option<T>,
+    pub variant: Option<u8>,
+    pub tick: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -182,9 +182,9 @@ impl<T> TileField<T> {
         let mut new_tile = Tile {
             id: tile.id,
             location: tile.location,
+            data: tile.data.take(),
             variant: tile.variant,
             tick: tile.tick,
-            data: tile.data.take(),
         };
         f(&mut new_tile);
 
@@ -367,9 +367,9 @@ impl BlockProperty {
 pub struct Block<T> {
     pub id: u16,
     pub location: IVec2,
-    pub variant: u8,
-    pub tick: u64,
     pub data: Option<T>,
+    pub variant: Option<u8>,
+    pub tick: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -542,9 +542,9 @@ impl<T> BlockField<T> {
         let mut new_block = Block {
             id: block.id,
             location: block.location,
+            data: block.data.take(),
             variant: block.variant,
             tick: block.tick,
-            data: block.data.take(),
         };
         f(&mut new_block);
 
@@ -781,9 +781,9 @@ impl EntityProperty {
 pub struct Entity<T> {
     pub id: u16,
     pub location: Vec2,
-    pub variant: u8,
-    pub tick: u64,
     pub data: Option<T>,
+    pub variant: Option<u8>,
+    pub tick: Option<u32>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -933,9 +933,9 @@ impl<T> EntityField<T> {
         let mut new_entity = Entity {
             id: entity.id,
             location: entity.location,
+            data: entity.data.take(),
             variant: entity.variant,
             tick: entity.tick,
-            data: entity.data.take(),
         };
         f(&mut new_entity);
 
@@ -1087,9 +1087,9 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1098,9 +1098,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1110,9 +1110,9 @@ mod tests {
             Ok(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
 
@@ -1135,9 +1135,9 @@ mod tests {
             field.insert(Tile {
                 id: 2,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1148,18 +1148,18 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         assert_eq!(
             field.insert(Tile {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
@@ -1168,9 +1168,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1190,9 +1190,9 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
@@ -1202,9 +1202,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1212,15 +1212,15 @@ mod tests {
         assert!(field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), Some(key));
 
-        let key = field.modify(key, |tile| tile.variant = 1).unwrap();
+        let key = field.modify(key, |tile| tile.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -1230,9 +1230,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 4],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -1247,21 +1247,21 @@ mod tests {
             .insert(Tile {
                 id: 0,
                 location: [0, 0],
-                variant: 0,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
-        let key = field.modify(key, |tile| tile.variant = 1).unwrap();
+        let key = field.modify(key, |tile| tile.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Tile {
                 id: 0,
                 location: [0, 0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -1271,9 +1271,9 @@ mod tests {
             Ok(&Tile {
                 id: 0,
                 location: [0, 0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -1291,18 +1291,18 @@ mod tests {
             .insert(Tile {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1320,9 +1320,9 @@ mod tests {
             Ok(&Tile {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1348,9 +1348,9 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1362,9 +1362,9 @@ mod tests {
             Ok(&Tile {
                 id: 1,
                 location: [-1, 1000],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1386,27 +1386,27 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 5],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1445,27 +1445,27 @@ mod tests {
             .insert(Tile {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Tile {
                 id: 1,
                 location: [-1, 5],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1543,9 +1543,9 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
@@ -1555,9 +1555,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1567,9 +1567,9 @@ mod tests {
             Ok(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
 
@@ -1606,9 +1606,9 @@ mod tests {
             field.insert(Block {
                 id: 2,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1619,18 +1619,18 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         assert_eq!(
             field.insert(Block {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
@@ -1639,9 +1639,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1673,9 +1673,9 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
@@ -1685,9 +1685,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1695,15 +1695,15 @@ mod tests {
         assert!(field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), Some(key));
 
-        let key = field.modify(key, |block| block.variant = 1).unwrap();
+        let key = field.modify(key, |block| block.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -1713,9 +1713,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 4],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -1736,21 +1736,21 @@ mod tests {
             .insert(Block {
                 id: 0,
                 location: [0, 0],
-                variant: 0,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
-        let key = field.modify(key, |block| block.variant = 1).unwrap();
+        let key = field.modify(key, |block| block.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Block {
                 id: 0,
                 location: [0, 0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -1760,9 +1760,9 @@ mod tests {
             Ok(&Block {
                 id: 0,
                 location: [0, 0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -1792,18 +1792,18 @@ mod tests {
             .insert(Block {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1821,9 +1821,9 @@ mod tests {
             Ok(&Block {
                 id: 0,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(field.has_by_point([-1, 3]));
@@ -1861,9 +1861,9 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1875,9 +1875,9 @@ mod tests {
             Ok(&Block {
                 id: 1,
                 location: [-1, 1000],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert!(!field.has_by_point([-1, 3]));
@@ -1911,27 +1911,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -1981,27 +1981,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2049,27 +2049,27 @@ mod tests {
             .insert(Block {
                 id: 1,
                 location: [-1, 3],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 4],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Block {
                 id: 1,
                 location: [-1, 5],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2129,9 +2129,9 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2140,9 +2140,9 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
         assert_eq!(
@@ -2150,9 +2150,9 @@ mod tests {
             Ok(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
 
@@ -2183,9 +2183,9 @@ mod tests {
             field.insert(Entity {
                 id: 2,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -2214,9 +2214,9 @@ mod tests {
             .insert(Entity {
                 id: 0,
                 location: [-1.0, 3.0],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
@@ -2228,21 +2228,21 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 0,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(0),
+                tick: Default::default(),
             })
         );
 
-        let key = field.modify(key, |entity| entity.variant = 1).unwrap();
+        let key = field.modify(key, |entity| entity.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -2252,9 +2252,9 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [-1.0, 4.0],
-                variant: 1,
-                tick: Default::default(),
                 data: Default::default(),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -2274,21 +2274,21 @@ mod tests {
             .insert(Entity {
                 id: 0,
                 location: [0.0, 0.0],
-                variant: 0,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(0),
+                tick: Default::default(),
             })
             .unwrap();
 
-        let key = field.modify(key, |entity| entity.variant = 1).unwrap();
+        let key = field.modify(key, |entity| entity.variant = Some(1)).unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Entity {
                 id: 0,
                 location: [0.0, 0.0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
 
@@ -2298,9 +2298,9 @@ mod tests {
             Ok(&Entity {
                 id: 0,
                 location: [0.0, 0.0],
-                variant: 1,
-                tick: Default::default(),
                 data: Some(vec![0; 1024]),
+                variant: Some(1),
+                tick: Default::default(),
             })
         );
     }
@@ -2328,9 +2328,9 @@ mod tests {
             .insert(Entity {
                 id: 0,
                 location: [-1.0, 4.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2367,9 +2367,9 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2381,9 +2381,9 @@ mod tests {
             Ok(&Entity {
                 id: 1,
                 location: [-1.0, 1000.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
         );
     }
@@ -2411,27 +2411,27 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2479,27 +2479,27 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let key_1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key_2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 
@@ -2545,27 +2545,27 @@ mod tests {
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 3.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key1 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 4.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
         let _key2 = field
             .insert(Entity {
                 id: 1,
                 location: [-1.0, 5.0],
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             })
             .unwrap();
 

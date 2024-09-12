@@ -1,6 +1,6 @@
 use crate::inner;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Forward;
 
 impl Forward {

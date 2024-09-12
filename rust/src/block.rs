@@ -6,7 +6,6 @@ pub(crate) struct BlockImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
-    pub is_local_tick: bool,
 }
 
 pub(crate) struct BlockDescriptor {
@@ -27,7 +26,6 @@ struct ImageHead {
     end_texcoord_id: u32,
     step_tick: u16,
     is_loop: bool,
-    is_local_tick: bool,
 }
 
 struct BlockProperty {
@@ -108,12 +106,15 @@ impl BlockField {
             let mut sub_image_heads = vec![];
 
             for image in block.images {
+                if image_bodies.len() + image.frames.len() >= i32::MAX as usize {
+                    panic!("number of frame must be less than i32::MAX");
+                }
+
                 sub_image_heads.push(ImageHead {
                     start_texcoord_id: image_bodies.len() as u32,
                     end_texcoord_id: (image_bodies.len() + image.frames.len()) as u32,
                     step_tick: image.step_tick,
                     is_loop: image.is_loop,
-                    is_local_tick: image.is_local_tick,
                 });
 
                 for frame in image.frames {
@@ -174,6 +175,9 @@ impl BlockField {
         );
         free_handles.push(texture_array);
 
+        if atlas.texcoords.len() * 2 > Self::BAKE_TEXTURE_SIZE * Self::BAKE_TEXTURE_SIZE {
+            panic!("number of (frame * 2) must be less than (BAKE_TEXTURE_SIZE ^ 2)");
+        }
         let mut bake_data = vec![0.0; Self::BAKE_TEXTURE_SIZE * Self::BAKE_TEXTURE_SIZE * 4];
         for (i, texcoord) in atlas.texcoords.into_iter().enumerate() {
             let texcoord = texcoord.to_f32();
@@ -392,13 +396,13 @@ impl BlockField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_head = &self.image_heads[block.id as usize][block.variant as usize];
+                let image_head =
+                    &self.image_heads[block.id as usize][block.variant.unwrap_or(0) as usize];
                 head_buffer[i * 4] = image_head.start_texcoord_id as i32;
                 head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
-                head_buffer[i * 4 + 2] = image_head.step_tick as i32
-                    | (image_head.is_loop as i32) << 16
-                    | (image_head.is_local_tick as i32) << 17;
-                head_buffer[i * 4 + 3] = block.tick as i32;
+                head_buffer[i * 4 + 2] =
+                    image_head.step_tick as i32 | (image_head.is_loop as i32) << 16;
+                head_buffer[i * 4 + 3] = block.tick.unwrap_or(0) as i32;
             }
 
             rendering_server.multimesh_set_buffer(

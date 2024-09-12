@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct TickStore {
     tick: u64,
     stack_tick: u64,

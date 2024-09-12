@@ -1,90 +1,37 @@
 use crate::inner;
 
-// generator rule descriptors
-
-#[derive(Clone)]
-pub struct GeneratorRuleMarchingDescriptor {
-    pub prob: f32,
-    pub id: u16,
-}
-
-#[derive(Clone)]
-pub struct GeneratorRuleSpawnDescriptor {
-    pub prob: f32,
-    pub id: u16,
-}
-
-#[derive(Clone)]
-pub enum GeneratorRuleDescriptor {
-    Marching(GeneratorRuleMarchingDescriptor),
-    Spawn(GeneratorRuleSpawnDescriptor),
-}
-
-// generator descriptors
-
-#[derive(Clone)]
-pub struct GeneratorDescriptor {
-    pub tile_rules: Vec<GeneratorRuleDescriptor>,
-    pub block_rules: Vec<GeneratorRuleDescriptor>,
-    pub entity_rules: Vec<GeneratorRuleDescriptor>,
-}
-
 // generator rules
 
-#[derive(Clone)]
-struct GeneratorRuleMarching {
-    prob: f32,
-    id: u16,
+#[derive(Debug, Clone)]
+pub struct GeneratorRuleMarching {
+    pub prob: f32,
+    pub id: u16,
 }
 
-impl GeneratorRuleMarching {
-    pub fn new(desc: GeneratorRuleMarchingDescriptor) -> Self {
-        Self {
-            prob: desc.prob,
-            id: desc.id,
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct GeneratorRuleSpawn {
+    pub prob: f32,
+    pub id: u16,
 }
 
-#[derive(Clone)]
-struct GeneratorRuleSpawn {
-    prob: f32,
-    id: u16,
-}
-
-impl GeneratorRuleSpawn {
-    pub fn new(desc: GeneratorRuleSpawnDescriptor) -> Self {
-        Self {
-            prob: desc.prob,
-            id: desc.id,
-        }
-    }
-}
-
-#[derive(Clone)]
-enum GeneratorRule {
+#[derive(Debug, Clone)]
+pub enum GeneratorRule {
     Marching(GeneratorRuleMarching),
     Spawn(GeneratorRuleSpawn),
 }
 
-impl GeneratorRule {
-    pub fn new(desc: GeneratorRuleDescriptor) -> Self {
-        match desc {
-            GeneratorRuleDescriptor::Marching(desc) => {
-                let rule = GeneratorRuleMarching::new(desc);
-                Self::Marching(rule)
-            }
-            GeneratorRuleDescriptor::Spawn(rule) => {
-                let rule = GeneratorRuleSpawn::new(rule);
-                Self::Spawn(rule)
-            }
-        }
-    }
+// generator descriptors
+
+#[derive(Debug, Clone)]
+pub struct GeneratorDescriptor {
+    pub tile_rules: Vec<GeneratorRule>,
+    pub block_rules: Vec<GeneratorRule>,
+    pub entity_rules: Vec<GeneratorRule>,
 }
 
 // generator
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Generator {
     tile_rules: Vec<GeneratorRule>,
     block_rules: Vec<GeneratorRule>,
@@ -96,25 +43,10 @@ impl Generator {
     const CHUNK_SIZE: u32 = 32;
 
     pub fn init(root: &mut inner::Root, desc: GeneratorDescriptor) {
-        let mut tile_rules = vec![];
-        for rule in desc.tile_rules {
-            tile_rules.push(GeneratorRule::new(rule));
-        }
-
-        let mut block_rules = vec![];
-        for rule in desc.block_rules {
-            block_rules.push(GeneratorRule::new(rule));
-        }
-
-        let mut entity_rules = vec![];
-        for rule in desc.entity_rules {
-            entity_rules.push(GeneratorRule::new(rule));
-        }
-
         let generator = Self {
-            tile_rules,
-            block_rules,
-            entity_rules,
+            tile_rules: desc.tile_rules,
+            block_rules: desc.block_rules,
+            entity_rules: desc.entity_rules,
             visit: ahash::AHashSet::new(),
         };
         root.resource_insert(generator).unwrap();
@@ -202,9 +134,9 @@ impl Generator {
                 let _ = root.tile_insert(inner::Tile {
                     id: rule.id,
                     location,
+                    data: Default::default(),
                     variant: Default::default(),
                     tick: Default::default(),
-                    data: Default::default(),
                 });
             }
         }
@@ -234,9 +166,9 @@ impl Generator {
             let _ = root.tile_insert(inner::Tile {
                 id: rule.id,
                 location,
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             });
         }
     }
@@ -264,9 +196,9 @@ impl Generator {
                 let _ = root.block_insert(inner::Block {
                     id: rule.id,
                     location,
+                    data: Default::default(),
                     variant: Default::default(),
                     tick: Default::default(),
-                    data: Default::default(),
                 });
             }
         }
@@ -296,9 +228,9 @@ impl Generator {
             let _ = root.block_insert(inner::Block {
                 id: rule.id,
                 location,
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             });
         }
     }
@@ -326,9 +258,9 @@ impl Generator {
                 let _ = root.entity_insert(inner::Entity {
                     id: rule.id,
                     location,
+                    data: Default::default(),
                     variant: Default::default(),
                     tick: Default::default(),
-                    data: Default::default(),
                 });
             }
         }
@@ -358,9 +290,9 @@ impl Generator {
             let _ = root.entity_insert(inner::Entity {
                 id: rule.id,
                 location,
+                data: Default::default(),
                 variant: Default::default(),
                 tick: Default::default(),
-                data: Default::default(),
             });
         }
     }

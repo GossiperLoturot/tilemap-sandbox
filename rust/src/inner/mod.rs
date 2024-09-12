@@ -21,13 +21,13 @@ type RcVec<T> = std::rc::Rc<[T]>;
 
 #[enum_dispatch::enum_dispatch(TileFeatureTrait)]
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TileFeature {
     Empty(TileFeatureEmpty),
 }
 
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TileData {}
 
 #[enum_dispatch::enum_dispatch]
@@ -39,13 +39,13 @@ pub trait TileFeatureTrait {
 
 #[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum BlockFeature {
     Empty(BlockFeatureEmpty),
 }
 
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum BlockData {}
 
 #[enum_dispatch::enum_dispatch]
@@ -57,14 +57,14 @@ pub trait BlockFeatureTrait {
 
 #[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum EntityFeature {
     Empty(EntityFeatureEmpty),
     Animal(EntityFeatureAnimal),
 }
 
 #[non_exhaustive]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum EntityData {
     Animal(EntityDataAnimal),
 }
@@ -76,6 +76,7 @@ pub trait EntityFeatureTrait {
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
 }
 
+#[derive(Debug, Clone)]
 pub struct RootDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
@@ -85,6 +86,7 @@ pub struct RootDescriptor {
     pub entity_features: RcVec<EntityFeature>,
 }
 
+#[derive(Debug)]
 pub struct Root {
     tile_field: TileField<TileData>,
     block_field: BlockField<BlockData>,
@@ -113,12 +115,11 @@ impl Root {
 
     // tile
 
-    pub fn tile_insert(&mut self, mut tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        tile.tick = self.tick_store.get();
         let tile_key = self.tile_field.insert(tile)?;
         feature.after_place(self, tile_key);
         Ok(tile_key)
