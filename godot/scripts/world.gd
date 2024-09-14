@@ -20,7 +20,7 @@ const ENTITY_PLAYER: int = 0
 const ENTITY_PIG: int = 1
 const ENTITY_COW: int = 2
 const ENTITY_SHEEP: int = 3
-const ENTITY_CHICKET: int = 4
+const ENTITY_CHICKEN: int = 4
 const ENTITY_BIRD: int = 5
 const ENTITY_ID_SIZE: int = 6
 
@@ -130,16 +130,21 @@ func _ready():
 	entity_descriptors[ENTITY_PIG] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/pig.webp")] as Array[Image],
-				0,
+				[
+					preload("res://images/pig_idle_0.webp"),
+					preload("res://images/pig_idle_1.webp")
+				] as Array[Image],
+				24,
 				true
 			),
 			EntityImageDescriptor.create(
 				[
-					preload("res://images/pig.webp"),
-					preload("res://images/cow.webp")
+					preload("res://images/pig_walk_0.webp"),
+					preload("res://images/pig_idle_1.webp"),
+					preload("res://images/pig_walk_1.webp"),
+					preload("res://images/pig_idle_1.webp")
 				] as Array[Image],
-				24,
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
@@ -151,54 +156,96 @@ func _ready():
 	entity_descriptors[ENTITY_COW] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/cow.webp")] as Array[Image],
-				0,
+				[
+					preload("res://images/cow_idle_0.webp"),
+					preload("res://images/cow_idle_1.webp")
+				] as Array[Image],
+				24,
+				true
+			),
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/cow_walk_0.webp"),
+					preload("res://images/cow_idle_1.webp"),
+					preload("res://images/cow_walk_1.webp"),
+					preload("res://images/cow_idle_1.webp")
+				] as Array[Image],
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
 	entity_descriptors[ENTITY_SHEEP] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/sheep.webp")] as Array[Image],
-				0,
+				[
+					preload("res://images/sheep_idle_0.webp"),
+					preload("res://images/sheep_idle_1.webp")
+				] as Array[Image],
+				24,
+				true
+			),
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/sheep_walk_0.webp"),
+					preload("res://images/sheep_idle_1.webp"),
+					preload("res://images/sheep_walk_1.webp"),
+					preload("res://images/sheep_idle_1.webp")
+				] as Array[Image],
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(2.0, 2.0), Vector2(-1.0, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
-	entity_descriptors[ENTITY_CHICKET] = EntityDescriptor.create(
+	entity_descriptors[ENTITY_CHICKEN] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/chiken.webp")] as Array[Image],
+				[preload("res://images/chiken_idle.webp")] as Array[Image],
 				0,
+				true
+			),
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/chiken_walk.webp"),
+					preload("res://images/chiken_idle.webp")
+				] as Array[Image],
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
 	entity_descriptors[ENTITY_BIRD] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/bird.webp")] as Array[Image],
+				[preload("res://images/bird_idle.webp")] as Array[Image],
 				0,
+				true
+			),
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/bird_walk.webp"),
+					preload("res://images/bird_idle.webp")
+				] as Array[Image],
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
-		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 0)
+		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
 
 	_root = Root.create(
@@ -236,7 +283,10 @@ func _ready():
 		] as Array[GeneratorRule],
 		[
 			GeneratorRule.create_spawn(0.001, ENTITY_COW),
-			GeneratorRule.create_spawn(0.001, ENTITY_PIG)
+			GeneratorRule.create_spawn(0.001, ENTITY_PIG),
+			GeneratorRule.create_spawn(0.001, ENTITY_SHEEP),
+			GeneratorRule.create_spawn(0.001, ENTITY_CHICKEN),
+			GeneratorRule.create_spawn(0.001, ENTITY_BIRD)
 		] as Array[GeneratorRule]
 	)
 	_root.init_generator(_generator_descriptor)

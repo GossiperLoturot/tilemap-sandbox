@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://tlv7b14vqgwm"
+path="res://.godot/imported/bird_walk.webp-c1d9a23f42bd5fe3c05139dff72ac2d8.image"
+
+[deps]
+
+source_file="res://images/bird_walk.webp"
+dest_files=["res://.godot/imported/bird_walk.webp-c1d9a23f42bd5fe3c05139dff72ac2d8.image"]
+
+[params]
+
