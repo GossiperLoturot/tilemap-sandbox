@@ -323,6 +323,11 @@ impl Root {
     // block spatial features
 
     #[inline]
+    pub fn block_get_base_rect(&self, id: u16) -> Result<[[i32; 2]; 2], FieldError> {
+        self.block_field.get_base_rect(id)
+    }
+
+    #[inline]
     pub fn block_get_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], FieldError> {
         self.block_field.get_rect(block_key)
     }
@@ -348,6 +353,11 @@ impl Root {
     }
 
     // block collision features
+
+    #[inline]
+    pub fn block_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        self.block_field.get_base_collision_rect(id)
+    }
 
     #[inline]
     pub fn block_get_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], FieldError> {
@@ -378,6 +388,11 @@ impl Root {
     }
 
     // block hint features
+
+    #[inline]
+    pub fn block_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        self.block_field.get_base_hint_rect(id)
+    }
 
     #[inline]
     pub fn block_get_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], FieldError> {
@@ -497,6 +512,11 @@ impl Root {
     // entity collision features
 
     #[inline]
+    pub fn entity_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        self.entity_field.get_base_collision_rect(id)
+    }
+
+    #[inline]
     pub fn entity_get_collision_rect(
         &self,
         entity_key: EntityKey,
@@ -531,6 +551,11 @@ impl Root {
     }
 
     // entity hint features
+
+    #[inline]
+    pub fn entity_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        self.entity_field.get_base_hint_rect(id)
+    }
 
     #[inline]
     pub fn entity_get_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {

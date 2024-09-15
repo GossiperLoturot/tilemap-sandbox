@@ -608,6 +608,12 @@ impl<T> BlockField<T> {
     // spatial features
 
     #[inline]
+    pub fn get_base_rect(&self, id: u16) -> Result<[IVec2; 2], FieldError> {
+        let prop = self.props.get(id as usize).unwrap();
+        Ok(prop.rect(Default::default()))
+    }
+
+    #[inline]
     pub fn get_rect(&self, key: BlockKey) -> Result<[IVec2; 2], FieldError> {
         let block = self.get(key)?;
         let prop = self.props.get(block.id as usize).unwrap();
@@ -650,6 +656,12 @@ impl<T> BlockField<T> {
     // collision features
 
     #[inline]
+    pub fn get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        let prop = self.props.get(id as usize).unwrap();
+        Ok(prop.collision_rect(Default::default()).unwrap_or_default())
+    }
+
+    #[inline]
     pub fn get_collision_rect(&self, key: BlockKey) -> Result<[Vec2; 2], FieldError> {
         let block = self.get(key)?;
         let prop = self.props.get(block.id as usize).unwrap();
@@ -686,6 +698,12 @@ impl<T> BlockField<T> {
     }
 
     // hint features
+
+    #[inline]
+    pub fn get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        let prop = self.props.get(id as usize).unwrap();
+        Ok(prop.hint_rect(Default::default()).unwrap_or_default())
+    }
 
     #[inline]
     pub fn get_hint_rect(&self, key: BlockKey) -> Result<[Vec2; 2], FieldError> {
@@ -996,6 +1014,12 @@ impl<T> EntityField<T> {
     // collision features
 
     #[inline]
+    pub fn get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        let prop = self.props.get(id as usize).unwrap();
+        Ok(prop.hint_rect(Default::default()).unwrap_or_default())
+    }
+
+    #[inline]
     pub fn get_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
         let entity = self.get(entity_key)?;
         let prop = self.props.get(entity.id as usize).unwrap();
@@ -1032,6 +1056,12 @@ impl<T> EntityField<T> {
     }
 
     // hint features
+
+    #[inline]
+    pub fn get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
+        let prop = self.props.get(id as usize).unwrap();
+        Ok(prop.hint_rect(Default::default()).unwrap_or_default())
+    }
 
     #[inline]
     pub fn get_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
@@ -2234,7 +2264,9 @@ mod tests {
             })
         );
 
-        let key = field.modify(key, |entity| entity.variant = Some(1)).unwrap();
+        let key = field
+            .modify(key, |entity| entity.variant = Some(1))
+            .unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Entity {
@@ -2280,7 +2312,9 @@ mod tests {
             })
             .unwrap();
 
-        let key = field.modify(key, |entity| entity.variant = Some(1)).unwrap();
+        let key = field
+            .modify(key, |entity| entity.variant = Some(1))
+            .unwrap();
         assert_eq!(
             field.get(key),
             Ok(&Entity {
