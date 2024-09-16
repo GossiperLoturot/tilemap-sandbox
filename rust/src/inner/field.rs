@@ -37,31 +37,30 @@ impl TileProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Tile<T> {
+#[derive(Debug, Clone)]
+pub struct Tile {
     pub id: u16,
     pub location: IVec2,
-    pub data: Option<T>,
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub data: Option<TileData>,
+    pub render_param: TileRenderParam,
 }
 
 #[derive(Debug, Clone)]
-pub struct TileChunk<T> {
+pub struct TileChunk {
     pub version: u64,
-    pub tiles: slab::Slab<Tile<T>>,
+    pub tiles: slab::Slab<Tile>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TileField<T> {
+pub struct TileField {
     props: Vec<TileProperty>,
-    chunks: Vec<TileChunk<T>>,
+    chunks: Vec<TileChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     spatial_ref: ahash::AHashMap<IVec2, TileKey>,
     collision_ref: rstar::RTree<RectNode<Vec2, TileKey>>,
 }
 
-impl<T> TileField<T> {
+impl TileField {
     const CHUNK_SIZE: u32 = 32;
 
     pub fn new(desc: TileFieldDescriptor) -> Self {
@@ -81,7 +80,7 @@ impl<T> TileField<T> {
         }
     }
 
-    pub fn insert(&mut self, tile: Tile<T>) -> Result<TileKey, FieldError> {
+    pub fn insert(&mut self, tile: Tile) -> Result<TileKey, FieldError> {
         let prop = self
             .props
             .get(tile.id as usize)
@@ -140,7 +139,7 @@ impl<T> TileField<T> {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: TileKey) -> Result<Tile<T>, FieldError> {
+    pub fn remove(&mut self, key: TileKey) -> Result<Tile, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -168,7 +167,7 @@ impl<T> TileField<T> {
     pub fn modify(
         &mut self,
         key: TileKey,
-        f: impl FnOnce(&mut Tile<T>),
+        f: impl FnOnce(&mut Tile),
     ) -> Result<TileKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -183,8 +182,7 @@ impl<T> TileField<T> {
             id: tile.id,
             location: tile.location,
             data: tile.data.take(),
-            variant: tile.variant,
-            tick: tile.tick,
+            render_param: tile.render_param.clone(),
         };
         f(&mut new_tile);
 
@@ -204,7 +202,7 @@ impl<T> TileField<T> {
             return Ok(key);
         }
 
-        if new_tile.variant != tile.variant || new_tile.tick != tile.tick {
+        if new_tile.render_param != tile.render_param {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.tiles.get_mut(local_key as usize).unwrap() = new_tile;
             chunk.version += 1;
@@ -217,7 +215,7 @@ impl<T> TileField<T> {
         Ok(key)
     }
 
-    pub fn get(&self, key: TileKey) -> Result<&Tile<T>, FieldError> {
+    pub fn get(&self, key: TileKey) -> Result<&Tile, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -234,7 +232,7 @@ impl<T> TileField<T> {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&TileChunk<T>, FieldError> {
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&TileChunk, FieldError> {
         self.chunks
             .get(chunk_key as usize)
             .ok_or(FieldError::NotFound)
@@ -363,32 +361,31 @@ impl BlockProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Block<T> {
+#[derive(Debug, Clone)]
+pub struct Block {
     pub id: u16,
     pub location: IVec2,
-    pub data: Option<T>,
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub data: Option<BlockData>,
+    pub render_param: BlockRenderParam,
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockChunk<T> {
+pub struct BlockChunk {
     pub version: u64,
-    pub blocks: slab::Slab<Block<T>>,
+    pub blocks: slab::Slab<Block>,
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockField<T> {
+pub struct BlockField {
     props: Vec<BlockProperty>,
-    chunks: Vec<BlockChunk<T>>,
+    chunks: Vec<BlockChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     spatial_ref: rstar::RTree<RectNode<IVec2, BlockKey>>,
     collision_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
     hint_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
 }
 
-impl<T> BlockField<T> {
+impl BlockField {
     const CHUNK_SIZE: u32 = 32;
 
     pub fn new(desc: BlockFieldDescriptor) -> Self {
@@ -423,7 +420,7 @@ impl<T> BlockField<T> {
         }
     }
 
-    pub fn insert(&mut self, block: Block<T>) -> Result<BlockKey, FieldError> {
+    pub fn insert(&mut self, block: Block) -> Result<BlockKey, FieldError> {
         let prop = self
             .props
             .get(block.id as usize)
@@ -491,7 +488,7 @@ impl<T> BlockField<T> {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: BlockKey) -> Result<Block<T>, FieldError> {
+    pub fn remove(&mut self, key: BlockKey) -> Result<Block, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -529,7 +526,7 @@ impl<T> BlockField<T> {
     pub fn modify(
         &mut self,
         key: BlockKey,
-        f: impl FnOnce(&mut Block<T>),
+        f: impl FnOnce(&mut Block),
     ) -> Result<BlockKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -543,8 +540,7 @@ impl<T> BlockField<T> {
             id: block.id,
             location: block.location,
             data: block.data.take(),
-            variant: block.variant,
-            tick: block.tick,
+            render_param: block.render_param.clone(),
         };
         f(&mut new_block);
 
@@ -569,7 +565,7 @@ impl<T> BlockField<T> {
             return Ok(key);
         }
 
-        if new_block.variant != block.variant {
+        if new_block.render_param != block.render_param {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.blocks.get_mut(local_key as usize).unwrap() = new_block;
             chunk.version += 1;
@@ -582,7 +578,7 @@ impl<T> BlockField<T> {
         Ok(key)
     }
 
-    pub fn get(&self, key: BlockKey) -> Result<&Block<T>, FieldError> {
+    pub fn get(&self, key: BlockKey) -> Result<&Block, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -599,7 +595,7 @@ impl<T> BlockField<T> {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&BlockChunk<T>, FieldError> {
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&BlockChunk, FieldError> {
         self.chunks
             .get(chunk_key as usize)
             .ok_or(FieldError::NotFound)
@@ -795,31 +791,30 @@ impl EntityProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Entity<T> {
+#[derive(Debug, Clone)]
+pub struct Entity {
     pub id: u16,
     pub location: Vec2,
-    pub data: Option<T>,
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub data: Option<EntityData>,
+    pub render_param: EntityRenderParam,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct EntityChunk<T> {
+pub struct EntityChunk {
     pub version: u64,
-    pub entities: slab::Slab<Entity<T>>,
+    pub entities: slab::Slab<Entity>,
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityField<T> {
+pub struct EntityField {
     props: Vec<EntityProperty>,
-    chunks: Vec<EntityChunk<T>>,
+    chunks: Vec<EntityChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     collision_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
     hint_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
 }
 
-impl<T> EntityField<T> {
+impl EntityField {
     const CHUNK_SIZE: u32 = 32;
 
     pub fn new(desc: EntityFieldDescriptor) -> Self {
@@ -849,7 +844,7 @@ impl<T> EntityField<T> {
         }
     }
 
-    pub fn insert(&mut self, entity: Entity<T>) -> Result<EntityKey, FieldError> {
+    pub fn insert(&mut self, entity: Entity) -> Result<EntityKey, FieldError> {
         let prop = self
             .props
             .get(entity.id as usize)
@@ -906,7 +901,7 @@ impl<T> EntityField<T> {
         Ok((chunk_key, local_key))
     }
 
-    pub fn remove(&mut self, key: EntityKey) -> Result<Entity<T>, FieldError> {
+    pub fn remove(&mut self, key: EntityKey) -> Result<Entity, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
@@ -938,7 +933,7 @@ impl<T> EntityField<T> {
     pub fn modify(
         &mut self,
         key: EntityKey,
-        f: impl FnOnce(&mut Entity<T>),
+        f: impl FnOnce(&mut Entity),
     ) -> Result<EntityKey, FieldError> {
         let (chunk_key, local_key) = key;
 
@@ -952,8 +947,7 @@ impl<T> EntityField<T> {
             id: entity.id,
             location: entity.location,
             data: entity.data.take(),
-            variant: entity.variant,
-            tick: entity.tick,
+            render_param: entity.render_param.clone(),
         };
         f(&mut new_entity);
 
@@ -968,7 +962,7 @@ impl<T> EntityField<T> {
             return Ok(key);
         }
 
-        if new_entity.variant != entity.variant {
+        if new_entity.render_param != entity.render_param {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.entities.get_mut(local_key as usize).unwrap() = new_entity;
             chunk.version += 1;
@@ -981,7 +975,7 @@ impl<T> EntityField<T> {
         Ok(key)
     }
 
-    pub fn get(&self, key: EntityKey) -> Result<&Entity<T>, FieldError> {
+    pub fn get(&self, key: EntityKey) -> Result<&Entity, FieldError> {
         let (chunk_key, local_key) = key;
 
         let chunk = self.chunks.get(chunk_key as usize).unwrap();
@@ -998,7 +992,7 @@ impl<T> EntityField<T> {
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&EntityChunk<T>, FieldError> {
+    pub fn get_chunk(&self, chunk_key: u32) -> Result<&EntityChunk, FieldError> {
         self.chunks
             .get(chunk_key as usize)
             .ok_or(FieldError::NotFound)
@@ -1106,7 +1100,7 @@ mod tests {
 
     #[test]
     fn crud_tile() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1118,43 +1112,30 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
-        assert_eq!(
-            field.remove(key),
-            Ok(Tile {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
 
-        assert_eq!(field.get(key), Err(FieldError::NotFound));
+        let tile = field.remove(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 3]);
+
+        assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
-        assert_eq!(field.remove(key), Err(FieldError::NotFound));
+        assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
     }
 
     #[test]
     fn insert_tile_with_invalid() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1166,8 +1147,7 @@ mod tests {
                 id: 2,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1179,8 +1159,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         assert_eq!(
@@ -1188,28 +1167,22 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
     }
 
     #[test]
     fn modify_tile() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1221,96 +1194,41 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field.modify(key, |tile| tile.location = [-1, 4]).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
-            })
-        );
+
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 4]);
+
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), Some(key));
 
-        let key = field.modify(key, |tile| tile.variant = Some(1)).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-
-        let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-    }
-
-    #[test]
-    fn modify_tile_with_data() {
-        let mut field: TileField<Vec<u8>> = TileField::new(TileFieldDescriptor {
-            tiles: vec![TileDescriptor { collision: true }],
-        });
-
         let key = field
-            .insert(Tile {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(0),
-                tick: Default::default(),
-            })
+            .modify(key, |tile| tile.render_param.variant = Some(1))
             .unwrap();
 
-        let key = field.modify(key, |tile| tile.variant = Some(1)).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 4]);
+        assert_eq!(tile.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 4]);
+        assert_eq!(tile.render_param.variant, Some(1));
     }
 
     #[test]
     fn modify_tile_with_invalid() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1322,8 +1240,7 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -1331,8 +1248,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -1345,29 +1261,24 @@ mod tests {
             field.modify(key_0, |tile| tile.location = [-1, 4]),
             Err(FieldError::Conflict)
         );
-        assert_eq!(
-            field.get(key_0),
-            Ok(&Tile {
-                id: 0,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let tile = field.get(key_0).unwrap();
+        assert_eq!(tile.id, 0);
+        assert_eq!(tile.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         field.remove(key_1).unwrap();
         assert_eq!(field.modify(key_1, |_| {}), Err(FieldError::NotFound));
-        assert_eq!(field.get(key_1), Err(FieldError::NotFound));
+        assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), None);
     }
 
     #[test]
     fn modify_tile_with_move() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1379,24 +1290,18 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
             .modify(key, |tile| tile.location = [-1, 1000])
             .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Tile {
-                id: 1,
-                location: [-1, 1000],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let tile = field.get(key).unwrap();
+        assert_eq!(tile.id, 1);
+        assert_eq!(tile.location, [-1, 1000]);
+
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 1000]));
@@ -1405,7 +1310,7 @@ mod tests {
 
     #[test]
     fn collision_tile() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1417,8 +1322,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -1426,8 +1330,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key_2 = field
@@ -1435,8 +1338,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -1463,7 +1365,7 @@ mod tests {
 
     #[test]
     fn tile_chunk() {
-        let mut field: TileField<()> = TileField::new(TileFieldDescriptor {
+        let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
                 TileDescriptor { collision: true },
                 TileDescriptor { collision: true },
@@ -1476,8 +1378,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key1 = field
@@ -1485,8 +1386,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key2 = field
@@ -1494,8 +1394,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -1509,7 +1408,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn block_field_with_invalid() {
-        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
                 size: [-1, -1],
                 collision_size: [1.0, 1.0],
@@ -1523,7 +1422,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn block_field_with_invalid_collision() {
-        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
                 collision_size: [-1.0, -1.0],
@@ -1537,7 +1436,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn block_field_with_invalid_hint() {
-        let _: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
                 size: [1, 1],
                 collision_size: [1.0, 1.0],
@@ -1550,7 +1449,7 @@ mod tests {
 
     #[test]
     fn crud_block() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1574,46 +1473,33 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
 
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
-        assert_eq!(
-            field.remove(key),
-            Ok(Block {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
 
-        assert_eq!(field.get(key), Err(FieldError::NotFound));
+        let block = field.remove(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 3]);
+
+        assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
-        assert_eq!(field.remove(key), Err(FieldError::NotFound));
+        assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
 
-        assert_eq!(field.get_rect(key), Err(FieldError::NotFound));
+        assert_eq!(field.get_rect(key).unwrap_err(), FieldError::NotFound);
     }
 
     #[test]
     fn insert_block_with_invalid() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1637,8 +1523,7 @@ mod tests {
                 id: 2,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -1650,8 +1535,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         assert_eq!(
@@ -1659,28 +1543,22 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             }),
             Err(FieldError::Conflict)
         );
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key));
     }
 
     #[test]
     fn modify_block() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1704,102 +1582,41 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field.modify(key, |block| block.location = [-1, 4]).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
-            })
-        );
+
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 4]);
+
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), Some(key));
 
-        let key = field.modify(key, |block| block.variant = Some(1)).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-
-        let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 4],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-    }
-
-    #[test]
-    fn modify_block_with_data() {
-        let mut field: BlockField<Vec<u8>> = BlockField::new(BlockFieldDescriptor {
-            blocks: vec![BlockDescriptor {
-                size: [1, 1],
-                collision_size: [1.0, 1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [1.0, 1.0],
-                hint_offset: [0.0, 0.0],
-            }],
-        });
-
         let key = field
-            .insert(Block {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(0),
-                tick: Default::default(),
-            })
+            .modify(key, |block| block.render_param.variant = Some(1))
             .unwrap();
 
-        let key = field.modify(key, |block| block.variant = Some(1)).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 4]);
+        assert_eq!(block.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 0,
-                location: [0, 0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 4]);
+        assert_eq!(block.render_param.variant, Some(1));
     }
 
     #[test]
     fn modify_block_with_invalid() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1823,8 +1640,7 @@ mod tests {
                 id: 0,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -1832,8 +1648,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -1846,29 +1661,26 @@ mod tests {
             field.modify(key_0, |block| block.location = [-1, 4]),
             Err(FieldError::Conflict)
         );
-        assert_eq!(
-            field.get(key_0),
-            Ok(&Block {
-                id: 0,
-                location: [-1, 3],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let block = field.get(key_0).unwrap();
+        assert_eq!(block.id, 0);
+        assert_eq!(block.location, [-1, 3]);
+
         assert!(field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
 
         field.remove(key_1).unwrap();
+
         assert_eq!(field.modify(key_1, |_| {}), Err(FieldError::NotFound));
-        assert_eq!(field.get(key_1), Err(FieldError::NotFound));
+
+        assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point([-1, 4]));
         assert_eq!(field.get_by_point([-1, 4]), None);
     }
 
     #[test]
     fn modify_block_with_move() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1892,24 +1704,18 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
             .modify(key, |block| block.location = [-1, 1000])
             .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Block {
-                id: 1,
-                location: [-1, 1000],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let block = field.get(key).unwrap();
+        assert_eq!(block.id, 1);
+        assert_eq!(block.location, [-1, 1000]);
+
         assert!(!field.has_by_point([-1, 3]));
         assert_eq!(field.get_by_point([-1, 3]), None);
         assert!(field.has_by_point([-1, 1000]));
@@ -1918,7 +1724,7 @@ mod tests {
 
     #[test]
     fn collision_block() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -1942,8 +1748,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -1951,8 +1756,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key_2 = field
@@ -1960,8 +1764,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -1988,7 +1791,7 @@ mod tests {
 
     #[test]
     fn hint_block() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -2012,8 +1815,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -2021,8 +1823,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key_2 = field
@@ -2030,8 +1831,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -2055,7 +1855,7 @@ mod tests {
 
     #[test]
     fn block_chunk() {
-        let mut field: BlockField<()> = BlockField::new(BlockFieldDescriptor {
+        let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
                     size: [1, 1],
@@ -2080,8 +1880,7 @@ mod tests {
                 id: 1,
                 location: [-1, 3],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key1 = field
@@ -2089,8 +1888,7 @@ mod tests {
                 id: 1,
                 location: [-1, 4],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key2 = field
@@ -2098,8 +1896,7 @@ mod tests {
                 id: 1,
                 location: [-1, 5],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -2113,7 +1910,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn entity_field_with_invalid_collision() {
-        let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
                 collision_size: [-1.0, -1.0],
                 collision_offset: [0.0, 0.0],
@@ -2126,7 +1923,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn entity_field_with_invalid_hint() {
-        let _: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
                 collision_size: [1.0, 1.0],
                 collision_offset: [0.0, 0.0],
@@ -2138,7 +1935,7 @@ mod tests {
 
     #[test]
     fn crud_entity() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2160,39 +1957,25 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 1,
-                location: [-1.0, 3.0],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
-        assert_eq!(
-            field.remove(key),
-            Ok(Entity {
-                id: 1,
-                location: [-1.0, 3.0],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+        let entity = field.get(key).unwrap();
+        assert_eq!(entity.id, 1);
+        assert_eq!(entity.location, [-1.0, 3.0]);
 
-        assert_eq!(field.get(key), Err(FieldError::NotFound));
-        assert_eq!(field.remove(key), Err(FieldError::NotFound));
+        let entity = field.remove(key).unwrap();
+        assert_eq!(entity.id, 1);
+        assert_eq!(entity.location, [-1.0, 3.0]);
+
+        assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
+        assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
     }
 
     #[test]
     fn insert_entity_with_invalid() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2214,8 +1997,7 @@ mod tests {
                 id: 2,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
@@ -2223,7 +2005,7 @@ mod tests {
 
     #[test]
     fn modify_entity() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2245,103 +2027,38 @@ mod tests {
                 id: 0,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
             .modify(key, |entity| entity.location = [-1.0, 4.0])
             .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 0,
-                location: [-1.0, 4.0],
-                data: Default::default(),
-                variant: Some(0),
-                tick: Default::default(),
-            })
-        );
+
+        let entity = field.get(key).unwrap();
+        assert_eq!(entity.id, 0);
+        assert_eq!(entity.location, [-1.0, 4.0]);
 
         let key = field
-            .modify(key, |entity| entity.variant = Some(1))
+            .modify(key, |entity| entity.render_param.variant = Some(1))
             .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 0,
-                location: [-1.0, 4.0],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+
+        let entity = field.get(key).unwrap();
+        assert_eq!(entity.id, 0);
+        assert_eq!(entity.location, [-1.0, 4.0]);
+        assert_eq!(entity.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 0,
-                location: [-1.0, 4.0],
-                data: Default::default(),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-    }
 
-    #[test]
-    fn modify_entity_with_data() {
-        let mut field: EntityField<Vec<u8>> = EntityField::new(EntityFieldDescriptor {
-            entities: vec![EntityDescriptor {
-                collision_size: [1.0, 1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [1.0, 1.0],
-                hint_offset: [0.0, 0.0],
-            }],
-        });
-
-        let key = field
-            .insert(Entity {
-                id: 0,
-                location: [0.0, 0.0],
-                data: Some(vec![0; 1024]),
-                variant: Some(0),
-                tick: Default::default(),
-            })
-            .unwrap();
-
-        let key = field
-            .modify(key, |entity| entity.variant = Some(1))
-            .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 0,
-                location: [0.0, 0.0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
-
-        let key = field.modify(key, |_| {}).unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 0,
-                location: [0.0, 0.0],
-                data: Some(vec![0; 1024]),
-                variant: Some(1),
-                tick: Default::default(),
-            })
-        );
+        let entity = field.get(key).unwrap();
+        assert_eq!(entity.id, 0);
+        assert_eq!(entity.location, [-1.0, 4.0]);
+        assert_eq!(entity.render_param.variant, Some(1));
     }
 
     #[test]
     fn modify_entity_with_invalid() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2363,8 +2080,7 @@ mod tests {
                 id: 0,
                 location: [-1.0, 4.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -2375,12 +2091,12 @@ mod tests {
 
         field.remove(key).unwrap();
         assert_eq!(field.modify(key, |_| {}), Err(FieldError::NotFound));
-        assert_eq!(field.get(key), Err(FieldError::NotFound));
+        assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
     }
 
     #[test]
     fn modify_entity_with_move() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2402,29 +2118,22 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
             .modify(key, |tile| tile.location = [-1.0, 1000.0])
             .unwrap();
-        assert_eq!(
-            field.get(key),
-            Ok(&Entity {
-                id: 1,
-                location: [-1.0, 1000.0],
-                data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
-            })
-        );
+
+        let entity = field.get(key).unwrap();
+        assert_eq!(entity.id, 1);
+        assert_eq!(entity.location, [-1.0, 1000.0]);
     }
 
     #[test]
     fn collision_entity() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2446,8 +2155,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -2455,8 +2163,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key_2 = field
@@ -2464,8 +2171,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -2492,7 +2198,7 @@ mod tests {
 
     #[test]
     fn hint_entity() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2514,8 +2220,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let key_1 = field
@@ -2523,8 +2228,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key_2 = field
@@ -2532,8 +2236,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 
@@ -2557,7 +2260,7 @@ mod tests {
 
     #[test]
     fn entity_chunk() {
-        let mut field: EntityField<()> = EntityField::new(EntityFieldDescriptor {
+        let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
                     collision_size: [1.0, 1.0],
@@ -2580,8 +2283,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 3.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key1 = field
@@ -2589,8 +2291,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 4.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
         let _key2 = field
@@ -2598,8 +2299,7 @@ mod tests {
                 id: 1,
                 location: [-1.0, 5.0],
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             })
             .unwrap();
 

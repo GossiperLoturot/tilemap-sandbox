@@ -20,7 +20,7 @@ struct TileKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Tile {
-    base: inner::Tile<inner::TileData>,
+    base: inner::Tile,
 }
 
 #[godot_api]
@@ -31,8 +31,7 @@ impl Tile {
             id,
             location: [location.x, location.y],
             data: Default::default(),
-            variant: Default::default(),
-            tick: Default::default(),
+            render_param: Default::default(),
         };
         Gd::from_object(Tile { base: tile })
     }
@@ -130,7 +129,7 @@ struct BlockKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Block {
-    base: inner::Block<inner::BlockData>,
+    base: inner::Block,
 }
 
 #[godot_api]
@@ -141,8 +140,7 @@ impl Block {
             id,
             location: [location.x, location.y],
             data: Default::default(),
-            variant: Default::default(),
-            tick: Default::default(),
+            render_param: Default::default(),
         };
         Gd::from_object(Block { base: block })
     }
@@ -255,7 +253,7 @@ struct EntityKey {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Entity {
-    base: inner::Entity<inner::EntityData>,
+    base: inner::Entity,
 }
 
 #[godot_api]
@@ -266,8 +264,7 @@ impl Entity {
             id,
             location: [location.x, location.y],
             data: Default::default(),
-            variant: Default::default(),
-            tick: Default::default(),
+            render_param: Default::default(),
         };
         Gd::from_object(Entity { base: entity })
     }

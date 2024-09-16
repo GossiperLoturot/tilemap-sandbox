@@ -135,8 +135,7 @@ impl Generator {
                     id: rule.id,
                     location,
                     data: Default::default(),
-                    variant: Default::default(),
-                    tick: Default::default(),
+                    render_param: Default::default(),
                 });
             }
         }
@@ -167,8 +166,7 @@ impl Generator {
                 id: rule.id,
                 location,
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             });
         }
     }
@@ -197,8 +195,7 @@ impl Generator {
                     id: rule.id,
                     location,
                     data: Default::default(),
-                    variant: Default::default(),
-                    tick: Default::default(),
+                    render_param: Default::default(),
                 });
             }
         }
@@ -229,8 +226,7 @@ impl Generator {
                 id: rule.id,
                 location,
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             });
         }
     }
@@ -259,8 +255,7 @@ impl Generator {
                     id: rule.id,
                     location,
                     data: Default::default(),
-                    variant: Default::default(),
-                    tick: Default::default(),
+                    render_param: Default::default(),
                 });
             }
         }
@@ -291,8 +286,7 @@ impl Generator {
                 id: rule.id,
                 location,
                 data: Default::default(),
-                variant: Default::default(),
-                tick: Default::default(),
+                render_param: Default::default(),
             });
         }
     }

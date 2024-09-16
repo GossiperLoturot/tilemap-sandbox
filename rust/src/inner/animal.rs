@@ -61,8 +61,8 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
                 data.state = EntityDataAnimalState::WaitStart;
             }
             EntityDataAnimalState::WaitStart => {
-                entity.variant = Some(self.idle_variant);
-                entity.tick = Some(root.tick_get() as u32);
+                entity.render_param.variant = Some(self.idle_variant);
+                entity.render_param.tick = Some(root.tick_get() as u32);
 
                 let secs = rng.gen_range(data.min_rest_secs..data.max_rest_secs);
                 data.state = EntityDataAnimalState::Wait(secs);
@@ -76,8 +76,8 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
                 }
             }
             EntityDataAnimalState::TripStart => {
-                entity.variant = Some(self.walk_variant);
-                entity.tick = Some(root.tick_get() as u32);
+                entity.render_param.variant = Some(self.walk_variant);
+                entity.render_param.tick = Some(root.tick_get() as u32);
 
                 let angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0);
                 let distance = rng.gen_range(data.min_distance..data.max_distance);

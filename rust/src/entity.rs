@@ -398,13 +398,13 @@ impl EntityField {
                 instance_buffer[i * 12 + 10] = z_scale;
                 instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_head =
-                    &self.image_heads[entity.id as usize][entity.variant.unwrap_or(0) as usize];
+                let image_head = &self.image_heads[entity.id as usize]
+                    [entity.render_param.variant.unwrap_or(0) as usize];
                 head_buffer[i * 4] = image_head.start_texcoord_id as i32;
                 head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
                 head_buffer[i * 4 + 2] =
                     image_head.step_tick as i32 | (image_head.is_loop as i32) << 16;
-                head_buffer[i * 4 + 3] = entity.tick.unwrap_or(0) as i32;
+                head_buffer[i * 4 + 3] = entity.render_param.tick.unwrap_or(0) as i32;
             }
 
             rendering_server.multimesh_set_buffer(

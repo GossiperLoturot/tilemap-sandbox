@@ -19,63 +19,6 @@ pub type IVec2 = [i32; 2];
 
 type RcVec<T> = std::rc::Rc<[T]>;
 
-#[enum_dispatch::enum_dispatch(TileFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum TileFeature {
-    Empty(TileFeatureEmpty),
-}
-
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum TileData {}
-
-#[enum_dispatch::enum_dispatch]
-pub trait TileFeatureTrait {
-    fn after_place(&self, root: &mut Root, key: TileKey);
-    fn before_break(&self, root: &mut Root, key: TileKey);
-    fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
-}
-
-#[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum BlockFeature {
-    Empty(BlockFeatureEmpty),
-}
-
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum BlockData {}
-
-#[enum_dispatch::enum_dispatch]
-pub trait BlockFeatureTrait {
-    fn after_place(&self, root: &mut Root, key: BlockKey);
-    fn before_break(&self, root: &mut Root, key: BlockKey);
-    fn forward(&self, root: &mut Root, key: BlockKey, delta_secs: f32);
-}
-
-#[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum EntityFeature {
-    Empty(EntityFeatureEmpty),
-    Animal(EntityFeatureAnimal),
-}
-
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum EntityData {
-    Animal(EntityDataAnimal),
-}
-
-#[enum_dispatch::enum_dispatch]
-pub trait EntityFeatureTrait {
-    fn after_place(&self, root: &mut Root, key: TileKey);
-    fn before_break(&self, root: &mut Root, key: TileKey);
-    fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
-}
-
 #[derive(Debug, Clone)]
 pub struct RootDescriptor {
     pub tile_field: TileFieldDescriptor,
@@ -88,9 +31,9 @@ pub struct RootDescriptor {
 
 #[derive(Debug)]
 pub struct Root {
-    tile_field: TileField<TileData>,
-    block_field: BlockField<BlockData>,
-    entity_field: EntityField<EntityData>,
+    tile_field: TileField,
+    block_field: BlockField,
+    entity_field: EntityField,
     tile_features: RcVec<TileFeature>,
     block_features: RcVec<BlockFeature>,
     entity_features: RcVec<EntityFeature>,
@@ -115,7 +58,7 @@ impl Root {
 
     // tile
 
-    pub fn tile_insert(&mut self, tile: field::Tile<TileData>) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, FieldError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
@@ -125,7 +68,7 @@ impl Root {
         Ok(tile_key)
     }
 
-    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile<TileData>, FieldError> {
+    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, FieldError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
@@ -139,13 +82,13 @@ impl Root {
     pub fn tile_modify(
         &mut self,
         tile_key: TileKey,
-        f: impl FnOnce(&mut field::Tile<TileData>),
+        f: impl FnOnce(&mut field::Tile),
     ) -> Result<field::TileKey, FieldError> {
         self.tile_field.modify(tile_key, f)
     }
 
     #[inline]
-    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile<TileData>, FieldError> {
+    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile, FieldError> {
         self.tile_field.get(tile_key)
     }
 
@@ -154,10 +97,7 @@ impl Root {
         self.tile_field.get_chunk_size()
     }
 
-    pub fn tile_get_chunk(
-        &self,
-        chunk_location: IVec2,
-    ) -> Result<&field::TileChunk<TileData>, FieldError> {
+    pub fn tile_get_chunk(&self, chunk_location: IVec2) -> Result<&field::TileChunk, FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -238,7 +178,7 @@ impl Root {
 
     // block
 
-    pub fn block_insert(&mut self, block: field::Block<BlockData>) -> Result<BlockKey, FieldError> {
+    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
@@ -248,10 +188,7 @@ impl Root {
         Ok(block_key)
     }
 
-    pub fn block_remove(
-        &mut self,
-        block_key: BlockKey,
-    ) -> Result<field::Block<BlockData>, FieldError> {
+    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, FieldError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
@@ -265,13 +202,13 @@ impl Root {
     pub fn block_modify(
         &mut self,
         block_key: BlockKey,
-        f: impl FnOnce(&mut field::Block<BlockData>),
+        f: impl FnOnce(&mut field::Block),
     ) -> Result<field::BlockKey, FieldError> {
         self.block_field.modify(block_key, f)
     }
 
     #[inline]
-    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block<BlockData>, FieldError> {
+    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block, FieldError> {
         self.block_field.get(block_key)
     }
 
@@ -280,10 +217,7 @@ impl Root {
         self.block_field.get_chunk_size()
     }
 
-    pub fn block_get_chunk(
-        &self,
-        chunk_location: IVec2,
-    ) -> Result<&field::BlockChunk<BlockData>, FieldError> {
+    pub fn block_get_chunk(&self, chunk_location: IVec2) -> Result<&field::BlockChunk, FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -421,10 +355,7 @@ impl Root {
 
     // entity
 
-    pub fn entity_insert(
-        &mut self,
-        entity: field::Entity<EntityData>,
-    ) -> Result<EntityKey, FieldError> {
+    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
         let features = self.entity_features.clone();
         let feature = features
             .get(entity.id as usize)
@@ -434,10 +365,7 @@ impl Root {
         Ok(entity_key)
     }
 
-    pub fn entity_remove(
-        &mut self,
-        entity_key: EntityKey,
-    ) -> Result<field::Entity<EntityData>, FieldError> {
+    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, FieldError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
@@ -451,16 +379,13 @@ impl Root {
     pub fn entity_modify(
         &mut self,
         entity_key: EntityKey,
-        f: impl FnOnce(&mut field::Entity<EntityData>),
+        f: impl FnOnce(&mut field::Entity),
     ) -> Result<field::EntityKey, FieldError> {
         self.entity_field.modify(entity_key, f)
     }
 
     #[inline]
-    pub fn entity_get(
-        &self,
-        entity_key: EntityKey,
-    ) -> Result<&field::Entity<EntityData>, FieldError> {
+    pub fn entity_get(&self, entity_key: EntityKey) -> Result<&field::Entity, FieldError> {
         self.entity_field.get(entity_key)
     }
 
@@ -469,10 +394,7 @@ impl Root {
         self.entity_field.get_chunk_size()
     }
 
-    pub fn entity_get_chunk(
-        &self,
-        chunk_key: IVec2,
-    ) -> Result<&field::EntityChunk<EntityData>, FieldError> {
+    pub fn entity_get_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, FieldError> {
         let chunk_key = self
             .entity_field
             .get_by_chunk_location(chunk_key)
