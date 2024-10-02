@@ -8,14 +8,22 @@ class_name Player
 @export var forward_size: float
 @export var view_size_over: float
 
-var _location: Vector2
 var _scroll: float
 var _interpolated_scroll: float
 
 
+func _ready():
+	world._root.resource_init_player()
+
+	var entity = Entity.create(world.ENTITY_PLAYER, Vector2())
+	world._root.entity_insert(entity)
+
+
 func _process(delta):
 	var input = Input.get_vector("left", "right", "down", "up")
-	_location = _location + input * speed * delta
+	world._root.resource_set_input_move(input * speed)
+
+	var location = Vector2()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))
@@ -29,26 +37,26 @@ func _process(delta):
 		camera.keep_aspect = Camera3D.KEEP_WIDTH
 	else:
 		camera.keep_aspect = Camera3D.KEEP_HEIGHT
-	camera.transform.origin.x = _location.x
-	camera.transform.origin.y = _location.y
+	camera.transform.origin.x = location.x
+	camera.transform.origin.y = location.y
 
 	var view_size = camera.size * 0.5 + view_size_over
 
 	world.min_forward_rect = Rect2(
-		_location.x - forward_size,
-		_location.y - forward_size,
+		location.x - forward_size,
+		location.y - forward_size,
 		forward_size * 2,
 		forward_size * 2
 	)
 	world.min_generate_rect = Rect2(
-		_location.x - view_size,
-		_location.y - view_size,
+		location.x - view_size,
+		location.y - view_size,
 		view_size * 2,
 		view_size * 2
 	)
 	world.min_view_rect = Rect2(
-		_location.x - view_size,
-		_location.y - view_size,
+		location.x - view_size,
+		location.y - view_size,
 		view_size * 2,
 		view_size * 2
 	)

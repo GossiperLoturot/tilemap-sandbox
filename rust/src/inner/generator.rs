@@ -23,7 +23,7 @@ pub enum GeneratorRule {
 // generator descriptors
 
 #[derive(Debug, Clone)]
-pub struct GeneratorDescriptor {
+pub struct GeneratorResourceDescriptor {
     pub tile_rules: Vec<GeneratorRule>,
     pub block_rules: Vec<GeneratorRule>,
     pub entity_rules: Vec<GeneratorRule>,
@@ -32,28 +32,28 @@ pub struct GeneratorDescriptor {
 // generator
 
 #[derive(Debug, Clone)]
-pub struct Generator {
+pub struct GeneratorResouurce {
     tile_rules: Vec<GeneratorRule>,
     block_rules: Vec<GeneratorRule>,
     entity_rules: Vec<GeneratorRule>,
     visit: ahash::AHashSet<inner::IVec2>,
 }
 
-impl Generator {
+impl GeneratorResouurce {
     const CHUNK_SIZE: u32 = 32;
 
-    pub fn init(root: &mut inner::Root, desc: GeneratorDescriptor) {
-        let generator = Self {
+    pub fn init(root: &mut inner::Root, desc: GeneratorResourceDescriptor) {
+        let slf = Self {
             tile_rules: desc.tile_rules,
             block_rules: desc.block_rules,
             entity_rules: desc.entity_rules,
             visit: ahash::AHashSet::new(),
         };
-        root.resource_insert(generator).unwrap();
+        root.resource_insert(slf).unwrap();
     }
 
     pub fn generate_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
-        let mut slf = root.resource_remove::<Generator>().unwrap();
+        let mut slf = root.resource_remove::<Self>().unwrap();
 
         #[rustfmt::skip]
         let min_rect = [[

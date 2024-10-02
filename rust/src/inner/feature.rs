@@ -97,6 +97,7 @@ pub trait EntityFeatureTrait {
 pub enum EntityFeature {
     Empty(EntityFeatureEmpty),
     Animal(EntityFeatureAnimal),
+    Player(EntityFeaturePlayer),
 }
 
 #[derive(Debug, Clone)]

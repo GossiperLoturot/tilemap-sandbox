@@ -117,15 +117,28 @@ func _ready():
 	entity_descriptors[ENTITY_PLAYER] = EntityDescriptor.create(
 		[
 			EntityImageDescriptor.create(
-				[preload("res://images/player.webp")] as Array[Image],
-				0,
+				[
+					preload("res://images/player_idle_0.webp"),
+					preload("res://images/player_idle_1.webp")
+				] as Array[Image],
+				24,
+				true
+			),
+			EntityImageDescriptor.create(
+				[
+					preload("res://images/player_walk_0.webp"),
+					preload("res://images/player_idle_1.webp"),
+					preload("res://images/player_walk_1.webp"),
+					preload("res://images/player_idle_1.webp")
+				] as Array[Image],
+				12,
 				true
 			)
 		] as Array[EntityImageDescriptor],
 		true,
 		Vector2(0.8, 0.8), Vector2(-0.4, 0.1),
-		Vector2(1.5, 2.5), Vector2(-0.75, 0.0),
-		EntityFeature.create_empty()
+		Vector2(1.5, 2.25), Vector2(-0.75, 0.0),
+		EntityFeature.create_player()
 	)
 	entity_descriptors[ENTITY_PIG] = EntityDescriptor.create(
 		[
@@ -268,9 +281,9 @@ func _ready():
 		)
 	)
 
-	_root.init_forward()
+	_root.resource_init_forward()
 
-	var _generator_descriptor = GeneratorDescriptor.create(
+	var generator_resource_descriptor = GeneratorResourceDescriptor.create(
 		[
 			GeneratorRule.create_marching(0.5, TILE_GRASS),
 			GeneratorRule.create_marching(1.0, TILE_DIRT)
@@ -289,14 +302,14 @@ func _ready():
 			GeneratorRule.create_spawn(0.001, ENTITY_BIRD)
 		] as Array[GeneratorRule]
 	)
-	_root.init_generator(_generator_descriptor)
+	_root.resource_init_generator(generator_resource_descriptor)
 
 
 func _process(delta_secs):
 	# logic
-	_root.forward_rect(min_forward_rect, delta_secs)
+	_root.resource_forward_rect(min_forward_rect, delta_secs)
 
-	_root.generate_rect(min_generate_rect)
+	_root.resource_generate_rect(min_generate_rect)
 
 	_root.tick_forward(delta_secs)
 

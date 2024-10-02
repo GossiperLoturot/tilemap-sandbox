@@ -3,6 +3,7 @@ pub use feature::*;
 pub use field::*;
 pub use forward::*;
 pub use generator::*;
+pub use player::*;
 pub use resource::*;
 pub use tick::*;
 
@@ -11,6 +12,7 @@ mod feature;
 mod field;
 mod forward;
 mod generator;
+mod player;
 mod resource;
 mod tick;
 
@@ -504,6 +506,23 @@ impl Root {
         self.entity_field.get_by_hint_rect(rect)
     }
 
+    // tick
+
+    #[inline]
+    pub fn tick_per_secs(&self) -> u64 {
+        self.tick_store.per_secs()
+    }
+
+    #[inline]
+    pub fn tick_get(&self) -> u64 {
+        self.tick_store.get()
+    }
+
+    #[inline]
+    pub fn tick_forward(&mut self, delta_secs: f32) {
+        self.tick_store.forward(delta_secs);
+    }
+
     // resource
 
     #[inline]
@@ -531,43 +550,36 @@ impl Root {
         self.resource_store.get_mut::<R>()
     }
 
-    // tick
-
-    #[inline]
-    pub fn tick_per_secs(&self) -> u64 {
-        self.tick_store.per_secs()
-    }
-
-    #[inline]
-    pub fn tick_get(&self) -> u64 {
-        self.tick_store.get()
-    }
-
-    #[inline]
-    pub fn tick_forward(&mut self, delta_secs: f32) {
-        self.tick_store.forward(delta_secs);
-    }
-
     // extra
 
     #[inline]
-    pub fn init_forward(&mut self) {
-        Forward::init(self);
+    pub fn resource_init_forward(&mut self) {
+        ForwardResource::init(self);
     }
 
     #[inline]
-    pub fn forward_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
-        Forward::forward_rect(self, min_rect, delta_secs);
+    pub fn resource_forward_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
+        ForwardResource::forward_rect(self, min_rect, delta_secs);
     }
 
     #[inline]
-    pub fn init_generator(&mut self, desc: GeneratorDescriptor) {
-        Generator::init(self, desc);
+    pub fn resource_init_generator(&mut self, desc: GeneratorResourceDescriptor) {
+        GeneratorResouurce::init(self, desc);
     }
 
     #[inline]
-    pub fn generate_rect(&mut self, min_rect: [Vec2; 2]) {
-        Generator::generate_rect(self, min_rect);
+    pub fn resource_generate_rect(&mut self, min_rect: [Vec2; 2]) {
+        GeneratorResouurce::generate_rect(self, min_rect);
+    }
+
+    #[inline]
+    pub fn resource_init_player(&mut self) {
+        PlayerResource::init(self);
+    }
+
+    #[inline]
+    pub fn resource_set_input_move(&mut self, move_input: Vec2) {
+        PlayerResource::set_input_move(self, move_input);
     }
 }
 

@@ -306,6 +306,12 @@ impl EntityFeature {
         .into();
         Gd::from_object(EntityFeature { base: feature })
     }
+
+    #[func]
+    fn create_player() -> Gd<Self> {
+        let feature: inner::EntityFeature = inner::EntityFeaturePlayer.into();
+        Gd::from_object(EntityFeature { base: feature })
+    }
 }
 
 #[derive(GodotClass)]
@@ -413,21 +419,21 @@ impl GeneratorRule {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct GeneratorDescriptor {
+struct GeneratorResourceDescriptor {
     tile_rules: Array<Gd<GeneratorRule>>,
     block_rules: Array<Gd<GeneratorRule>>,
     entity_rules: Array<Gd<GeneratorRule>>,
 }
 
 #[godot_api]
-impl GeneratorDescriptor {
+impl GeneratorResourceDescriptor {
     #[func]
     fn create(
         tile_rules: Array<Gd<GeneratorRule>>,
         block_rules: Array<Gd<GeneratorRule>>,
         entity_rules: Array<Gd<GeneratorRule>>,
     ) -> Gd<Self> {
-        Gd::from_object(GeneratorDescriptor {
+        Gd::from_object(GeneratorResourceDescriptor {
             tile_rules,
             block_rules,
             entity_rules,
@@ -781,12 +787,12 @@ impl Root {
     // extra
 
     #[func]
-    fn init_forward(&mut self) {
-        self.base.init_forward();
+    fn resource_init_forward(&mut self) {
+        self.base.resource_init_forward();
     }
 
     #[func]
-    fn forward_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
+    fn resource_forward_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -795,11 +801,11 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.forward_rect(min_rect, delta_secs);
+        self.base.resource_forward_rect(min_rect, delta_secs);
     }
 
     #[func]
-    fn init_generator(&mut self, desc: Gd<GeneratorDescriptor>) {
+    fn resource_init_generator(&mut self, desc: Gd<GeneratorResourceDescriptor>) {
         let desc = desc.bind();
 
         let mut tile_rules = vec![];
@@ -820,17 +826,17 @@ impl Root {
             entity_rules.push(rule.clone());
         }
 
-        let desc = inner::GeneratorDescriptor {
+        let desc = inner::GeneratorResourceDescriptor {
             tile_rules,
             block_rules,
             entity_rules,
         };
 
-        self.base.init_generator(desc);
+        self.base.resource_init_generator(desc);
     }
 
     #[func]
-    fn generate_rect(&mut self, min_rect: Rect2) {
+    fn resource_generate_rect(&mut self, min_rect: Rect2) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -839,7 +845,18 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.generate_rect(min_rect);
+        self.base.resource_generate_rect(min_rect);
+    }
+
+    #[func]
+    fn resource_init_player(&mut self) {
+        self.base.resource_init_player();
+    }
+
+    #[func]
+    fn resource_set_input_move(&mut self, move_input: Vector2) {
+        let move_input = [move_input.x, move_input.y];
+        self.base.resource_set_input_move(move_input);
     }
 
     // view
