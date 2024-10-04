@@ -581,6 +581,11 @@ impl Root {
     pub fn resource_set_input_move(&mut self, move_input: Vec2) {
         PlayerResource::set_input_move(self, move_input);
     }
+
+    #[inline]
+    pub fn resource_get_location(&mut self) -> Option<Vec2> {
+        PlayerResource::get_location(self)
+    }
 }
 
 // Error Handling

@@ -82,6 +82,7 @@ pub struct EntityRenderParam {
 #[derive(Debug, Clone)]
 pub enum EntityData {
     Animal(EntityDataAnimal),
+    Player(EntityDataPlayer),
 }
 
 #[enum_dispatch::enum_dispatch]

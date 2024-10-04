@@ -859,6 +859,12 @@ impl Root {
         self.base.resource_set_input_move(move_input);
     }
 
+    #[func]
+    fn resource_get_location(&mut self) -> Vector2 {
+        let location = self.base.resource_get_location().unwrap();
+        Vector2::new(location[0], location[1])
+    }
+
     // view
 
     #[func]

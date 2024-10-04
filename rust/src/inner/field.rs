@@ -1010,14 +1010,14 @@ impl EntityField {
     #[inline]
     pub fn get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
         let prop = self.props.get(id as usize).unwrap();
-        Ok(prop.hint_rect(Default::default()).unwrap_or_default())
+        Ok(prop.collision_rect(Default::default()).unwrap_or_default())
     }
 
     #[inline]
     pub fn get_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
         let entity = self.get(entity_key)?;
         let prop = self.props.get(entity.id as usize).unwrap();
-        Ok(prop.hint_rect(entity.location).unwrap_or_default())
+        Ok(prop.collision_rect(entity.location).unwrap_or_default())
     }
 
     #[inline]

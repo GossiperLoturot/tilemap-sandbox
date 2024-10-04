@@ -131,7 +131,7 @@ func _ready():
 					preload("res://images/player_walk_1.webp"),
 					preload("res://images/player_idle_1.webp")
 				] as Array[Image],
-				12,
+				6,
 				true
 			)
 		] as Array[EntityImageDescriptor],
