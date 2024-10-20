@@ -24,7 +24,6 @@ script = ExtResource("1_b2r8a")
 script = ExtResource("2_c0xk6")
 world = NodePath("../World")
 camera = NodePath("../Camera3D")
-speed = 4.0
 forward_size = 32.0
 view_size_over = 8.0
 

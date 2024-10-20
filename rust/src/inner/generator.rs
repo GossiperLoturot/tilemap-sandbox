@@ -52,7 +52,7 @@ impl GeneratorResouurce {
         root.resource_insert(slf).unwrap();
     }
 
-    pub fn generate_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
+    pub fn exec_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
         let mut slf = root.resource_remove::<Self>().unwrap();
 
         #[rustfmt::skip]
@@ -74,10 +74,10 @@ impl GeneratorResouurce {
                 for rule in &slf.tile_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.tile_marching_generate_chunk(root, rule, chunk_location)
+                            slf.tile_marching_gen_chunk(root, rule, chunk_location)
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.tile_spawn_generate_chunk(root, rule, chunk_location)
+                            slf.tile_spawn_gen_chunk(root, rule, chunk_location)
                         }
                     }
                 }
@@ -85,10 +85,10 @@ impl GeneratorResouurce {
                 for rule in &slf.block_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.block_marching_generate_chunk(root, rule, chunk_location)
+                            slf.block_marching_gen_chunk(root, rule, chunk_location)
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.block_spawn_generate_chunk(root, rule, chunk_location)
+                            slf.block_spawn_gen_chunk(root, rule, chunk_location)
                         }
                     }
                 }
@@ -96,10 +96,10 @@ impl GeneratorResouurce {
                 for rule in &slf.entity_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.entity_marching_generate_chunk(root, rule, chunk_location)
+                            slf.entity_marching_gen_chunk(root, rule, chunk_location)
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.entity_spawn_generate_chunk(root, rule, chunk_location)
+                            slf.entity_spawn_gen_chunk(root, rule, chunk_location)
                         }
                     }
                 }
@@ -111,7 +111,7 @@ impl GeneratorResouurce {
         root.resource_insert(slf).unwrap();
     }
 
-    fn tile_marching_generate_chunk(
+    fn tile_marching_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
@@ -141,7 +141,7 @@ impl GeneratorResouurce {
         }
     }
 
-    fn tile_spawn_generate_chunk(
+    fn tile_spawn_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
@@ -171,7 +171,7 @@ impl GeneratorResouurce {
         }
     }
 
-    fn block_marching_generate_chunk(
+    fn block_marching_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
@@ -201,7 +201,7 @@ impl GeneratorResouurce {
         }
     }
 
-    fn block_spawn_generate_chunk(
+    fn block_spawn_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
@@ -231,7 +231,7 @@ impl GeneratorResouurce {
         }
     }
 
-    fn entity_marching_generate_chunk(
+    fn entity_marching_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
@@ -261,7 +261,7 @@ impl GeneratorResouurce {
         }
     }
 
-    fn entity_spawn_generate_chunk(
+    fn entity_spawn_gen_chunk(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,

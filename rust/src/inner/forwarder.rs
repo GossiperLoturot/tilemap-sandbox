@@ -1,15 +1,15 @@
 use crate::inner;
 
 #[derive(Debug, Clone)]
-pub struct ForwardResource;
+pub struct ForwarderResource;
 
-impl ForwardResource {
+impl ForwarderResource {
     pub fn init(root: &mut inner::Root) {
         let slf = Self;
         root.resource_insert(slf).unwrap();
     }
 
-    pub fn forward_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2], delta_secs: f32) {
+    pub fn exec_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2], delta_secs: f32) {
         let slf = root.resource_remove::<Self>().unwrap();
 
         // tile

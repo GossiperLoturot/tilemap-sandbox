@@ -787,12 +787,12 @@ impl Root {
     // extra
 
     #[func]
-    fn resource_init_forward(&mut self) {
-        self.base.resource_init_forward();
+    fn resource_init_forwarder(&mut self) {
+        self.base.resource_init_forwarder();
     }
 
     #[func]
-    fn resource_forward_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
+    fn forwarder_exec_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -801,7 +801,7 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.resource_forward_rect(min_rect, delta_secs);
+        self.base.forwarder_exec_rect(min_rect, delta_secs);
     }
 
     #[func]
@@ -836,7 +836,7 @@ impl Root {
     }
 
     #[func]
-    fn resource_generate_rect(&mut self, min_rect: Rect2) {
+    fn generator_exec_rect(&mut self, min_rect: Rect2) {
         #[rustfmt::skip]
         let min_rect = [[
             min_rect.position.x,
@@ -845,7 +845,7 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.resource_generate_rect(min_rect);
+        self.base.generator_exec_rect(min_rect);
     }
 
     #[func]
@@ -854,15 +854,20 @@ impl Root {
     }
 
     #[func]
-    fn resource_set_input_move(&mut self, move_input: Vector2) {
-        let move_input = [move_input.x, move_input.y];
-        self.base.resource_set_input_move(move_input);
+    fn player_set_input(&mut self, input: Vector2) {
+        let input = [input.x, input.y];
+        self.base.player_set_input(input);
     }
 
     #[func]
-    fn resource_get_location(&mut self) -> Vector2 {
-        let location = self.base.resource_get_location().unwrap();
+    fn player_get_location(&mut self) -> Vector2 {
+        let location = self.base.player_get_location().unwrap();
         Vector2::new(location[0], location[1])
+    }
+
+    #[func]
+    fn resource_init_inventory(&mut self) {
+        self.base.resource_init_inventory();
     }
 
     // view

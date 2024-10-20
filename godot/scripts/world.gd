@@ -281,7 +281,7 @@ func _ready():
 		)
 	)
 
-	_root.resource_init_forward()
+	_root.resource_init_forwarder()
 
 	var generator_resource_descriptor = GeneratorResourceDescriptor.create(
 		[
@@ -307,9 +307,9 @@ func _ready():
 
 func _process(delta_secs):
 	# logic
-	_root.resource_forward_rect(min_forward_rect, delta_secs)
+	_root.forwarder_exec_rect(min_forward_rect, delta_secs)
 
-	_root.resource_generate_rect(min_generate_rect)
+	_root.generator_exec_rect(min_generate_rect)
 
 	_root.tick_forward(delta_secs)
 

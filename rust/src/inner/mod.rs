@@ -1,8 +1,9 @@
 pub use animal::*;
 pub use feature::*;
 pub use field::*;
-pub use forward::*;
+pub use forwarder::*;
 pub use generator::*;
+pub use inventory::*;
 pub use player::*;
 pub use resource::*;
 pub use tick::*;
@@ -10,8 +11,9 @@ pub use tick::*;
 mod animal;
 mod feature;
 mod field;
-mod forward;
+mod forwarder;
 mod generator;
+mod inventory;
 mod player;
 mod resource;
 mod tick;
@@ -553,13 +555,13 @@ impl Root {
     // extra
 
     #[inline]
-    pub fn resource_init_forward(&mut self) {
-        ForwardResource::init(self);
+    pub fn resource_init_forwarder(&mut self) {
+        ForwarderResource::init(self);
     }
 
     #[inline]
-    pub fn resource_forward_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
-        ForwardResource::forward_rect(self, min_rect, delta_secs);
+    pub fn forwarder_exec_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
+        ForwarderResource::exec_rect(self, min_rect, delta_secs);
     }
 
     #[inline]
@@ -568,8 +570,8 @@ impl Root {
     }
 
     #[inline]
-    pub fn resource_generate_rect(&mut self, min_rect: [Vec2; 2]) {
-        GeneratorResouurce::generate_rect(self, min_rect);
+    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) {
+        GeneratorResouurce::exec_rect(self, min_rect);
     }
 
     #[inline]
@@ -578,13 +580,28 @@ impl Root {
     }
 
     #[inline]
-    pub fn resource_set_input_move(&mut self, move_input: Vec2) {
-        PlayerResource::set_input_move(self, move_input);
+    pub fn player_set_input(&mut self, input: Vec2) {
+        PlayerResource::set_input(self, input);
     }
 
     #[inline]
-    pub fn resource_get_location(&mut self) -> Option<Vec2> {
+    pub fn player_get_location(&mut self) -> Option<Vec2> {
         PlayerResource::get_location(self)
+    }
+
+    #[inline]
+    pub fn resource_init_inventory(&mut self) {
+        InventoryResource::init(self);
+    }
+
+    #[inline]
+    pub fn inventory_insert(&mut self, inventory: Inventory) -> InventoryKey {
+        InventoryResource::insert(self, inventory)
+    }
+
+    #[inline]
+    pub fn inventory_remove(&mut self, inventory_key: InventoryKey) -> Option<Inventory> {
+        InventoryResource::remove(self, inventory_key)
     }
 }
 
