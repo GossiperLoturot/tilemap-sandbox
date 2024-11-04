@@ -1,16 +1,25 @@
 use crate::inner;
 
+use super::*;
+
+// resource
+
 #[derive(Debug, Clone)]
 pub struct ForwarderResource;
 
 impl ForwarderResource {
-    pub fn init(root: &mut inner::Root) {
+    pub fn init(root: &mut inner::Root) -> Result<(), ForwarderError> {
         let slf = Self;
-        root.resource_insert(slf).unwrap();
+        root.resource_insert(slf)?;
+        Ok(())
     }
 
-    pub fn exec_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2], delta_secs: f32) {
-        let slf = root.resource_remove::<Self>().unwrap();
+    pub fn exec_rect(
+        root: &mut inner::Root,
+        min_rect: [inner::Vec2; 2],
+        delta_secs: f32,
+    ) -> Result<(), ForwarderError> {
+        let slf = root.resource_remove::<Self>()?;
 
         // tile
         let chunk_size = root.tile_get_chunk_size() as f32;
@@ -58,5 +67,29 @@ impl ForwarderResource {
         }
 
         root.resource_insert(slf).unwrap();
+        Ok(())
+    }
+}
+
+// error handling
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ForwarderError {
+    Resource(ResourceError),
+}
+
+impl std::fmt::Display for ForwarderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Resource(e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ForwarderError {}
+
+impl From<ResourceError> for ForwarderError {
+    fn from(value: ResourceError) -> Self {
+        Self::Resource(value)
     }
 }

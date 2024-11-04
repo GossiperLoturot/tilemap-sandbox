@@ -6,7 +6,7 @@ pub use generator::*;
 pub use inventory::*;
 pub use player::*;
 pub use resource::*;
-pub use tick::*;
+pub use time::*;
 
 mod animal;
 mod feature;
@@ -16,7 +16,7 @@ mod generator;
 mod inventory;
 mod player;
 mod resource;
-mod tick;
+mod time;
 
 pub type Vec2 = [f32; 2];
 pub type IVec2 = [i32; 2];
@@ -42,7 +42,7 @@ pub struct Root {
     block_features: RcVec<BlockFeature>,
     entity_features: RcVec<EntityFeature>,
     resource_store: ResourceStore,
-    tick_store: TickStore,
+    time_store: TimeStore,
 }
 
 impl Root {
@@ -56,7 +56,7 @@ impl Root {
             block_features: desc.block_features,
             entity_features: desc.entity_features,
             resource_store: Default::default(),
-            tick_store: Default::default(),
+            time_store: Default::default(),
         }
     }
 
@@ -508,32 +508,32 @@ impl Root {
         self.entity_field.get_by_hint_rect(rect)
     }
 
-    // tick
+    // time
 
     #[inline]
-    pub fn tick_per_secs(&self) -> u64 {
-        self.tick_store.per_secs()
+    pub fn time_tick_per_secs(&self) -> u64 {
+        self.time_store.tick_per_secs()
     }
 
     #[inline]
-    pub fn tick_get(&self) -> u64 {
-        self.tick_store.get()
+    pub fn time_tick(&self) -> u64 {
+        self.time_store.tick()
     }
 
     #[inline]
-    pub fn tick_forward(&mut self, delta_secs: f32) {
-        self.tick_store.forward(delta_secs);
+    pub fn time_forward(&mut self, delta_secs: f32) {
+        self.time_store.forward(delta_secs);
     }
 
     // resource
 
     #[inline]
-    pub fn resource_insert<R: 'static>(&mut self, value: R) -> Option<()> {
+    pub fn resource_insert<R: 'static>(&mut self, value: R) -> Result<(), ResourceError> {
         self.resource_store.insert(value)
     }
 
     #[inline]
-    pub fn resource_remove<R: 'static>(&mut self) -> Option<R> {
+    pub fn resource_remove<R: 'static>(&mut self) -> Result<R, ResourceError> {
         self.resource_store.remove::<R>()
     }
 
@@ -543,85 +543,77 @@ impl Root {
     }
 
     #[inline]
-    pub fn resource_get<R: 'static>(&self) -> Option<&R> {
+    pub fn resource_get<R: 'static>(&self) -> Result<&R, ResourceError> {
         self.resource_store.get::<R>()
     }
 
     #[inline]
-    pub fn resource_get_mut<R: 'static>(&mut self) -> Option<&mut R> {
+    pub fn resource_get_mut<R: 'static>(&mut self) -> Result<&mut R, ResourceError> {
         self.resource_store.get_mut::<R>()
     }
 
-    // extra
+    // execute
 
     #[inline]
-    pub fn resource_init_forwarder(&mut self) {
-        ForwarderResource::init(self);
+    pub fn forwarder_init(&mut self) -> Result<(), ForwarderError> {
+        ForwarderResource::init(self)
     }
 
     #[inline]
-    pub fn forwarder_exec_rect(&mut self, min_rect: [Vec2; 2], delta_secs: f32) {
-        ForwarderResource::exec_rect(self, min_rect, delta_secs);
+    pub fn forwarder_exec_rect(
+        &mut self,
+        min_rect: [Vec2; 2],
+        delta_secs: f32,
+    ) -> Result<(), ForwarderError> {
+        ForwarderResource::exec_rect(self, min_rect, delta_secs)
     }
 
     #[inline]
-    pub fn resource_init_generator(&mut self, desc: GeneratorResourceDescriptor) {
-        GeneratorResouurce::init(self, desc);
+    pub fn generator_init(
+        &mut self,
+        desc: GeneratorResourceDescriptor,
+    ) -> Result<(), GeneratorError> {
+        GeneratorResource::init(self, desc)
     }
 
     #[inline]
-    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) {
-        GeneratorResouurce::exec_rect(self, min_rect);
+    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), GeneratorError> {
+        GeneratorResource::exec_rect(self, min_rect)
     }
 
     #[inline]
-    pub fn resource_init_player(&mut self) {
-        PlayerResource::init(self);
+    pub fn player_init(&mut self) -> Result<(), PlayerError> {
+        PlayerResource::init(self)
     }
 
     #[inline]
-    pub fn player_set_input(&mut self, input: Vec2) {
-        PlayerResource::set_input(self, input);
+    pub fn player_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
+        PlayerResource::input(self, input)
     }
 
     #[inline]
-    pub fn player_get_location(&mut self) -> Option<Vec2> {
-        PlayerResource::get_location(self)
+    pub fn player_location(&mut self) -> Result<Vec2, PlayerError> {
+        PlayerResource::location(self)
     }
 
     #[inline]
-    pub fn resource_init_inventory(&mut self) {
-        InventoryResource::init(self);
+    pub fn inventory_init(&mut self) -> Result<(), InventoryError> {
+        InventoryResource::init(self)
     }
 
     #[inline]
-    pub fn inventory_insert(&mut self, inventory: Inventory) -> InventoryKey {
+    pub fn inventory_insert(
+        &mut self,
+        inventory: Inventory,
+    ) -> Result<InventoryKey, InventoryError> {
         InventoryResource::insert(self, inventory)
     }
 
     #[inline]
-    pub fn inventory_remove(&mut self, inventory_key: InventoryKey) -> Option<Inventory> {
+    pub fn inventory_remove(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<Inventory, InventoryError> {
         InventoryResource::remove(self, inventory_key)
     }
 }
-
-// Error Handling
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FieldError {
-    NotFound,
-    Conflict,
-    InvalidId,
-}
-
-impl std::fmt::Display for FieldError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FieldError::NotFound => write!(f, "not found error"),
-            FieldError::Conflict => write!(f, "conflict error"),
-            FieldError::InvalidId => write!(f, "invalid id error"),
-        }
-    }
-}
-
-impl std::error::Error for FieldError {}

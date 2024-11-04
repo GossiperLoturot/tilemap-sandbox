@@ -1094,6 +1094,27 @@ impl EntityField {
     }
 }
 
+// error
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FieldError {
+    NotFound,
+    Conflict,
+    InvalidId,
+}
+
+impl std::fmt::Display for FieldError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "not found error"),
+            Self::Conflict => write!(f, "conflict error"),
+            Self::InvalidId => write!(f, "invalid id error"),
+        }
+    }
+}
+
+impl std::error::Error for FieldError {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

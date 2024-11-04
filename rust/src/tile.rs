@@ -345,7 +345,7 @@ impl TileField {
                 rendering_server.material_set_param(
                     *material,
                     "tick".into(),
-                    (root.tick_get() as i32).to_variant(),
+                    (root.time_tick() as i32).to_variant(),
                 );
             }
 

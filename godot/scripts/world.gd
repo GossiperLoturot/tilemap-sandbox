@@ -281,7 +281,7 @@ func _ready():
 		)
 	)
 
-	_root.resource_init_forwarder()
+	_root.forwarder_init()
 
 	var generator_resource_descriptor = GeneratorResourceDescriptor.create(
 		[
@@ -302,7 +302,7 @@ func _ready():
 			GeneratorRule.create_spawn(0.001, ENTITY_BIRD)
 		] as Array[GeneratorRule]
 	)
-	_root.resource_init_generator(generator_resource_descriptor)
+	_root.generator_init(generator_resource_descriptor)
 
 
 func _process(delta_secs):
@@ -311,7 +311,7 @@ func _process(delta_secs):
 
 	_root.generator_exec_rect(min_generate_rect)
 
-	_root.tick_forward(delta_secs)
+	_root.time_forward(delta_secs)
 
 	# rendering
 	_root.update_view(min_view_rect)

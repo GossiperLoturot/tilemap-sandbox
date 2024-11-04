@@ -1,6 +1,6 @@
 use crate::inner;
 
-// generator rules
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct GeneratorRuleMarching {
@@ -20,8 +20,6 @@ pub enum GeneratorRule {
     Spawn(GeneratorRuleSpawn),
 }
 
-// generator descriptors
-
 #[derive(Debug, Clone)]
 pub struct GeneratorResourceDescriptor {
     pub tile_rules: Vec<GeneratorRule>,
@@ -29,31 +27,38 @@ pub struct GeneratorResourceDescriptor {
     pub entity_rules: Vec<GeneratorRule>,
 }
 
-// generator
+// resource
 
 #[derive(Debug, Clone)]
-pub struct GeneratorResouurce {
+pub struct GeneratorResource {
     tile_rules: Vec<GeneratorRule>,
     block_rules: Vec<GeneratorRule>,
     entity_rules: Vec<GeneratorRule>,
     visit: ahash::AHashSet<inner::IVec2>,
 }
 
-impl GeneratorResouurce {
+impl GeneratorResource {
     const CHUNK_SIZE: u32 = 32;
 
-    pub fn init(root: &mut inner::Root, desc: GeneratorResourceDescriptor) {
+    pub fn init(
+        root: &mut inner::Root,
+        desc: GeneratorResourceDescriptor,
+    ) -> Result<(), GeneratorError> {
         let slf = Self {
             tile_rules: desc.tile_rules,
             block_rules: desc.block_rules,
             entity_rules: desc.entity_rules,
             visit: ahash::AHashSet::new(),
         };
-        root.resource_insert(slf).unwrap();
+        root.resource_insert(slf)?;
+        Ok(())
     }
 
-    pub fn exec_rect(root: &mut inner::Root, min_rect: [inner::Vec2; 2]) {
-        let mut slf = root.resource_remove::<Self>().unwrap();
+    pub fn exec_rect(
+        root: &mut inner::Root,
+        min_rect: [inner::Vec2; 2],
+    ) -> Result<(), GeneratorError> {
+        let mut slf = root.resource_remove::<Self>()?;
 
         #[rustfmt::skip]
         let min_rect = [[
@@ -63,6 +68,7 @@ impl GeneratorResouurce {
             min_rect[1][1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
         ]];
 
+        let rng = &mut rand::thread_rng();
         for y in min_rect[0][1]..=min_rect[1][1] {
             for x in min_rect[0][0]..=min_rect[1][0] {
                 let chunk_location = [x, y];
@@ -71,13 +77,15 @@ impl GeneratorResouurce {
                     continue;
                 }
 
+                slf.visit.insert(chunk_location);
+
                 for rule in &slf.tile_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.tile_marching_gen_chunk(root, rule, chunk_location)
+                            slf.gen_tile_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.tile_spawn_gen_chunk(root, rule, chunk_location)
+                            slf.gen_tile_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
@@ -85,10 +93,10 @@ impl GeneratorResouurce {
                 for rule in &slf.block_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.block_marching_gen_chunk(root, rule, chunk_location)
+                            slf.gen_block_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.block_spawn_gen_chunk(root, rule, chunk_location)
+                            slf.gen_block_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
@@ -96,29 +104,27 @@ impl GeneratorResouurce {
                 for rule in &slf.entity_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.entity_marching_gen_chunk(root, rule, chunk_location)
+                            slf.gen_entity_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.entity_spawn_gen_chunk(root, rule, chunk_location)
+                            slf.gen_entity_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
-
-                slf.visit.insert(chunk_location);
             }
         }
 
         root.resource_insert(slf).unwrap();
+        Ok(())
     }
 
-    fn tile_marching_gen_chunk(
+    fn gen_tile_chunk_by_marching(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         for y in 0..Self::CHUNK_SIZE as i32 {
             for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
@@ -126,7 +132,7 @@ impl GeneratorResouurce {
                     chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
-                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
+                let value = rand::Rng::gen_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -141,21 +147,20 @@ impl GeneratorResouurce {
         }
     }
 
-    fn tile_spawn_gen_chunk(
+    fn gen_tile_chunk_by_spawn(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 x * Self::CHUNK_SIZE as i32 + u,
@@ -171,14 +176,13 @@ impl GeneratorResouurce {
         }
     }
 
-    fn block_marching_gen_chunk(
+    fn gen_block_chunk_by_marching(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         for y in 0..Self::CHUNK_SIZE as i32 {
             for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
@@ -186,7 +190,7 @@ impl GeneratorResouurce {
                     chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
-                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
+                let value = rand::Rng::gen_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -201,21 +205,20 @@ impl GeneratorResouurce {
         }
     }
 
-    fn block_spawn_gen_chunk(
+    fn gen_block_chunk_by_spawn(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 x * Self::CHUNK_SIZE as i32 + u,
@@ -231,14 +234,13 @@ impl GeneratorResouurce {
         }
     }
 
-    fn entity_marching_gen_chunk(
+    fn gen_entity_chunk_by_marching(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleMarching,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         for y in 0..Self::CHUNK_SIZE as i32 {
             for x in 0..Self::CHUNK_SIZE as i32 {
                 let location = [
@@ -246,7 +248,7 @@ impl GeneratorResouurce {
                     (chunk_location[1] * Self::CHUNK_SIZE as i32 + y) as f32,
                 ];
 
-                let value = rand::Rng::gen_range(&mut rng, 0.0..1.0);
+                let value = rand::Rng::gen_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -261,21 +263,20 @@ impl GeneratorResouurce {
         }
     }
 
-    fn entity_spawn_gen_chunk(
+    fn gen_entity_chunk_by_spawn(
         &self,
         root: &mut inner::Root,
         rule: &GeneratorRuleSpawn,
         chunk_location: inner::IVec2,
+        rng: &mut impl rand::Rng,
     ) {
-        let mut rng = rand::thread_rng();
-
         let x = chunk_location[0];
         let y = chunk_location[1];
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(&mut rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 (x * Self::CHUNK_SIZE as i32) as f32 + u as f32,
@@ -289,5 +290,28 @@ impl GeneratorResouurce {
                 render_param: Default::default(),
             });
         }
+    }
+}
+
+// error handling
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GeneratorError {
+    Resource(ResourceError),
+}
+
+impl std::fmt::Display for GeneratorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Resource(e) => e.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for GeneratorError {}
+
+impl From<ResourceError> for GeneratorError {
+    fn from(value: ResourceError) -> Self {
+        Self::Resource(value)
     }
 }

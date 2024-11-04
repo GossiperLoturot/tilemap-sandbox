@@ -2,8 +2,7 @@ use crate::inner;
 
 use super::*;
 
-const MOVE_SPEED: f32 = 3.0;
-const INVENTORY_SIZE: u32 = 16;
+// resource
 
 #[derive(Debug, Clone)]
 pub struct PlayerResource {
@@ -12,49 +11,60 @@ pub struct PlayerResource {
 }
 
 impl PlayerResource {
-    pub fn init(root: &mut inner::Root) {
+    pub fn init(root: &mut inner::Root) -> Result<(), PlayerError> {
         let resource = Self {
             current: Default::default(),
             input: Default::default(),
         };
-        root.resource_insert(resource);
+        root.resource_insert(resource)?;
+        Ok(())
     }
 
-    pub fn set_input(root: &mut inner::Root, input: Vec2) {
-        let resource = root.resource_get_mut::<Self>().unwrap();
+    pub fn input(root: &mut inner::Root, input: Vec2) -> Result<(), PlayerError> {
+        let resource = root.resource_get_mut::<Self>()?;
         resource.input = Some(input);
+        Ok(())
     }
 
-    pub fn get_location(root: &inner::Root) -> Option<Vec2> {
-        let resource = root.resource_get::<Self>().unwrap();
-        let current = resource.current?;
-        let entity = root.entity_get(current).ok()?;
-        Some(entity.location)
+    pub fn location(root: &inner::Root) -> Result<Vec2, PlayerError> {
+        let resource = root.resource_get::<Self>()?;
+        let current = resource.current.ok_or(PlayerError::NotFoundPlayer)?;
+        let location = root.entity_get(current).unwrap().location;
+        Ok(location)
     }
 }
 
+// feature
+
 #[derive(Debug, Clone)]
-pub enum EntityDataPlayerState {
+pub enum PlayerEntityDataState {
     Wait,
     Move,
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityDataPlayer {
-    pub state: EntityDataPlayerState,
+pub struct PlayerEntityData {
+    pub state: PlayerEntityDataState,
     pub inventory_key: InventoryKey,
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityFeaturePlayer;
+pub struct PlayerEntityFeature;
 
-impl EntityFeatureTrait for EntityFeaturePlayer {
+impl PlayerEntityFeature {
+    const MOVE_SPEED: f32 = 3.0;
+    const INVENTORY_SIZE: u32 = 16;
+}
+
+impl EntityFeatureTrait for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
-        let inventory_key = root.inventory_insert(Inventory::new(INVENTORY_SIZE));
+        let inventory_key = root
+            .inventory_insert(Inventory::new(Self::INVENTORY_SIZE))
+            .unwrap();
 
         root.entity_modify(key, |entity| {
-            entity.data = Some(EntityData::Player(EntityDataPlayer {
-                state: EntityDataPlayerState::Wait,
+            entity.data = Some(EntityData::Player(PlayerEntityData {
+                state: PlayerEntityDataState::Wait,
                 inventory_key,
             }))
         })
@@ -72,14 +82,14 @@ impl EntityFeatureTrait for EntityFeaturePlayer {
         };
 
         let inventory_key = data.inventory_key;
-        root.inventory_remove(inventory_key);
+        root.inventory_remove(inventory_key).unwrap();
 
         let resource = root.resource_get_mut::<PlayerResource>().unwrap();
         resource.current = None;
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).unwrap().clone();
+        let mut entity = root.entity_get(key).cloned().unwrap();
 
         let Some(EntityData::Player(data)) = &mut entity.data else {
             return;
@@ -93,8 +103,8 @@ impl EntityFeatureTrait for EntityFeaturePlayer {
 
             if is_move {
                 let location = [
-                    entity.location[0] + MOVE_SPEED * input[0] * delta_secs,
-                    entity.location[1] + MOVE_SPEED * input[1] * delta_secs,
+                    entity.location[0] + Self::MOVE_SPEED * input[0] * delta_secs,
+                    entity.location[1] + Self::MOVE_SPEED * input[1] * delta_secs,
                 ];
 
                 if !intersection_guard(root, key, location) {
@@ -103,18 +113,18 @@ impl EntityFeatureTrait for EntityFeaturePlayer {
             }
 
             match data.state {
-                EntityDataPlayerState::Wait => {
+                PlayerEntityDataState::Wait => {
                     if is_move {
                         entity.render_param.variant = Some(1);
-                        entity.render_param.tick = Some(root.tick_get() as u32);
-                        data.state = EntityDataPlayerState::Move;
+                        entity.render_param.tick = Some(root.time_tick() as u32);
+                        data.state = PlayerEntityDataState::Move;
                     }
                 }
-                EntityDataPlayerState::Move => {
+                PlayerEntityDataState::Move => {
                     if !is_move {
                         entity.render_param.variant = Some(0);
-                        entity.render_param.tick = Some(root.tick_get() as u32);
-                        data.state = EntityDataPlayerState::Wait;
+                        entity.render_param.tick = Some(root.time_tick() as u32);
+                        data.state = PlayerEntityDataState::Wait;
                     }
                 }
             }
@@ -149,4 +159,29 @@ fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2
 
     root.entity_get_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key)
+}
+
+// error handling
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlayerError {
+    Resource(ResourceError),
+    NotFoundPlayer,
+}
+
+impl std::fmt::Display for PlayerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Resource(e) => e.fmt(f),
+            Self::NotFoundPlayer => write!(f, "not found player error"),
+        }
+    }
+}
+
+impl std::error::Error for PlayerError {}
+
+impl From<ResourceError> for PlayerError {
+    fn from(value: ResourceError) -> Self {
+        Self::Resource(value)
+    }
 }

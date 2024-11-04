@@ -12,8 +12,8 @@ var _interpolated_scroll: float
 
 
 func _ready():
-	world._root.resource_init_player()
-	world._root.resource_init_inventory()
+	world._root.player_init()
+	world._root.inventory_init()
 
 	var entity = Entity.create(world.ENTITY_PLAYER, Vector2())
 	world._root.entity_insert(entity)
@@ -21,9 +21,9 @@ func _ready():
 
 func _process(delta):
 	var input = Input.get_vector("left", "right", "down", "up")
-	world._root.player_set_input(input)
+	world._root.player_input(input)
 
-	var location = world._root.player_get_location()
+	var location = world._root.player_location()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))

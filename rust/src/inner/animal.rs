@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone)]
-pub enum EntityDataAnimalState {
+pub enum AnimalEntityDataState {
     Init,
     WaitStart,
     Wait(f32),
@@ -10,17 +10,17 @@ pub enum EntityDataAnimalState {
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityDataAnimal {
+pub struct AnimalEntityData {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
     pub max_distance: f32,
     pub speed: f32,
-    pub state: EntityDataAnimalState,
+    pub state: AnimalEntityDataState,
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityFeatureAnimal {
+pub struct AnimalEntityFeature {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
@@ -30,16 +30,16 @@ pub struct EntityFeatureAnimal {
     pub walk_variant: u8,
 }
 
-impl EntityFeatureTrait for EntityFeatureAnimal {
+impl EntityFeatureTrait for AnimalEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
         root.entity_modify(key, |entity| {
-            entity.data = Some(EntityData::Animal(EntityDataAnimal {
+            entity.data = Some(EntityData::Animal(AnimalEntityData {
                 min_rest_secs: self.min_rest_secs,
                 max_rest_secs: self.max_rest_secs,
                 min_distance: self.min_distance,
                 max_distance: self.max_distance,
                 speed: self.speed,
-                state: EntityDataAnimalState::Init,
+                state: AnimalEntityDataState::Init,
             }))
         })
         .unwrap();
@@ -48,7 +48,7 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
     fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).unwrap().clone();
+        let mut entity = root.entity_get(key).cloned().unwrap();
 
         let Some(EntityData::Animal(data)) = &mut entity.data else {
             return;
@@ -57,27 +57,27 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         match data.state {
-            EntityDataAnimalState::Init => {
-                data.state = EntityDataAnimalState::WaitStart;
+            AnimalEntityDataState::Init => {
+                data.state = AnimalEntityDataState::WaitStart;
             }
-            EntityDataAnimalState::WaitStart => {
+            AnimalEntityDataState::WaitStart => {
                 entity.render_param.variant = Some(self.idle_variant);
-                entity.render_param.tick = Some(root.tick_get() as u32);
+                entity.render_param.tick = Some(root.time_tick() as u32);
 
                 let secs = rng.gen_range(data.min_rest_secs..data.max_rest_secs);
-                data.state = EntityDataAnimalState::Wait(secs);
+                data.state = AnimalEntityDataState::Wait(secs);
             }
-            EntityDataAnimalState::Wait(secs) => {
+            AnimalEntityDataState::Wait(secs) => {
                 if secs <= 0.0 {
-                    data.state = EntityDataAnimalState::TripStart;
+                    data.state = AnimalEntityDataState::TripStart;
                 } else {
                     let new_secs = secs - delta_secs;
-                    data.state = EntityDataAnimalState::Wait(new_secs);
+                    data.state = AnimalEntityDataState::Wait(new_secs);
                 }
             }
-            EntityDataAnimalState::TripStart => {
+            AnimalEntityDataState::TripStart => {
                 entity.render_param.variant = Some(self.walk_variant);
-                entity.render_param.tick = Some(root.tick_get() as u32);
+                entity.render_param.tick = Some(root.time_tick() as u32);
 
                 let angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0);
                 let distance = rng.gen_range(data.min_distance..data.max_distance);
@@ -85,9 +85,9 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
                     entity.location[0] + angle.cos() * distance,
                     entity.location[1] + angle.sin() * distance,
                 ];
-                data.state = EntityDataAnimalState::Trip(destination);
+                data.state = AnimalEntityDataState::Trip(destination);
             }
-            EntityDataAnimalState::Trip(destination) => {
+            AnimalEntityDataState::Trip(destination) => {
                 if entity.location != destination {
                     let difference = [
                         destination[0] - entity.location[0],
@@ -103,12 +103,12 @@ impl EntityFeatureTrait for EntityFeatureAnimal {
                     ];
 
                     if intersection_guard(root, key, location) {
-                        data.state = EntityDataAnimalState::WaitStart;
+                        data.state = AnimalEntityDataState::WaitStart;
                     } else {
                         entity.location = location;
                     }
                 } else {
-                    data.state = EntityDataAnimalState::WaitStart;
+                    data.state = AnimalEntityDataState::WaitStart;
                 }
             }
         }

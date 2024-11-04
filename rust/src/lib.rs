@@ -47,7 +47,7 @@ struct TileFeature {
 impl TileFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::TileFeature = inner::TileFeatureEmpty.into();
+        let feature: inner::TileFeature = inner::EmptyTileFeature.into();
         Gd::from_object(TileFeature { base: feature })
     }
 }
@@ -156,7 +156,7 @@ struct BlockFeature {
 impl BlockFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::BlockFeature = inner::BlockFeatureEmpty.into();
+        let feature: inner::BlockFeature = inner::EmptyBlockFeature.into();
         Gd::from_object(BlockFeature { base: feature })
     }
 }
@@ -280,7 +280,7 @@ struct EntityFeature {
 impl EntityFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::EntityFeatureEmpty.into();
+        let feature: inner::EntityFeature = inner::EmptyEntityFeature.into();
         Gd::from_object(EntityFeature { base: feature })
     }
 
@@ -294,7 +294,7 @@ impl EntityFeature {
         idle_variant: u8,
         walk_variant: u8,
     ) -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::EntityFeatureAnimal {
+        let feature: inner::EntityFeature = inner::AnimalEntityFeature {
             min_rest_secs,
             max_rest_secs,
             min_distance,
@@ -309,7 +309,7 @@ impl EntityFeature {
 
     #[func]
     fn create_player() -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::EntityFeaturePlayer.into();
+        let feature: inner::EntityFeature = inner::PlayerEntityFeature.into();
         Gd::from_object(EntityFeature { base: feature })
     }
 }
@@ -767,28 +767,28 @@ impl Root {
         })
     }
 
-    // tick
+    // time
 
     #[func]
-    fn tick_per_secs(&self) -> u64 {
-        self.base.tick_per_secs()
+    fn time_tick_per_secs(&self) -> u64 {
+        self.base.time_tick_per_secs()
     }
 
     #[func]
-    fn tick_get(&self) -> u64 {
-        self.base.tick_get()
+    fn time_tick(&self) -> u64 {
+        self.base.time_tick()
     }
 
     #[func]
-    fn tick_forward(&mut self, delta_secs: f32) {
-        self.base.tick_forward(delta_secs);
+    fn time_forward(&mut self, delta_secs: f32) {
+        self.base.time_forward(delta_secs);
     }
 
     // extra
 
     #[func]
-    fn resource_init_forwarder(&mut self) {
-        self.base.resource_init_forwarder();
+    fn forwarder_init(&mut self) {
+        self.base.forwarder_init().unwrap();
     }
 
     #[func]
@@ -801,11 +801,11 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.forwarder_exec_rect(min_rect, delta_secs);
+        self.base.forwarder_exec_rect(min_rect, delta_secs).unwrap();
     }
 
     #[func]
-    fn resource_init_generator(&mut self, desc: Gd<GeneratorResourceDescriptor>) {
+    fn generator_init(&mut self, desc: Gd<GeneratorResourceDescriptor>) {
         let desc = desc.bind();
 
         let mut tile_rules = vec![];
@@ -832,7 +832,7 @@ impl Root {
             entity_rules,
         };
 
-        self.base.resource_init_generator(desc);
+        self.base.generator_init(desc).unwrap();
     }
 
     #[func]
@@ -845,29 +845,29 @@ impl Root {
             min_rect.position.y + min_rect.size.y,
         ]];
 
-        self.base.generator_exec_rect(min_rect);
+        self.base.generator_exec_rect(min_rect).unwrap();
     }
 
     #[func]
-    fn resource_init_player(&mut self) {
-        self.base.resource_init_player();
+    fn player_init(&mut self) {
+        self.base.player_init().unwrap();
     }
 
     #[func]
-    fn player_set_input(&mut self, input: Vector2) {
+    fn player_input(&mut self, input: Vector2) {
         let input = [input.x, input.y];
-        self.base.player_set_input(input);
+        self.base.player_input(input).unwrap();
     }
 
     #[func]
-    fn player_get_location(&mut self) -> Vector2 {
-        let location = self.base.player_get_location().unwrap();
+    fn player_location(&mut self) -> Vector2 {
+        let location = self.base.player_location().unwrap();
         Vector2::new(location[0], location[1])
     }
 
     #[func]
-    fn resource_init_inventory(&mut self) {
-        self.base.resource_init_inventory();
+    fn inventory_init(&mut self) {
+        self.base.inventory_init().unwrap();
     }
 
     // view

@@ -23,13 +23,13 @@ pub trait TileFeatureTrait {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum TileFeature {
-    Empty(TileFeatureEmpty),
+    Empty(EmptyTileFeature),
 }
 
 #[derive(Debug, Clone)]
-pub struct TileFeatureEmpty;
+pub struct EmptyTileFeature;
 
-impl TileFeatureTrait for TileFeatureEmpty {
+impl TileFeatureTrait for EmptyTileFeature {
     fn after_place(&self, _root: &mut Root, _key: TileKey) {}
     fn before_break(&self, _root: &mut Root, _key: TileKey) {}
     fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
@@ -58,13 +58,13 @@ pub trait BlockFeatureTrait {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum BlockFeature {
-    Empty(BlockFeatureEmpty),
+    Empty(EmptyBlockFeature),
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockFeatureEmpty;
+pub struct EmptyBlockFeature;
 
-impl BlockFeatureTrait for BlockFeatureEmpty {
+impl BlockFeatureTrait for EmptyBlockFeature {
     fn after_place(&self, _root: &mut Root, _key: BlockKey) {}
     fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
     fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
@@ -81,8 +81,8 @@ pub struct EntityRenderParam {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum EntityData {
-    Animal(EntityDataAnimal),
-    Player(EntityDataPlayer),
+    Animal(AnimalEntityData),
+    Player(PlayerEntityData),
 }
 
 #[enum_dispatch::enum_dispatch]
@@ -96,15 +96,15 @@ pub trait EntityFeatureTrait {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum EntityFeature {
-    Empty(EntityFeatureEmpty),
-    Animal(EntityFeatureAnimal),
-    Player(EntityFeaturePlayer),
+    Empty(EmptyEntityFeature),
+    Animal(AnimalEntityFeature),
+    Player(PlayerEntityFeature),
 }
 
 #[derive(Debug, Clone)]
-pub struct EntityFeatureEmpty;
+pub struct EmptyEntityFeature;
 
-impl EntityFeatureTrait for EntityFeatureEmpty {
+impl EntityFeatureTrait for EmptyEntityFeature {
     fn after_place(&self, _root: &mut Root, _key: EntityKey) {}
     fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
     fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
