@@ -25,6 +25,22 @@ impl Inventory {
     pub fn get_size(&self) -> u32 {
         self.items.len() as u32
     }
+
+    pub fn insert(&mut self, index: u32, item: Item) -> Result<Item, InventoryError> {
+        let target = self
+            .items
+            .get_mut(index as usize)
+            .ok_or(InventoryError::InvalidIndex)?;
+        std::mem::replace(target, Some(item)).ok_or(InventoryError::NotFoundItem)
+    }
+
+    pub fn remove(&mut self, index: u32) -> Result<Item, InventoryError> {
+        let target = self
+            .items
+            .get_mut(index as usize)
+            .ok_or(InventoryError::InvalidIndex)?;
+        std::mem::replace(target, None).ok_or(InventoryError::NotFoundItem)
+    }
 }
 
 // resource
@@ -66,6 +82,8 @@ impl InventoryResource {
 pub enum InventoryError {
     Resource(ResourceError),
     NotFoundInventory,
+    NotFoundItem,
+    InvalidIndex,
 }
 
 impl std::fmt::Display for InventoryError {
@@ -73,6 +91,8 @@ impl std::fmt::Display for InventoryError {
         match self {
             Self::Resource(e) => e.fmt(f),
             Self::NotFoundInventory => write!(f, "not found inventory error"),
+            Self::NotFoundItem => write!(f, "not found item error"),
+            Self::InvalidIndex => write!(f, "invalid index error"),
         }
     }
 }

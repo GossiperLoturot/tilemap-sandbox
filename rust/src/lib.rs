@@ -4,6 +4,7 @@ pub mod inner;
 
 mod block;
 mod entity;
+mod inventory;
 mod tile;
 
 struct Extension;
