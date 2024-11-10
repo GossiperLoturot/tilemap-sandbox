@@ -11,12 +11,12 @@ var _scroll: float
 var _interpolated_scroll: float
 
 
-func _ready():
+func _ready() -> void:
 	var entity = Entity.create(world.ENTITY_PLAYER, Vector2())
 	world._root.entity_insert(entity)
 
 
-func _process(delta):
+func _process(delta) -> void:
 	var input = Input.get_vector("left", "right", "down", "up")
 	world._root.player_input(input)
 
@@ -57,3 +57,16 @@ func _process(delta):
 		view_size * 2,
 		view_size * 2
 	)
+
+	if Input.is_action_just_pressed("inventory"):
+		open_inventory()
+
+
+func open_inventory() -> void:
+	var inv = world._root.player_inventory()
+
+	var inv_size = world._root.inventory_size(inv)
+	print("player inventory (size: %d)" % inv_size)
+	for i in range(inv_size):
+		var item = world._root.inventory_get(inv, i)
+		print("├ item (id: %d, amount: %d)" % [item.id, item.amount])

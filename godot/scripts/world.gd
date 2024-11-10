@@ -25,10 +25,13 @@ const ENTITY_BIRD: int = 5
 const ENTITY_PACKAGE: int = 6
 const ENTITY_ID_SIZE: int = 7
 
+const ITEM_PACKAGE: int = 0
+const ITEM_ID_SIZE: int = 1
+
 var _root: Root
 
 
-func _ready():
+func _ready() -> void:
 	var tile_descriptors: Array[TileDescriptor] = []
 	tile_descriptors.resize(TILE_ID_SIZE)
 	tile_descriptors[TILE_DIRT] = TileDescriptor.create(
@@ -275,6 +278,13 @@ func _ready():
 		EntityFeature.create_empty()
 	)
 
+	var item_descriptors: Array[ItemDescriptor] = []
+	item_descriptors.resize(ITEM_ID_SIZE)
+	item_descriptors[ITEM_PACKAGE] = ItemDescriptor.create(
+		preload("res://images/package.webp"),
+		ItemFeature.create_empty()
+	)
+
 	_root = Root.create(
 		RootDescriptor.create(
 			TileFieldDescriptor.create(
@@ -291,6 +301,9 @@ func _ready():
 				entity_descriptors,
 				[preload("res://field.gdshader"), preload("res://field_shadow.gdshader")] as Array[Shader],
 				get_world_3d()
+			),
+			ItemIndexDescriptor.create(
+				item_descriptors
 			)
 		)
 	)
@@ -324,7 +337,7 @@ func _ready():
 	_root.player_init()
 
 
-func _process(delta_secs):
+func _process(delta_secs) -> void:
 	# logic
 	_root.forwarder_exec_rect(min_forward_rect, delta_secs)
 
