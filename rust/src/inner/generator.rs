@@ -308,7 +308,13 @@ impl std::fmt::Display for GeneratorError {
     }
 }
 
-impl std::error::Error for GeneratorError {}
+impl std::error::Error for GeneratorError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Resource(e) => Some(e),
+        }
+    }
+}
 
 impl From<ResourceError> for GeneratorError {
     fn from(value: ResourceError) -> Self {

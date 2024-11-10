@@ -12,9 +12,6 @@ var _interpolated_scroll: float
 
 
 func _ready():
-	world._root.player_init()
-	world._root.inventory_init()
-
 	var entity = Entity.create(world.ENTITY_PLAYER, Vector2())
 	world._root.entity_insert(entity)
 

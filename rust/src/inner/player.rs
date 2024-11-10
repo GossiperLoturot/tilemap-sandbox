@@ -178,7 +178,14 @@ impl std::fmt::Display for PlayerError {
     }
 }
 
-impl std::error::Error for PlayerError {}
+impl std::error::Error for PlayerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Resource(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl From<ResourceError> for PlayerError {
     fn from(value: ResourceError) -> Self {

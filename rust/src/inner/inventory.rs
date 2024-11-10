@@ -97,7 +97,14 @@ impl std::fmt::Display for InventoryError {
     }
 }
 
-impl std::error::Error for InventoryError {}
+impl std::error::Error for InventoryError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Resource(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl From<ResourceError> for InventoryError {
     fn from(value: ResourceError) -> Self {

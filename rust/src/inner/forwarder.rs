@@ -86,7 +86,13 @@ impl std::fmt::Display for ForwarderError {
     }
 }
 
-impl std::error::Error for ForwarderError {}
+impl std::error::Error for ForwarderError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Resource(e) => Some(e),
+        }
+    }
+}
 
 impl From<ResourceError> for ForwarderError {
     fn from(value: ResourceError) -> Self {

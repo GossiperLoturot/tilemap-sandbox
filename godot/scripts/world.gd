@@ -22,7 +22,8 @@ const ENTITY_COW: int = 2
 const ENTITY_SHEEP: int = 3
 const ENTITY_CHICKEN: int = 4
 const ENTITY_BIRD: int = 5
-const ENTITY_ID_SIZE: int = 6
+const ENTITY_PACKAGE: int = 6
+const ENTITY_ID_SIZE: int = 7
 
 var _root: Root
 
@@ -260,6 +261,19 @@ func _ready():
 		Vector2(1.0, 1.0), Vector2(-0.5, 0.0),
 		EntityFeature.create_animal(0.0, 10.0, 0.0, 10.0, 1.0, 0, 1)
 	)
+	entity_descriptors[ENTITY_PACKAGE] = EntityDescriptor.create(
+		[
+			EntityImageDescriptor.create(
+				[preload("res://images/package.webp")] as Array[Image],
+				0,
+				true
+			)
+		] as Array[EntityImageDescriptor],
+		true,
+		Vector2(0.0, 0.0), Vector2(0.0, 0.0),
+		Vector2(0.8, 0.8), Vector2(-0.4, 0.0),
+		EntityFeature.create_empty()
+	)
 
 	_root = Root.create(
 		RootDescriptor.create(
@@ -299,10 +313,15 @@ func _ready():
 			GeneratorRule.create_spawn(0.001, ENTITY_PIG),
 			GeneratorRule.create_spawn(0.001, ENTITY_SHEEP),
 			GeneratorRule.create_spawn(0.001, ENTITY_CHICKEN),
-			GeneratorRule.create_spawn(0.001, ENTITY_BIRD)
+			GeneratorRule.create_spawn(0.001, ENTITY_BIRD),
+			GeneratorRule.create_spawn(0.001, ENTITY_PACKAGE)
 		] as Array[GeneratorRule]
 	)
 	_root.generator_init(generator_resource_descriptor)
+
+	_root.inventory_init()
+
+	_root.player_init()
 
 
 func _process(delta_secs):
