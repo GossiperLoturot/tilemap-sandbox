@@ -109,3 +109,30 @@ impl EntityFeatureTrait for EmptyEntityFeature {
     fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
     fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
 }
+
+// item data/feature
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ItemRenderParam {
+    pub variant: Option<u8>,
+    pub tick: Option<u32>,
+}
+
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub enum ItemData {}
+
+#[enum_dispatch::enum_dispatch]
+pub trait ItemFeatureTrait {}
+
+#[enum_dispatch::enum_dispatch(ItemFeatureTrait)]
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub enum ItemFeature {
+    Empty(EmptyItemFeature),
+}
+
+#[derive(Debug, Clone)]
+pub struct EmptyItemFeature;
+
+impl ItemFeatureTrait for EmptyItemFeature {}

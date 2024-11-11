@@ -177,7 +177,6 @@ impl TileField {
             .get_mut(local_key as usize)
             .ok_or(FieldError::NotFound)?;
 
-        // SAFETY: data in replaced old tile is not used after this.
         let mut new_tile = Tile {
             id: tile.id,
             location: tile.location,

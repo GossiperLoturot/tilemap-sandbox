@@ -4,7 +4,6 @@ pub mod inner;
 
 mod block;
 mod entity;
-mod inventory;
 mod tile;
 
 struct Extension;
@@ -397,6 +396,62 @@ impl EntityFieldDescriptor {
 
 #[derive(GodotClass)]
 #[class(no_init)]
+struct ItemFeature {
+    base: inner::ItemFeature,
+}
+
+#[godot_api]
+impl ItemFeature {
+    #[func]
+    fn create_empty() -> Gd<Self> {
+        let feature: inner::ItemFeature = inner::EmptyItemFeature.into();
+        Gd::from_object(ItemFeature { base: feature })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct ItemDescriptor {
+    name_text: String,
+    desc_text: String,
+    image: Gd<godot::classes::Image>,
+    feature: Gd<ItemFeature>,
+}
+
+#[godot_api]
+impl ItemDescriptor {
+    #[func]
+    fn create(
+        name_text: String,
+        desc_text: String,
+        image: Gd<godot::classes::Image>,
+        feature: Gd<ItemFeature>,
+    ) -> Gd<Self> {
+        Gd::from_object(ItemDescriptor {
+            name_text,
+            desc_text,
+            image,
+            feature,
+        })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
+struct ItemStoreDescriptor {
+    items: Array<Gd<ItemDescriptor>>,
+}
+
+#[godot_api]
+impl ItemStoreDescriptor {
+    #[func]
+    fn create(items: Array<Gd<ItemDescriptor>>) -> Gd<Self> {
+        Gd::from_object(ItemStoreDescriptor { items })
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 struct GeneratorRule {
     base: inner::GeneratorRule,
 }
@@ -448,6 +503,7 @@ struct RootDescriptor {
     tile_field: Gd<TileFieldDescriptor>,
     block_field: Gd<BlockFieldDescriptor>,
     entity_field: Gd<EntityFieldDescriptor>,
+    item_store: Gd<ItemStoreDescriptor>,
 }
 
 #[godot_api]
@@ -457,11 +513,13 @@ impl RootDescriptor {
         tile_field: Gd<TileFieldDescriptor>,
         block_field: Gd<BlockFieldDescriptor>,
         entity_field: Gd<EntityFieldDescriptor>,
+        item_store: Gd<ItemStoreDescriptor>,
     ) -> Gd<Self> {
         Gd::from_object(RootDescriptor {
             tile_field,
             block_field,
             entity_field,
+            item_store,
         })
     }
 }
@@ -551,13 +609,34 @@ impl Root {
             };
             let entity_features = entity_features.into();
 
+            let mut item_features = vec![];
+            let item_store = {
+                let desc = desc.bind();
+                let desc = desc.item_store.bind();
+
+                let mut items = vec![];
+                for item in desc.items.iter_shared() {
+                    let item = item.bind();
+
+                    items.push(inner::ItemDescriptor {});
+
+                    let feature = &item.feature.bind().base;
+                    item_features.push(feature.clone());
+                }
+
+                inner::ItemStoreDescriptor { items }
+            };
+            let item_features = item_features.into();
+
             inner::Root::new(inner::RootDescriptor {
                 tile_field,
                 block_field,
                 entity_field,
+                item_store,
                 tile_features,
                 block_features,
                 entity_features,
+                item_features,
             })
         };
 
@@ -864,11 +943,6 @@ impl Root {
     fn player_location(&mut self) -> Vector2 {
         let location = self.base.player_location().unwrap();
         Vector2::new(location[0], location[1])
-    }
-
-    #[func]
-    fn inventory_init(&mut self) {
-        self.base.inventory_init().unwrap();
     }
 
     // view

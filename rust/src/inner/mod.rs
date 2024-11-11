@@ -3,7 +3,7 @@ pub use feature::*;
 pub use field::*;
 pub use forwarder::*;
 pub use generator::*;
-pub use inventory::*;
+pub use item::*;
 pub use player::*;
 pub use resource::*;
 pub use time::*;
@@ -13,7 +13,7 @@ mod feature;
 mod field;
 mod forwarder;
 mod generator;
-mod inventory;
+mod item;
 mod player;
 mod resource;
 mod time;
@@ -28,9 +28,11 @@ pub struct RootDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
+    pub item_store: ItemStoreDescriptor,
     pub tile_features: RcVec<TileFeature>,
     pub block_features: RcVec<BlockFeature>,
     pub entity_features: RcVec<EntityFeature>,
+    pub item_features: RcVec<ItemFeature>,
 }
 
 #[derive(Debug)]
@@ -38,9 +40,11 @@ pub struct Root {
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
+    item_store: ItemStore,
     tile_features: RcVec<TileFeature>,
     block_features: RcVec<BlockFeature>,
     entity_features: RcVec<EntityFeature>,
+    item_features: RcVec<ItemFeature>,
     resource_store: ResourceStore,
     time_store: TimeStore,
 }
@@ -52,9 +56,11 @@ impl Root {
             tile_field: TileField::new(desc.tile_field),
             block_field: BlockField::new(desc.block_field),
             entity_field: EntityField::new(desc.entity_field),
+            item_store: ItemStore::new(desc.item_store),
             tile_features: desc.tile_features,
             block_features: desc.block_features,
             entity_features: desc.entity_features,
+            item_features: desc.item_features,
             resource_store: Default::default(),
             time_store: Default::default(),
         }
@@ -508,6 +514,35 @@ impl Root {
         self.entity_field.get_by_hint_rect(rect)
     }
 
+    // item
+
+    #[inline]
+    pub fn item_insert_inventory(
+        &mut self,
+        inventory: Inventory,
+    ) -> Result<InventoryKey, ItemError> {
+        self.item_store.insert(inventory)
+    }
+
+    #[inline]
+    pub fn item_remove_inventory(&mut self, key: InventoryKey) -> Result<Inventory, ItemError> {
+        self.item_store.remove(key)
+    }
+
+    #[inline]
+    pub fn item_modify_inventory(
+        &mut self,
+        key: InventoryKey,
+        f: impl FnOnce(&mut Inventory),
+    ) -> Result<InventoryKey, ItemError> {
+        self.item_store.modify(key, f)
+    }
+
+    #[inline]
+    pub fn item_get_inventory(&mut self, key: InventoryKey) -> Result<&Inventory, ItemError> {
+        self.item_store.get(key)
+    }
+
     // time
 
     #[inline]
@@ -594,26 +629,5 @@ impl Root {
     #[inline]
     pub fn player_location(&mut self) -> Result<Vec2, PlayerError> {
         PlayerResource::location(self)
-    }
-
-    #[inline]
-    pub fn inventory_init(&mut self) -> Result<(), InventoryError> {
-        InventoryResource::init(self)
-    }
-
-    #[inline]
-    pub fn inventory_insert(
-        &mut self,
-        inventory: Inventory,
-    ) -> Result<InventoryKey, InventoryError> {
-        InventoryResource::insert(self, inventory)
-    }
-
-    #[inline]
-    pub fn inventory_remove(
-        &mut self,
-        inventory_key: InventoryKey,
-    ) -> Result<Inventory, InventoryError> {
-        InventoryResource::remove(self, inventory_key)
     }
 }

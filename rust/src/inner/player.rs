@@ -59,7 +59,7 @@ impl PlayerEntityFeature {
 impl EntityFeatureTrait for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
         let inventory_key = root
-            .inventory_insert(Inventory::new(Self::INVENTORY_SIZE))
+            .item_insert_inventory(Inventory::new(Self::INVENTORY_SIZE))
             .unwrap();
 
         root.entity_modify(key, |entity| {
@@ -82,7 +82,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         };
 
         let inventory_key = data.inventory_key;
-        root.inventory_remove(inventory_key).unwrap();
+        root.item_remove_inventory(inventory_key).unwrap();
 
         let resource = root.resource_get_mut::<PlayerResource>().unwrap();
         resource.current = None;
