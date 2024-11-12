@@ -40,10 +40,10 @@ impl Inventory {
         let target = self
             .items
             .get_mut(index as usize)
-            .ok_or(ItemError::InvalidIndex)?;
+            .ok_or(ItemError::InventoryNotFound)?;
 
         if target.is_some() {
-            return Err(ItemError::NotFoundItem);
+            return Err(ItemError::ItemNotFound);
         }
 
         let _ = std::mem::replace(target, Some(item));
@@ -56,13 +56,13 @@ impl Inventory {
         let target = self
             .items
             .get_mut(index as usize)
-            .ok_or(ItemError::InvalidIndex)?;
+            .ok_or(ItemError::InventoryNotFound)?;
 
         if target.is_none() {
-            return Err(ItemError::NotFoundItem);
+            return Err(ItemError::ItemNotFound);
         }
 
-        let item = std::mem::replace(target, None).unwrap();
+        let item = target.take().unwrap();
 
         self.version += 1;
         Ok(item)
@@ -72,14 +72,14 @@ impl Inventory {
         let target = self
             .items
             .get_mut(index as usize)
-            .ok_or(ItemError::InvalidIndex)?;
-        let item = target.as_mut().ok_or(ItemError::NotFoundItem)?;
+            .ok_or(ItemError::InventoryNotFound)?;
+        let item = target.as_mut().ok_or(ItemError::ItemNotFound)?;
 
         let mut new_item = item.clone();
         f(&mut new_item);
 
         if new_item.id != item.id {
-            return Err(ItemError::InvalidId);
+            return Err(ItemError::ItemInvalidId);
         }
 
         if new_item.amount != item.amount {
@@ -99,8 +99,8 @@ impl Inventory {
         let target = self
             .items
             .get(index as usize)
-            .ok_or(ItemError::InvalidIndex)?;
-        target.as_ref().ok_or(ItemError::NotFoundItem)
+            .ok_or(ItemError::InventoryNotFound)?;
+        target.as_ref().ok_or(ItemError::ItemNotFound)
     }
 }
 
@@ -124,7 +124,7 @@ impl ItemStore {
     pub fn remove(&mut self, key: InventoryKey) -> Result<Inventory, ItemError> {
         self.inventories
             .try_remove(key as usize)
-            .ok_or(ItemError::NotFoundInventory)
+            .ok_or(ItemError::InventoryNotFound)
     }
 
     pub fn modify(
@@ -135,7 +135,7 @@ impl ItemStore {
         let inventory = self
             .inventories
             .get_mut(key as usize)
-            .ok_or(ItemError::NotFoundInventory)?;
+            .ok_or(ItemError::InventoryNotFound)?;
 
         let mut new_inventory = inventory.clone();
         f(&mut new_inventory);
@@ -148,7 +148,7 @@ impl ItemStore {
     pub fn get(&self, key: InventoryKey) -> Result<&Inventory, ItemError> {
         self.inventories
             .get(key as usize)
-            .ok_or(ItemError::NotFoundInventory)
+            .ok_or(ItemError::InventoryNotFound)
     }
 }
 
@@ -156,19 +156,19 @@ impl ItemStore {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ItemError {
-    NotFoundInventory,
-    NotFoundItem,
-    InvalidId,
-    InvalidIndex,
+    ItemNotFound,
+    ItemConflict,
+    ItemInvalidId,
+    InventoryNotFound,
 }
 
 impl std::fmt::Display for ItemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotFoundInventory => write!(f, "not found inventory error"),
-            Self::NotFoundItem => write!(f, "not found item error"),
-            Self::InvalidId => write!(f, "invalid id error"),
-            Self::InvalidIndex => write!(f, "invalid index error"),
+            Self::ItemNotFound => write!(f, "not found item error"),
+            Self::ItemConflict => write!(f, "conflict item error"),
+            Self::ItemInvalidId => write!(f, "invalid id error"),
+            Self::InventoryNotFound => write!(f, "not found inventory error"),
         }
     }
 }
