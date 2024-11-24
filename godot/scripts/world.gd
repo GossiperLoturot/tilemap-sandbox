@@ -281,6 +281,8 @@ func _ready() -> void:
 	var item_descriptors: Array[ItemDescriptor] = []
 	item_descriptors.resize(ITEM_ID_SIZE)
 	item_descriptors[ITEM_PACKAGE] = ItemDescriptor.create(
+		"Package",
+		"This is a package.",
 		preload("res://images/package.webp"),
 		ItemFeature.create_empty()
 	)
@@ -302,7 +304,7 @@ func _ready() -> void:
 				[preload("res://field.gdshader"), preload("res://field_shadow.gdshader")] as Array[Shader],
 				get_world_3d()
 			),
-			ItemIndexDescriptor.create(
+			ItemStoreDescriptor.create(
 				item_descriptors
 			)
 		)
@@ -331,8 +333,6 @@ func _ready() -> void:
 		] as Array[GeneratorRule]
 	)
 	_root.generator_init(generator_resource_descriptor)
-
-	_root.inventory_init()
 
 	_root.player_init()
 

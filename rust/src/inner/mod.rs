@@ -521,26 +521,32 @@ impl Root {
         &mut self,
         inventory: Inventory,
     ) -> Result<InventoryKey, ItemError> {
-        self.item_store.insert(inventory)
+        self.item_store.insert_inventory(inventory)
     }
 
     #[inline]
-    pub fn item_remove_inventory(&mut self, key: InventoryKey) -> Result<Inventory, ItemError> {
-        self.item_store.remove(key)
+    pub fn item_remove_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<Inventory, ItemError> {
+        self.item_store.remove_inventory(inventory_key)
     }
 
     #[inline]
     pub fn item_modify_inventory(
         &mut self,
-        key: InventoryKey,
+        inventory_key: InventoryKey,
         f: impl FnOnce(&mut Inventory),
     ) -> Result<InventoryKey, ItemError> {
-        self.item_store.modify(key, f)
+        self.item_store.modify_inventory(inventory_key, f)
     }
 
     #[inline]
-    pub fn item_get_inventory(&mut self, key: InventoryKey) -> Result<&Inventory, ItemError> {
-        self.item_store.get(key)
+    pub fn item_get_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<&Inventory, ItemError> {
+        self.item_store.get_inventory(inventory_key)
     }
 
     // time

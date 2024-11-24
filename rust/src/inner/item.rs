@@ -21,59 +21,58 @@ pub struct Item {
 #[derive(Debug, Clone)]
 pub struct Inventory {
     pub version: u64,
-    pub items: Vec<Option<Item>>,
+    pub slots: Vec<Option<Item>>,
 }
 
 impl Inventory {
     pub fn new(item_size: u32) -> Self {
         Self {
             version: 0,
-            items: vec![None; item_size as usize],
+            slots: vec![None; item_size as usize],
         }
     }
 
-    pub fn get_size(&self) -> u32 {
-        self.items.len() as u32
+    pub fn slot_size(&self) -> u32 {
+        self.slots.len() as u32
     }
 
     pub fn insert(&mut self, index: u32, item: Item) -> Result<(), ItemError> {
-        let target = self
-            .items
+        let slot = self
+            .slots
             .get_mut(index as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        if target.is_some() {
+        if slot.is_some() {
             return Err(ItemError::ItemNotFound);
         }
 
-        let _ = std::mem::replace(target, Some(item));
-
+        let _ = std::mem::replace(slot, Some(item));
         self.version += 1;
         Ok(())
     }
 
     pub fn remove(&mut self, index: u32) -> Result<Item, ItemError> {
-        let target = self
-            .items
+        let slot = self
+            .slots
             .get_mut(index as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        if target.is_none() {
+        if slot.is_none() {
             return Err(ItemError::ItemNotFound);
         }
 
-        let item = target.take().unwrap();
+        let item = slot.take().unwrap();
 
         self.version += 1;
         Ok(item)
     }
 
-    pub fn modify(&mut self, index: u32, f: impl FnOnce(&mut Item)) -> Result<(), ItemError> {
-        let target = self
-            .items
+    pub fn modify_item(&mut self, index: u32, f: impl FnOnce(&mut Item)) -> Result<(), ItemError> {
+        let slot = self
+            .slots
             .get_mut(index as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        let item = target.as_mut().ok_or(ItemError::ItemNotFound)?;
+        let item = slot.as_mut().ok_or(ItemError::ItemNotFound)?;
 
         let mut new_item = item.clone();
         f(&mut new_item);
@@ -82,25 +81,20 @@ impl Inventory {
             return Err(ItemError::ItemInvalidId);
         }
 
-        if new_item.amount != item.amount {
-            self.version += 1;
-        }
-
-        if new_item.render_param != item.render_param {
+        if new_item.amount != item.amount || new_item.render_param != item.render_param {
             self.version += 1;
         }
 
         item.data = new_item.data;
-
         Ok(())
     }
 
-    pub fn get(&self, index: u32) -> Result<&Item, ItemError> {
-        let target = self
-            .items
+    pub fn get_item(&self, index: u32) -> Result<&Item, ItemError> {
+        let slot = self
+            .slots
             .get(index as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        target.as_ref().ok_or(ItemError::ItemNotFound)
+        slot.as_ref().ok_or(ItemError::ItemNotFound)
     }
 }
 
@@ -116,38 +110,41 @@ impl ItemStore {
         }
     }
 
-    pub fn insert(&mut self, inventory: Inventory) -> Result<InventoryKey, ItemError> {
-        let key = self.inventories.insert(inventory) as u32;
-        Ok(key)
+    pub fn insert_inventory(&mut self, inventory: Inventory) -> Result<InventoryKey, ItemError> {
+        let inventory_key = self.inventories.insert(inventory) as u32;
+        Ok(inventory_key)
     }
 
-    pub fn remove(&mut self, key: InventoryKey) -> Result<Inventory, ItemError> {
+    pub fn remove_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<Inventory, ItemError> {
         self.inventories
-            .try_remove(key as usize)
+            .try_remove(inventory_key as usize)
             .ok_or(ItemError::InventoryNotFound)
     }
 
-    pub fn modify(
+    pub fn modify_inventory(
         &mut self,
-        key: InventoryKey,
+        inventory_key: InventoryKey,
         f: impl FnOnce(&mut Inventory),
     ) -> Result<InventoryKey, ItemError> {
         let inventory = self
             .inventories
-            .get_mut(key as usize)
+            .get_mut(inventory_key as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
         let mut new_inventory = inventory.clone();
         f(&mut new_inventory);
 
-        inventory.items = new_inventory.items;
+        inventory.slots = new_inventory.slots;
 
-        Ok(key)
+        Ok(inventory_key)
     }
 
-    pub fn get(&self, key: InventoryKey) -> Result<&Inventory, ItemError> {
+    pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, ItemError> {
         self.inventories
-            .get(key as usize)
+            .get(inventory_key as usize)
             .ok_or(ItemError::InventoryNotFound)
     }
 }

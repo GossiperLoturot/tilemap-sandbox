@@ -4,6 +4,7 @@ pub mod inner;
 
 mod block;
 mod entity;
+mod item;
 mod tile;
 
 struct Extension;
@@ -531,6 +532,7 @@ struct Root {
     tile_field: tile::TileField,
     block_field: block::BlockField,
     entity_field: entity::EntityField,
+    item_store: item::ItemStore,
 }
 
 #[godot_api]
@@ -770,11 +772,31 @@ impl Root {
             })
         };
 
+        // item store renderer
+        let item_store = {
+            let desc = desc.bind();
+            let desc = desc.item_store.bind();
+
+            let mut items = vec![];
+            for item in desc.items.iter_shared() {
+                let item = item.bind();
+
+                items.push(item::ItemDescriptor {
+                    name_text: item.name_text.clone(),
+                    desc_text: item.desc_text.clone(),
+                    image: item.image.clone(),
+                });
+            }
+
+            item::ItemStore::new(item::ItemStoreDescriptor { items })
+        };
+
         Gd::from_object(Root {
             base,
             tile_field,
             block_field,
             entity_field,
+            item_store,
         })
     }
 
@@ -845,6 +867,23 @@ impl Root {
         Gd::from_object(Entity {
             base: entity.clone(),
         })
+    }
+
+    // item
+
+    #[func]
+    fn item_name_text(&self, id: u32) -> String {
+        self.item_store.get_name_text(id).unwrap()
+    }
+
+    #[func]
+    fn item_desc_text(&self, id: u32) -> String {
+        self.item_store.get_desc_text(id).unwrap()
+    }
+
+    #[func]
+    fn item_image(&self, id: u32) -> Gd<godot::classes::Image> {
+        self.item_store.get_image(id).unwrap()
     }
 
     // time

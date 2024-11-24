@@ -63,10 +63,10 @@ func _process(delta) -> void:
 
 
 func open_inventory() -> void:
-	var inv = world._root.player_inventory()
+	var inventory_key = world._root.player_inventory()
 
-	var inv_size = world._root.inventory_size(inv)
-	print("player inventory (size: %d)" % inv_size)
-	for i in range(inv_size):
-		var item = world._root.inventory_get(inv, i)
+	var slot_size = world._root.item_get_slot_size(inventory_key)
+	print("inventory (slot size: %d)" % slot_size)
+	for index in range(slot_size):
+		var item = world._root.item_get_item(inventory_key, index)
 		print("├ item (id: %d, amount: %d)" % [item.id, item.amount])
