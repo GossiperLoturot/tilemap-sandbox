@@ -18,9 +18,9 @@ func _ready() -> void:
 
 func _process(delta) -> void:
 	var input = Input.get_vector("left", "right", "down", "up")
-	world._root.player_input(input)
+	world._root.player_insert_input(input)
 
-	var location = world._root.player_location()
+	var location = world._root.player_get_location()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))

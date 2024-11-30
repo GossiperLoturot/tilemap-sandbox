@@ -1,7 +1,5 @@
 use crate::inner;
 
-use super::*;
-
 #[derive(Debug, Clone)]
 pub struct GeneratorRuleMarching {
     pub prob: f32,
@@ -40,26 +38,20 @@ pub struct GeneratorResource {
 impl GeneratorResource {
     const CHUNK_SIZE: u32 = 32;
 
-    pub fn init(
-        root: &mut inner::Root,
-        desc: GeneratorResourceDescriptor,
-    ) -> Result<(), GeneratorError> {
-        let slf = Self {
+    pub fn new(desc: GeneratorResourceDescriptor) -> Self {
+        Self {
             tile_rules: desc.tile_rules,
             block_rules: desc.block_rules,
             entity_rules: desc.entity_rules,
             visit: ahash::AHashSet::new(),
-        };
-        root.resource_insert(slf)?;
-        Ok(())
+        }
     }
 
     pub fn exec_rect(
+        &mut self,
         root: &mut inner::Root,
         min_rect: [inner::Vec2; 2],
     ) -> Result<(), GeneratorError> {
-        let mut slf = root.resource_remove::<Self>()?;
-
         #[rustfmt::skip]
         let min_rect = [[
             min_rect[0][0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
@@ -73,48 +65,47 @@ impl GeneratorResource {
             for x in min_rect[0][0]..=min_rect[1][0] {
                 let chunk_location = [x, y];
 
-                if slf.visit.contains(&chunk_location) {
+                if self.visit.contains(&chunk_location) {
                     continue;
                 }
 
-                slf.visit.insert(chunk_location);
+                self.visit.insert(chunk_location);
 
-                for rule in &slf.tile_rules {
+                for rule in &self.tile_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.gen_tile_chunk_by_marching(root, rule, chunk_location, rng);
+                            self.gen_tile_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.gen_tile_chunk_by_spawn(root, rule, chunk_location, rng);
+                            self.gen_tile_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
 
-                for rule in &slf.block_rules {
+                for rule in &self.block_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.gen_block_chunk_by_marching(root, rule, chunk_location, rng);
+                            self.gen_block_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.gen_block_chunk_by_spawn(root, rule, chunk_location, rng);
+                            self.gen_block_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
 
-                for rule in &slf.entity_rules {
+                for rule in &self.entity_rules {
                     match rule {
                         GeneratorRule::Marching(rule) => {
-                            slf.gen_entity_chunk_by_marching(root, rule, chunk_location, rng);
+                            self.gen_entity_chunk_by_marching(root, rule, chunk_location, rng);
                         }
                         GeneratorRule::Spawn(rule) => {
-                            slf.gen_entity_chunk_by_spawn(root, rule, chunk_location, rng);
+                            self.gen_entity_chunk_by_spawn(root, rule, chunk_location, rng);
                         }
                     }
                 }
             }
         }
 
-        root.resource_insert(slf).unwrap();
         Ok(())
     }
 
@@ -297,27 +288,13 @@ impl GeneratorResource {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GeneratorError {
-    Resource(ResourceError),
+    NotScoped,
 }
 
 impl std::fmt::Display for GeneratorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Resource(e) => e.fmt(f),
+            Self::NotScoped => write!(f, "not scoped error"),
         }
-    }
-}
-
-impl std::error::Error for GeneratorError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Resource(e) => Some(e),
-        }
-    }
-}
-
-impl From<ResourceError> for GeneratorError {
-    fn from(value: ResourceError) -> Self {
-        Self::Resource(value)
     }
 }

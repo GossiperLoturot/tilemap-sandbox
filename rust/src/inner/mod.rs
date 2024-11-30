@@ -5,7 +5,6 @@ pub use forwarder::*;
 pub use generator::*;
 pub use item::*;
 pub use player::*;
-pub use resource::*;
 pub use time::*;
 
 mod animal;
@@ -15,7 +14,6 @@ mod forwarder;
 mod generator;
 mod item;
 mod player;
-mod resource;
 mod time;
 
 pub type Vec2 = [f32; 2];
@@ -29,24 +27,34 @@ pub struct RootDescriptor {
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
     pub item_store: ItemStoreDescriptor,
+
     pub tile_features: RcVec<TileFeature>,
     pub block_features: RcVec<BlockFeature>,
     pub entity_features: RcVec<EntityFeature>,
     pub item_features: RcVec<ItemFeature>,
+
+    pub generator_resource: GeneratorResourceDescriptor,
 }
 
 #[derive(Debug)]
 pub struct Root {
+    // isolated fields
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
     item_store: ItemStore,
+    time_store: TimeStore,
+
+    // readonly shared fields
     tile_features: RcVec<TileFeature>,
     block_features: RcVec<BlockFeature>,
     entity_features: RcVec<EntityFeature>,
     item_features: RcVec<ItemFeature>,
-    resource_store: ResourceStore,
-    time_store: TimeStore,
+
+    // shared fields
+    forwarder_resource: Option<ForwarderResource>,
+    generator_resource: Option<GeneratorResource>,
+    player_resource: Option<PlayerResource>,
 }
 
 impl Root {
@@ -57,12 +65,16 @@ impl Root {
             block_field: BlockField::new(desc.block_field),
             entity_field: EntityField::new(desc.entity_field),
             item_store: ItemStore::new(desc.item_store),
+            time_store: TimeStore::new(),
+
             tile_features: desc.tile_features,
             block_features: desc.block_features,
             entity_features: desc.entity_features,
             item_features: desc.item_features,
-            resource_store: Default::default(),
-            time_store: Default::default(),
+
+            forwarder_resource: Some(ForwarderResource::new()),
+            generator_resource: Some(GeneratorResource::new(desc.generator_resource)),
+            player_resource: Some(PlayerResource::new()),
         }
     }
 
@@ -114,34 +126,6 @@ impl Root {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.tile_field.get_chunk(chunk_key).unwrap();
         Ok(chunk)
-    }
-
-    pub fn tile_forward_chunk(
-        &mut self,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) -> Result<(), FieldError> {
-        let chunk_key = self
-            .tile_field
-            .get_by_chunk_location(chunk_location)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.tile_field.get_chunk(chunk_key)?;
-
-        let mut local_keys = vec![];
-        for (local_key, _) in &chunk.tiles {
-            local_keys.push(local_key as u32);
-        }
-
-        let features = self.tile_features.clone();
-        for local_key in local_keys {
-            let tile_key = (chunk_key, local_key);
-            let tile = self.tile_field.get(tile_key).unwrap();
-            let feature = features
-                .get(tile.id as usize)
-                .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, tile_key, delta_secs);
-        }
-        Ok(())
     }
 
     // tile spatial features
@@ -234,34 +218,6 @@ impl Root {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.block_field.get_chunk(chunk_key).unwrap();
         Ok(chunk)
-    }
-
-    pub fn block_forward_chunk(
-        &mut self,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) -> Result<(), FieldError> {
-        let chunk_key = self
-            .block_field
-            .get_by_chunk_location(chunk_location)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.block_field.get_chunk(chunk_key)?;
-
-        let mut local_keys = vec![];
-        for (local_key, _) in &chunk.blocks {
-            local_keys.push(local_key as u32);
-        }
-
-        let features = self.block_features.clone();
-        for local_key in local_keys {
-            let block_key = (chunk_key, local_key);
-            let block = self.block_field.get(block_key).unwrap();
-            let feature = features
-                .get(block.id as usize)
-                .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, block_key, delta_secs);
-        }
-        Ok(())
     }
 
     // block spatial features
@@ -413,34 +369,6 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn entity_forward_chunk(
-        &mut self,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) -> Result<(), FieldError> {
-        let chunk_key = self
-            .entity_field
-            .get_by_chunk_location(chunk_location)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.entity_field.get_chunk(chunk_key)?;
-
-        let mut local_keys = vec![];
-        for (local_key, _) in &chunk.entities {
-            local_keys.push(local_key as u32);
-        }
-
-        let features = self.entity_features.clone();
-        for local_key in local_keys {
-            let entity_key = (chunk_key, local_key);
-            let entity = self.entity_field.get(entity_key).unwrap();
-            let feature = features
-                .get(entity.id as usize)
-                .ok_or(FieldError::InvalidId)?;
-            feature.forward(self, entity_key, delta_secs);
-        }
-        Ok(())
-    }
-
     // entity collision features
 
     #[inline]
@@ -566,38 +494,18 @@ impl Root {
         self.time_store.forward(delta_secs);
     }
 
-    // resource
+    // others
 
     #[inline]
-    pub fn resource_insert<R: 'static>(&mut self, value: R) -> Result<(), ResourceError> {
-        self.resource_store.insert(value)
-    }
-
-    #[inline]
-    pub fn resource_remove<R: 'static>(&mut self) -> Result<R, ResourceError> {
-        self.resource_store.remove::<R>()
-    }
-
-    #[inline]
-    pub fn resource_has<R: 'static>(&self) -> bool {
-        self.resource_store.has::<R>()
-    }
-
-    #[inline]
-    pub fn resource_get<R: 'static>(&self) -> Result<&R, ResourceError> {
-        self.resource_store.get::<R>()
-    }
-
-    #[inline]
-    pub fn resource_get_mut<R: 'static>(&mut self) -> Result<&mut R, ResourceError> {
-        self.resource_store.get_mut::<R>()
-    }
-
-    // execute
-
-    #[inline]
-    pub fn forwarder_init(&mut self) -> Result<(), ForwarderError> {
-        ForwarderResource::init(self)
+    fn scope<Field, Output>(
+        &mut self,
+        field_fn: impl Fn(&mut Self) -> &mut Option<Field>,
+        scope_fn: impl Fn(&mut Field, &mut Self) -> Output,
+    ) -> Option<Output> {
+        let mut resource = field_fn(self).take()?;
+        let value = scope_fn(&mut resource, self);
+        *field_fn(self) = Some(resource);
+        Some(value)
     }
 
     #[inline]
@@ -606,34 +514,82 @@ impl Root {
         min_rect: [Vec2; 2],
         delta_secs: f32,
     ) -> Result<(), ForwarderError> {
-        ForwarderResource::exec_rect(self, min_rect, delta_secs)
-    }
-
-    #[inline]
-    pub fn generator_init(
-        &mut self,
-        desc: GeneratorResourceDescriptor,
-    ) -> Result<(), GeneratorError> {
-        GeneratorResource::init(self, desc)
+        self.scope(
+            |root| &mut root.forwarder_resource,
+            |resource, root| resource.exec_rect(root, min_rect, delta_secs),
+        )
+        .ok_or(ForwarderError::NotScoped)?
     }
 
     #[inline]
     pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), GeneratorError> {
-        GeneratorResource::exec_rect(self, min_rect)
+        self.scope(
+            |root| &mut root.generator_resource,
+            |resource, root| resource.exec_rect(root, min_rect),
+        )
+        .ok_or(GeneratorError::NotScoped)?
     }
 
     #[inline]
-    pub fn player_init(&mut self) -> Result<(), PlayerError> {
-        PlayerResource::init(self)
+    pub fn player_insert_current(&mut self, entity_key: EntityKey) -> Result<(), PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.insert_current(entity_key),
+        )
+        .ok_or(PlayerError::NotScoped)?
     }
 
     #[inline]
-    pub fn player_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
-        PlayerResource::input(self, input)
+    pub fn player_remove_current(&mut self) -> Result<EntityKey, PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.remove_current(),
+        )
+        .ok_or(PlayerError::NotScoped)?
     }
 
     #[inline]
-    pub fn player_location(&mut self) -> Result<Vec2, PlayerError> {
-        PlayerResource::location(self)
+    pub fn player_get_current(&mut self) -> Result<EntityKey, PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.get_current(),
+        )
+        .ok_or(PlayerError::NotScoped)?
+    }
+
+    #[inline]
+    pub fn player_insert_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.insert_input(input),
+        )
+        .ok_or(PlayerError::NotScoped)?
+    }
+
+    #[inline]
+    pub fn player_remove_input(&mut self) -> Result<Vec2, PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.remove_input(),
+        )
+        .ok_or(PlayerError::NotScoped)?
+    }
+
+    #[inline]
+    pub fn player_get_input(&mut self) -> Result<Vec2, PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, _| resource.get_input(),
+        )
+        .ok_or(PlayerError::NotScoped)?
+    }
+
+    #[inline]
+    pub fn player_get_location(&mut self) -> Result<Vec2, PlayerError> {
+        self.scope(
+            |root| &mut root.player_resource,
+            |resource, root| resource.get_location(root),
+        )
+        .ok_or(PlayerError::NotScoped)?
     }
 }

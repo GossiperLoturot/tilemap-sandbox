@@ -306,35 +306,29 @@ func _ready() -> void:
 			),
 			ItemStoreDescriptor.create(
 				item_descriptors
+			),
+			GeneratorResourceDescriptor.create(
+				[
+					GeneratorRule.create_marching(0.5, TILE_GRASS),
+					GeneratorRule.create_marching(1.0, TILE_DIRT)
+				] as Array[GeneratorRule],
+				[
+					GeneratorRule.create_spawn(0.05, BLOCK_DANDELION),
+					GeneratorRule.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
+					GeneratorRule.create_spawn(0.05, BLOCK_MIX_GRASS),
+					GeneratorRule.create_spawn(0.05, BLOCK_MIX_PEBBLES)
+				] as Array[GeneratorRule],
+				[
+					GeneratorRule.create_spawn(0.001, ENTITY_COW),
+					GeneratorRule.create_spawn(0.001, ENTITY_PIG),
+					GeneratorRule.create_spawn(0.001, ENTITY_SHEEP),
+					GeneratorRule.create_spawn(0.001, ENTITY_CHICKEN),
+					GeneratorRule.create_spawn(0.001, ENTITY_BIRD),
+					GeneratorRule.create_spawn(0.001, ENTITY_PACKAGE)
+				] as Array[GeneratorRule]
 			)
 		)
 	)
-
-	_root.forwarder_init()
-
-	var generator_resource_descriptor = GeneratorResourceDescriptor.create(
-		[
-			GeneratorRule.create_marching(0.5, TILE_GRASS),
-			GeneratorRule.create_marching(1.0, TILE_DIRT)
-		] as Array[GeneratorRule],
-		[
-			GeneratorRule.create_spawn(0.05, BLOCK_DANDELION),
-			GeneratorRule.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
-			GeneratorRule.create_spawn(0.05, BLOCK_MIX_GRASS),
-			GeneratorRule.create_spawn(0.05, BLOCK_MIX_PEBBLES)
-		] as Array[GeneratorRule],
-		[
-			GeneratorRule.create_spawn(0.001, ENTITY_COW),
-			GeneratorRule.create_spawn(0.001, ENTITY_PIG),
-			GeneratorRule.create_spawn(0.001, ENTITY_SHEEP),
-			GeneratorRule.create_spawn(0.001, ENTITY_CHICKEN),
-			GeneratorRule.create_spawn(0.001, ENTITY_BIRD),
-			GeneratorRule.create_spawn(0.001, ENTITY_PACKAGE)
-		] as Array[GeneratorRule]
-	)
-	_root.generator_init(generator_resource_descriptor)
-
-	_root.player_init()
 
 
 func _process(delta_secs) -> void:

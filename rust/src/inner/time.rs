@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TimeStore {
     tick: u64,
     temporary: f32,
@@ -6,6 +6,14 @@ pub struct TimeStore {
 
 impl TimeStore {
     const TICK_PER_SECS: u64 = 24;
+
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            tick: Default::default(),
+            temporary: Default::default(),
+        }
+    }
 
     #[inline]
     pub fn tick_per_secs(&self) -> u64 {

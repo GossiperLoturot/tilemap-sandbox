@@ -505,6 +505,7 @@ struct RootDescriptor {
     block_field: Gd<BlockFieldDescriptor>,
     entity_field: Gd<EntityFieldDescriptor>,
     item_store: Gd<ItemStoreDescriptor>,
+    generator_resource: Gd<GeneratorResourceDescriptor>,
 }
 
 #[godot_api]
@@ -515,12 +516,14 @@ impl RootDescriptor {
         block_field: Gd<BlockFieldDescriptor>,
         entity_field: Gd<EntityFieldDescriptor>,
         item_store: Gd<ItemStoreDescriptor>,
+        generator_resource: Gd<GeneratorResourceDescriptor>,
     ) -> Gd<Self> {
         Gd::from_object(RootDescriptor {
             tile_field,
             block_field,
             entity_field,
             item_store,
+            generator_resource,
         })
     }
 }
@@ -630,15 +633,47 @@ impl Root {
             };
             let item_features = item_features.into();
 
+            let generator_resource = {
+                let desc = desc.bind();
+                let desc = desc.generator_resource.bind();
+
+                let mut tile_rules = vec![];
+                for rule in desc.tile_rules.iter_shared() {
+                    let rule = &rule.bind().base;
+                    tile_rules.push(rule.clone());
+                }
+
+                let mut block_rules = vec![];
+                for rule in desc.block_rules.iter_shared() {
+                    let rule = &rule.bind().base;
+                    block_rules.push(rule.clone());
+                }
+
+                let mut entity_rules = vec![];
+                for rule in desc.entity_rules.iter_shared() {
+                    let rule = &rule.bind().base;
+                    entity_rules.push(rule.clone());
+                }
+
+                inner::GeneratorResourceDescriptor {
+                    tile_rules,
+                    block_rules,
+                    entity_rules,
+                }
+            };
+
             inner::Root::new(inner::RootDescriptor {
                 tile_field,
                 block_field,
                 entity_field,
                 item_store,
+
                 tile_features,
                 block_features,
                 entity_features,
                 item_features,
+
+                generator_resource,
             })
         };
 
@@ -906,11 +941,6 @@ impl Root {
     // extra
 
     #[func]
-    fn forwarder_init(&mut self) {
-        self.base.forwarder_init().unwrap();
-    }
-
-    #[func]
     fn forwarder_exec_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
         #[rustfmt::skip]
         let min_rect = [[
@@ -921,37 +951,6 @@ impl Root {
         ]];
 
         self.base.forwarder_exec_rect(min_rect, delta_secs).unwrap();
-    }
-
-    #[func]
-    fn generator_init(&mut self, desc: Gd<GeneratorResourceDescriptor>) {
-        let desc = desc.bind();
-
-        let mut tile_rules = vec![];
-        for rule in desc.tile_rules.iter_shared() {
-            let rule = &rule.bind().base;
-            tile_rules.push(rule.clone());
-        }
-
-        let mut block_rules = vec![];
-        for rule in desc.block_rules.iter_shared() {
-            let rule = &rule.bind().base;
-            block_rules.push(rule.clone());
-        }
-
-        let mut entity_rules = vec![];
-        for rule in desc.entity_rules.iter_shared() {
-            let rule = &rule.bind().base;
-            entity_rules.push(rule.clone());
-        }
-
-        let desc = inner::GeneratorResourceDescriptor {
-            tile_rules,
-            block_rules,
-            entity_rules,
-        };
-
-        self.base.generator_init(desc).unwrap();
     }
 
     #[func]
@@ -968,19 +967,14 @@ impl Root {
     }
 
     #[func]
-    fn player_init(&mut self) {
-        self.base.player_init().unwrap();
-    }
-
-    #[func]
-    fn player_input(&mut self, input: Vector2) {
+    fn player_insert_input(&mut self, input: Vector2) {
         let input = [input.x, input.y];
-        self.base.player_input(input).unwrap();
+        self.base.player_insert_input(input).unwrap();
     }
 
     #[func]
-    fn player_location(&mut self) -> Vector2 {
-        let location = self.base.player_location().unwrap();
+    fn player_get_location(&mut self) -> Vector2 {
+        let location = self.base.player_get_location().unwrap();
         Vector2::new(location[0], location[1])
     }
 

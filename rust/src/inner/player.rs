@@ -11,24 +11,50 @@ pub struct PlayerResource {
 }
 
 impl PlayerResource {
-    pub fn init(root: &mut inner::Root) -> Result<(), PlayerError> {
-        let resource = Self {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
             current: Default::default(),
             input: Default::default(),
-        };
-        root.resource_insert(resource)?;
+        }
+    }
+
+    pub fn insert_current(&mut self, entity_key: EntityKey) -> Result<(), PlayerError> {
+        if self.current.is_some() {
+            return Err(PlayerError::AlreadyExist);
+        }
+        self.current = Some(entity_key);
         Ok(())
     }
 
-    pub fn input(root: &mut inner::Root, input: Vec2) -> Result<(), PlayerError> {
-        let resource = root.resource_get_mut::<Self>()?;
-        resource.input = Some(input);
+    pub fn remove_current(&mut self) -> Result<EntityKey, PlayerError> {
+        self.current.take().ok_or(PlayerError::NotFound)
+    }
+
+    pub fn get_current(&self) -> Result<EntityKey, PlayerError> {
+        self.current.ok_or(PlayerError::NotFound)
+    }
+
+    pub fn insert_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
+        if self.input.is_some() {
+            return Err(PlayerError::AlreadyExist);
+        }
+        self.input = Some(input);
         Ok(())
     }
 
-    pub fn location(root: &inner::Root) -> Result<Vec2, PlayerError> {
-        let resource = root.resource_get::<Self>()?;
-        let current = resource.current.ok_or(PlayerError::NotFoundPlayer)?;
+    pub fn remove_input(&mut self) -> Result<Vec2, PlayerError> {
+        self.input.take().ok_or(PlayerError::NotFound)
+    }
+
+    pub fn get_input(&self) -> Result<Vec2, PlayerError> {
+        self.input.ok_or(PlayerError::NotFound)
+    }
+
+    // utility
+
+    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, PlayerError> {
+        let current = self.current.ok_or(PlayerError::NotFound)?;
         let location = root.entity_get(current).unwrap().location;
         Ok(location)
     }
@@ -70,8 +96,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         })
         .unwrap();
 
-        let resource = root.resource_get_mut::<PlayerResource>().unwrap();
-        resource.current = Some(key);
+        root.player_insert_current(key).unwrap();
     }
 
     fn before_break(&self, root: &mut Root, key: EntityKey) {
@@ -84,8 +109,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         let inventory_key = data.inventory_key;
         root.item_remove_inventory(inventory_key).unwrap();
 
-        let resource = root.resource_get_mut::<PlayerResource>().unwrap();
-        resource.current = None;
+        root.player_remove_current().unwrap();
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
@@ -95,10 +119,8 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             return;
         };
 
-        let resource = root.resource_get_mut::<PlayerResource>().unwrap();
-
         // consume input
-        if let Some(input) = resource.input.take() {
+        if let Ok(input) = root.player_remove_input() {
             let is_move = input[0].powi(2) + input[1].powi(2) > f32::EPSILON;
 
             if is_move {
@@ -130,10 +152,9 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             }
         }
 
+        root.player_remove_current().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
-
-        let resource = root.resource_get_mut::<PlayerResource>().unwrap();
-        resource.current = Some(key);
+        root.player_insert_current(key).unwrap();
     }
 }
 
@@ -165,30 +186,17 @@ fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlayerError {
-    Resource(ResourceError),
-    NotFoundPlayer,
+    NotScoped,
+    AlreadyExist,
+    NotFound,
 }
 
 impl std::fmt::Display for PlayerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Resource(e) => e.fmt(f),
-            Self::NotFoundPlayer => write!(f, "not found player error"),
+            Self::NotScoped => write!(f, "not scoped error"),
+            Self::AlreadyExist => write!(f, "already exist error"),
+            Self::NotFound => write!(f, "not found error"),
         }
-    }
-}
-
-impl std::error::Error for PlayerError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Resource(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<ResourceError> for PlayerError {
-    fn from(value: ResourceError) -> Self {
-        Self::Resource(value)
     }
 }
