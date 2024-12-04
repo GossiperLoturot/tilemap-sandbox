@@ -4,13 +4,13 @@ use super::*;
 
 // resource
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ForwarderResource {}
 
 impl ForwarderResource {
     #[inline]
     pub fn new() -> Self {
-        Self {}
+        Default::default()
     }
 
     pub fn exec_rect(

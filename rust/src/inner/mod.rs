@@ -445,28 +445,13 @@ impl Root {
     // item
 
     #[inline]
-    pub fn item_insert_inventory(
-        &mut self,
-        inventory: Inventory,
-    ) -> Result<InventoryKey, ItemError> {
-        self.item_store.insert_inventory(inventory)
+    pub fn item_alloc_inventory(&mut self, slot_size: u32) -> Result<InventoryKey, ItemError> {
+        self.item_store.alloc_inventory(slot_size)
     }
 
     #[inline]
-    pub fn item_remove_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-    ) -> Result<Inventory, ItemError> {
-        self.item_store.remove_inventory(inventory_key)
-    }
-
-    #[inline]
-    pub fn item_modify_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-        f: impl FnOnce(&mut Inventory),
-    ) -> Result<InventoryKey, ItemError> {
-        self.item_store.modify_inventory(inventory_key, f)
+    pub fn item_free_inventory(&mut self, inventory_key: InventoryKey) -> Result<(), ItemError> {
+        self.item_store.free_inventory(inventory_key)
     }
 
     #[inline]
@@ -475,6 +460,30 @@ impl Root {
         inventory_key: InventoryKey,
     ) -> Result<&Inventory, ItemError> {
         self.item_store.get_inventory(inventory_key)
+    }
+
+    #[inline]
+    pub fn item_insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
+        self.item_store.insert_item(slot_key, item)
+    }
+
+    #[inline]
+    pub fn item_remove_item(&mut self, slot_key: SlotKey) -> Result<Item, ItemError> {
+        self.item_store.remove_item(slot_key)
+    }
+
+    #[inline]
+    pub fn item_modify_item(
+        &mut self,
+        slot_key: SlotKey,
+        f: impl FnOnce(&mut Item),
+    ) -> Result<(), ItemError> {
+        self.item_store.modify_item(slot_key, f)
+    }
+
+    #[inline]
+    pub fn item_get_item(&mut self, slot_key: SlotKey) -> Result<&Item, ItemError> {
+        self.item_store.get_item(slot_key)
     }
 
     // time

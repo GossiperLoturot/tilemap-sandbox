@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TimeStore {
     tick: u64,
     temporary: f32,
@@ -9,10 +9,7 @@ impl TimeStore {
 
     #[inline]
     pub fn new() -> Self {
-        Self {
-            tick: Default::default(),
-            temporary: Default::default(),
-        }
+        Default::default()
     }
 
     #[inline]

@@ -115,6 +115,10 @@ impl EntityFeatureTrait for AnimalEntityFeature {
 
         root.entity_modify(key, move |e| *e = entity).unwrap();
     }
+
+    fn get_inventory(&self, _root: &mut Root, _key: EntityKey) -> Option<InventoryKey> {
+        None
+    }
 }
 
 fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2) -> bool {

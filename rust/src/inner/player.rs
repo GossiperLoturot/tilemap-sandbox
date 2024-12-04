@@ -4,7 +4,7 @@ use super::*;
 
 // resource
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PlayerResource {
     current: Option<EntityKey>,
     input: Option<Vec2>,
@@ -13,10 +13,7 @@ pub struct PlayerResource {
 impl PlayerResource {
     #[inline]
     pub fn new() -> Self {
-        Self {
-            current: Default::default(),
-            input: Default::default(),
-        }
+        Default::default()
     }
 
     pub fn insert_current(&mut self, entity_key: EntityKey) -> Result<(), PlayerError> {
@@ -84,9 +81,7 @@ impl PlayerEntityFeature {
 
 impl EntityFeatureTrait for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
-        let inventory_key = root
-            .item_insert_inventory(Inventory::new(Self::INVENTORY_SIZE))
-            .unwrap();
+        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
 
         root.entity_modify(key, |entity| {
             entity.data = Some(EntityData::Player(PlayerEntityData {
@@ -107,7 +102,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         };
 
         let inventory_key = data.inventory_key;
-        root.item_remove_inventory(inventory_key).unwrap();
+        root.item_free_inventory(inventory_key).unwrap();
 
         root.player_remove_current().unwrap();
     }
@@ -155,6 +150,10 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         root.player_remove_current().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
         root.player_insert_current(key).unwrap();
+    }
+
+    fn get_inventory(&self, _root: &mut Root, _key: TileKey) -> Option<InventoryKey> {
+        None
     }
 }
 

@@ -17,6 +17,8 @@ pub trait TileFeatureTrait {
     fn after_place(&self, root: &mut Root, key: TileKey);
     fn before_break(&self, root: &mut Root, key: TileKey);
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
+
+    fn get_inventory(&self, root: &mut Root, key: TileKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(TileFeatureTrait)]
@@ -33,6 +35,10 @@ impl TileFeatureTrait for EmptyTileFeature {
     fn after_place(&self, _root: &mut Root, _key: TileKey) {}
     fn before_break(&self, _root: &mut Root, _key: TileKey) {}
     fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+
+    fn get_inventory(&self, _root: &mut Root, _key: TileKey) -> Option<InventoryKey> {
+        None
+    }
 }
 
 // block data/feature
@@ -52,6 +58,8 @@ pub trait BlockFeatureTrait {
     fn after_place(&self, root: &mut Root, key: BlockKey);
     fn before_break(&self, root: &mut Root, key: BlockKey);
     fn forward(&self, root: &mut Root, key: BlockKey, delta_secs: f32);
+
+    fn get_inventory(&self, root: &mut Root, key: BlockKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
@@ -68,6 +76,10 @@ impl BlockFeatureTrait for EmptyBlockFeature {
     fn after_place(&self, _root: &mut Root, _key: BlockKey) {}
     fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
     fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
+
+    fn get_inventory(&self, _root: &mut Root, _key: BlockKey) -> Option<InventoryKey> {
+        None
+    }
 }
 
 // entity data/feature
@@ -90,6 +102,8 @@ pub trait EntityFeatureTrait {
     fn after_place(&self, root: &mut Root, key: TileKey);
     fn before_break(&self, root: &mut Root, key: TileKey);
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
+
+    fn get_inventory(&self, root: &mut Root, key: TileKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
@@ -108,6 +122,10 @@ impl EntityFeatureTrait for EmptyEntityFeature {
     fn after_place(&self, _root: &mut Root, _key: EntityKey) {}
     fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
     fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
+
+    fn get_inventory(&self, _root: &mut Root, _key: EntityKey) -> Option<InventoryKey> {
+        None
+    }
 }
 
 // item data/feature
@@ -123,7 +141,13 @@ pub struct ItemRenderParam {
 pub enum ItemData {}
 
 #[enum_dispatch::enum_dispatch]
-pub trait ItemFeatureTrait {}
+pub trait ItemFeatureTrait {
+    fn after_pick(&self, _root: &mut Root, _key: u32) {}
+    fn before_drop(&self, _root: &mut Root, _key: u32) {}
+    fn forward(&self, _root: &mut Root, _key: u32) {}
+
+    fn r#use(&self, _root: &mut Root, _key: u32) {}
+}
 
 #[enum_dispatch::enum_dispatch(ItemFeatureTrait)]
 #[non_exhaustive]
@@ -135,4 +159,10 @@ pub enum ItemFeature {
 #[derive(Debug, Clone)]
 pub struct EmptyItemFeature;
 
-impl ItemFeatureTrait for EmptyItemFeature {}
+impl ItemFeatureTrait for EmptyItemFeature {
+    fn after_pick(&self, _root: &mut Root, _key: u32) {}
+    fn before_drop(&self, _root: &mut Root, _key: u32) {}
+    fn forward(&self, _root: &mut Root, _key: u32) {}
+
+    fn r#use(&self, _root: &mut Root, _key: u32) {}
+}
