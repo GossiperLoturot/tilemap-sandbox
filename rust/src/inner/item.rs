@@ -1,5 +1,11 @@
 use super::*;
 
+// item entity
+
+// TODO
+
+// item store
+
 pub type InventoryKey = u32;
 pub type SlotKey = (InventoryKey, u32);
 
@@ -142,20 +148,6 @@ impl ItemStore {
 
         item.data = new_item.data;
         Ok(())
-    }
-
-    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, ItemError> {
-        let (inventory_key, local_key) = slot_key;
-
-        let inventory = self
-            .inventories
-            .get(inventory_key as usize)
-            .ok_or(ItemError::InventoryNotFound)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
-            .ok_or(ItemError::InventoryNotFound)?;
-        slot.item.as_ref().ok_or(ItemError::ItemNotFound)
     }
 }
 

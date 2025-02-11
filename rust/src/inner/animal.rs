@@ -55,7 +55,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
         };
 
         use rand::Rng;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         match data.state {
             AnimalEntityDataState::Init => {
                 data.state = AnimalEntityDataState::WaitStart;
@@ -64,7 +64,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                 entity.render_param.variant = Some(self.idle_variant);
                 entity.render_param.tick = Some(root.time_tick() as u32);
 
-                let secs = rng.gen_range(data.min_rest_secs..data.max_rest_secs);
+                let secs = rng.random_range(data.min_rest_secs..data.max_rest_secs);
                 data.state = AnimalEntityDataState::Wait(secs);
             }
             AnimalEntityDataState::Wait(secs) => {
@@ -79,8 +79,8 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                 entity.render_param.variant = Some(self.walk_variant);
                 entity.render_param.tick = Some(root.time_tick() as u32);
 
-                let angle = rng.gen_range(0.0..std::f32::consts::PI * 2.0);
-                let distance = rng.gen_range(data.min_distance..data.max_distance);
+                let angle = rng.random_range(0.0..std::f32::consts::PI * 2.0);
+                let distance = rng.random_range(data.min_distance..data.max_distance);
                 let destination = [
                     entity.location[0] + angle.cos() * distance,
                     entity.location[1] + angle.sin() * distance,
@@ -116,7 +116,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
         root.entity_modify(key, move |e| *e = entity).unwrap();
     }
 
-    fn get_inventory(&self, _root: &mut Root, _key: EntityKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _root: &Root, _key: EntityKey) -> Option<InventoryKey> {
         None
     }
 }

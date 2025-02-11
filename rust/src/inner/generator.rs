@@ -60,7 +60,7 @@ impl GeneratorResource {
             min_rect[1][1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
         ]];
 
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
         for y in min_rect[0][1]..=min_rect[1][1] {
             for x in min_rect[0][0]..=min_rect[1][0] {
                 let chunk_location = [x, y];
@@ -123,7 +123,7 @@ impl GeneratorResource {
                     chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
-                let value = rand::Rng::gen_range(rng, 0.0..1.0);
+                let value = rand::Rng::random_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -150,8 +150,8 @@ impl GeneratorResource {
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 x * Self::CHUNK_SIZE as i32 + u,
@@ -181,7 +181,7 @@ impl GeneratorResource {
                     chunk_location[1] * Self::CHUNK_SIZE as i32 + y,
                 ];
 
-                let value = rand::Rng::gen_range(rng, 0.0..1.0);
+                let value = rand::Rng::random_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -208,8 +208,8 @@ impl GeneratorResource {
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 x * Self::CHUNK_SIZE as i32 + u,
@@ -239,7 +239,7 @@ impl GeneratorResource {
                     (chunk_location[1] * Self::CHUNK_SIZE as i32 + y) as f32,
                 ];
 
-                let value = rand::Rng::gen_range(rng, 0.0..1.0);
+                let value = rand::Rng::random_range(rng, 0.0..1.0);
                 if rule.prob < value {
                     continue;
                 }
@@ -266,8 +266,8 @@ impl GeneratorResource {
 
         let size = (rule.prob * (Self::CHUNK_SIZE * Self::CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
-            let v = rand::Rng::gen_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let u = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
+            let v = rand::Rng::random_range(rng, 0..Self::CHUNK_SIZE as i32);
 
             let location = [
                 (x * Self::CHUNK_SIZE as i32) as f32 + u as f32,

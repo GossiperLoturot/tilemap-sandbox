@@ -18,7 +18,7 @@ pub trait TileFeatureTrait {
     fn before_break(&self, root: &mut Root, key: TileKey);
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
 
-    fn get_inventory(&self, root: &mut Root, key: TileKey) -> Option<InventoryKey>;
+    fn get_inventory(&self, root: &Root, key: TileKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(TileFeatureTrait)]
@@ -36,7 +36,7 @@ impl TileFeatureTrait for EmptyTileFeature {
     fn before_break(&self, _root: &mut Root, _key: TileKey) {}
     fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
 
-    fn get_inventory(&self, _root: &mut Root, _key: TileKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
         None
     }
 }
@@ -59,7 +59,7 @@ pub trait BlockFeatureTrait {
     fn before_break(&self, root: &mut Root, key: BlockKey);
     fn forward(&self, root: &mut Root, key: BlockKey, delta_secs: f32);
 
-    fn get_inventory(&self, root: &mut Root, key: BlockKey) -> Option<InventoryKey>;
+    fn get_inventory(&self, root: &Root, key: BlockKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
@@ -77,7 +77,7 @@ impl BlockFeatureTrait for EmptyBlockFeature {
     fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
     fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
 
-    fn get_inventory(&self, _root: &mut Root, _key: BlockKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _root: &Root, _key: BlockKey) -> Option<InventoryKey> {
         None
     }
 }
@@ -103,7 +103,7 @@ pub trait EntityFeatureTrait {
     fn before_break(&self, root: &mut Root, key: TileKey);
     fn forward(&self, root: &mut Root, key: TileKey, delta_secs: f32);
 
-    fn get_inventory(&self, root: &mut Root, key: TileKey) -> Option<InventoryKey>;
+    fn get_inventory(&self, root: &Root, key: TileKey) -> Option<InventoryKey>;
 }
 
 #[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
@@ -123,7 +123,7 @@ impl EntityFeatureTrait for EmptyEntityFeature {
     fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
     fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
 
-    fn get_inventory(&self, _root: &mut Root, _key: EntityKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _root: &Root, _key: EntityKey) -> Option<InventoryKey> {
         None
     }
 }

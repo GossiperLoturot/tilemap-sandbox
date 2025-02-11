@@ -152,7 +152,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         root.player_insert_current(key).unwrap();
     }
 
-    fn get_inventory(&self, _root: &mut Root, _key: TileKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
         None
     }
 }

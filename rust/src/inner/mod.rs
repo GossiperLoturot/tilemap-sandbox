@@ -170,6 +170,20 @@ impl Root {
         self.tile_field.get_by_collision_point(point)
     }
 
+    // tile inventory
+
+    #[inline]
+    pub fn tile_get_inventory(&self, tile_key: TileKey) -> Result<InventoryKey, FieldError> {
+        let features = self.tile_features.clone();
+        let tile = self.tile_field.get(tile_key)?;
+        let feature = features
+            .get(tile.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature
+            .get_inventory(self, tile_key)
+            .ok_or(FieldError::NotFound)
+    }
+
     // block
 
     pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
@@ -319,6 +333,20 @@ impl Root {
         self.block_field.get_by_hint_rect(rect)
     }
 
+    // block inventory
+
+    #[inline]
+    pub fn block_get_inventory(&self, block_key: BlockKey) -> Result<InventoryKey, FieldError> {
+        let features = self.block_features.clone();
+        let block = self.block_field.get(block_key)?;
+        let feature = features
+            .get(block.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature
+            .get_inventory(self, block_key)
+            .ok_or(FieldError::NotFound)
+    }
+
     // entity
 
     pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
@@ -442,6 +470,20 @@ impl Root {
         self.entity_field.get_by_hint_rect(rect)
     }
 
+    // entity inventory
+
+    #[inline]
+    pub fn entity_get_inventory(&self, entity_key: EntityKey) -> Result<InventoryKey, FieldError> {
+        let features = self.entity_features.clone();
+        let entity = self.entity_field.get(entity_key)?;
+        let feature = features
+            .get(entity.id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        feature
+            .get_inventory(self, entity_key)
+            .ok_or(FieldError::NotFound)
+    }
+
     // item
 
     #[inline]
@@ -479,11 +521,6 @@ impl Root {
         f: impl FnOnce(&mut Item),
     ) -> Result<(), ItemError> {
         self.item_store.modify_item(slot_key, f)
-    }
-
-    #[inline]
-    pub fn item_get_item(&mut self, slot_key: SlotKey) -> Result<&Item, ItemError> {
-        self.item_store.get_item(slot_key)
     }
 
     // time

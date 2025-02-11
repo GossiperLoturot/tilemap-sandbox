@@ -160,7 +160,7 @@ impl EntityField {
                 Self::OUTPUT_IMAGE_SIZE as i32,
                 false,
                 godot::classes::image::Format::RGBA8,
-                PackedByteArray::from(data.as_slice()),
+                &PackedByteArray::from(data.as_slice()),
             )
             .unwrap();
 
@@ -168,7 +168,7 @@ impl EntityField {
         }
 
         let texture_array = rendering_server.texture_2d_layered_create(
-            Array::from(images.as_slice()),
+            &Array::from(images.as_slice()),
             godot::classes::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
         free_handles.push(texture_array);
@@ -194,10 +194,10 @@ impl EntityField {
             Self::BAKE_TEXTURE_SIZE as i32,
             false,
             godot::classes::image::Format::RGBAF,
-            PackedFloat32Array::from(bake_data.as_slice()).to_byte_array(),
+            &PackedFloat32Array::from(bake_data.as_slice()).to_byte_array(),
         )
         .unwrap();
-        let bake_texture = rendering_server.texture_2d_create(bake_image);
+        let bake_texture = rendering_server.texture_2d_create(&bake_image);
         free_handles.push(bake_texture);
 
         let mut mesh_data = VariantArray::new();
@@ -207,7 +207,7 @@ impl EntityField {
         );
         mesh_data.set(
             godot::classes::rendering_server::ArrayType::VERTEX.ord() as usize,
-            PackedVector3Array::from(&[
+            &PackedVector3Array::from(&[
                 Vector3::new(0.0, 0.0, 0.0),
                 Vector3::new(0.0, 1.0, 1.0),
                 Vector3::new(1.0, 1.0, 1.0),
@@ -217,7 +217,7 @@ impl EntityField {
         );
         mesh_data.set(
             godot::classes::rendering_server::ArrayType::TEX_UV.ord() as usize,
-            PackedVector2Array::from(&[
+            &PackedVector2Array::from(&[
                 Vector2::new(0.0, 1.0),
                 Vector2::new(0.0, 0.0),
                 Vector2::new(1.0, 0.0),
@@ -227,7 +227,7 @@ impl EntityField {
         );
         mesh_data.set(
             godot::classes::rendering_server::ArrayType::INDEX.ord() as usize,
-            PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
+            &PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
         );
 
         let mut down_chunks = vec![];
@@ -238,13 +238,13 @@ impl EntityField {
                 rendering_server.material_set_shader(material, shader.get_rid());
                 rendering_server.material_set_param(
                     material,
-                    "texture_array".into(),
-                    texture_array.to_variant(),
+                    "texture_array",
+                    &texture_array.to_variant(),
                 );
                 rendering_server.material_set_param(
                     material,
-                    "bake_texture".into(),
-                    bake_texture.to_variant(),
+                    "bake_texture",
+                    &bake_texture.to_variant(),
                 );
                 free_handles.push(material);
 
@@ -261,7 +261,7 @@ impl EntityField {
             rendering_server.mesh_add_surface_from_arrays(
                 mesh,
                 godot::classes::rendering_server::PrimitiveType::TRIANGLES,
-                mesh_data.clone(),
+                &mesh_data,
             );
             rendering_server.mesh_surface_set_material(mesh, 0, materials[0]);
             free_handles.push(mesh);
@@ -363,8 +363,8 @@ impl EntityField {
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "tick".into(),
-                    (root.time_tick() as i32).to_variant(),
+                    "tick",
+                    &(root.time_tick() as i32).to_variant(),
                 );
             }
 
@@ -409,14 +409,14 @@ impl EntityField {
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
-                PackedFloat32Array::from(instance_buffer.as_slice()),
+                &PackedFloat32Array::from(instance_buffer.as_slice()),
             );
 
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
                     *material,
-                    "head_buffer".into(),
-                    PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
+                    "head_buffer",
+                    &PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
                 );
             }
 
