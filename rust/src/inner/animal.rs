@@ -81,26 +81,16 @@ impl EntityFeatureTrait for AnimalEntityFeature {
 
                 let angle = rng.random_range(0.0..std::f32::consts::PI * 2.0);
                 let distance = rng.random_range(data.min_distance..data.max_distance);
-                let destination = [
-                    entity.location[0] + angle.cos() * distance,
-                    entity.location[1] + angle.sin() * distance,
-                ];
+                let destination = entity.location + Vec2::from_angle(angle) * distance;
                 data.state = AnimalEntityDataState::Trip(destination);
             }
             AnimalEntityDataState::Trip(destination) => {
                 if entity.location != destination {
-                    let difference = [
-                        destination[0] - entity.location[0],
-                        destination[1] - entity.location[1],
-                    ];
-                    let distance =
-                        (difference[0] * difference[0] + difference[1] * difference[1]).sqrt();
-                    let direction = [difference[0] / distance, difference[1] / distance];
+                    let difference = destination - entity.location;
+                    let distance = difference.length();
+                    let direction = difference / distance;
                     let velocity = distance.min(data.speed * delta_secs);
-                    let location = [
-                        entity.location[0] + direction[0] * velocity,
-                        entity.location[1] + direction[1] * velocity,
-                    ];
+                    let location = entity.location + direction * velocity;
 
                     if intersection_guard(root, key, location) {
                         data.state = AnimalEntityDataState::WaitStart;
@@ -121,17 +111,17 @@ impl EntityFeatureTrait for AnimalEntityFeature {
     }
 }
 
+// intersection guard
+// DUPLICATE: src/inner/player.rs
 fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2) -> bool {
     let entity = root.entity_get(entity_key).unwrap();
     let base_rect = root.entity_get_base_collision_rect(entity.id).unwrap();
 
     #[rustfmt::skip]
-    let rect = [[
-        new_location[0] + base_rect[0][0],
-        new_location[1] + base_rect[0][1], ], [
-        new_location[0] + base_rect[1][0],
-        new_location[1] + base_rect[1][1],
-    ]];
+    let rect = [
+        new_location + base_rect[0],
+        new_location + base_rect[1],
+    ];
 
     if root.tile_has_by_collision_rect(rect) {
         return true;

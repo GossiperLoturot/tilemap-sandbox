@@ -116,13 +116,10 @@ impl EntityFeatureTrait for PlayerEntityFeature {
 
         // consume input
         if let Ok(input) = root.player_remove_input() {
-            let is_move = input[0].powi(2) + input[1].powi(2) > f32::EPSILON;
+            let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
-                let location = [
-                    entity.location[0] + Self::MOVE_SPEED * input[0] * delta_secs,
-                    entity.location[1] + Self::MOVE_SPEED * input[1] * delta_secs,
-                ];
+                let location = entity.location + Self::MOVE_SPEED * input * delta_secs;
 
                 if !intersection_guard(root, key, location) {
                     entity.location = location;
@@ -157,17 +154,13 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     }
 }
 
+// intersection guard
+// DUPLICATE: src/inner/animal.rs
 fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2) -> bool {
     let entity = root.entity_get(entity_key).unwrap();
     let base_rect = root.entity_get_base_collision_rect(entity.id).unwrap();
 
-    #[rustfmt::skip]
-    let rect = [[
-        new_location[0] + base_rect[0][0],
-        new_location[1] + base_rect[0][1], ], [
-        new_location[0] + base_rect[1][0],
-        new_location[1] + base_rect[1][1],
-    ]];
+    let rect = [new_location + base_rect[0], new_location + base_rect[1]];
 
     if root.tile_has_by_collision_rect(rect) {
         return true;

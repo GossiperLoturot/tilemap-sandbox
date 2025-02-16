@@ -7,6 +7,8 @@ pub use item::*;
 pub use player::*;
 pub use time::*;
 
+use glam::*;
+
 mod animal;
 mod feature;
 mod field;
@@ -15,9 +17,6 @@ mod generator;
 mod item;
 mod player;
 mod time;
-
-pub type Vec2 = [f32; 2];
-pub type IVec2 = [i32; 2];
 
 type RcVec<T> = std::rc::Rc<[T]>;
 
@@ -237,7 +236,7 @@ impl Root {
     // block spatial features
 
     #[inline]
-    pub fn block_get_base_rect(&self, id: u16) -> Result<[[i32; 2]; 2], FieldError> {
+    pub fn block_get_base_rect(&self, id: u16) -> Result<[IVec2; 2], FieldError> {
         self.block_field.get_base_rect(id)
     }
 

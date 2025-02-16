@@ -1,4 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::*;
+use glam::*;
 use tilemap_sandbox::inner::*;
 
 fn benchmark(c: &mut Criterion) {
@@ -17,7 +18,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Tile {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -43,7 +44,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Tile {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -74,7 +75,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Tile {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -105,7 +106,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Tile {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -126,18 +127,18 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -148,7 +149,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Block {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -164,18 +165,18 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -186,7 +187,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Block {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -207,18 +208,18 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -229,7 +230,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Block {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -250,18 +251,18 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
-                        size: [1, 1],
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        size: IVec2::new(1, 1),
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -272,7 +273,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Block {
                             id: 0,
-                            location: [i as i32, 0],
+                            location: IVec2::new(i as i32, 0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -293,16 +294,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -313,7 +314,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Entity {
                             id: 0,
-                            location: [i as f32, 0.0],
+                            location: Vec2::new(i as f32, 0.0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -329,16 +330,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -349,7 +350,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Entity {
                             id: 0,
-                            location: [i as f32, 0.0],
+                            location: Vec2::new(i as f32, 0.0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -370,16 +371,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -390,7 +391,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Entity {
                             id: 0,
-                            location: [i as f32, 0.0],
+                            location: Vec2::new(i as f32, 0.0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })
@@ -411,16 +412,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
-                        collision_size: [1.0, 1.0],
-                        collision_offset: [0.0, 0.0],
-                        hint_size: [1.0, 1.0],
-                        hint_offset: [0.0, 0.0],
+                        collision_size: Vec2::new(1.0, 1.0),
+                        collision_offset: Vec2::new(0.0, 0.0),
+                        hint_size: Vec2::new(1.0, 1.0),
+                        hint_offset: Vec2::new(0.0, 0.0),
                     },
                 ],
             });
@@ -431,7 +432,7 @@ fn benchmark(c: &mut Criterion) {
                     field
                         .insert(Entity {
                             id: 0,
-                            location: [i as f32, 0.0],
+                            location: Vec2::new(i as f32, 0.0),
                             data: Default::default(),
                             render_param: Default::default(),
                         })

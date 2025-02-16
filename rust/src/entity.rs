@@ -1,3 +1,4 @@
+use glam::*;
 use godot::prelude::*;
 
 use crate::inner;
@@ -11,8 +12,8 @@ pub(crate) struct EntityImageDescriptor {
 pub(crate) struct EntityDescriptor {
     pub images: Vec<EntityImageDescriptor>,
     pub z_along_y: bool,
-    pub rendering_size: inner::Vec2,
-    pub rendering_offset: inner::Vec2,
+    pub rendering_size: Vec2,
+    pub rendering_offset: Vec2,
 }
 
 pub(crate) struct EntityFieldDescriptor {
@@ -23,8 +24,8 @@ pub(crate) struct EntityFieldDescriptor {
 
 struct EntityProperty {
     z_along_y: bool,
-    rendering_size: inner::Vec2,
-    rendering_offset: inner::Vec2,
+    rendering_size: Vec2,
+    rendering_offset: Vec2,
 }
 
 struct ImageHead {
@@ -72,9 +73,9 @@ pub(crate) struct EntityField {
     props: Vec<EntityProperty>,
     image_heads: Vec<Vec<ImageHead>>,
     down_chunks: Vec<EntityChunkDown>,
-    up_chunks: ahash::AHashMap<inner::IVec2, EntityChunkUp>,
+    up_chunks: ahash::AHashMap<IVec2, EntityChunkUp>,
     free_handles: Vec<Rid>,
-    min_rect: Option<[inner::IVec2; 2]>,
+    min_rect: Option<[IVec2; 2]>,
 }
 
 impl EntityField {
@@ -296,27 +297,24 @@ impl EntityField {
         }
     }
 
-    pub fn update_view(&mut self, root: &inner::Root, min_rect: [inner::Vec2; 2]) {
+    pub fn update_view(&mut self, root: &inner::Root, min_rect: [Vec2; 2]) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let chunk_size = root.entity_get_chunk_size() as f32;
-
-        #[rustfmt::skip]
-        let min_rect = [[
-            min_rect[0][0].div_euclid(chunk_size) as i32,
-            min_rect[0][1].div_euclid(chunk_size) as i32, ], [
-            min_rect[1][0].div_euclid(chunk_size) as i32,
-            min_rect[1][1].div_euclid(chunk_size) as i32,
-        ]];
+        let chunk_size = Vec2::splat(chunk_size);
+        let min_rect = [
+            min_rect[0].div_euclid(chunk_size).as_ivec2(),
+            min_rect[1].div_euclid(chunk_size).as_ivec2(),
+        ];
 
         // remove/insert view chunk
         if Some(min_rect) != self.min_rect {
             let mut chunk_keys = vec![];
             for (chunk_key, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_key[0] < min_rect[0][0] || min_rect[1][0] < chunk_key[0];
+                    chunk_key[0] < min_rect[0].x || min_rect[1].x < chunk_key[0];
                 let is_out_of_range_y =
-                    chunk_key[1] < min_rect[0][1] || min_rect[1][1] < chunk_key[1];
+                    chunk_key[1] < min_rect[0].y || min_rect[1].y < chunk_key[1];
                 if is_out_of_range_x || is_out_of_range_y {
                     chunk_keys.push(*chunk_key);
                 }
@@ -330,9 +328,9 @@ impl EntityField {
                 self.down_chunks.push(up_chunk.down());
             }
 
-            for y in min_rect[0][1]..=min_rect[1][1] {
-                for x in min_rect[0][0]..=min_rect[1][0] {
-                    let chunk_key = [x, y];
+            for y in min_rect[0].y..=min_rect[1].y {
+                for x in min_rect[0].x..=min_rect[1].x {
+                    let chunk_key = IVec2::new(x, y);
 
                     if self.up_chunks.contains_key(&chunk_key) {
                         continue;

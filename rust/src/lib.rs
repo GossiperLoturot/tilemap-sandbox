@@ -1,3 +1,4 @@
+use glam::*;
 use godot::prelude::*;
 
 pub mod inner;
@@ -30,7 +31,7 @@ impl Tile {
     fn create(id: u16, location: Vector2i) -> Gd<Self> {
         let tile = inner::Tile {
             id,
-            location: [location.x, location.y],
+            location: IVec2::new(location.x, location.y),
             data: Default::default(),
             render_param: Default::default(),
         };
@@ -139,7 +140,7 @@ impl Block {
     fn create(id: u16, location: Vector2i) -> Gd<Self> {
         let block = inner::Block {
             id,
-            location: [location.x, location.y],
+            location: IVec2::new(location.x, location.y),
             data: Default::default(),
             render_param: Default::default(),
         };
@@ -263,7 +264,7 @@ impl Entity {
     fn create(id: u16, location: Vector2) -> Gd<Self> {
         let entity = inner::Entity {
             id,
-            location: [location.x, location.y],
+            location: Vec2::new(location.x, location.y),
             data: Default::default(),
             render_param: Default::default(),
         };
@@ -574,12 +575,13 @@ impl Root {
                 for block in desc.blocks.iter_shared() {
                     let block = block.bind();
 
+                    #[rustfmt::skip]
                     blocks.push(inner::BlockDescriptor {
-                        size: [block.size.x, block.size.y],
-                        collision_size: [block.collision_size.x, block.collision_size.y],
-                        collision_offset: [block.collision_offset.x, block.collision_offset.y],
-                        hint_size: [block.rendering_size.x, block.rendering_size.y],
-                        hint_offset: [block.rendering_offset.x, block.rendering_offset.y],
+                        size: IVec2::new(block.size.x, block.size.y),
+                        collision_size: Vec2::new(block.collision_size.x, block.collision_size.y),
+                        collision_offset: Vec2::new(block.collision_offset.x, block.collision_offset.y),
+                        hint_size: Vec2::new(block.rendering_size.x, block.rendering_size.y),
+                        hint_offset: Vec2::new(block.rendering_offset.x, block.rendering_offset.y),
                     });
 
                     let feature = &block.feature.bind().base;
@@ -599,11 +601,12 @@ impl Root {
                 for entity in desc.entities.iter_shared() {
                     let entity = entity.bind();
 
+                    #[rustfmt::skip]
                     entities.push(inner::EntityDescriptor {
-                        collision_size: [entity.collision_size.x, entity.collision_size.y],
-                        collision_offset: [entity.collision_offset.x, entity.collision_offset.y],
-                        hint_size: [entity.rendering_size.x, entity.rendering_size.y],
-                        hint_offset: [entity.rendering_offset.x, entity.rendering_offset.y],
+                        collision_size: Vec2::new(entity.collision_size.x, entity.collision_size.y),
+                        collision_offset: Vec2::new(entity.collision_offset.x, entity.collision_offset.y),
+                        hint_size: Vec2::new(entity.rendering_size.x, entity.rendering_size.y),
+                        hint_offset: Vec2::new(entity.rendering_offset.x, entity.rendering_offset.y),
                     });
 
                     let feature = &entity.feature.bind().base;
@@ -745,8 +748,8 @@ impl Root {
                 blocks.push(block::BlockDescriptor {
                     images,
                     z_along_y: block.z_along_y,
-                    rendering_size: [block.rendering_size.x, block.rendering_size.y],
-                    rendering_offset: [block.rendering_offset.x, block.rendering_offset.y],
+                    rendering_size: Vec2::new(block.rendering_size.x, block.rendering_size.y),
+                    rendering_offset: Vec2::new(block.rendering_offset.x, block.rendering_offset.y),
                 });
             }
 
@@ -790,8 +793,11 @@ impl Root {
                 entities.push(entity::EntityDescriptor {
                     images,
                     z_along_y: entity.z_along_y,
-                    rendering_size: [entity.rendering_size.x, entity.rendering_size.y],
-                    rendering_offset: [entity.rendering_offset.x, entity.rendering_offset.y],
+                    rendering_size: Vec2::new(entity.rendering_size.x, entity.rendering_size.y),
+                    rendering_offset: Vec2::new(
+                        entity.rendering_offset.x,
+                        entity.rendering_offset.y,
+                    ),
                 });
             }
 
@@ -942,33 +948,25 @@ impl Root {
 
     #[func]
     fn forwarder_exec_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
-        #[rustfmt::skip]
-        let min_rect = [[
-            min_rect.position.x,
-            min_rect.position.y, ], [
-            min_rect.position.x + min_rect.size.x,
-            min_rect.position.y + min_rect.size.y,
-        ]];
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
 
         self.base.forwarder_exec_rect(min_rect, delta_secs).unwrap();
     }
 
     #[func]
     fn generator_exec_rect(&mut self, min_rect: Rect2) {
-        #[rustfmt::skip]
-        let min_rect = [[
-            min_rect.position.x,
-            min_rect.position.y, ], [
-            min_rect.position.x + min_rect.size.x,
-            min_rect.position.y + min_rect.size.y,
-        ]];
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
 
         self.base.generator_exec_rect(min_rect).unwrap();
     }
 
     #[func]
     fn player_insert_input(&mut self, input: Vector2) {
-        let input = [input.x, input.y];
+        let input = Vec2::new(input.x, input.y);
         self.base.player_insert_input(input).unwrap();
     }
 
@@ -982,13 +980,9 @@ impl Root {
 
     #[func]
     fn update_view(&mut self, min_rect: Rect2) {
-        #[rustfmt::skip]
-        let min_rect = [[
-            min_rect.position.x,
-            min_rect.position.y, ], [
-            min_rect.position.x + min_rect.size.x,
-            min_rect.position.y + min_rect.size.y,
-        ]];
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
 
         self.tile_field.update_view(&self.base, min_rect);
         self.block_field.update_view(&self.base, min_rect);

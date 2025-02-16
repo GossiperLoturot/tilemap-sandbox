@@ -28,12 +28,10 @@ impl TileProperty {
             return None;
         }
 
-        Some([[
-            location[0] as f32,
-            location[1] as f32, ], [
-            location[0] as f32 + 1.0,
-            location[1] as f32 + 1.0,
-        ]])
+        Some([
+            location.as_vec2(),
+            location.as_vec2() + 1.0,
+        ])
     }
 }
 
@@ -57,7 +55,7 @@ pub struct TileField {
     chunks: Vec<TileChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
     spatial_ref: ahash::AHashMap<IVec2, TileKey>,
-    collision_ref: rstar::RTree<RectNode<Vec2, TileKey>>,
+    collision_ref: rstar::RTree<RectNode<[f32; 2], TileKey>>,
 }
 
 impl TileField {
@@ -91,10 +89,8 @@ impl TileField {
             return Err(FieldError::Conflict);
         }
 
-        let chunk_location = [
-            tile.location[0].div_euclid(Self::CHUNK_SIZE as i32),
-            tile.location[1].div_euclid(Self::CHUNK_SIZE as i32),
-        ];
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_location = tile.location.div_euclid(chunk_size);
 
         // get or allocate chunk
         let chunk_key = if let Some(chunk_key) = self.chunk_ref.get(&chunk_location) {
@@ -127,7 +123,9 @@ impl TileField {
 
         // collision features
         if let Some(rect) = prop.collision_rect(tile.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
             self.collision_ref.insert(node);
         }
@@ -156,7 +154,9 @@ impl TileField {
 
         // collision features
         if let Some(rect) = prop.collision_rect(tile.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.remove(&node).unwrap();
         }
@@ -265,11 +265,13 @@ impl TileField {
 
     #[inline]
     pub fn has_by_collision_point(&self, point: Vec2) -> bool {
+        let point = [point.x, point.y];
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileKey> + '_ {
+        let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
@@ -277,7 +279,9 @@ impl TileField {
 
     #[inline]
     pub fn has_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -286,7 +290,9 @@ impl TileField {
 
     #[inline]
     pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -323,12 +329,10 @@ struct BlockProperty {
 impl BlockProperty {
     #[rustfmt::skip]
     fn rect(&self, location: IVec2) -> [IVec2; 2] {
-        [[
-            location[0],
-            location[1], ], [
-            location[0] + self.size[0] - 1,
-            location[1] + self.size[1] - 1,
-        ]]
+        [
+            location,
+            location + self.size[1] - 1,
+        ]
     }
 
     #[rustfmt::skip]
@@ -337,12 +341,10 @@ impl BlockProperty {
             return None;
         }
 
-        Some([[
-            location[0] as f32 + self.collision_offset[0],
-            location[1] as f32 + self.collision_offset[1], ], [
-            location[0] as f32 + self.collision_offset[0] + self.collision_size[0],
-            location[1] as f32 + self.collision_offset[1] + self.collision_size[1],
-        ]])
+        Some([
+            location.as_vec2() + self.collision_offset,
+            location.as_vec2() + self.collision_offset + self.collision_size,
+        ])
     }
 
     #[rustfmt::skip]
@@ -351,12 +353,10 @@ impl BlockProperty {
             return None;
         }
 
-        Some([[
-            location[0] as f32 + self.hint_offset[0],
-            location[1] as f32 + self.hint_offset[1], ], [
-            location[0] as f32 + self.hint_offset[0] + self.hint_size[0],
-            location[1] as f32 + self.hint_offset[1] + self.hint_size[1],
-        ]])
+        Some([
+            location.as_vec2() + self.hint_offset,
+            location.as_vec2() + self.hint_offset + self.hint_size,
+        ])
     }
 }
 
@@ -379,9 +379,9 @@ pub struct BlockField {
     props: Vec<BlockProperty>,
     chunks: Vec<BlockChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
-    spatial_ref: rstar::RTree<RectNode<IVec2, BlockKey>>,
-    collision_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
-    hint_ref: rstar::RTree<RectNode<Vec2, BlockKey>>,
+    spatial_ref: rstar::RTree<RectNode<[i32; 2], BlockKey>>,
+    collision_ref: rstar::RTree<RectNode<[f32; 2], BlockKey>>,
+    hint_ref: rstar::RTree<RectNode<[f32; 2], BlockKey>>,
 }
 
 impl BlockField {
@@ -430,10 +430,8 @@ impl BlockField {
             return Err(FieldError::Conflict);
         }
 
-        let chunk_location = [
-            block.location[0].div_euclid(Self::CHUNK_SIZE as i32),
-            block.location[1].div_euclid(Self::CHUNK_SIZE as i32),
-        ];
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_location = block.location.div_euclid(chunk_size);
 
         // get or allocate chunk
         let chunk_key = if let Some(chunk_key) = self.chunk_ref.get(&chunk_location) {
@@ -462,20 +460,26 @@ impl BlockField {
 
         // spatial features
         let rect = prop.rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
         let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
         self.spatial_ref.insert(node);
 
         // collision features
         if let Some(rect) = prop.collision_rect(block.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
             self.collision_ref.insert(node);
         }
 
         // hint features
         if let Some(rect) = prop.hint_rect(block.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
             self.hint_ref.insert(node);
         }
@@ -501,20 +505,26 @@ impl BlockField {
 
         // spatial features
         let rect = prop.rect(block.location);
-        let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
         let node = rstar::primitives::GeomWithData::new(rect, key);
         self.spatial_ref.remove(&node).unwrap();
 
         // collision features
         if let Some(rect) = prop.collision_rect(block.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.remove(&node).unwrap();
         }
 
         // hint features
         if let Some(rect) = prop.hint_rect(block.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.remove(&node).unwrap();
         }
@@ -617,18 +627,22 @@ impl BlockField {
 
     #[inline]
     pub fn has_by_point(&self, point: IVec2) -> bool {
+        let point = [point.x, point.y];
         self.spatial_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_point(&self, point: IVec2) -> Option<BlockKey> {
+        let point = [point.x, point.y];
         let node = self.spatial_ref.locate_at_point(&point)?;
         Some(node.data)
     }
 
     #[inline]
     pub fn has_by_rect(&self, rect: [IVec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.spatial_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -637,7 +651,9 @@ impl BlockField {
 
     #[inline]
     pub fn get_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.spatial_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -665,11 +681,13 @@ impl BlockField {
 
     #[inline]
     pub fn has_by_collision_point(&self, point: Vec2) -> bool {
+        let point = [point.x, point.y];
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
+        let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
@@ -677,7 +695,9 @@ impl BlockField {
 
     #[inline]
     pub fn has_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -686,7 +706,9 @@ impl BlockField {
 
     #[inline]
     pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -709,11 +731,13 @@ impl BlockField {
 
     #[inline]
     pub fn has_by_hint_point(&self, point: Vec2) -> bool {
+        let point = [point.x, point.y];
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
+        let point = [point.x, point.y];
         self.hint_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
@@ -721,7 +745,9 @@ impl BlockField {
 
     #[inline]
     pub fn has_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.hint_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -730,7 +756,9 @@ impl BlockField {
 
     #[inline]
     pub fn get_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.hint_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -768,12 +796,10 @@ impl EntityProperty {
         if self.collision_size[0] * self.collision_size[1] == 0.0 {
             return None;
         }
-        Some([[
-            location[0] + self.collision_offset[0],
-            location[1] + self.collision_offset[1], ], [
-            location[0] + self.collision_offset[0] + self.collision_size[0],
-            location[1] + self.collision_offset[1] + self.collision_size[1],
-        ]])
+        Some([
+            location + self.collision_offset,
+            location + self.collision_offset + self.collision_size,
+        ])
     }
 
     #[rustfmt::skip]
@@ -781,12 +807,10 @@ impl EntityProperty {
         if self.hint_size[0] * self.hint_size[1] == 0.0 {
             return None;
         }
-        Some([[
-            location[0] + self.hint_offset[0],
-            location[1] + self.hint_offset[1], ], [
-            location[0] + self.hint_offset[0] + self.hint_size[0],
-            location[1] + self.hint_offset[1] + self.hint_size[1],
-        ]])
+        Some([
+            location + self.hint_offset,
+            location + self.hint_offset + self.hint_size,
+        ])
     }
 }
 
@@ -809,8 +833,8 @@ pub struct EntityField {
     props: Vec<EntityProperty>,
     chunks: Vec<EntityChunk>,
     chunk_ref: ahash::AHashMap<IVec2, u32>,
-    collision_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
-    hint_ref: rstar::RTree<RectNode<Vec2, EntityKey>>,
+    collision_ref: rstar::RTree<RectNode<[f32; 2], EntityKey>>,
+    hint_ref: rstar::RTree<RectNode<[f32; 2], EntityKey>>,
 }
 
 impl EntityField {
@@ -849,10 +873,8 @@ impl EntityField {
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
 
-        let chunk_location = [
-            entity.location[0].div_euclid(Self::CHUNK_SIZE as f32) as i32,
-            entity.location[1].div_euclid(Self::CHUNK_SIZE as f32) as i32,
-        ];
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        let chunk_location = entity.location.div_euclid(chunk_size).as_ivec2();
 
         // get or allocate chunk
         let chunk_key = if let Some(chunk_key) = self.chunk_ref.get(&chunk_location) {
@@ -881,14 +903,18 @@ impl EntityField {
 
         // collision features
         if let Some(rect) = prop.collision_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
             self.collision_ref.insert(node);
         }
 
         // hint features
         if let Some(rect) = prop.hint_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = rstar::primitives::GeomWithData::new(rect, (chunk_key, local_key));
             self.hint_ref.insert(node);
         }
@@ -914,14 +940,18 @@ impl EntityField {
 
         // collision features
         if let Some(rect) = prop.collision_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
             self.collision_ref.remove(node).unwrap();
         }
 
         // hint features
         if let Some(rect) = prop.hint_rect(entity.location) {
-            let rect = rstar::primitives::Rectangle::from_corners(rect[0], rect[1]);
+            let p1 = [rect[0].x, rect[0].y];
+            let p2 = [rect[1].x, rect[1].y];
+            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
             let node = &rstar::primitives::GeomWithData::new(rect, key);
             self.hint_ref.remove(node).unwrap();
         }
@@ -1021,11 +1051,13 @@ impl EntityField {
 
     #[inline]
     pub fn has_by_collision_point(&self, point: Vec2) -> bool {
+        let point = [point.x, point.y];
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
+        let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
@@ -1033,7 +1065,9 @@ impl EntityField {
 
     #[inline]
     pub fn has_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -1042,7 +1076,9 @@ impl EntityField {
 
     #[inline]
     pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.collision_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -1065,11 +1101,13 @@ impl EntityField {
 
     #[inline]
     pub fn has_by_hint_point(&self, point: Vec2) -> bool {
+        let point = [point.x, point.y];
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
     #[inline]
     pub fn get_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
+        let point = [point.x, point.y];
         self.hint_ref
             .locate_all_at_point(&point)
             .map(|node| node.data)
@@ -1077,7 +1115,9 @@ impl EntityField {
 
     #[inline]
     pub fn has_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.hint_ref
             .locate_in_envelope_intersecting(&rect)
             .next()
@@ -1086,7 +1126,9 @@ impl EntityField {
 
     #[inline]
     pub fn get_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
-        let rect = rstar::AABB::from_corners(rect[0], rect[1]);
+        let p1 = [rect[0].x, rect[0].y];
+        let p2 = [rect[1].x, rect[1].y];
+        let rect = rstar::AABB::from_corners(p1, p2);
         self.hint_ref
             .locate_in_envelope_intersecting(&rect)
             .map(|node| node.data)
@@ -1130,7 +1172,7 @@ mod tests {
         let key = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1138,18 +1180,18 @@ mod tests {
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 3]);
+        assert_eq!(tile.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
 
         let tile = field.remove(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 3]);
+        assert_eq!(tile.location, IVec2::new(-1, 3));
 
         assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
         assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
     }
 
@@ -1165,19 +1207,19 @@ mod tests {
         assert_eq!(
             field.insert(Tile {
                 id: 2,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
 
         let key = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1185,7 +1227,7 @@ mod tests {
         assert_eq!(
             field.insert(Tile {
                 id: 0,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             }),
@@ -1194,10 +1236,10 @@ mod tests {
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 3]);
+        assert_eq!(tile.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
     }
 
     #[test]
@@ -1212,22 +1254,24 @@ mod tests {
         let key = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        let key = field.modify(key, |tile| tile.location = [-1, 4]).unwrap();
+        let key = field
+            .modify(key, |tile| tile.location = IVec2::new(-1, 4))
+            .unwrap();
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 4]);
+        assert_eq!(tile.location, IVec2::new(-1, 4));
 
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
-        assert!(field.has_by_point([-1, 4]));
-        assert_eq!(field.get_by_point([-1, 4]), Some(key));
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert!(field.has_by_point(IVec2::new(-1, 4)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
             .modify(key, |tile| tile.render_param.variant = Some(1))
@@ -1235,14 +1279,14 @@ mod tests {
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 4]);
+        assert_eq!(tile.location, IVec2::new(-1, 4));
         assert_eq!(tile.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 4]);
+        assert_eq!(tile.location, IVec2::new(-1, 4));
         assert_eq!(tile.render_param.variant, Some(1));
     }
 
@@ -1258,7 +1302,7 @@ mod tests {
         let key_0 = field
             .insert(Tile {
                 id: 0,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1266,7 +1310,7 @@ mod tests {
         let key_1 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1278,22 +1322,22 @@ mod tests {
         );
 
         assert_eq!(
-            field.modify(key_0, |tile| tile.location = [-1, 4]),
+            field.modify(key_0, |tile| tile.location = IVec2::new(-1, 4)),
             Err(FieldError::Conflict)
         );
 
         let tile = field.get(key_0).unwrap();
         assert_eq!(tile.id, 0);
-        assert_eq!(tile.location, [-1, 3]);
+        assert_eq!(tile.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key_0));
 
         field.remove(key_1).unwrap();
         assert_eq!(field.modify(key_1, |_| {}), Err(FieldError::NotFound));
         assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
-        assert!(!field.has_by_point([-1, 4]));
-        assert_eq!(field.get_by_point([-1, 4]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 4)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), None);
     }
 
     #[test]
@@ -1308,24 +1352,24 @@ mod tests {
         let key = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
-            .modify(key, |tile| tile.location = [-1, 1000])
+            .modify(key, |tile| tile.location = IVec2::new(-1, 1000))
             .unwrap();
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
-        assert_eq!(tile.location, [-1, 1000]);
+        assert_eq!(tile.location, IVec2::new(-1, 1000));
 
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
-        assert!(field.has_by_point([-1, 1000]));
-        assert_eq!(field.get_by_point([-1, 1000]), Some(key));
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert!(field.has_by_point(IVec2::new(-1, 1000)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 1000)), Some(key));
     }
 
     #[test]
@@ -1340,7 +1384,7 @@ mod tests {
         let key_0 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1348,7 +1392,7 @@ mod tests {
         let key_1 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1356,7 +1400,7 @@ mod tests {
         let _key_2 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 5],
+                location: IVec2::new(-1, 5),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1364,16 +1408,16 @@ mod tests {
 
         assert_eq!(
             field.get_collision_rect(key_0),
-            Ok([[-1.0, 3.0], [0.0, 4.0]])
+            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
         );
 
-        let point = [-1.0, 4.0];
+        let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
-        let rect = [[-1.0, 3.0], [-1.0, 4.0]];
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
@@ -1396,7 +1440,7 @@ mod tests {
         let _key0 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1404,7 +1448,7 @@ mod tests {
         let _key1 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1412,15 +1456,15 @@ mod tests {
         let _key2 = field
             .insert(Tile {
                 id: 1,
-                location: [-1, 5],
+                location: IVec2::new(-1, 5),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location([0, 0]).is_none());
+        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
 
-        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
         let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.tiles.len(), 3);
     }
@@ -1430,11 +1474,11 @@ mod tests {
     fn block_field_with_invalid() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
-                size: [-1, -1],
-                collision_size: [1.0, 1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [1.0, 1.0],
-                hint_offset: [0.0, 0.0],
+                size: IVec2::new(-1, -1),
+                collision_size: Vec2::new(1.0, 1.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                hint_size: Vec2::new(1.0, 1.0),
+                hint_offset: Vec2::new(0.0, 0.0),
             }],
         });
     }
@@ -1444,11 +1488,11 @@ mod tests {
     fn block_field_with_invalid_collision() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
-                size: [1, 1],
-                collision_size: [-1.0, -1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [1.0, 1.0],
-                hint_offset: [0.0, 0.0],
+                size: IVec2::new(1, 1),
+                collision_size: Vec2::new(-1.0, -1.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                hint_size: Vec2::new(1.0, 1.0),
+                hint_offset: Vec2::new(0.0, 0.0),
             }],
         });
     }
@@ -1458,11 +1502,11 @@ mod tests {
     fn block_field_with_invalid_hint() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
-                size: [1, 1],
-                collision_size: [1.0, 1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [-1.0, -1.0],
-                hint_offset: [0.0, 0.0],
+                size: IVec2::new(1, 1),
+                collision_size: Vec2::new(1.0, 1.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                hint_size: Vec2::new(-1.0, -1.0),
+                hint_offset: Vec2::new(0.0, 0.0),
             }],
         });
     }
@@ -1472,18 +1516,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1491,27 +1535,30 @@ mod tests {
         let key = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
-        assert_eq!(field.get_rect(key), Ok([[-1, 3], [-1, 3]]));
+        assert_eq!(
+            field.get_rect(key),
+            Ok([IVec2::new(-1, 3), IVec2::new(-1, 3)])
+        );
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 3]);
+        assert_eq!(block.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
 
         let block = field.remove(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 3]);
+        assert_eq!(block.location, IVec2::new(-1, 3));
 
         assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
         assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
 
         assert_eq!(field.get_rect(key).unwrap_err(), FieldError::NotFound);
@@ -1522,18 +1569,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1541,19 +1588,19 @@ mod tests {
         assert_eq!(
             field.insert(Block {
                 id: 2,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             }),
             Err(FieldError::InvalidId)
         );
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
 
         let key = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1561,7 +1608,7 @@ mod tests {
         assert_eq!(
             field.insert(Block {
                 id: 0,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             }),
@@ -1570,10 +1617,10 @@ mod tests {
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 3]);
+        assert_eq!(block.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
     }
 
     #[test]
@@ -1581,18 +1628,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1600,22 +1647,24 @@ mod tests {
         let key = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        let key = field.modify(key, |block| block.location = [-1, 4]).unwrap();
+        let key = field
+            .modify(key, |block| block.location = IVec2::new(-1, 4))
+            .unwrap();
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 4]);
+        assert_eq!(block.location, IVec2::new(-1, 4));
 
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
-        assert!(field.has_by_point([-1, 4]));
-        assert_eq!(field.get_by_point([-1, 4]), Some(key));
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert!(field.has_by_point(IVec2::new(-1, 4)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
             .modify(key, |block| block.render_param.variant = Some(1))
@@ -1623,14 +1672,14 @@ mod tests {
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 4]);
+        assert_eq!(block.location, IVec2::new(-1, 4));
         assert_eq!(block.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 4]);
+        assert_eq!(block.location, IVec2::new(-1, 4));
         assert_eq!(block.render_param.variant, Some(1));
     }
 
@@ -1639,18 +1688,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1658,7 +1707,7 @@ mod tests {
         let key_0 = field
             .insert(Block {
                 id: 0,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1666,7 +1715,7 @@ mod tests {
         let key_1 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1678,24 +1727,24 @@ mod tests {
         );
 
         assert_eq!(
-            field.modify(key_0, |block| block.location = [-1, 4]),
+            field.modify(key_0, |block| block.location = IVec2::new(-1, 4)),
             Err(FieldError::Conflict)
         );
 
         let block = field.get(key_0).unwrap();
         assert_eq!(block.id, 0);
-        assert_eq!(block.location, [-1, 3]);
+        assert_eq!(block.location, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), Some(key_0));
+        assert!(field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key_0));
 
         field.remove(key_1).unwrap();
 
         assert_eq!(field.modify(key_1, |_| {}), Err(FieldError::NotFound));
 
         assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
-        assert!(!field.has_by_point([-1, 4]));
-        assert_eq!(field.get_by_point([-1, 4]), None);
+        assert!(!field.has_by_point(IVec2::new(-1, 4)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), None);
     }
 
     #[test]
@@ -1703,18 +1752,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1722,24 +1771,24 @@ mod tests {
         let key = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
-            .modify(key, |block| block.location = [-1, 1000])
+            .modify(key, |block| block.location = IVec2::new(-1, 1000))
             .unwrap();
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
-        assert_eq!(block.location, [-1, 1000]);
+        assert_eq!(block.location, IVec2::new(-1, 1000));
 
-        assert!(!field.has_by_point([-1, 3]));
-        assert_eq!(field.get_by_point([-1, 3]), None);
-        assert!(field.has_by_point([-1, 1000]));
-        assert_eq!(field.get_by_point([-1, 1000]), Some(key));
+        assert!(!field.has_by_point(IVec2::new(-1, 3)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert!(field.has_by_point(IVec2::new(-1, 1000)));
+        assert_eq!(field.get_by_point(IVec2::new(-1, 1000)), Some(key));
     }
 
     #[test]
@@ -1747,18 +1796,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1766,7 +1815,7 @@ mod tests {
         let key_0 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1774,7 +1823,7 @@ mod tests {
         let key_1 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1782,7 +1831,7 @@ mod tests {
         let _key_2 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 5],
+                location: IVec2::new(-1, 5),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1790,16 +1839,16 @@ mod tests {
 
         assert_eq!(
             field.get_collision_rect(key_0),
-            Ok([[-1.0, 3.0], [0.0, 4.0]])
+            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
         );
 
-        let point = [-1.0, 4.0];
+        let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
-        let rect = [[-1.0, 3.0], [-1.0, 4.0]];
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
@@ -1814,18 +1863,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1833,7 +1882,7 @@ mod tests {
         let key_0 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1841,7 +1890,7 @@ mod tests {
         let key_1 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1849,21 +1898,24 @@ mod tests {
         let _key_2 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 5],
+                location: IVec2::new(-1, 5),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        assert_eq!(field.get_hint_rect(key_0), Ok([[-1.0, 3.0], [0.0, 4.0]]));
+        assert_eq!(
+            field.get_hint_rect(key_0),
+            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
+        );
 
-        let point = [-1.0, 4.0];
+        let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_hint_point(point));
         let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
-        let rect = [[-1.0, 3.0], [-1.0, 4.0]];
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_hint_rect(rect));
         let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
@@ -1878,18 +1930,18 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
-                    size: [1, 1],
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    size: IVec2::new(1, 1),
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1898,7 +1950,7 @@ mod tests {
         let _key0 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 3],
+                location: IVec2::new(-1, 3),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1906,7 +1958,7 @@ mod tests {
         let _key1 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 4],
+                location: IVec2::new(-1, 4),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1914,15 +1966,15 @@ mod tests {
         let _key2 = field
             .insert(Block {
                 id: 1,
-                location: [-1, 5],
+                location: IVec2::new(-1, 5),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location([0, 0]).is_none());
+        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
 
-        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
         let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.blocks.len(), 3);
     }
@@ -1932,10 +1984,10 @@ mod tests {
     fn entity_field_with_invalid_collision() {
         let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
-                collision_size: [-1.0, -1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [1.0, 1.0],
-                hint_offset: [0.0, 0.0],
+                collision_size: Vec2::new(-1.0, -1.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                hint_size: Vec2::new(1.0, 1.0),
+                hint_offset: Vec2::new(0.0, 0.0),
             }],
         });
     }
@@ -1945,10 +1997,10 @@ mod tests {
     fn entity_field_with_invalid_hint() {
         let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
-                collision_size: [1.0, 1.0],
-                collision_offset: [0.0, 0.0],
-                hint_size: [-1.0, -1.0],
-                hint_offset: [0.0, 0.0],
+                collision_size: Vec2::new(1.0, 1.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                hint_size: Vec2::new(-1.0, -1.0),
+                hint_offset: Vec2::new(0.0, 0.0),
             }],
         });
     }
@@ -1958,16 +2010,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -1975,7 +2027,7 @@ mod tests {
         let key = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -1983,11 +2035,11 @@ mod tests {
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 1);
-        assert_eq!(entity.location, [-1.0, 3.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 3.0));
 
         let entity = field.remove(key).unwrap();
         assert_eq!(entity.id, 1);
-        assert_eq!(entity.location, [-1.0, 3.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 3.0));
 
         assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
         assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
@@ -1998,16 +2050,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2015,7 +2067,7 @@ mod tests {
         assert_eq!(
             field.insert(Entity {
                 id: 2,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             }),
@@ -2028,16 +2080,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2045,19 +2097,19 @@ mod tests {
         let key = field
             .insert(Entity {
                 id: 0,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
-            .modify(key, |entity| entity.location = [-1.0, 4.0])
+            .modify(key, |entity| entity.location = Vec2::new(-1.0, 4.0))
             .unwrap();
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 0);
-        assert_eq!(entity.location, [-1.0, 4.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
 
         let key = field
             .modify(key, |entity| entity.render_param.variant = Some(1))
@@ -2065,14 +2117,14 @@ mod tests {
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 0);
-        assert_eq!(entity.location, [-1.0, 4.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
         assert_eq!(entity.render_param.variant, Some(1));
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 0);
-        assert_eq!(entity.location, [-1.0, 4.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
         assert_eq!(entity.render_param.variant, Some(1));
     }
 
@@ -2081,16 +2133,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2098,7 +2150,7 @@ mod tests {
         let key = field
             .insert(Entity {
                 id: 0,
-                location: [-1.0, 4.0],
+                location: Vec2::new(-1.0, 4.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2119,16 +2171,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2136,19 +2188,19 @@ mod tests {
         let key = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
         let key = field
-            .modify(key, |tile| tile.location = [-1.0, 1000.0])
+            .modify(key, |tile| tile.location = Vec2::new(-1.0, 1000.0))
             .unwrap();
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 1);
-        assert_eq!(entity.location, [-1.0, 1000.0]);
+        assert_eq!(entity.location, Vec2::new(-1.0, 1000.0));
     }
 
     #[test]
@@ -2156,16 +2208,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2173,7 +2225,7 @@ mod tests {
         let key_0 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2181,7 +2233,7 @@ mod tests {
         let key_1 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 4.0],
+                location: Vec2::new(-1.0, 4.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2189,7 +2241,7 @@ mod tests {
         let _key_2 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 5.0],
+                location: Vec2::new(-1.0, 5.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2197,16 +2249,16 @@ mod tests {
 
         assert_eq!(
             field.get_collision_rect(key_0),
-            Ok([[-1.0, 3.0], [0.0, 4.0]])
+            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
         );
 
-        let point = [-1.0, 4.0];
+        let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
         let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
-        let rect = [[-1.0, 3.0], [-1.0, 4.0]];
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
         let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
@@ -2221,16 +2273,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2238,7 +2290,7 @@ mod tests {
         let key_0 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2246,7 +2298,7 @@ mod tests {
         let key_1 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 4.0],
+                location: Vec2::new(-1.0, 4.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2254,21 +2306,24 @@ mod tests {
         let _key_2 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 5.0],
+                location: Vec2::new(-1.0, 5.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        assert_eq!(field.get_hint_rect(key_0), Ok([[-1.0, 3.0], [0.0, 4.0]]));
+        assert_eq!(
+            field.get_hint_rect(key_0),
+            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
+        );
 
-        let point = [-1.0, 4.0];
+        let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_hint_point(point));
         let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
-        let rect = [[-1.0, 3.0], [-1.0, 4.0]];
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_hint_rect(rect));
         let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
@@ -2283,16 +2338,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
-                    collision_size: [1.0, 1.0],
-                    collision_offset: [0.0, 0.0],
-                    hint_size: [1.0, 1.0],
-                    hint_offset: [0.0, 0.0],
+                    collision_size: Vec2::new(1.0, 1.0),
+                    collision_offset: Vec2::new(0.0, 0.0),
+                    hint_size: Vec2::new(1.0, 1.0),
+                    hint_offset: Vec2::new(0.0, 0.0),
                 },
             ],
         });
@@ -2301,7 +2356,7 @@ mod tests {
         let _key0 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 3.0],
+                location: Vec2::new(-1.0, 3.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2309,7 +2364,7 @@ mod tests {
         let _key1 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 4.0],
+                location: Vec2::new(-1.0, 4.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
@@ -2317,15 +2372,15 @@ mod tests {
         let _key2 = field
             .insert(Entity {
                 id: 1,
-                location: [-1.0, 5.0],
+                location: Vec2::new(-1.0, 5.0),
                 data: Default::default(),
                 render_param: Default::default(),
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location([0, 0]).is_none());
+        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
 
-        let chunk_key = field.get_by_chunk_location([-1, 0]).unwrap();
+        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
         let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.entities.len(), 3);
     }
