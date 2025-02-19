@@ -348,6 +348,12 @@ impl EntityFeature {
         let feature: inner::EntityFeature = inner::PlayerEntityFeature.into();
         Gd::from_object(EntityFeature { base: feature })
     }
+
+    #[func]
+    fn create_item() -> Gd<Self> {
+        let feature: inner::EntityFeature = inner::ItemEntityFeature.into();
+        Gd::from_object(EntityFeature { base: feature })
+    }
 }
 
 #[derive(GodotClass)]

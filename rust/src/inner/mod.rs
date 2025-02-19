@@ -504,6 +504,20 @@ impl Root {
     }
 
     #[inline]
+    pub fn item_push_item(
+        &mut self,
+        inventory_key: InventoryKey,
+        item: Item,
+    ) -> Result<(), ItemError> {
+        self.item_store.push_item(inventory_key, item)
+    }
+
+    #[inline]
+    pub fn item_pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, ItemError> {
+        self.item_store.pop_item(inventory_key)
+    }
+
+    #[inline]
     pub fn item_insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
         self.item_store.insert_item(slot_key, item)
     }

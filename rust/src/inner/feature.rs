@@ -91,6 +91,7 @@ pub enum EntityData {
     Empty,
     Animal(AnimalEntityData),
     Player(PlayerEntityData),
+    Item(ItemEntityData),
 }
 
 #[enum_dispatch::enum_dispatch]
@@ -111,6 +112,7 @@ pub enum EntityFeature {
     Empty(EmptyEntityFeature),
     Animal(AnimalEntityFeature),
     Player(PlayerEntityFeature),
+    Item(ItemEntityFeature),
 }
 
 #[derive(Debug, Clone)]
@@ -152,3 +154,7 @@ pub enum ItemFeature {
 pub struct EmptyItemFeature;
 
 impl ItemFeatureTrait for EmptyItemFeature {}
+
+// error handling
+
+// TODO

@@ -148,6 +148,16 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
         root.player_insert_current(key).unwrap();
     }
+
+    fn get_inventory(&self, root: &Root, key: TileKey) -> Option<InventoryKey> {
+        let entity = root.entity_get(key).ok()?;
+
+        let EntityData::Player(data) = &entity.data else {
+            return None;
+        };
+
+        Some(data.inventory_key)
+    }
 }
 
 // intersection guard
