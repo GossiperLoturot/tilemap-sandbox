@@ -2,7 +2,25 @@ use super::*;
 
 // item entity
 
-// TODO
+#[derive(Debug, Clone)]
+pub struct ItemEntityData {
+    pub item: Item,
+}
+
+#[derive(Debug, Clone)]
+pub struct ItemEntityFeature;
+
+impl EntityFeatureTrait for ItemEntityFeature {
+    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+
+    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+
+    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+
+    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
+        None
+    }
+}
 
 // item store
 
@@ -70,6 +88,42 @@ impl ItemStore {
         self.inventories
             .get(inventory_key as usize)
             .ok_or(ItemError::InventoryNotFound)
+    }
+
+    pub fn push_item(&mut self, inventory_key: InventoryKey, item: Item) -> Result<(), ItemError> {
+        let inventory = self
+            .inventories
+            .get_mut(inventory_key as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        let slot = inventory
+            .slots
+            .iter_mut()
+            .find(|slot| slot.item.is_none())
+            .ok_or(ItemError::ItemConflict)?;
+
+        let _ = std::mem::replace(&mut slot.item, Some(item));
+        slot.version += 1;
+        inventory.version += 1;
+        Ok(())
+    }
+
+    pub fn pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, ItemError> {
+        let inventory = self
+            .inventories
+            .get_mut(inventory_key as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        let slot = inventory
+            .slots
+            .iter_mut()
+            .find(|slot| slot.item.is_some())
+            .ok_or(ItemError::ItemNotFound)?;
+
+        let item = slot.item.take().unwrap();
+        slot.version += 1;
+        inventory.version += 1;
+        Ok(item)
     }
 
     pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {

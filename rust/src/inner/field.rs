@@ -1135,7 +1135,7 @@ impl EntityField {
     }
 }
 
-// error
+// error handling
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FieldError {

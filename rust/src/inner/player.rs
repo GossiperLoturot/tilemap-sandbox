@@ -144,9 +144,32 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             }
         }
 
+        // // pick up item
+        // let rect = root.entity_get_hint_rect(key).unwrap();
+        // for key in root.entity_get_by_hint_rect(rect).collect::<Vec<_>>() {
+        //     let entity = root.entity_remove(key).unwrap();
+        //
+        //     let Some(EntityData::Item(item_data)) = entity.data else {
+        //         unreachable!()
+        //     };
+        //
+        //     // TODO: when inventory is full
+        //     let _ = root.item_push_item(data.inventory_key, item_data.item);
+        // }
+
         root.player_remove_current().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
         root.player_insert_current(key).unwrap();
+    }
+
+    fn get_inventory(&self, root: &Root, key: TileKey) -> Option<InventoryKey> {
+        let entity = root.entity_get(key).ok()?;
+
+        let EntityData::Player(data) = &entity.data else {
+            return None;
+        };
+
+        Some(data.inventory_key)
     }
 }
 
