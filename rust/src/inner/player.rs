@@ -84,10 +84,10 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
 
         root.entity_modify(key, |entity| {
-            entity.data = Some(EntityData::Player(PlayerEntityData {
+            entity.data = EntityData::Player(PlayerEntityData {
                 state: PlayerEntityDataState::Wait,
                 inventory_key,
-            }))
+            })
         })
         .unwrap();
 
@@ -97,7 +97,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     fn before_break(&self, root: &mut Root, key: EntityKey) {
         let entity = root.entity_get(key).unwrap();
 
-        let Some(EntityData::Player(data)) = &entity.data else {
+        let EntityData::Player(data) = &entity.data else {
             unreachable!();
         };
 
@@ -110,7 +110,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).cloned().unwrap();
 
-        let Some(EntityData::Player(data)) = &mut entity.data else {
+        let EntityData::Player(data) = &mut entity.data else {
             return;
         };
 
@@ -129,15 +129,15 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             match data.state {
                 PlayerEntityDataState::Wait => {
                     if is_move {
-                        entity.render_param.variant = Some(1);
-                        entity.render_param.tick = Some(root.time_tick() as u32);
+                        entity.render_param.variant = 1;
+                        entity.render_param.tick = root.time_tick() as u32;
                         data.state = PlayerEntityDataState::Move;
                     }
                 }
                 PlayerEntityDataState::Move => {
                     if !is_move {
-                        entity.render_param.variant = Some(0);
-                        entity.render_param.tick = Some(root.time_tick() as u32);
+                        entity.render_param.variant = 0;
+                        entity.render_param.tick = root.time_tick() as u32;
                         data.state = PlayerEntityDataState::Wait;
                     }
                 }

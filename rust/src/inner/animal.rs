@@ -33,14 +33,14 @@ pub struct AnimalEntityFeature {
 impl EntityFeatureTrait for AnimalEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
         root.entity_modify(key, |entity| {
-            entity.data = Some(EntityData::Animal(AnimalEntityData {
+            entity.data = EntityData::Animal(AnimalEntityData {
                 min_rest_secs: self.min_rest_secs,
                 max_rest_secs: self.max_rest_secs,
                 min_distance: self.min_distance,
                 max_distance: self.max_distance,
                 speed: self.speed,
                 state: AnimalEntityDataState::Init,
-            }))
+            })
         })
         .unwrap();
     }
@@ -48,7 +48,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).cloned().unwrap();
 
-        let Some(EntityData::Animal(data)) = &mut entity.data else {
+        let EntityData::Animal(data) = &mut entity.data else {
             return;
         };
 
@@ -59,8 +59,8 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                 data.state = AnimalEntityDataState::WaitStart;
             }
             AnimalEntityDataState::WaitStart => {
-                entity.render_param.variant = Some(self.idle_variant);
-                entity.render_param.tick = Some(root.time_tick() as u32);
+                entity.render_param.variant = self.idle_variant;
+                entity.render_param.tick = root.time_tick() as u32;
 
                 let secs = rng.random_range(data.min_rest_secs..data.max_rest_secs);
                 data.state = AnimalEntityDataState::Wait(secs);
@@ -74,8 +74,8 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                 }
             }
             AnimalEntityDataState::TripStart => {
-                entity.render_param.variant = Some(self.walk_variant);
-                entity.render_param.tick = Some(root.time_tick() as u32);
+                entity.render_param.variant = self.walk_variant;
+                entity.render_param.tick = root.time_tick() as u32;
 
                 let angle = rng.random_range(0.0..std::f32::consts::PI * 2.0);
                 let distance = rng.random_range(data.min_distance..data.max_distance);

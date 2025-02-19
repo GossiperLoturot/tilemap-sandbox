@@ -39,7 +39,7 @@ impl TileProperty {
 pub struct Tile {
     pub id: u16,
     pub location: IVec2,
-    pub data: Option<TileData>,
+    pub data: TileData,
     pub render_param: TileRenderParam,
 }
 
@@ -180,7 +180,7 @@ impl TileField {
         let mut new_tile = Tile {
             id: tile.id,
             location: tile.location,
-            data: tile.data.take(),
+            data: std::mem::replace(&mut tile.data, TileData::Empty),
             render_param: tile.render_param.clone(),
         };
         f(&mut new_tile);
@@ -364,7 +364,7 @@ impl BlockProperty {
 pub struct Block {
     pub id: u16,
     pub location: IVec2,
-    pub data: Option<BlockData>,
+    pub data: BlockData,
     pub render_param: BlockRenderParam,
 }
 
@@ -548,7 +548,7 @@ impl BlockField {
         let mut new_block = Block {
             id: block.id,
             location: block.location,
-            data: block.data.take(),
+            data: std::mem::replace(&mut block.data, BlockData::Empty),
             render_param: block.render_param.clone(),
         };
         f(&mut new_block);
@@ -818,7 +818,7 @@ impl EntityProperty {
 pub struct Entity {
     pub id: u16,
     pub location: Vec2,
-    pub data: Option<EntityData>,
+    pub data: EntityData,
     pub render_param: EntityRenderParam,
 }
 
@@ -975,7 +975,7 @@ impl EntityField {
         let mut new_entity = Entity {
             id: entity.id,
             location: entity.location,
-            data: entity.data.take(),
+            data: std::mem::replace(&mut entity.data, EntityData::Empty),
             render_param: entity.render_param.clone(),
         };
         f(&mut new_entity);
@@ -1156,6 +1156,9 @@ impl std::fmt::Display for FieldError {
 
 impl std::error::Error for FieldError {}
 
+// tests
+// TODO: minimize test code using by fn, macro, etc.
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1274,20 +1277,20 @@ mod tests {
         assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
-            .modify(key, |tile| tile.render_param.variant = Some(1))
+            .modify(key, |tile| tile.render_param.variant = 1)
             .unwrap();
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
         assert_eq!(tile.location, IVec2::new(-1, 4));
-        assert_eq!(tile.render_param.variant, Some(1));
+        assert_eq!(tile.render_param.variant, 1);
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let tile = field.get(key).unwrap();
         assert_eq!(tile.id, 1);
         assert_eq!(tile.location, IVec2::new(-1, 4));
-        assert_eq!(tile.render_param.variant, Some(1));
+        assert_eq!(tile.render_param.variant, 1);
     }
 
     #[test]
@@ -1667,20 +1670,20 @@ mod tests {
         assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
-            .modify(key, |block| block.render_param.variant = Some(1))
+            .modify(key, |block| block.render_param.variant = 1)
             .unwrap();
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
         assert_eq!(block.location, IVec2::new(-1, 4));
-        assert_eq!(block.render_param.variant, Some(1));
+        assert_eq!(block.render_param.variant, 1);
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let block = field.get(key).unwrap();
         assert_eq!(block.id, 1);
         assert_eq!(block.location, IVec2::new(-1, 4));
-        assert_eq!(block.render_param.variant, Some(1));
+        assert_eq!(block.render_param.variant, 1);
     }
 
     #[test]
@@ -2112,20 +2115,20 @@ mod tests {
         assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
 
         let key = field
-            .modify(key, |entity| entity.render_param.variant = Some(1))
+            .modify(key, |entity| entity.render_param.variant = 1)
             .unwrap();
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 0);
         assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
-        assert_eq!(entity.render_param.variant, Some(1));
+        assert_eq!(entity.render_param.variant, 1);
 
         let key = field.modify(key, |_| {}).unwrap();
 
         let entity = field.get(key).unwrap();
         assert_eq!(entity.id, 0);
         assert_eq!(entity.location, Vec2::new(-1.0, 4.0));
-        assert_eq!(entity.render_param.variant, Some(1));
+        assert_eq!(entity.render_param.variant, 1);
     }
 
     #[test]

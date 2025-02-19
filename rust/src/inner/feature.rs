@@ -4,13 +4,16 @@ use super::*;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TileRenderParam {
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub variant: u8,
+    pub tick: u32,
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum TileData {}
+#[derive(Debug, Clone, Default)]
+pub enum TileData {
+    #[default]
+    Empty,
+}
 
 #[enum_dispatch::enum_dispatch]
 pub trait TileFeatureTrait {
@@ -39,13 +42,16 @@ impl TileFeatureTrait for EmptyTileFeature {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BlockRenderParam {
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub variant: u8,
+    pub tick: u32,
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum BlockData {}
+#[derive(Debug, Clone, Default)]
+pub enum BlockData {
+    #[default]
+    Empty,
+}
 
 #[enum_dispatch::enum_dispatch]
 pub trait BlockFeatureTrait {
@@ -74,13 +80,15 @@ impl BlockFeatureTrait for EmptyBlockFeature {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntityRenderParam {
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub variant: u8,
+    pub tick: u32,
 }
 
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum EntityData {
+    #[default]
+    Empty,
     Animal(AnimalEntityData),
     Player(PlayerEntityData),
 }
@@ -120,7 +128,9 @@ pub struct ItemRenderParam {
 
 #[non_exhaustive]
 #[derive(Debug, Clone)]
-pub enum ItemData {}
+pub enum ItemData {
+    Empty,
+}
 
 #[enum_dispatch::enum_dispatch]
 pub trait ItemFeatureTrait {
