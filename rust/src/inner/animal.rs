@@ -45,8 +45,6 @@ impl EntityFeatureTrait for AnimalEntityFeature {
         .unwrap();
     }
 
-    fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
-
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).cloned().unwrap();
 
@@ -104,10 +102,6 @@ impl EntityFeatureTrait for AnimalEntityFeature {
         }
 
         root.entity_modify(key, move |e| *e = entity).unwrap();
-    }
-
-    fn get_inventory(&self, _root: &Root, _key: EntityKey) -> Option<InventoryKey> {
-        None
     }
 }
 
