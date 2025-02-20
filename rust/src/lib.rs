@@ -15,6 +15,40 @@ unsafe impl ExtensionLibrary for Extension {}
 
 #[derive(GodotClass)]
 #[class(no_init)]
+struct PanicHook {}
+
+#[godot_api]
+impl PanicHook {
+    #[func]
+    fn set_hook() {
+        godot_print!("Set panic hook");
+
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let location_msg;
+            if let Some(location) = info.location() {
+                location_msg = format!("file {} at line {}", location.file(), location.line());
+            } else {
+                location_msg = "unknown location".into();
+            }
+
+            let payload_msg;
+            if let Some(s) = info.payload().downcast_ref::<&str>() {
+                payload_msg = s.to_string();
+            } else if let Some(s) = info.payload().downcast_ref::<String>() {
+                payload_msg = s.clone();
+            } else {
+                payload_msg = "unknown panic".into();
+            }
+
+            godot_error!("[RUST] {}: {}", location_msg, payload_msg);
+            hook(info);
+        }));
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init)]
 struct TileKey {
     base: inner::TileKey,
 }

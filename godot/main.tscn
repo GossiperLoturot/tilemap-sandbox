@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/world.gd" id="1_b2r8a"]
 [ext_resource type="Script" path="res://scripts/player.gd" id="2_c0xk6"]
+[ext_resource type="Script" path="res://scripts/hook.gd" id="4_dx46x"]
 [ext_resource type="Shader" path="res://vignette.gdshader" id="5_h8o78"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
@@ -34,3 +35,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="Hook" type="Node" parent="."]
+script = ExtResource("4_dx46x")
