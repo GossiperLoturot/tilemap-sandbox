@@ -1,6 +1,6 @@
-use glam::*;
-
 use crate::inner;
+
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct GeneratorRuleMarching {
@@ -53,7 +53,7 @@ impl GeneratorResource {
         &mut self,
         root: &mut inner::Root,
         min_rect: [Vec2; 2],
-    ) -> Result<(), GeneratorError> {
+    ) -> Result<(), RootError> {
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -271,21 +271,6 @@ impl GeneratorResource {
                 data: Default::default(),
                 render_param: Default::default(),
             });
-        }
-    }
-}
-
-// error handling
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GeneratorError {
-    NotScoped,
-}
-
-impl std::fmt::Display for GeneratorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotScoped => write!(f, "not scoped error"),
         }
     }
 }

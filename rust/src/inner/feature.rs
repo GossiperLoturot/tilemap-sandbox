@@ -17,10 +17,43 @@ pub enum TileData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait TileFeatureTrait {
+    /// Invoked after place tile with no extra args.
+    /// If you want to invoke with extra args, you can modify data after place.
+    ///
+    /// # Panic
+    ///
+    /// Panic if tile is not found or mismatch id.
     fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+
+    /// Invoked before break tile with no extra args.
+    /// If you want to invoke with extra args, you can modify data before break.
+    ///
+    /// # Panic
+    ///
+    /// panic if tile is not found or mismatch id.
     fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+
+    /// Invoked every frame.
+    ///
+    /// # Panic
+    ///
+    /// panic if tile is not found or mismatch id.
     fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
 
+    /// Check if tile has inventory.
+    ///
+    /// # Panic
+    ///
+    /// panic if tile is not found or mismatch id.
+    fn has_inventory(&self, _root: &Root, _key: TileKey) -> bool {
+        false
+    }
+
+    /// Get inventory key.
+    ///
+    /// # Panic
+    ///
+    /// panic if tile is not found or mismatch id.
     fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
         None
     }
@@ -55,10 +88,43 @@ pub enum BlockData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait BlockFeatureTrait {
+    /// Invoked after place block with no extra args.
+    /// If you want to invoke with extra args, you can modify data after place.
+    ///
+    /// # Panic
+    ///
+    /// Panic if block is not found or mismatch id.
     fn after_place(&self, _root: &mut Root, _key: BlockKey) {}
+
+    /// Invoked before break block with no extra args.
+    /// If you want to invoke with extra args, you can modify data before break.
+    ///
+    /// # Panic
+    ///
+    /// panic if block is not found or mismatch id.
     fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
+
+    /// Invoked every frame.
+    ///
+    /// # Panic
+    ///
+    /// panic if block is not found or mismatch id.
     fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
 
+    /// Check if block has inventory.
+    ///
+    /// # Panic
+    ///
+    /// panic if block is not found or mismatch id.
+    fn has_inventory(&self, _root: &Root, _key: BlockKey) -> bool {
+        false
+    }
+
+    /// Get inventory key.
+    ///
+    /// # Panic
+    ///
+    /// panic if block is not found or mismatch id.
     fn get_inventory(&self, _root: &Root, _key: BlockKey) -> Option<InventoryKey> {
         None
     }
@@ -96,13 +162,62 @@ pub enum EntityData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait EntityFeatureTrait {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+    /// Invoked after place entity with no extra args.
+    /// If you want to invoke with extra args, you can modify data after place.
+    ///
+    /// # Panic
+    ///
+    /// Panic if entity is not found or mismatch id.
+    fn after_place(&self, _root: &mut Root, _key: EntityKey) {}
 
-    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
+    /// Invoked before break entity with no extra args.
+    /// If you want to invoke with extra args, you can modify data before break.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
+
+    /// Invoked every frame.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
+
+    /// Check if entity has inventory.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> bool {
+        false
+    }
+
+    /// Get inventory key.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn get_inventory(&self, _root: &Root, _key: EntityKey) -> Option<InventoryKey> {
         None
     }
+
+    /// Check if can pick up entity.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn can_pick_up(&self, _root: &Root, _key: EntityKey, _inventory_key: InventoryKey) -> bool {
+        false
+    }
+
+    /// Pick up entity.
+    ///
+    /// # Panic
+    ///
+    /// panic if entity is not found or mismatch id.
+    fn pick_up(&self, _root: &mut Root, _key: EntityKey, _inventory_key: InventoryKey) {}
 }
 
 #[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
@@ -124,8 +239,8 @@ impl EntityFeatureTrait for EmptyEntityFeature {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ItemRenderParam {
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub variant: u8,
+    pub tick: u32,
 }
 
 #[non_exhaustive]
@@ -136,11 +251,13 @@ pub enum ItemData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait ItemFeatureTrait {
-    fn after_pick(&self, _root: &mut Root, _key: u32) {}
-    fn before_drop(&self, _root: &mut Root, _key: u32) {}
-    fn forward(&self, _root: &mut Root, _key: u32) {}
+    fn after_pick(&self, _root: &mut Root, _key: SlotKey) {}
 
-    fn r#use(&self, _root: &mut Root, _key: u32) {}
+    fn before_drop(&self, _root: &mut Root, _key: SlotKey) {}
+
+    fn forward(&self, _root: &mut Root, _key: SlotKey) {}
+
+    fn r#use(&self, _root: &mut Root, _key: SlotKey) {}
 }
 
 #[enum_dispatch::enum_dispatch(ItemFeatureTrait)]
@@ -154,7 +271,3 @@ pub enum ItemFeature {
 pub struct EmptyItemFeature;
 
 impl ItemFeatureTrait for EmptyItemFeature {}
-
-// error handling
-
-// TODO

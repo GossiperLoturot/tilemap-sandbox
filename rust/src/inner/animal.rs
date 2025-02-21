@@ -46,10 +46,10 @@ impl EntityFeatureTrait for AnimalEntityFeature {
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).cloned().unwrap();
+        let mut entity = root.entity_get(key).unwrap().clone();
 
         let EntityData::Animal(data) = &mut entity.data else {
-            return;
+            unreachable!();
         };
 
         use rand::Rng;
@@ -90,7 +90,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                     let velocity = distance.min(data.speed * delta_secs);
                     let location = entity.location + direction * velocity;
 
-                    if intersection_guard(root, key, location) {
+                    if intersection_guard(root, key, location).unwrap() {
                         data.state = AnimalEntityDataState::WaitStart;
                     } else {
                         entity.location = location;
@@ -107,9 +107,13 @@ impl EntityFeatureTrait for AnimalEntityFeature {
 
 // intersection guard
 // DUPLICATE: src/inner/player.rs
-fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2) -> bool {
-    let entity = root.entity_get(entity_key).unwrap();
-    let base_rect = root.entity_get_base_collision_rect(entity.id).unwrap();
+fn intersection_guard(
+    root: &mut Root,
+    entity_key: EntityKey,
+    new_location: Vec2,
+) -> Result<bool, FieldError> {
+    let entity = root.entity_get(entity_key)?;
+    let base_rect = root.entity_get_base_collision_rect(entity.id)?;
 
     #[rustfmt::skip]
     let rect = [
@@ -118,13 +122,15 @@ fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2
     ];
 
     if root.tile_has_by_collision_rect(rect) {
-        return true;
+        return Ok(true);
     }
 
     if root.block_has_by_collision_rect(rect) {
-        return true;
+        return Ok(true);
     }
 
-    root.entity_get_by_collision_rect(rect)
-        .any(|other_key| other_key != entity_key)
+    let intersect = root
+        .entity_get_by_collision_rect(rect)
+        .any(|other_key| other_key != entity_key);
+    Ok(intersect)
 }
