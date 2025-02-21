@@ -1011,8 +1011,8 @@ impl Root {
     }
 
     #[func]
-    fn player_get_location(&mut self) -> Vector2 {
-        let location = self.base.player_get_location().unwrap();
+    fn player_get_current_location(&mut self) -> Vector2 {
+        let location = self.base.player_get_current_location().unwrap();
         Vector2::new(location[0], location[1])
     }
 

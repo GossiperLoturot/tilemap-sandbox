@@ -16,41 +16,41 @@ impl PlayerResource {
         Default::default()
     }
 
-    pub fn insert_current(&mut self, entity_key: EntityKey) -> Result<(), PlayerError> {
+    pub fn insert_current(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
         if self.current.is_some() {
-            return Err(PlayerError::AlreadyExist);
+            return Err(PlayerError::AlreadyExist.into());
         }
         self.current = Some(entity_key);
         Ok(())
     }
 
-    pub fn remove_current(&mut self) -> Result<EntityKey, PlayerError> {
-        self.current.take().ok_or(PlayerError::NotFound)
+    pub fn remove_current(&mut self) -> Result<EntityKey, RootError> {
+        self.current.take().ok_or(PlayerError::NotFound.into())
     }
 
-    pub fn get_current(&self) -> Result<EntityKey, PlayerError> {
-        self.current.ok_or(PlayerError::NotFound)
+    pub fn get_current(&self) -> Result<EntityKey, RootError> {
+        self.current.ok_or(PlayerError::NotFound.into())
     }
 
-    pub fn insert_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
+    pub fn insert_input(&mut self, input: Vec2) -> Result<(), RootError> {
         if self.input.is_some() {
-            return Err(PlayerError::AlreadyExist);
+            return Err(PlayerError::AlreadyExist.into());
         }
         self.input = Some(input);
         Ok(())
     }
 
-    pub fn remove_input(&mut self) -> Result<Vec2, PlayerError> {
-        self.input.take().ok_or(PlayerError::NotFound)
+    pub fn remove_input(&mut self) -> Result<Vec2, RootError> {
+        self.input.take().ok_or(PlayerError::NotFound.into())
     }
 
-    pub fn get_input(&self) -> Result<Vec2, PlayerError> {
-        self.input.ok_or(PlayerError::NotFound)
+    pub fn get_input(&self) -> Result<Vec2, RootError> {
+        self.input.ok_or(PlayerError::NotFound.into())
     }
 
     // utility
 
-    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
+    pub fn get_current_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
         let current = self.current.ok_or(PlayerError::NotFound)?;
         let location = root.entity_get(current)?.location;
         Ok(location)
@@ -80,14 +80,8 @@ impl PlayerEntityFeature {
 }
 
 impl EntityFeatureTrait for PlayerEntityFeature {
-    fn after_place(&self, root: &mut Root, key: EntityKey) -> Result<(), RootError> {
-        if root.player_get_current().is_ok() {
-            return Err(PlayerError::AlreadyExist.into());
-        }
-
-        root.entity_get(key)?;
-
-        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE)?;
+    fn after_place(&self, root: &mut Root, key: EntityKey) {
+        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
 
         root.entity_modify(key, |entity| {
             entity.data = EntityData::Player(PlayerEntityData {
@@ -98,32 +92,26 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         .unwrap();
 
         root.player_insert_current(key).unwrap();
-        Ok(())
     }
 
-    fn before_break(&self, root: &mut Root, key: EntityKey) -> Result<(), RootError> {
-        if root.player_get_current().is_err() {
-            return Err(PlayerError::NotFound.into());
-        }
-
-        let entity = root.entity_get(key)?;
+    fn before_break(&self, root: &mut Root, key: EntityKey) {
+        let entity = root.entity_get(key).unwrap();
 
         let EntityData::Player(data) = &entity.data else {
-            return Err(FieldError::InvalidId.into());
+            unreachable!();
         };
 
         let inventory_key = data.inventory_key;
-        root.item_free_inventory(inventory_key)?;
+        root.item_free_inventory(inventory_key).unwrap();
 
         root.player_remove_current().unwrap();
-        Ok(())
     }
 
-    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) -> Result<(), RootError> {
-        let mut entity = root.entity_get(key)?.clone();
+    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
+        let mut entity = root.entity_get(key).unwrap().clone();
 
         let EntityData::Player(data) = &mut entity.data else {
-            return Err(FieldError::InvalidId.into());
+            unreachable!();
         };
 
         // consume input
@@ -159,25 +147,20 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         root.player_remove_current().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
         root.player_insert_current(key).unwrap();
-        Ok(())
     }
 
-    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> Result<bool, RootError> {
-        Ok(true)
+    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> bool {
+        true
     }
 
-    fn get_inventory(
-        &self,
-        root: &Root,
-        key: EntityKey,
-    ) -> Result<Option<InventoryKey>, RootError> {
-        let entity = root.entity_get(key)?;
+    fn get_inventory(&self, root: &Root, key: EntityKey) -> Option<InventoryKey> {
+        let entity = root.entity_get(key).unwrap();
 
         let EntityData::Player(data) = &entity.data else {
-            return Err(FieldError::InvalidId.into());
+            unreachable!();
         };
 
-        Ok(Some(data.inventory_key))
+        Some(data.inventory_key)
     }
 }
 

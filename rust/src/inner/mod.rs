@@ -79,25 +79,24 @@ impl Root {
 
     // tile
 
-    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, RootError> {
+    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, FieldError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let tile_key = self.tile_field.insert(tile)?;
-        feature.after_place(self, tile_key)?;
+        feature.after_place(self, tile_key);
         Ok(tile_key)
     }
 
-    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, RootError> {
+    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, FieldError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, tile_key)?;
-        let tile = self.tile_field.remove(tile_key)?;
-        Ok(tile)
+        feature.before_break(self, tile_key);
+        self.tile_field.remove(tile_key)
     }
 
     #[inline]
@@ -173,37 +172,38 @@ impl Root {
     // tile inventory
 
     #[inline]
-    pub fn tile_get_inventory(&self, tile_key: TileKey) -> Result<Option<InventoryKey>, RootError> {
+    pub fn tile_get_inventory(
+        &self,
+        tile_key: TileKey,
+    ) -> Result<Option<InventoryKey>, FieldError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
-
-        feature.get_inventory(self, tile_key)
+        Ok(feature.get_inventory(self, tile_key))
     }
 
     // block
 
-    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, RootError> {
+    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let block_key = self.block_field.insert(block)?;
-        feature.after_place(self, block_key)?;
+        feature.after_place(self, block_key);
         Ok(block_key)
     }
 
-    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, RootError> {
+    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, FieldError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, block_key)?;
-        let block = self.block_field.remove(block_key)?;
-        Ok(block)
+        feature.before_break(self, block_key);
+        self.block_field.remove(block_key)
     }
 
     #[inline]
@@ -339,37 +339,35 @@ impl Root {
     pub fn block_get_inventory(
         &self,
         block_key: BlockKey,
-    ) -> Result<Option<InventoryKey>, RootError> {
+    ) -> Result<Option<InventoryKey>, FieldError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        let key = feature.get_inventory(self, block_key)?;
-        Ok(key)
+        Ok(feature.get_inventory(self, block_key))
     }
 
     // entity
 
-    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, RootError> {
+    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
         let features = self.entity_features.clone();
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let entity_key = self.entity_field.insert(entity)?;
-        feature.after_place(self, entity_key)?;
+        feature.after_place(self, entity_key);
         Ok(entity_key)
     }
 
-    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, RootError> {
+    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, FieldError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, entity_key)?;
-        let entity = self.entity_field.remove(entity_key)?;
-        Ok(entity)
+        feature.before_break(self, entity_key);
+        self.entity_field.remove(entity_key)
     }
 
     #[inline]
@@ -479,14 +477,13 @@ impl Root {
     pub fn entity_get_inventory(
         &self,
         entity_key: EntityKey,
-    ) -> Result<Option<InventoryKey>, RootError> {
+    ) -> Result<Option<InventoryKey>, FieldError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        let key = feature.get_inventory(self, entity_key)?;
-        Ok(key)
+        Ok(feature.get_inventory(self, entity_key))
     }
 
     // item
@@ -602,7 +599,6 @@ impl Root {
             |resource, _| resource.insert_current(entity_key),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
@@ -612,7 +608,6 @@ impl Root {
             |resource, _| resource.remove_current(),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
@@ -622,7 +617,6 @@ impl Root {
             |resource, _| resource.get_current(),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
@@ -632,7 +626,6 @@ impl Root {
             |resource, _| resource.insert_input(input),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
@@ -642,7 +635,6 @@ impl Root {
             |resource, _| resource.remove_input(),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
@@ -652,14 +644,13 @@ impl Root {
             |resource, _| resource.get_input(),
         )
         .ok_or(RootError::ResourceBusy)?
-        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_get_location(&mut self) -> Result<Vec2, RootError> {
+    pub fn player_get_current_location(&mut self) -> Result<Vec2, RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, root| resource.get_location(root),
+            |resource, root| resource.get_current_location(root),
         )
         .ok_or(RootError::ResourceBusy)?
     }

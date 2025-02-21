@@ -31,7 +31,7 @@ pub struct AnimalEntityFeature {
 }
 
 impl EntityFeatureTrait for AnimalEntityFeature {
-    fn after_place(&self, root: &mut Root, key: EntityKey) -> Result<(), RootError> {
+    fn after_place(&self, root: &mut Root, key: EntityKey) {
         root.entity_modify(key, |entity| {
             entity.data = EntityData::Animal(AnimalEntityData {
                 min_rest_secs: self.min_rest_secs,
@@ -41,15 +41,15 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                 speed: self.speed,
                 state: AnimalEntityDataState::Init,
             })
-        })?;
-        Ok(())
+        })
+        .unwrap();
     }
 
-    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) -> Result<(), RootError> {
-        let mut entity = root.entity_get(key)?.clone();
+    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
+        let mut entity = root.entity_get(key).unwrap().clone();
 
         let EntityData::Animal(data) = &mut entity.data else {
-            return Err(FieldError::InvalidId.into());
+            unreachable!();
         };
 
         use rand::Rng;
@@ -90,7 +90,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
                     let velocity = distance.min(data.speed * delta_secs);
                     let location = entity.location + direction * velocity;
 
-                    if intersection_guard(root, key, location)? {
+                    if intersection_guard(root, key, location).unwrap() {
                         data.state = AnimalEntityDataState::WaitStart;
                     } else {
                         entity.location = location;
@@ -102,7 +102,6 @@ impl EntityFeatureTrait for AnimalEntityFeature {
         }
 
         root.entity_modify(key, move |e| *e = entity).unwrap();
-        Ok(())
     }
 }
 
