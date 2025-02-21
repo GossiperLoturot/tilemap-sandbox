@@ -71,6 +71,8 @@ pub struct PlayerEntityData {
     pub inventory_key: InventoryKey,
 }
 
+impl EntityData for PlayerEntityData {}
+
 #[derive(Debug, Clone)]
 pub struct PlayerEntityFeature;
 
@@ -79,15 +81,15 @@ impl PlayerEntityFeature {
     const INVENTORY_SIZE: u32 = 16;
 }
 
-impl EntityFeatureTrait for PlayerEntityFeature {
+impl EntityFeature for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
         let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
 
         root.entity_modify(key, |entity| {
-            entity.data = EntityData::Player(PlayerEntityData {
+            entity.data = Box::new(PlayerEntityData {
                 state: PlayerEntityDataState::Wait,
                 inventory_key,
-            })
+            });
         })
         .unwrap();
 
@@ -97,9 +99,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     fn before_break(&self, root: &mut Root, key: EntityKey) {
         let entity = root.entity_get(key).unwrap();
 
-        let EntityData::Player(data) = &entity.data else {
-            unreachable!();
-        };
+        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
 
         let inventory_key = data.inventory_key;
         root.item_free_inventory(inventory_key).unwrap();
@@ -110,9 +110,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).unwrap().clone();
 
-        let EntityData::Player(data) = &mut entity.data else {
-            unreachable!();
-        };
+        let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
 
         // consume input
         if let Ok(input) = root.player_remove_input() {
@@ -156,9 +154,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
     fn get_inventory(&self, root: &Root, key: EntityKey) -> Option<InventoryKey> {
         let entity = root.entity_get(key).unwrap();
 
-        let EntityData::Player(data) = &entity.data else {
-            unreachable!();
-        };
+        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
 
         Some(data.inventory_key)
     }

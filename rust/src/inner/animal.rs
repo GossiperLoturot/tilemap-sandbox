@@ -19,6 +19,8 @@ pub struct AnimalEntityData {
     pub state: AnimalEntityDataState,
 }
 
+impl EntityData for AnimalEntityData {}
+
 #[derive(Debug, Clone)]
 pub struct AnimalEntityFeature {
     pub min_rest_secs: f32,
@@ -30,17 +32,17 @@ pub struct AnimalEntityFeature {
     pub walk_variant: u8,
 }
 
-impl EntityFeatureTrait for AnimalEntityFeature {
+impl EntityFeature for AnimalEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
         root.entity_modify(key, |entity| {
-            entity.data = EntityData::Animal(AnimalEntityData {
+            entity.data = Box::new(AnimalEntityData {
                 min_rest_secs: self.min_rest_secs,
                 max_rest_secs: self.max_rest_secs,
                 min_distance: self.min_distance,
                 max_distance: self.max_distance,
                 speed: self.speed,
                 state: AnimalEntityDataState::Init,
-            })
+            });
         })
         .unwrap();
     }
@@ -48,9 +50,7 @@ impl EntityFeatureTrait for AnimalEntityFeature {
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
         let mut entity = root.entity_get(key).unwrap().clone();
 
-        let EntityData::Animal(data) = &mut entity.data else {
-            unreachable!();
-        };
+        let data = entity.data.downcast_mut::<AnimalEntityData>().unwrap();
 
         use rand::Rng;
         let mut rng = rand::rng();

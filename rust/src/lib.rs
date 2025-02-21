@@ -76,14 +76,14 @@ impl Tile {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct TileFeature {
-    base: inner::TileFeature,
+    base: Box<dyn inner::TileFeature>,
 }
 
 #[godot_api]
 impl TileFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::TileFeature = inner::EmptyTileFeature.into();
+        let feature = Default::default();
         Gd::from_object(TileFeature { base: feature })
     }
 }
@@ -185,14 +185,14 @@ impl Block {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct BlockFeature {
-    base: inner::BlockFeature,
+    base: Box<dyn inner::BlockFeature>,
 }
 
 #[godot_api]
 impl BlockFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::BlockFeature = inner::EmptyBlockFeature.into();
+        let feature = Default::default();
         Gd::from_object(BlockFeature { base: feature })
     }
 }
@@ -309,14 +309,14 @@ impl Entity {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct EntityFeature {
-    base: inner::EntityFeature,
+    base: Box<dyn inner::EntityFeature>,
 }
 
 #[godot_api]
 impl EntityFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::EmptyEntityFeature.into();
+        let feature = Default::default();
         Gd::from_object(EntityFeature { base: feature })
     }
 
@@ -330,7 +330,7 @@ impl EntityFeature {
         idle_variant: u8,
         walk_variant: u8,
     ) -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::AnimalEntityFeature {
+        let feature = Box::new(inner::AnimalEntityFeature {
             min_rest_secs,
             max_rest_secs,
             min_distance,
@@ -338,20 +338,19 @@ impl EntityFeature {
             speed,
             idle_variant,
             walk_variant,
-        }
-        .into();
+        });
         Gd::from_object(EntityFeature { base: feature })
     }
 
     #[func]
     fn create_player() -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::PlayerEntityFeature.into();
+        let feature = Box::new(inner::PlayerEntityFeature);
         Gd::from_object(EntityFeature { base: feature })
     }
 
     #[func]
     fn create_item() -> Gd<Self> {
-        let feature: inner::EntityFeature = inner::ItemEntityFeature.into();
+        let feature = Box::new(inner::ItemEntityFeature);
         Gd::from_object(EntityFeature { base: feature })
     }
 }
@@ -439,14 +438,14 @@ impl EntityFieldDescriptor {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct ItemFeature {
-    base: inner::ItemFeature,
+    base: Box<dyn inner::ItemFeature>,
 }
 
 #[godot_api]
 impl ItemFeature {
     #[func]
     fn create_empty() -> Gd<Self> {
-        let feature: inner::ItemFeature = inner::EmptyItemFeature.into();
+        let feature = Default::default();
         Gd::from_object(ItemFeature { base: feature })
     }
 }

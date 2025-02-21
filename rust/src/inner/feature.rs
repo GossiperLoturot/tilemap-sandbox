@@ -8,15 +8,22 @@ pub struct TileRenderParam {
     pub tick: u32,
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone, Default)]
-pub enum TileData {
-    #[default]
-    Empty,
+pub trait TileData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
+
+dyn_clone::clone_trait_object!(TileData);
+
+downcast_rs::impl_downcast!(TileData);
+
+impl TileData for () {}
+
+impl Default for Box<dyn TileData> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
 
-#[enum_dispatch::enum_dispatch]
-pub trait TileFeatureTrait {
+pub trait TileFeature: dyn_clone::DynClone + std::fmt::Debug {
     /// Invoked after place tile with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -59,17 +66,16 @@ pub trait TileFeatureTrait {
     }
 }
 
-#[enum_dispatch::enum_dispatch(TileFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum TileFeature {
-    Empty(EmptyTileFeature),
+dyn_clone::clone_trait_object!(TileFeature);
+
+impl TileFeature for () {}
+
+impl Default for Box<dyn TileFeature> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
-
-#[derive(Debug, Clone)]
-pub struct EmptyTileFeature;
-
-impl TileFeatureTrait for EmptyTileFeature {}
 
 // block data/feature
 
@@ -79,15 +85,22 @@ pub struct BlockRenderParam {
     pub tick: u32,
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone, Default)]
-pub enum BlockData {
-    #[default]
-    Empty,
+pub trait BlockData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
+
+dyn_clone::clone_trait_object!(BlockData);
+
+downcast_rs::impl_downcast!(BlockData);
+
+impl BlockData for () {}
+
+impl Default for Box<dyn BlockData> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
 
-#[enum_dispatch::enum_dispatch]
-pub trait BlockFeatureTrait {
+pub trait BlockFeature: dyn_clone::DynClone + std::fmt::Debug {
     /// Invoked after place block with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -130,17 +143,16 @@ pub trait BlockFeatureTrait {
     }
 }
 
-#[enum_dispatch::enum_dispatch(BlockFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum BlockFeature {
-    Empty(EmptyBlockFeature),
+dyn_clone::clone_trait_object!(BlockFeature);
+
+impl BlockFeature for () {}
+
+impl Default for Box<dyn BlockFeature> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
-
-#[derive(Debug, Clone)]
-pub struct EmptyBlockFeature;
-
-impl BlockFeatureTrait for EmptyBlockFeature {}
 
 // entity data/feature
 
@@ -150,18 +162,22 @@ pub struct EntityRenderParam {
     pub tick: u32,
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone, Default)]
-pub enum EntityData {
-    #[default]
-    Empty,
-    Animal(AnimalEntityData),
-    Player(PlayerEntityData),
-    Item(ItemEntityData),
+pub trait EntityData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
+
+dyn_clone::clone_trait_object!(EntityData);
+
+downcast_rs::impl_downcast!(EntityData);
+
+impl EntityData for () {}
+
+impl Default for Box<dyn EntityData> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
 
-#[enum_dispatch::enum_dispatch]
-pub trait EntityFeatureTrait {
+pub trait EntityFeature: dyn_clone::DynClone + std::fmt::Debug {
     /// Invoked after place entity with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -220,20 +236,16 @@ pub trait EntityFeatureTrait {
     fn pick_up(&self, _root: &mut Root, _key: EntityKey, _inventory_key: InventoryKey) {}
 }
 
-#[enum_dispatch::enum_dispatch(EntityFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum EntityFeature {
-    Empty(EmptyEntityFeature),
-    Animal(AnimalEntityFeature),
-    Player(PlayerEntityFeature),
-    Item(ItemEntityFeature),
+dyn_clone::clone_trait_object!(EntityFeature);
+
+impl EntityFeature for () {}
+
+impl Default for Box<dyn EntityFeature> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
-
-#[derive(Debug, Clone)]
-pub struct EmptyEntityFeature;
-
-impl EntityFeatureTrait for EmptyEntityFeature {}
 
 // item data/feature
 
@@ -243,14 +255,22 @@ pub struct ItemRenderParam {
     pub tick: u32,
 }
 
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum ItemData {
-    Empty,
+pub trait ItemData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
+
+dyn_clone::clone_trait_object!(ItemData);
+
+downcast_rs::impl_downcast!(ItemData);
+
+impl ItemData for () {}
+
+impl Default for Box<dyn ItemData> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
 
-#[enum_dispatch::enum_dispatch]
-pub trait ItemFeatureTrait {
+pub trait ItemFeature: dyn_clone::DynClone + std::fmt::Debug {
     fn after_pick(&self, _root: &mut Root, _key: SlotKey) {}
 
     fn before_drop(&self, _root: &mut Root, _key: SlotKey) {}
@@ -260,14 +280,13 @@ pub trait ItemFeatureTrait {
     fn r#use(&self, _root: &mut Root, _key: SlotKey) {}
 }
 
-#[enum_dispatch::enum_dispatch(ItemFeatureTrait)]
-#[non_exhaustive]
-#[derive(Debug, Clone)]
-pub enum ItemFeature {
-    Empty(EmptyItemFeature),
+dyn_clone::clone_trait_object!(ItemFeature);
+
+impl ItemFeature for () {}
+
+impl Default for Box<dyn ItemFeature> {
+    fn default() -> Self {
+        // Dangling pointer
+        Box::new(())
+    }
 }
-
-#[derive(Debug, Clone)]
-pub struct EmptyItemFeature;
-
-impl ItemFeatureTrait for EmptyItemFeature {}

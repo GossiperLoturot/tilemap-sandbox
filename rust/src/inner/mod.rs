@@ -27,10 +27,10 @@ pub struct RootDescriptor {
     pub entity_field: EntityFieldDescriptor,
     pub item_store: ItemStoreDescriptor,
 
-    pub tile_features: RcVec<TileFeature>,
-    pub block_features: RcVec<BlockFeature>,
-    pub entity_features: RcVec<EntityFeature>,
-    pub item_features: RcVec<ItemFeature>,
+    pub tile_features: RcVec<Box<dyn TileFeature>>,
+    pub block_features: RcVec<Box<dyn BlockFeature>>,
+    pub entity_features: RcVec<Box<dyn EntityFeature>>,
+    pub item_features: RcVec<Box<dyn ItemFeature>>,
 
     pub generator_resource: GeneratorResourceDescriptor,
 }
@@ -45,10 +45,10 @@ pub struct Root {
     time_store: TimeStore,
 
     // readonly shared fields
-    tile_features: RcVec<TileFeature>,
-    block_features: RcVec<BlockFeature>,
-    entity_features: RcVec<EntityFeature>,
-    item_features: RcVec<ItemFeature>,
+    tile_features: RcVec<Box<dyn TileFeature>>,
+    block_features: RcVec<Box<dyn BlockFeature>>,
+    entity_features: RcVec<Box<dyn EntityFeature>>,
+    item_features: RcVec<Box<dyn ItemFeature>>,
 
     // shared fields
     forwarder_resource: Option<ForwarderResource>,

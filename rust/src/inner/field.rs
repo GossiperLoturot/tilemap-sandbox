@@ -39,7 +39,7 @@ impl TileProperty {
 pub struct Tile {
     pub id: u16,
     pub location: IVec2,
-    pub data: TileData,
+    pub data: Box<dyn TileData>,
     pub render_param: TileRenderParam,
 }
 
@@ -180,12 +180,13 @@ impl TileField {
         let mut new_tile = Tile {
             id: tile.id,
             location: tile.location,
-            data: std::mem::replace(&mut tile.data, TileData::Empty),
+            data: std::mem::take(&mut tile.data),
             render_param: tile.render_param.clone(),
         };
         f(&mut new_tile);
 
         if new_tile.id != tile.id {
+            tile.data = new_tile.data;
             return Err(FieldError::InvalidId);
         }
 
@@ -197,7 +198,6 @@ impl TileField {
 
             self.remove(key).unwrap();
             let key = self.insert(new_tile).unwrap();
-
             return Ok(key);
         }
 
@@ -205,12 +205,10 @@ impl TileField {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.tiles.get_mut(local_key as usize).unwrap() = new_tile;
             chunk.version += 1;
-
             return Ok(key);
         }
 
         tile.data = new_tile.data;
-
         Ok(key)
     }
 
@@ -364,7 +362,7 @@ impl BlockProperty {
 pub struct Block {
     pub id: u16,
     pub location: IVec2,
-    pub data: BlockData,
+    pub data: Box<dyn BlockData>,
     pub render_param: BlockRenderParam,
 }
 
@@ -548,19 +546,19 @@ impl BlockField {
         let mut new_block = Block {
             id: block.id,
             location: block.location,
-            data: std::mem::replace(&mut block.data, BlockData::Empty),
+            data: std::mem::take(&mut block.data),
             render_param: block.render_param.clone(),
         };
         f(&mut new_block);
 
         if new_block.id != block.id {
+            block.data = new_block.data;
             return Err(FieldError::InvalidId);
         }
 
         if new_block.location != block.location {
-            let prop = self.props.get(block.id as usize).unwrap();
-
             // check by spatial features
+            let prop = self.props.get(block.id as usize).unwrap();
             if self
                 .get_by_rect(prop.rect(new_block.location))
                 .any(|other_key| other_key != key)
@@ -570,7 +568,6 @@ impl BlockField {
 
             self.remove(key).unwrap();
             let key = self.insert(new_block).unwrap();
-
             return Ok(key);
         }
 
@@ -578,12 +575,10 @@ impl BlockField {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.blocks.get_mut(local_key as usize).unwrap() = new_block;
             chunk.version += 1;
-
             return Ok(key);
         }
 
         block.data = new_block.data;
-
         Ok(key)
     }
 
@@ -818,7 +813,7 @@ impl EntityProperty {
 pub struct Entity {
     pub id: u16,
     pub location: Vec2,
-    pub data: EntityData,
+    pub data: Box<dyn EntityData>,
     pub render_param: EntityRenderParam,
 }
 
@@ -975,19 +970,19 @@ impl EntityField {
         let mut new_entity = Entity {
             id: entity.id,
             location: entity.location,
-            data: std::mem::replace(&mut entity.data, EntityData::Empty),
+            data: std::mem::take(&mut entity.data),
             render_param: entity.render_param.clone(),
         };
         f(&mut new_entity);
 
         if new_entity.id != entity.id {
+            entity.data = new_entity.data;
             return Err(FieldError::InvalidId);
         }
 
         if new_entity.location != entity.location {
             self.remove(key).unwrap();
             let key = self.insert(new_entity).unwrap();
-
             return Ok(key);
         }
 
@@ -995,12 +990,10 @@ impl EntityField {
             let chunk = self.chunks.get_mut(chunk_key as usize).unwrap();
             *chunk.entities.get_mut(local_key as usize).unwrap() = new_entity;
             chunk.version += 1;
-
             return Ok(key);
         }
 
         entity.data = new_entity.data;
-
         Ok(key)
     }
 

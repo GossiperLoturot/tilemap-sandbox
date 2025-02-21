@@ -10,7 +10,7 @@ pub struct ItemEntityData {
 #[derive(Debug, Clone)]
 pub struct ItemEntityFeature;
 
-impl EntityFeatureTrait for ItemEntityFeature {}
+impl EntityFeature for ItemEntityFeature {}
 
 // item store
 
@@ -27,9 +27,9 @@ pub struct ItemStoreDescriptor {
 
 #[derive(Debug, Clone)]
 pub struct Item {
-    pub id: u32,
+    pub id: u16,
     pub amount: u32,
-    pub data: Vec<Option<ItemData>>,
+    pub data: Box<dyn ItemData>,
     pub render_param: ItemRenderParam,
 }
 
