@@ -50,9 +50,9 @@ impl PlayerResource {
 
     // utility
 
-    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, PlayerError> {
+    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
         let current = self.current.ok_or(PlayerError::NotFound)?;
-        let location = root.entity_get(current).unwrap().location;
+        let location = root.entity_get(current)?.location;
         Ok(location)
     }
 }
@@ -80,8 +80,14 @@ impl PlayerEntityFeature {
 }
 
 impl EntityFeatureTrait for PlayerEntityFeature {
-    fn after_place(&self, root: &mut Root, key: EntityKey) {
-        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
+    fn after_place(&self, root: &mut Root, key: EntityKey) -> Result<(), RootError> {
+        if root.player_get_current().is_ok() {
+            return Err(PlayerError::AlreadyExist.into());
+        }
+
+        root.entity_get(key)?;
+
+        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE)?;
 
         root.entity_modify(key, |entity| {
             entity.data = EntityData::Player(PlayerEntityData {
@@ -92,26 +98,32 @@ impl EntityFeatureTrait for PlayerEntityFeature {
         .unwrap();
 
         root.player_insert_current(key).unwrap();
+        Ok(())
     }
 
-    fn before_break(&self, root: &mut Root, key: EntityKey) {
-        let entity = root.entity_get(key).unwrap();
+    fn before_break(&self, root: &mut Root, key: EntityKey) -> Result<(), RootError> {
+        if root.player_get_current().is_err() {
+            return Err(PlayerError::NotFound.into());
+        }
+
+        let entity = root.entity_get(key)?;
 
         let EntityData::Player(data) = &entity.data else {
-            unreachable!();
+            return Err(FieldError::InvalidId.into());
         };
 
         let inventory_key = data.inventory_key;
-        root.item_free_inventory(inventory_key).unwrap();
+        root.item_free_inventory(inventory_key)?;
 
         root.player_remove_current().unwrap();
+        Ok(())
     }
 
-    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).cloned().unwrap();
+    fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) -> Result<(), RootError> {
+        let mut entity = root.entity_get(key)?.clone();
 
         let EntityData::Player(data) = &mut entity.data else {
-            return;
+            return Err(FieldError::InvalidId.into());
         };
 
         // consume input
@@ -121,7 +133,7 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             if is_move {
                 let location = entity.location + Self::MOVE_SPEED * input * delta_secs;
 
-                if !intersection_guard(root, key, location) {
+                if !intersection_guard(root, key, location).unwrap() {
                     entity.location = location;
                 }
             }
@@ -144,60 +156,65 @@ impl EntityFeatureTrait for PlayerEntityFeature {
             }
         }
 
-        // // pick up item
-        // let rect = root.entity_get_hint_rect(key).unwrap();
-        // for key in root.entity_get_by_hint_rect(rect).collect::<Vec<_>>() {
-        //     let entity = root.entity_remove(key).unwrap();
-        //
-        //     let Some(EntityData::Item(item_data)) = entity.data else {
-        //         unreachable!()
-        //     };
-        //
-        //     // TODO: when inventory is full
-        //     let _ = root.item_push_item(data.inventory_key, item_data.item);
-        // }
-
         root.player_remove_current().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
         root.player_insert_current(key).unwrap();
+        Ok(())
     }
 
-    fn get_inventory(&self, root: &Root, key: TileKey) -> Option<InventoryKey> {
-        let entity = root.entity_get(key).ok()?;
+    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> Result<bool, RootError> {
+        Ok(true)
+    }
+
+    fn get_inventory(
+        &self,
+        root: &Root,
+        key: EntityKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
+        let entity = root.entity_get(key)?;
 
         let EntityData::Player(data) = &entity.data else {
-            return None;
+            return Err(FieldError::InvalidId.into());
         };
 
-        Some(data.inventory_key)
+        Ok(Some(data.inventory_key))
     }
 }
 
 // intersection guard
-// DUPLICATE: src/inner/animal.rs
-fn intersection_guard(root: &mut Root, entity_key: EntityKey, new_location: Vec2) -> bool {
-    let entity = root.entity_get(entity_key).unwrap();
-    let base_rect = root.entity_get_base_collision_rect(entity.id).unwrap();
+// DUPLICATE: src/inner/player.rs
+fn intersection_guard(
+    root: &mut Root,
+    entity_key: EntityKey,
+    new_location: Vec2,
+) -> Result<bool, FieldError> {
+    let entity = root.entity_get(entity_key)?;
+    let base_rect = root.entity_get_base_collision_rect(entity.id)?;
 
-    let rect = [new_location + base_rect[0], new_location + base_rect[1]];
+    #[rustfmt::skip]
+    let rect = [
+        new_location + base_rect[0],
+        new_location + base_rect[1],
+    ];
 
     if root.tile_has_by_collision_rect(rect) {
-        return true;
+        return Ok(true);
     }
 
     if root.block_has_by_collision_rect(rect) {
-        return true;
+        return Ok(true);
     }
 
-    root.entity_get_by_collision_rect(rect)
-        .any(|other_key| other_key != entity_key)
+    let intersect = root
+        .entity_get_by_collision_rect(rect)
+        .any(|other_key| other_key != entity_key);
+    Ok(intersect)
 }
 
 // error handling
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlayerError {
-    NotScoped,
     AlreadyExist,
     NotFound,
 }
@@ -205,9 +222,10 @@ pub enum PlayerError {
 impl std::fmt::Display for PlayerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotScoped => write!(f, "not scoped error"),
             Self::AlreadyExist => write!(f, "already exist error"),
             Self::NotFound => write!(f, "not found error"),
         }
     }
 }
+
+impl std::error::Error for PlayerError {}

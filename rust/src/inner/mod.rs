@@ -79,24 +79,25 @@ impl Root {
 
     // tile
 
-    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, RootError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let tile_key = self.tile_field.insert(tile)?;
-        feature.after_place(self, tile_key);
+        feature.after_place(self, tile_key)?;
         Ok(tile_key)
     }
 
-    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, FieldError> {
+    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, RootError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, tile_key);
-        self.tile_field.remove(tile_key)
+        feature.before_break(self, tile_key)?;
+        let tile = self.tile_field.remove(tile_key)?;
+        Ok(tile)
     }
 
     #[inline]
@@ -172,37 +173,37 @@ impl Root {
     // tile inventory
 
     #[inline]
-    pub fn tile_get_inventory(&self, tile_key: TileKey) -> Result<InventoryKey, FieldError> {
+    pub fn tile_get_inventory(&self, tile_key: TileKey) -> Result<Option<InventoryKey>, RootError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature
-            .get_inventory(self, tile_key)
-            .ok_or(FieldError::NotFound)
+
+        feature.get_inventory(self, tile_key)
     }
 
     // block
 
-    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
+    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, RootError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let block_key = self.block_field.insert(block)?;
-        feature.after_place(self, block_key);
+        feature.after_place(self, block_key)?;
         Ok(block_key)
     }
 
-    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, FieldError> {
+    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, RootError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, block_key);
-        self.block_field.remove(block_key)
+        feature.before_break(self, block_key)?;
+        let block = self.block_field.remove(block_key)?;
+        Ok(block)
     }
 
     #[inline]
@@ -335,37 +336,40 @@ impl Root {
     // block inventory
 
     #[inline]
-    pub fn block_get_inventory(&self, block_key: BlockKey) -> Result<InventoryKey, FieldError> {
+    pub fn block_get_inventory(
+        &self,
+        block_key: BlockKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature
-            .get_inventory(self, block_key)
-            .ok_or(FieldError::NotFound)
+        let key = feature.get_inventory(self, block_key)?;
+        Ok(key)
     }
 
     // entity
 
-    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
+    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, RootError> {
         let features = self.entity_features.clone();
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
         let entity_key = self.entity_field.insert(entity)?;
-        feature.after_place(self, entity_key);
+        feature.after_place(self, entity_key)?;
         Ok(entity_key)
     }
 
-    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, FieldError> {
+    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, RootError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, entity_key);
-        self.entity_field.remove(entity_key)
+        feature.before_break(self, entity_key)?;
+        let entity = self.entity_field.remove(entity_key)?;
+        Ok(entity)
     }
 
     #[inline]
@@ -472,15 +476,17 @@ impl Root {
     // entity inventory
 
     #[inline]
-    pub fn entity_get_inventory(&self, entity_key: EntityKey) -> Result<InventoryKey, FieldError> {
+    pub fn entity_get_inventory(
+        &self,
+        entity_key: EntityKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
-        feature
-            .get_inventory(self, entity_key)
-            .ok_or(FieldError::NotFound)
+        let key = feature.get_inventory(self, entity_key)?;
+        Ok(key)
     }
 
     // item
@@ -556,14 +562,14 @@ impl Root {
     // others
 
     #[inline]
-    fn scope<Field, Output>(
+    fn exclusive<Field, Output>(
         &mut self,
-        field_fn: impl Fn(&mut Self) -> &mut Option<Field>,
-        scope_fn: impl Fn(&mut Field, &mut Self) -> Output,
+        ref_fn: impl Fn(&mut Self) -> &mut Option<Field>,
+        run_fn: impl Fn(&mut Field, &mut Self) -> Output,
     ) -> Option<Output> {
-        let mut resource = field_fn(self).take()?;
-        let value = scope_fn(&mut resource, self);
-        *field_fn(self) = Some(resource);
+        let mut resource = ref_fn(self).take()?;
+        let value = run_fn(&mut resource, self);
+        *ref_fn(self) = Some(resource);
         Some(value)
     }
 
@@ -572,83 +578,139 @@ impl Root {
         &mut self,
         min_rect: [Vec2; 2],
         delta_secs: f32,
-    ) -> Result<(), ForwarderError> {
-        self.scope(
+    ) -> Result<(), RootError> {
+        self.exclusive(
             |root| &mut root.forwarder_resource,
             |resource, root| resource.exec_rect(root, min_rect, delta_secs),
         )
-        .ok_or(ForwarderError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), GeneratorError> {
-        self.scope(
+    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), RootError> {
+        self.exclusive(
             |root| &mut root.generator_resource,
             |resource, root| resource.exec_rect(root, min_rect),
         )
-        .ok_or(GeneratorError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn player_insert_current(&mut self, entity_key: EntityKey) -> Result<(), PlayerError> {
-        self.scope(
+    pub fn player_insert_current(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.insert_current(entity_key),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_remove_current(&mut self) -> Result<EntityKey, PlayerError> {
-        self.scope(
+    pub fn player_remove_current(&mut self) -> Result<EntityKey, RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.remove_current(),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_get_current(&mut self) -> Result<EntityKey, PlayerError> {
-        self.scope(
+    pub fn player_get_current(&mut self) -> Result<EntityKey, RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.get_current(),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_insert_input(&mut self, input: Vec2) -> Result<(), PlayerError> {
-        self.scope(
+    pub fn player_insert_input(&mut self, input: Vec2) -> Result<(), RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.insert_input(input),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_remove_input(&mut self) -> Result<Vec2, PlayerError> {
-        self.scope(
+    pub fn player_remove_input(&mut self) -> Result<Vec2, RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.remove_input(),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_get_input(&mut self) -> Result<Vec2, PlayerError> {
-        self.scope(
+    pub fn player_get_input(&mut self) -> Result<Vec2, RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, _| resource.get_input(),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+        .map_err(|e| e.into())
     }
 
     #[inline]
-    pub fn player_get_location(&mut self) -> Result<Vec2, PlayerError> {
-        self.scope(
+    pub fn player_get_location(&mut self) -> Result<Vec2, RootError> {
+        self.exclusive(
             |root| &mut root.player_resource,
             |resource, root| resource.get_location(root),
         )
-        .ok_or(PlayerError::NotScoped)?
+        .ok_or(RootError::ResourceBusy)?
+    }
+}
+
+// error handling
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RootError {
+    FieldError(FieldError),
+    ItemError(ItemError),
+    PlayerError(PlayerError),
+    ResourceBusy,
+}
+
+impl std::fmt::Display for RootError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FieldError(e) => e.fmt(f),
+            Self::ItemError(e) => e.fmt(f),
+            Self::PlayerError(e) => e.fmt(f),
+            Self::ResourceBusy => write!(f, "resource is busy"),
+        }
+    }
+}
+
+impl std::error::Error for RootError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::FieldError(e) => Some(e),
+            Self::ItemError(e) => Some(e),
+            Self::PlayerError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<FieldError> for RootError {
+    fn from(e: FieldError) -> Self {
+        Self::FieldError(e)
+    }
+}
+
+impl From<ItemError> for RootError {
+    fn from(e: ItemError) -> Self {
+        Self::ItemError(e)
+    }
+}
+
+impl From<PlayerError> for RootError {
+    fn from(e: PlayerError) -> Self {
+        Self::PlayerError(e)
     }
 }

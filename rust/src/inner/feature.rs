@@ -17,12 +17,27 @@ pub enum TileData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait TileFeatureTrait {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+    fn after_place(&self, _root: &mut Root, _key: TileKey) -> Result<(), RootError> {
+        Ok(())
+    }
 
-    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
-        None
+    fn before_break(&self, _root: &mut Root, _key: TileKey) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn has_inventory(&self, _root: &Root, _key: TileKey) -> Result<bool, RootError> {
+        Ok(false)
+    }
+    fn get_inventory(
+        &self,
+        _root: &Root,
+        _key: TileKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
+        Ok(None)
     }
 }
 
@@ -55,12 +70,28 @@ pub enum BlockData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait BlockFeatureTrait {
-    fn after_place(&self, _root: &mut Root, _key: BlockKey) {}
-    fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
-    fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
+    fn after_place(&self, _root: &mut Root, _key: BlockKey) -> Result<(), RootError> {
+        Ok(())
+    }
 
-    fn get_inventory(&self, _root: &Root, _key: BlockKey) -> Option<InventoryKey> {
-        None
+    fn before_break(&self, _root: &mut Root, _key: BlockKey) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn has_inventory(&self, _root: &Root, _key: BlockKey) -> Result<bool, RootError> {
+        Ok(false)
+    }
+
+    fn get_inventory(
+        &self,
+        _root: &Root,
+        _key: BlockKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
+        Ok(None)
     }
 }
 
@@ -96,12 +127,46 @@ pub enum EntityData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait EntityFeatureTrait {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+    fn after_place(&self, _root: &mut Root, _key: EntityKey) -> Result<(), RootError> {
+        Ok(())
+    }
 
-    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
-        None
+    fn before_break(&self, _root: &mut Root, _key: EntityKey) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn forward(
+        &self,
+        _root: &mut Root,
+        _key: EntityKey,
+        _delta_secs: f32,
+    ) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> Result<bool, RootError> {
+        Ok(false)
+    }
+
+    fn get_inventory(
+        &self,
+        _root: &Root,
+        _key: EntityKey,
+    ) -> Result<Option<InventoryKey>, RootError> {
+        Ok(None)
+    }
+
+    fn can_pick_up(&self, _root: &Root, _inventory_key: InventoryKey) -> Result<bool, RootError> {
+        Ok(false)
+    }
+
+    fn pick_up(
+        &self,
+        _root: &mut Root,
+        _key: EntityKey,
+        _inventory_key: InventoryKey,
+    ) -> Result<(), RootError> {
+        Ok(())
     }
 }
 
@@ -124,8 +189,8 @@ impl EntityFeatureTrait for EmptyEntityFeature {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ItemRenderParam {
-    pub variant: Option<u8>,
-    pub tick: Option<u32>,
+    pub variant: u8,
+    pub tick: u32,
 }
 
 #[non_exhaustive]
@@ -136,11 +201,25 @@ pub enum ItemData {
 
 #[enum_dispatch::enum_dispatch]
 pub trait ItemFeatureTrait {
-    fn after_pick(&self, _root: &mut Root, _key: u32) {}
-    fn before_drop(&self, _root: &mut Root, _key: u32) {}
-    fn forward(&self, _root: &mut Root, _key: u32) {}
+    fn after_pick(&self, _root: &mut Root, _key: SlotKey) -> Result<(), RootError> {
+        Ok(())
+    }
 
-    fn r#use(&self, _root: &mut Root, _key: u32) {}
+    fn before_drop(&self, _root: &mut Root, _key: SlotKey) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn forward(&self, _root: &mut Root, _key: SlotKey) -> Result<(), RootError> {
+        Ok(())
+    }
+
+    fn can_use(&self) -> Result<bool, RootError> {
+        Ok(false)
+    }
+
+    fn r#use(&self, _root: &mut Root, _key: SlotKey) -> Result<(), RootError> {
+        Ok(())
+    }
 }
 
 #[enum_dispatch::enum_dispatch(ItemFeatureTrait)]
@@ -154,7 +233,3 @@ pub enum ItemFeature {
 pub struct EmptyItemFeature;
 
 impl ItemFeatureTrait for EmptyItemFeature {}
-
-// error handling
-
-// TODO

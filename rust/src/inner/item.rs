@@ -10,17 +10,7 @@ pub struct ItemEntityData {
 #[derive(Debug, Clone)]
 pub struct ItemEntityFeature;
 
-impl EntityFeatureTrait for ItemEntityFeature {
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
-
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
-
-    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
-
-    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
-        None
-    }
-}
+impl EntityFeatureTrait for ItemEntityFeature {}
 
 // item store
 

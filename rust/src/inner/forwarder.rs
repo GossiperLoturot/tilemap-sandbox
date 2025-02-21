@@ -18,7 +18,7 @@ impl ForwarderResource {
         root: &mut inner::Root,
         min_rect: [Vec2; 2],
         delta_secs: f32,
-    ) -> Result<(), ForwarderError> {
+    ) -> Result<(), RootError> {
         // tile
         let chunk_size = root.tile_get_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
@@ -29,7 +29,9 @@ impl ForwarderResource {
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
                 let chunk_location = IVec2::new(x, y);
-                let _ = self.tile_forward_chunk(root, chunk_location, delta_secs);
+                // cause panic for unrecoverable error
+                self.tile_forward_chunk(root, chunk_location, delta_secs)
+                    .unwrap();
             }
         }
 
@@ -43,7 +45,9 @@ impl ForwarderResource {
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
                 let chunk_location = IVec2::new(x, y);
-                let _ = self.block_forward_chunk(root, chunk_location, delta_secs);
+                // cause panic for unrecoverable error
+                self.block_forward_chunk(root, chunk_location, delta_secs)
+                    .unwrap();
             }
         }
 
@@ -57,7 +61,9 @@ impl ForwarderResource {
         for y in rect[0][1]..=rect[1][1] {
             for x in rect[0][0]..=rect[1][0] {
                 let chunk_location = IVec2::new(x, y);
-                let _ = self.entity_forward_chunk(root, chunk_location, delta_secs);
+                // cause panic for unrecoverable error
+                self.entity_forward_chunk(root, chunk_location, delta_secs)
+                    .unwrap();
             }
         }
 
@@ -69,7 +75,7 @@ impl ForwarderResource {
         root: &mut inner::Root,
         chunk_location: IVec2,
         delta_secs: f32,
-    ) -> Result<(), FieldError> {
+    ) -> Result<(), RootError> {
         let chunk_key = root
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -84,11 +90,13 @@ impl ForwarderResource {
         let features = root.tile_features.clone();
         for local_key in local_keys {
             let tile_key = (chunk_key, local_key);
-            let tile = root.tile_field.get(tile_key).unwrap();
+            let Ok(tile) = root.tile_field.get(tile_key) else {
+                continue;
+            };
             let feature = features
                 .get(tile.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(root, tile_key, delta_secs);
+            feature.forward(root, tile_key, delta_secs)?;
         }
         Ok(())
     }
@@ -98,7 +106,7 @@ impl ForwarderResource {
         root: &mut inner::Root,
         chunk_location: IVec2,
         delta_secs: f32,
-    ) -> Result<(), FieldError> {
+    ) -> Result<(), RootError> {
         let chunk_key = root
             .block_field
             .get_by_chunk_location(chunk_location)
@@ -113,11 +121,13 @@ impl ForwarderResource {
         let features = root.block_features.clone();
         for local_key in local_keys {
             let block_key = (chunk_key, local_key);
-            let block = root.block_field.get(block_key).unwrap();
+            let Ok(block) = root.block_field.get(block_key) else {
+                continue;
+            };
             let feature = features
                 .get(block.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(root, block_key, delta_secs);
+            feature.forward(root, block_key, delta_secs)?;
         }
         Ok(())
     }
@@ -127,7 +137,7 @@ impl ForwarderResource {
         root: &mut inner::Root,
         chunk_location: IVec2,
         delta_secs: f32,
-    ) -> Result<(), FieldError> {
+    ) -> Result<(), RootError> {
         let chunk_key = root
             .entity_field
             .get_by_chunk_location(chunk_location)
@@ -142,27 +152,14 @@ impl ForwarderResource {
         let features = root.entity_features.clone();
         for local_key in local_keys {
             let entity_key = (chunk_key, local_key);
-            let entity = root.entity_field.get(entity_key).unwrap();
+            let Ok(entity) = root.entity_field.get(entity_key) else {
+                continue;
+            };
             let feature = features
                 .get(entity.id as usize)
                 .ok_or(FieldError::InvalidId)?;
-            feature.forward(root, entity_key, delta_secs);
+            feature.forward(root, entity_key, delta_secs)?;
         }
         Ok(())
-    }
-}
-
-// error handling
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ForwarderError {
-    NotScoped,
-}
-
-impl std::fmt::Display for ForwarderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotScoped => write!(f, "not scoped error"),
-        }
     }
 }
