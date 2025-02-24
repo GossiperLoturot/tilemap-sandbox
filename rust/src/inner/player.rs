@@ -4,7 +4,7 @@ use super::*;
 
 // resource
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct PlayerResource {
     current: Option<EntityKey>,
     input: Option<Vec2>,

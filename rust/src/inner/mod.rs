@@ -20,7 +20,7 @@ mod time;
 
 type RcVec<T> = std::rc::Rc<[T]>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RootDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
@@ -35,7 +35,7 @@ pub struct RootDescriptor {
     pub gen_resource: GenResourceDescriptor,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Root {
     // isolated fields
     tile_field: TileField,

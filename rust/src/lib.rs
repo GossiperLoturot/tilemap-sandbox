@@ -6,6 +6,7 @@ pub mod inner;
 mod block;
 mod entity;
 mod item;
+mod register;
 mod tile;
 
 struct Extension;
@@ -510,7 +511,7 @@ impl GenRule {
             };
             let _ = root.tile_insert(tile);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::MarchGenRule { prob, gen_fn };
         let desc = inner::GenRule::March(rule);
         Gd::from_object(GenRule { base: desc })
@@ -527,7 +528,7 @@ impl GenRule {
             };
             let _ = root.block_insert(block);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::MarchGenRule { prob, gen_fn };
         let desc = inner::GenRule::March(rule);
         Gd::from_object(GenRule { base: desc })
@@ -544,7 +545,7 @@ impl GenRule {
             };
             let _ = root.entity_insert(entity);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::MarchGenRule { prob, gen_fn };
         let desc = inner::GenRule::March(rule);
         Gd::from_object(GenRule { base: desc })
@@ -561,7 +562,7 @@ impl GenRule {
             };
             let _ = root.tile_insert(tile);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::SpawnGenRule { prob, gen_fn };
         let desc = inner::GenRule::Spawn(rule);
         Gd::from_object(GenRule { base: desc })
@@ -578,7 +579,7 @@ impl GenRule {
             };
             let _ = root.block_insert(block);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::SpawnGenRule { prob, gen_fn };
         let desc = inner::GenRule::Spawn(rule);
         Gd::from_object(GenRule { base: desc })
@@ -595,7 +596,7 @@ impl GenRule {
             };
             let _ = root.entity_insert(entity);
         };
-        let gen_fn = std::rc::Rc::new(gen_fn);
+        let gen_fn = Box::new(gen_fn);
         let rule = inner::SpawnGenRule { prob, gen_fn };
         let desc = inner::GenRule::Spawn(rule);
         Gd::from_object(GenRule { base: desc })
@@ -755,17 +756,8 @@ impl Root {
             };
             let item_features = item_features.into();
 
-            let gen_resource = {
-                let desc = desc.bind();
-                let desc = desc.gen_resource.bind();
-
-                let mut gen_rules = vec![];
-                for gen_rule in desc.gen_rules.iter_shared() {
-                    let rule = &gen_rule.bind().base;
-                    gen_rules.push(rule.clone());
-                }
-
-                inner::GenResourceDescriptor { gen_rules }
+            let gen_resource = inner::GenResourceDescriptor {
+                gen_rules: Default::default(),
             };
 
             inner::Root::new(inner::RootDescriptor {

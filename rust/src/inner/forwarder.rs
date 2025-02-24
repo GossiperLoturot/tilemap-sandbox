@@ -4,7 +4,7 @@ use super::*;
 
 // resource
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ForwarderResource {}
 
 impl ForwarderResource {

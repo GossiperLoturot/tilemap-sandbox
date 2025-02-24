@@ -2,9 +2,8 @@ use crate::inner;
 
 use super::*;
 
-type GenFn<T> = std::rc::Rc<dyn Fn(&mut Root, T)>;
+pub type GenFn<T> = Box<dyn Fn(&mut Root, T)>;
 
-#[derive(Clone)]
 pub struct MarchGenRule {
     pub prob: f32,
     pub gen_fn: GenFn<IVec2>,
@@ -19,7 +18,6 @@ impl std::fmt::Debug for MarchGenRule {
     }
 }
 
-#[derive(Clone)]
 pub struct SpawnGenRule {
     pub prob: f32,
     pub gen_fn: GenFn<Vec2>,
@@ -34,20 +32,20 @@ impl std::fmt::Debug for SpawnGenRule {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum GenRule {
     March(MarchGenRule),
     Spawn(SpawnGenRule),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GenResourceDescriptor {
     pub gen_rules: Vec<GenRule>,
 }
 
 // resource
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GenResource {
     gen_rules: Vec<GenRule>,
     visit: ahash::AHashSet<IVec2>,
