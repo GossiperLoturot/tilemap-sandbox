@@ -3,7 +3,7 @@ class_name World
 
 
 @export var min_forward_rect: Rect2
-@export var min_generate_rect: Rect2
+@export var min_gen_rect: Rect2
 @export var min_view_rect: Rect2
 
 const TILE_DIRT: int = 0
@@ -307,25 +307,21 @@ func _ready() -> void:
 			ItemStoreDescriptor.create(
 				item_descriptors
 			),
-			GeneratorResourceDescriptor.create(
+			GenResourceDescriptor.create(
 				[
-					GeneratorRule.create_marching(0.5, TILE_GRASS),
-					GeneratorRule.create_marching(1.0, TILE_DIRT)
-				] as Array[GeneratorRule],
-				[
-					GeneratorRule.create_spawn(0.05, BLOCK_DANDELION),
-					GeneratorRule.create_spawn(0.05, BLOCK_FALLEN_LEAVES),
-					GeneratorRule.create_spawn(0.05, BLOCK_MIX_GRASS),
-					GeneratorRule.create_spawn(0.05, BLOCK_MIX_PEBBLES)
-				] as Array[GeneratorRule],
-				[
-					GeneratorRule.create_spawn(0.001, ENTITY_COW),
-					GeneratorRule.create_spawn(0.001, ENTITY_PIG),
-					GeneratorRule.create_spawn(0.001, ENTITY_SHEEP),
-					GeneratorRule.create_spawn(0.001, ENTITY_CHICKEN),
-					GeneratorRule.create_spawn(0.001, ENTITY_BIRD),
-					GeneratorRule.create_spawn(0.001, ENTITY_PACKAGE)
-				] as Array[GeneratorRule]
+					GenRule.create_march_tile(0.5, TILE_GRASS),
+					GenRule.create_march_tile(1.0, TILE_DIRT)
+					GenRule.create_spawn_block(0.05, BLOCK_DANDELION),
+					GenRule.create_spawn_block(0.05, BLOCK_FALLEN_LEAVES),
+					GenRule.create_spawn_block(0.05, BLOCK_MIX_GRASS),
+					GenRule.create_spawn_block(0.05, BLOCK_MIX_PEBBLES)
+					GenRule.create_spawn_entity(0.001, ENTITY_COW),
+					GenRule.create_spawn_entity(0.001, ENTITY_PIG),
+					GenRule.create_spawn_entity(0.001, ENTITY_SHEEP),
+					GenRule.create_spawn_entity(0.001, ENTITY_CHICKEN),
+					GenRule.create_spawn_entity(0.001, ENTITY_BIRD),
+					GenRule.create_spawn_entity(0.001, ENTITY_PACKAGE)
+				] as Array[GenRule]
 			)
 		)
 	)
@@ -335,7 +331,7 @@ func _process(delta_secs) -> void:
 	# logic
 	_root.forwarder_exec_rect(min_forward_rect, delta_secs)
 
-	_root.generator_exec_rect(min_generate_rect)
+	_root.gen_exec_rect(min_gen_rect)
 
 	_root.time_forward(delta_secs)
 

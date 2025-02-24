@@ -2,7 +2,7 @@ pub use animal::*;
 pub use feature::*;
 pub use field::*;
 pub use forwarder::*;
-pub use generator::*;
+pub use gen::*;
 pub use item::*;
 pub use player::*;
 pub use time::*;
@@ -13,7 +13,7 @@ mod animal;
 mod feature;
 mod field;
 mod forwarder;
-mod generator;
+mod gen;
 mod item;
 mod player;
 mod time;
@@ -32,10 +32,10 @@ pub struct RootDescriptor {
     pub entity_features: RcVec<Box<dyn EntityFeature>>,
     pub item_features: RcVec<Box<dyn ItemFeature>>,
 
-    pub generator_resource: GeneratorResourceDescriptor,
+    pub gen_resource: GenResourceDescriptor,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Root {
     // isolated fields
     tile_field: TileField,
@@ -52,7 +52,7 @@ pub struct Root {
 
     // shared fields
     forwarder_resource: Option<ForwarderResource>,
-    generator_resource: Option<GeneratorResource>,
+    gen_resource: Option<GenResource>,
     player_resource: Option<PlayerResource>,
 }
 
@@ -72,7 +72,7 @@ impl Root {
             item_features: desc.item_features,
 
             forwarder_resource: Some(ForwarderResource::new()),
-            generator_resource: Some(GeneratorResource::new(desc.generator_resource)),
+            gen_resource: Some(GenResource::new(desc.gen_resource)),
             player_resource: Some(PlayerResource::new()),
         }
     }
@@ -584,9 +584,9 @@ impl Root {
     }
 
     #[inline]
-    pub fn generator_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), RootError> {
+    pub fn gen_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), RootError> {
         self.exclusive(
-            |root| &mut root.generator_resource,
+            |root| &mut root.gen_resource,
             |resource, root| resource.exec_rect(root, min_rect),
         )
         .ok_or(RootError::ResourceBusy)?

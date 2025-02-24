@@ -493,48 +493,126 @@ impl ItemStoreDescriptor {
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct GeneratorRule {
-    base: inner::GeneratorRule,
+struct GenRule {
+    base: inner::GenRule,
 }
 
 #[godot_api]
-impl GeneratorRule {
+impl GenRule {
     #[func]
-    fn create_marching(prob: f32, id: u16) -> Gd<Self> {
-        let rule = inner::GeneratorRuleMarching { prob, id };
-        let desc = inner::GeneratorRule::Marching(rule);
-        Gd::from_object(GeneratorRule { base: desc })
+    fn create_march_tile(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: IVec2| {
+            let tile = inner::Tile {
+                id,
+                location,
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.tile_insert(tile);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::MarchGenRule { prob, gen_fn };
+        let desc = inner::GenRule::March(rule);
+        Gd::from_object(GenRule { base: desc })
     }
 
     #[func]
-    fn create_spawn(prob: f32, id: u16) -> Gd<Self> {
-        let rule = inner::GeneratorRuleSpawn { prob, id };
-        let desc = inner::GeneratorRule::Spawn(rule);
-        Gd::from_object(GeneratorRule { base: desc })
+    fn create_march_block(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: IVec2| {
+            let block = inner::Block {
+                id,
+                location,
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.block_insert(block);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::MarchGenRule { prob, gen_fn };
+        let desc = inner::GenRule::March(rule);
+        Gd::from_object(GenRule { base: desc })
+    }
+
+    #[func]
+    fn create_march_entity(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: IVec2| {
+            let entity = inner::Entity {
+                id,
+                location: location.as_vec2(),
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.entity_insert(entity);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::MarchGenRule { prob, gen_fn };
+        let desc = inner::GenRule::March(rule);
+        Gd::from_object(GenRule { base: desc })
+    }
+
+    #[func]
+    fn create_spawn_tile(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: Vec2| {
+            let tile = inner::Tile {
+                id,
+                location: location.as_ivec2(),
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.tile_insert(tile);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::SpawnGenRule { prob, gen_fn };
+        let desc = inner::GenRule::Spawn(rule);
+        Gd::from_object(GenRule { base: desc })
+    }
+
+    #[func]
+    fn create_spawn_block(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: Vec2| {
+            let block = inner::Block {
+                id,
+                location: location.as_ivec2(),
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.block_insert(block);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::SpawnGenRule { prob, gen_fn };
+        let desc = inner::GenRule::Spawn(rule);
+        Gd::from_object(GenRule { base: desc })
+    }
+
+    #[func]
+    fn create_spawn_entity(prob: f32, id: u16) -> Gd<Self> {
+        let gen_fn = move |root: &mut inner::Root, location: Vec2| {
+            let entity = inner::Entity {
+                id,
+                location,
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            let _ = root.entity_insert(entity);
+        };
+        let gen_fn = std::rc::Rc::new(gen_fn);
+        let rule = inner::SpawnGenRule { prob, gen_fn };
+        let desc = inner::GenRule::Spawn(rule);
+        Gd::from_object(GenRule { base: desc })
     }
 }
 
 #[derive(GodotClass)]
 #[class(no_init)]
-struct GeneratorResourceDescriptor {
-    tile_rules: Array<Gd<GeneratorRule>>,
-    block_rules: Array<Gd<GeneratorRule>>,
-    entity_rules: Array<Gd<GeneratorRule>>,
+struct GenResourceDescriptor {
+    gen_rules: Array<Gd<GenRule>>,
 }
 
 #[godot_api]
-impl GeneratorResourceDescriptor {
+impl GenResourceDescriptor {
     #[func]
-    fn create(
-        tile_rules: Array<Gd<GeneratorRule>>,
-        block_rules: Array<Gd<GeneratorRule>>,
-        entity_rules: Array<Gd<GeneratorRule>>,
-    ) -> Gd<Self> {
-        Gd::from_object(GeneratorResourceDescriptor {
-            tile_rules,
-            block_rules,
-            entity_rules,
-        })
+    fn create(gen_rules: Array<Gd<GenRule>>) -> Gd<Self> {
+        Gd::from_object(GenResourceDescriptor { gen_rules })
     }
 }
 
@@ -545,7 +623,7 @@ struct RootDescriptor {
     block_field: Gd<BlockFieldDescriptor>,
     entity_field: Gd<EntityFieldDescriptor>,
     item_store: Gd<ItemStoreDescriptor>,
-    generator_resource: Gd<GeneratorResourceDescriptor>,
+    gen_resource: Gd<GenResourceDescriptor>,
 }
 
 #[godot_api]
@@ -556,14 +634,14 @@ impl RootDescriptor {
         block_field: Gd<BlockFieldDescriptor>,
         entity_field: Gd<EntityFieldDescriptor>,
         item_store: Gd<ItemStoreDescriptor>,
-        generator_resource: Gd<GeneratorResourceDescriptor>,
+        gen_resource: Gd<GenResourceDescriptor>,
     ) -> Gd<Self> {
         Gd::from_object(RootDescriptor {
             tile_field,
             block_field,
             entity_field,
             item_store,
-            generator_resource,
+            gen_resource,
         })
     }
 }
@@ -675,33 +753,17 @@ impl Root {
             };
             let item_features = item_features.into();
 
-            let generator_resource = {
+            let gen_resource = {
                 let desc = desc.bind();
-                let desc = desc.generator_resource.bind();
+                let desc = desc.gen_resource.bind();
 
-                let mut tile_rules = vec![];
-                for rule in desc.tile_rules.iter_shared() {
-                    let rule = &rule.bind().base;
-                    tile_rules.push(rule.clone());
+                let mut gen_rules = vec![];
+                for gen_rule in desc.gen_rules.iter_shared() {
+                    let rule = &gen_rule.bind().base;
+                    gen_rules.push(rule.clone());
                 }
 
-                let mut block_rules = vec![];
-                for rule in desc.block_rules.iter_shared() {
-                    let rule = &rule.bind().base;
-                    block_rules.push(rule.clone());
-                }
-
-                let mut entity_rules = vec![];
-                for rule in desc.entity_rules.iter_shared() {
-                    let rule = &rule.bind().base;
-                    entity_rules.push(rule.clone());
-                }
-
-                inner::GeneratorResourceDescriptor {
-                    tile_rules,
-                    block_rules,
-                    entity_rules,
-                }
+                inner::GenResourceDescriptor { gen_rules }
             };
 
             inner::Root::new(inner::RootDescriptor {
@@ -715,7 +777,7 @@ impl Root {
                 entity_features,
                 item_features,
 
-                generator_resource,
+                gen_resource,
             })
         };
 
@@ -995,12 +1057,12 @@ impl Root {
     }
 
     #[func]
-    fn generator_exec_rect(&mut self, min_rect: Rect2) {
+    fn gen_exec_rect(&mut self, min_rect: Rect2) {
         let position = Vec2::new(min_rect.position.x, min_rect.position.y);
         let size = Vec2::new(min_rect.size.x, min_rect.size.y);
         let min_rect = [position, position + size];
 
-        self.base.generator_exec_rect(min_rect).unwrap();
+        self.base.gen_exec_rect(min_rect).unwrap();
     }
 
     #[func]

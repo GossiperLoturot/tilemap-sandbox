@@ -45,7 +45,7 @@ func _process(delta) -> void:
 		forward_size * 2,
 		forward_size * 2
 	)
-	world.min_generate_rect = Rect2(
+	world.min_gen_rect = Rect2(
 		location.x - view_size,
 		location.y - view_size,
 		view_size * 2,
