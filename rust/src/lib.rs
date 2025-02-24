@@ -743,7 +743,9 @@ impl Root {
                 for item in desc.items.iter_shared() {
                     let item = item.bind();
 
-                    items.push(inner::ItemDescriptor {});
+                    items.push(inner::ItemDescriptor {
+                        name_text: item.name_text.clone(),
+                    });
 
                     let feature = &item.feature.bind().base;
                     item_features.push(feature.clone());

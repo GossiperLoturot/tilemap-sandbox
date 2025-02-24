@@ -18,11 +18,18 @@ pub type InventoryKey = u32;
 pub type SlotKey = (InventoryKey, u32);
 
 #[derive(Debug, Clone)]
-pub struct ItemDescriptor {}
+pub struct ItemDescriptor {
+    pub name_text: String,
+}
 
 #[derive(Debug, Clone)]
 pub struct ItemStoreDescriptor {
     pub items: Vec<ItemDescriptor>,
+}
+
+#[derive(Debug, Clone)]
+struct ItemProperty {
+    name_text: String,
 }
 
 #[derive(Debug, Clone)]
@@ -47,12 +54,21 @@ pub struct Inventory {
 
 #[derive(Debug, Clone)]
 pub struct ItemStore {
+    props: Vec<ItemProperty>,
     inventories: slab::Slab<Inventory>,
 }
 
 impl ItemStore {
     pub fn new(desc: ItemStoreDescriptor) -> Self {
+        let mut props = vec![];
+        for item in desc.items {
+            props.push(ItemProperty {
+                name_text: item.name_text,
+            });
+        }
+
         Self {
+            props,
             inventories: Default::default(),
         }
     }
@@ -114,6 +130,38 @@ impl ItemStore {
         slot.version += 1;
         inventory.version += 1;
         Ok(item)
+    }
+
+    pub fn search_item(
+        &self,
+        inventory_key: InventoryKey,
+        text: &str,
+    ) -> Result<Vec<SlotKey>, ItemError> {
+        let inventory = self
+            .inventories
+            .get(inventory_key as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        let mut slot_keys = vec![];
+        for local_key in 0..inventory.slots.len() {
+            let slot = &inventory.slots.get(local_key).unwrap();
+
+            let Some(item) = &slot.item else {
+                continue;
+            };
+
+            let other_text = &self
+                .props
+                .get(item.id as usize)
+                .ok_or(ItemError::ItemInvalidId)?
+                .name_text;
+            if other_text.contains(text) || text.contains(other_text) {
+                let slot_key = (inventory_key, local_key as u32);
+                slot_keys.push(slot_key);
+            }
+        }
+
+        Ok(slot_keys)
     }
 
     pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
@@ -192,6 +240,26 @@ impl ItemStore {
 
         item.data = new_item.data;
         Ok(())
+    }
+
+    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, ItemError> {
+        let (inventory_key, local_key) = slot_key;
+
+        let inventory = self
+            .inventories
+            .get(inventory_key as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+        let slot = inventory
+            .slots
+            .get(local_key as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        if slot.item.is_none() {
+            return Err(ItemError::ItemNotFound);
+        }
+
+        let item = slot.item.as_ref().ok_or(ItemError::ItemNotFound)?;
+        Ok(item)
     }
 }
 

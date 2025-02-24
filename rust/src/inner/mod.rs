@@ -521,6 +521,15 @@ impl Root {
     }
 
     #[inline]
+    pub fn item_search_item(
+        &mut self,
+        inventory_key: InventoryKey,
+        text: &str,
+    ) -> Result<Vec<SlotKey>, ItemError> {
+        self.item_store.search_item(inventory_key, text)
+    }
+
+    #[inline]
     pub fn item_insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
         self.item_store.insert_item(slot_key, item)
     }
@@ -537,6 +546,17 @@ impl Root {
         f: impl FnOnce(&mut Item),
     ) -> Result<(), ItemError> {
         self.item_store.modify_item(slot_key, f)
+    }
+
+    #[inline]
+    pub fn item_use_item(&mut self, slot_key: SlotKey) -> Result<(), ItemError> {
+        let features = self.item_features.clone();
+        let item = self.item_store.get_item(slot_key)?;
+        let feature = features
+            .get(item.id as usize)
+            .ok_or(ItemError::ItemInvalidId)?;
+        feature.r#use(self, slot_key);
+        Ok(())
     }
 
     // time
