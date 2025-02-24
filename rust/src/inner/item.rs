@@ -285,3 +285,16 @@ impl std::fmt::Display for ItemError {
 }
 
 impl std::error::Error for ItemError {}
+
+// tests
+// TODO: minimize test code using by fn, macro, etc.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memory_size() {
+        println!("Item: {}B", std::mem::size_of::<Item>());
+    }
+}

@@ -2380,4 +2380,11 @@ mod tests {
         let chunk = field.get_chunk(chunk_key).unwrap();
         assert_eq!(chunk.entities.len(), 3);
     }
+
+    #[test]
+    fn memory_size() {
+        println!("Tile: {}B", std::mem::size_of::<Tile>());
+        println!("Block: {}B", std::mem::size_of::<Block>());
+        println!("Entity: {}B", std::mem::size_of::<Entity>());
+    }
 }
