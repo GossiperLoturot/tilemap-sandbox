@@ -38,13 +38,13 @@ impl ImageDescriptor {
     }
 }
 
-pub struct TileDescripter<F> {
+pub struct TileDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
     pub feature: F,
 }
 
-impl<F> TileDescripter<F> {
+impl<F> TileDescriptor<F> {
     pub fn new(images: Vec<ImageDescriptor>, collision: bool, feature: F) -> Self {
         Self {
             images,
@@ -62,7 +62,7 @@ impl<F> TileDescripter<F> {
     }
 }
 
-pub struct BlockDescripter<F> {
+pub struct BlockDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub size: IVec2,
@@ -71,7 +71,7 @@ pub struct BlockDescripter<F> {
     pub feature: F,
 }
 
-impl<F> BlockDescripter<F> {
+impl<F> BlockDescriptor<F> {
     pub fn new(
         images: Vec<ImageDescriptor>,
         z_along_y: bool,
@@ -109,7 +109,7 @@ impl<F> BlockDescripter<F> {
     }
 }
 
-pub struct EntityDescripter<F> {
+pub struct EntityDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub collision: [Vec2; 2],
@@ -117,7 +117,7 @@ pub struct EntityDescripter<F> {
     pub feature: F,
 }
 
-impl<F> EntityDescripter<F> {
+impl<F> EntityDescriptor<F> {
     pub fn new(
         images: Vec<ImageDescriptor>,
         z_along_y: bool,
@@ -219,22 +219,22 @@ pub struct BuildDescriptor {
     pub world: Gd<godot::classes::World3D>,
 }
 
-type RegFn<R, T> = Box<dyn FnOnce(R) -> T>;
+type RegFn<R, T> = Box<dyn for<'a> FnOnce(&'a R) -> T>;
 type TileFeatureBox = Box<dyn inner::TileFeature>;
 type BlockFeatureBox = Box<dyn inner::BlockFeature>;
 type EntityFeatureBox = Box<dyn inner::EntityFeature>;
 type ItemFeatureBox = Box<dyn inner::ItemFeature>;
 
-pub struct ContextBuilder<'a, R> {
-    tiles: Vec<RegFn<&'a R, TileDescripter<TileFeatureBox>>>,
-    blocks: Vec<RegFn<&'a R, BlockDescripter<BlockFeatureBox>>>,
-    entities: Vec<RegFn<&'a R, EntityDescripter<EntityFeatureBox>>>,
-    items: Vec<RegFn<&'a R, ItemDescriptor<ItemFeatureBox>>>,
-    gen_rules: Vec<RegFn<&'a R, GenRuleDescriptor>>,
+pub struct ContextBuilder<R> {
+    tiles: Vec<RegFn<R, TileDescriptor<TileFeatureBox>>>,
+    blocks: Vec<RegFn<R, BlockDescriptor<BlockFeatureBox>>>,
+    entities: Vec<RegFn<R, EntityDescriptor<EntityFeatureBox>>>,
+    items: Vec<RegFn<R, ItemDescriptor<ItemFeatureBox>>>,
+    gen_rules: Vec<RegFn<R, GenRuleDescriptor>>,
     _phantom: std::marker::PhantomData<R>,
 }
 
-impl<'a, R> ContextBuilder<'a, R> {
+impl<R> ContextBuilder<R> {
     pub fn new() -> Self {
         Self {
             tiles: Default::default(),
@@ -248,29 +248,29 @@ impl<'a, R> ContextBuilder<'a, R> {
 
     pub fn add_tile<F, L>(&mut self, desc_fn: L) -> u16
     where
-        L: FnOnce(&R) -> TileDescripter<F> + 'static,
+        L: FnOnce(&R) -> TileDescriptor<F> + 'static,
         F: inner::TileFeature + 'static,
     {
-        let desc_fn = |map| {
+        let desc_fn: RegFn<R, TileDescriptor<TileFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            TileDescripter::<TileFeatureBox>::new(
+            TileDescriptor::<TileFeatureBox>::new(
                 desc.images,
                 desc.collision,
                 Box::new(desc.feature),
             )
-        };
-        self.tiles.push(Box::new(desc_fn));
+        });
+        self.tiles.push(desc_fn);
         (self.tiles.len() - 1) as u16
     }
 
     pub fn add_block<F, L>(&mut self, desc_fn: L) -> u16
     where
-        L: FnOnce(&R) -> BlockDescripter<F> + 'static,
+        L: FnOnce(&R) -> BlockDescriptor<F> + 'static,
         F: inner::BlockFeature + 'static,
     {
-        let desc_fn = |map| {
+        let desc_fn: RegFn<R, BlockDescriptor<BlockFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            BlockDescripter::<BlockFeatureBox>::new(
+            BlockDescriptor::<BlockFeatureBox>::new(
                 desc.images,
                 desc.z_along_y,
                 desc.size,
@@ -278,27 +278,27 @@ impl<'a, R> ContextBuilder<'a, R> {
                 desc.rendering,
                 Box::new(desc.feature),
             )
-        };
-        self.blocks.push(Box::new(desc_fn));
+        });
+        self.blocks.push(desc_fn);
         (self.blocks.len() - 1) as u16
     }
 
     pub fn add_entity<F, L>(&mut self, desc_fn: L) -> u16
     where
-        L: FnOnce(&R) -> EntityDescripter<F> + 'static,
+        L: FnOnce(&R) -> EntityDescriptor<F> + 'static,
         F: inner::EntityFeature + 'static,
     {
-        let desc_fn = |map| {
+        let desc_fn: RegFn<R, EntityDescriptor<EntityFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            EntityDescripter::<EntityFeatureBox>::new(
+            EntityDescriptor::<EntityFeatureBox>::new(
                 desc.images,
                 desc.z_along_y,
                 desc.collision,
                 desc.rendering,
                 Box::new(desc.feature),
             )
-        };
-        self.entities.push(Box::new(desc_fn));
+        });
+        self.entities.push(desc_fn);
         (self.entities.len() - 1) as u16
     }
 
@@ -307,7 +307,7 @@ impl<'a, R> ContextBuilder<'a, R> {
         L: FnOnce(&R) -> ItemDescriptor<F> + 'static,
         F: inner::ItemFeature + 'static,
     {
-        let desc_fn = |map| {
+        let desc_fn: RegFn<R, ItemDescriptor<ItemFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
             ItemDescriptor::<ItemFeatureBox>::new(
                 desc.name_text,
@@ -315,8 +315,8 @@ impl<'a, R> ContextBuilder<'a, R> {
                 desc.image,
                 Box::new(desc.feature),
             )
-        };
-        self.items.push(Box::new(desc_fn));
+        });
+        self.items.push(desc_fn);
         (self.items.len() - 1) as u16
     }
 
@@ -328,13 +328,13 @@ impl<'a, R> ContextBuilder<'a, R> {
         (self.gen_rules.len() - 1) as u16
     }
 
-    pub fn build(self, registry: &'a R, desc: &BuildDescriptor) -> Context {
+    pub fn build(self, registry: R, desc: BuildDescriptor) -> Context<R> {
         // tile field
         let mut tile_features = vec![];
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
-            let desc = tile(registry);
+            let desc = tile(&registry);
 
             tile_features.push(desc.feature);
 
@@ -378,7 +378,7 @@ impl<'a, R> ContextBuilder<'a, R> {
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
-            let desc = block(registry);
+            let desc = block(&registry);
 
             block_features.push(desc.feature);
 
@@ -431,7 +431,7 @@ impl<'a, R> ContextBuilder<'a, R> {
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
-            let desc = entity(registry);
+            let desc = entity(&registry);
 
             entity_features.push(desc.feature);
 
@@ -483,7 +483,7 @@ impl<'a, R> ContextBuilder<'a, R> {
         let mut items = vec![];
         let mut items_view = vec![];
         for item in self.items {
-            let desc = item(registry);
+            let desc = item(&registry);
 
             item_features.push(desc.feature);
 
@@ -508,7 +508,7 @@ impl<'a, R> ContextBuilder<'a, R> {
         // gen rules
         let mut gen_rules = vec![];
         for gen_rule in self.gen_rules {
-            let desc = gen_rule(registry);
+            let desc = gen_rule(&registry);
 
             let gen_rule = match desc {
                 GenRuleDescriptor::March(desc) => inner::GenRule::March(inner::MarchGenRule {
@@ -545,14 +545,16 @@ impl<'a, R> ContextBuilder<'a, R> {
             block_field: block_field_view,
             entity_field: entity_field_view,
             item_store: item_store_view,
+            registry,
         }
     }
 }
 
-pub struct Context {
+pub struct Context<R> {
     pub root: inner::Root,
     pub tile_field: tile::TileField,
     pub block_field: block::BlockField,
     pub entity_field: entity::EntityField,
     pub item_store: item::ItemStore,
+    pub registry: R,
 }

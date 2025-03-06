@@ -1,9 +1,15 @@
 use godot::prelude::*;
 
+pub(crate) struct ItemImageDescriptor {
+    pub frames: Vec<Gd<godot::classes::Image>>,
+    pub step_tick: u16,
+    pub is_loop: bool,
+}
+
 pub(crate) struct ItemDescriptor {
     pub name_text: String,
     pub desc_text: String,
-    pub image: Gd<godot::classes::Image>,
+    pub image: ItemImageDescriptor,
 }
 
 pub(crate) struct ItemStoreDescriptor {
@@ -13,7 +19,7 @@ pub(crate) struct ItemStoreDescriptor {
 struct ItemProperty {
     name_text: String,
     desc_text: String,
-    image: Gd<godot::classes::Image>,
+    image: ItemImageDescriptor,
 }
 
 #[derive(GodotClass)]
@@ -27,9 +33,9 @@ impl ItemStore {
         let mut props = Vec::new();
         for desc in desc.items {
             props.push(ItemProperty {
-                image: desc.image,
                 name_text: desc.name_text,
                 desc_text: desc.desc_text,
+                image: desc.image,
             });
         }
         Self { props }
@@ -48,6 +54,9 @@ impl ItemStore {
     }
 
     pub fn get_image(&self, id: u32) -> Option<Gd<godot::classes::Image>> {
-        self.props.get(id as usize).map(|prop| prop.image.clone())
+        self.props
+            .get(id as usize)
+            .and_then(|prop| prop.image.frames.get(0))
+            .map(|frame| frame.clone())
     }
 }

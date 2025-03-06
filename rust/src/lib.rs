@@ -4,9 +4,9 @@ use godot::prelude::*;
 pub mod inner;
 
 mod block;
+mod decl;
 mod entity;
 mod item;
-mod reg;
 mod tile;
 
 struct Extension;
@@ -67,26 +67,26 @@ struct Registry {
 #[derive(GodotClass)]
 #[class(no_init)]
 struct Root {
-    context: reg::Context,
+    context: decl::Context<Registry>,
 }
 
 #[godot_api]
 impl Root {
     #[func]
     fn create(world: Gd<godot::classes::World3D>) -> Gd<Self> {
-        let mut builder = reg::ContextBuilder::<Registry>::new();
+        let mut builder = decl::ContextBuilder::<Registry>::new();
 
         // tiles
         let tile_dirt = builder.add_tile(|_| {
-            reg::TileDescripter::single(
-                reg::ImageDescriptor::single("res://images/surface_dirt.webp"),
+            decl::TileDescriptor::single(
+                decl::ImageDescriptor::single("res://images/surface_dirt.webp"),
                 false,
                 (),
             )
         });
         let tile_grass = builder.add_tile(|_| {
-            reg::TileDescripter::single(
-                reg::ImageDescriptor::single("res://images/surface_grass.webp"),
+            decl::TileDescriptor::single(
+                decl::ImageDescriptor::single("res://images/surface_grass.webp"),
                 false,
                 (),
             )
@@ -94,8 +94,8 @@ impl Root {
 
         // blocks
         let block_dandelion = builder.add_block(|_| {
-            reg::BlockDescripter::single(
-                reg::ImageDescriptor::single("res://images/dandelion.webp"),
+            decl::BlockDescriptor::single(
+                decl::ImageDescriptor::single("res://images/dandelion.webp"),
                 false,
                 IVec2::new(1, 1),
                 [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
@@ -104,8 +104,8 @@ impl Root {
             )
         });
         let block_fallen_leaves = builder.add_block(|_| {
-            reg::BlockDescripter::single(
-                reg::ImageDescriptor::single("res://images/fallen_leaves.webp"),
+            decl::BlockDescriptor::single(
+                decl::ImageDescriptor::single("res://images/fallen_leaves.webp"),
                 false,
                 IVec2::new(1, 1),
                 [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
@@ -114,8 +114,8 @@ impl Root {
             )
         });
         let block_mix_grass = builder.add_block(|_| {
-            reg::BlockDescripter::single(
-                reg::ImageDescriptor::single("res://images/mix_grass.webp"),
+            decl::BlockDescriptor::single(
+                decl::ImageDescriptor::single("res://images/mix_grass.webp"),
                 false,
                 IVec2::new(1, 1),
                 [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
@@ -124,8 +124,8 @@ impl Root {
             )
         });
         let block_mix_pebbles = builder.add_block(|_| {
-            reg::BlockDescripter::single(
-                reg::ImageDescriptor::single("res://images/mix_pebbles.webp"),
+            decl::BlockDescriptor::single(
+                decl::ImageDescriptor::single("res://images/mix_pebbles.webp"),
                 false,
                 IVec2::new(1, 1),
                 [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
@@ -136,9 +136,9 @@ impl Root {
 
         // entities
         let entity_player = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/player_idle_0.webp",
                             "res://images/player_idle_1.webp",
@@ -146,7 +146,7 @@ impl Root {
                         24,
                         true,
                     ),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/player_walk_0.webp",
                             "res://images/player_idle_0.webp",
@@ -164,9 +164,9 @@ impl Root {
             )
         });
         let entity_pig = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/pig_idle_0.webp",
                             "res://images/pig_idle_1.webp",
@@ -174,7 +174,7 @@ impl Root {
                         24,
                         true,
                     ),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/pig_walk_0.webp",
                             "res://images/pig_idle_0.webp",
@@ -200,9 +200,9 @@ impl Root {
             )
         });
         let entity_cow = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/cow_idle_0.webp",
                             "res://images/cow_idle_1.webp",
@@ -210,7 +210,7 @@ impl Root {
                         24,
                         true,
                     ),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/cow_walk_0.webp",
                             "res://images/cow_idle_0.webp",
@@ -236,9 +236,9 @@ impl Root {
             )
         });
         let entity_sheep = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/sheep_idle_0.webp",
                             "res://images/sheep_idle_1.webp",
@@ -246,7 +246,7 @@ impl Root {
                         24,
                         true,
                     ),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/sheep_walk_0.webp",
                             "res://images/sheep_idle_0.webp",
@@ -272,10 +272,10 @@ impl Root {
             )
         });
         let entity_chicken = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::single("res://images/chicken_idle.webp"),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::single("res://images/chicken_idle.webp"),
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/chicken_walk.webp",
                             "res://images/chicken_idle.webp",
@@ -299,10 +299,10 @@ impl Root {
             )
         });
         let entity_bird = builder.add_entity(|_| {
-            reg::EntityDescripter::new(
+            decl::EntityDescriptor::new(
                 vec![
-                    reg::ImageDescriptor::single("res://images/bird_idle.webp"),
-                    reg::ImageDescriptor::new(
+                    decl::ImageDescriptor::single("res://images/bird_idle.webp"),
+                    decl::ImageDescriptor::new(
                         vec![
                             "res://images/chicken_walk.webp",
                             "res://images/chicken_idle.webp",
@@ -328,10 +328,10 @@ impl Root {
 
         // item
         let item_package = builder.add_item(|_| {
-            reg::ItemDescriptor::new(
+            decl::ItemDescriptor::new(
                 "Package",
                 "A package of items.",
-                reg::ImageDescriptor::single("res://images/package.webp"),
+                decl::ImageDescriptor::single("res://images/package.webp"),
                 (),
             )
         });
@@ -339,7 +339,7 @@ impl Root {
         // gen rule
         builder.add_gen_rule(|reg| {
             let id = reg.tile_grass;
-            reg::GenRuleDescriptor::March(reg::MarchGenRuleDescriptor::new(
+            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor::new(
                 0.5,
                 move |root, location| {
                     let tile = inner::Tile {
@@ -354,7 +354,7 @@ impl Root {
         });
         builder.add_gen_rule(|reg| {
             let id = reg.tile_dirt;
-            reg::GenRuleDescriptor::March(reg::MarchGenRuleDescriptor::new(
+            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor::new(
                 1.0,
                 move |root, location| {
                     let tile = inner::Tile {
@@ -369,7 +369,7 @@ impl Root {
         });
         builder.add_gen_rule(|reg| {
             let id = reg.tile_dirt;
-            reg::GenRuleDescriptor::Spawn(reg::SpawnGenRuleDescriptor::new(
+            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor::new(
                 0.05,
                 move |root, location| {
                     let tile = inner::Block {
@@ -398,7 +398,7 @@ impl Root {
             entity_bird,
             item_package,
         };
-        let desc = reg::BuildDescriptor {
+        let desc = decl::BuildDescriptor {
             tile_shaders: vec!["res://shaders/field.gdshader".into()],
             block_shaders: vec![
                 "res://shaders/field.gdshader".into(),
@@ -410,7 +410,7 @@ impl Root {
             ],
             world,
         };
-        let context = builder.build(&register, &desc);
+        let context = builder.build(register, desc);
         Gd::from_object(Self { context })
     }
 
@@ -444,7 +444,7 @@ impl Root {
     fn player_spawn(&mut self, location: Vector2) {
         let location = Vec2::new(location.x, location.y);
         let entity = inner::Entity {
-            id: 0,
+            id: self.context.registry.entity_player,
             location,
             data: Default::default(),
             render_param: Default::default(),
