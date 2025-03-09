@@ -9,146 +9,31 @@ pub struct ImageDescriptor {
     pub is_loop: bool,
 }
 
-impl ImageDescriptor {
-    pub fn new<S>(frames: Vec<S>, step_tick: u16, is_loop: bool) -> Self
-    where
-        S: Into<String>,
-    {
-        let mut new_frames = vec![];
-        for frame in frames {
-            new_frames.push(frame.into());
-        }
-
-        Self {
-            frames: new_frames,
-            step_tick,
-            is_loop,
-        }
-    }
-
-    pub fn single<S>(frame: S) -> Self
-    where
-        S: Into<String>,
-    {
-        Self {
-            frames: vec![frame.into()],
-            step_tick: 0,
-            is_loop: false,
-        }
-    }
-}
-
 pub struct TileDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
     pub feature: F,
 }
 
-impl<F> TileDescriptor<F> {
-    pub fn new(images: Vec<ImageDescriptor>, collision: bool, feature: F) -> Self {
-        Self {
-            images,
-            collision,
-            feature,
-        }
-    }
-
-    pub fn single(image: ImageDescriptor, collision: bool, feature: F) -> Self {
-        Self {
-            images: vec![image],
-            collision,
-            feature,
-        }
-    }
-}
-
 pub struct BlockDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub size: IVec2,
-    pub collision: [Vec2; 2],
-    pub rendering: [Vec2; 2],
+    pub collision_size: Vec2,
+    pub collision_offset: Vec2,
+    pub rendering_size: Vec2,
+    pub rendering_offset: Vec2,
     pub feature: F,
-}
-
-impl<F> BlockDescriptor<F> {
-    pub fn new(
-        images: Vec<ImageDescriptor>,
-        z_along_y: bool,
-        size: IVec2,
-        collision: [Vec2; 2],
-        rendering: [Vec2; 2],
-        feature: F,
-    ) -> Self {
-        Self {
-            images,
-            z_along_y,
-            size,
-            collision,
-            rendering,
-            feature,
-        }
-    }
-
-    pub fn single(
-        image: ImageDescriptor,
-        z_along_y: bool,
-        size: IVec2,
-        collision: [Vec2; 2],
-        rendering: [Vec2; 2],
-        feature: F,
-    ) -> Self {
-        Self {
-            images: vec![image],
-            z_along_y,
-            size,
-            collision,
-            rendering,
-            feature,
-        }
-    }
 }
 
 pub struct EntityDescriptor<F> {
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
-    pub collision: [Vec2; 2],
-    pub rendering: [Vec2; 2],
+    pub collision_size: Vec2,
+    pub collision_offset: Vec2,
+    pub rendering_size: Vec2,
+    pub rendering_offset: Vec2,
     pub feature: F,
-}
-
-impl<F> EntityDescriptor<F> {
-    pub fn new(
-        images: Vec<ImageDescriptor>,
-        z_along_y: bool,
-        collision: [Vec2; 2],
-        rendering: [Vec2; 2],
-        feature: F,
-    ) -> Self {
-        Self {
-            images,
-            z_along_y,
-            collision,
-            rendering,
-            feature,
-        }
-    }
-
-    pub fn single(
-        image: ImageDescriptor,
-        z_along_y: bool,
-        collision: [Vec2; 2],
-        rendering: [Vec2; 2],
-        feature: F,
-    ) -> Self {
-        Self {
-            images: vec![image],
-            z_along_y,
-            collision,
-            rendering,
-            feature,
-        }
-    }
 }
 
 pub struct ItemDescriptor<F> {
@@ -156,21 +41,6 @@ pub struct ItemDescriptor<F> {
     pub desc_text: String,
     pub image: ImageDescriptor,
     pub feature: F,
-}
-
-impl<F> ItemDescriptor<F> {
-    pub fn new<S1, S2>(name_text: S1, desc_text: S2, image: ImageDescriptor, feature: F) -> Self
-    where
-        S1: Into<String>,
-        S2: Into<String>,
-    {
-        Self {
-            name_text: name_text.into(),
-            desc_text: desc_text.into(),
-            image,
-            feature,
-        }
-    }
 }
 
 pub enum GenRuleDescriptor {
@@ -183,33 +53,9 @@ pub struct MarchGenRuleDescriptor {
     pub gen_fn: inner::GenFn<IVec2>,
 }
 
-impl MarchGenRuleDescriptor {
-    pub fn new<F>(prob: f32, gen_fn: F) -> Self
-    where
-        F: Fn(&mut inner::Root, IVec2) + 'static,
-    {
-        Self {
-            prob,
-            gen_fn: Box::new(gen_fn),
-        }
-    }
-}
-
 pub struct SpawnGenRuleDescriptor {
     pub prob: f32,
     pub gen_fn: inner::GenFn<Vec2>,
-}
-
-impl SpawnGenRuleDescriptor {
-    pub fn new<F>(prob: f32, gen_fn: F) -> Self
-    where
-        F: Fn(&mut inner::Root, Vec2) + 'static,
-    {
-        Self {
-            prob,
-            gen_fn: Box::new(gen_fn),
-        }
-    }
 }
 
 pub struct BuildDescriptor {
@@ -253,11 +99,11 @@ impl<R> ContextBuilder<R> {
     {
         let desc_fn: RegFn<R, TileDescriptor<TileFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            TileDescriptor::<TileFeatureBox>::new(
-                desc.images,
-                desc.collision,
-                Box::new(desc.feature),
-            )
+            TileDescriptor {
+                images: desc.images,
+                collision: desc.collision,
+                feature: Box::new(desc.feature),
+            }
         });
         self.tiles.push(desc_fn);
         (self.tiles.len() - 1) as u16
@@ -270,14 +116,16 @@ impl<R> ContextBuilder<R> {
     {
         let desc_fn: RegFn<R, BlockDescriptor<BlockFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            BlockDescriptor::<BlockFeatureBox>::new(
-                desc.images,
-                desc.z_along_y,
-                desc.size,
-                desc.collision,
-                desc.rendering,
-                Box::new(desc.feature),
-            )
+            BlockDescriptor {
+                images: desc.images,
+                z_along_y: desc.z_along_y,
+                size: desc.size,
+                collision_size: desc.collision_size,
+                collision_offset: desc.collision_offset,
+                rendering_size: desc.rendering_size,
+                rendering_offset: desc.rendering_offset,
+                feature: Box::new(desc.feature),
+            }
         });
         self.blocks.push(desc_fn);
         (self.blocks.len() - 1) as u16
@@ -290,13 +138,15 @@ impl<R> ContextBuilder<R> {
     {
         let desc_fn: RegFn<R, EntityDescriptor<EntityFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            EntityDescriptor::<EntityFeatureBox>::new(
-                desc.images,
-                desc.z_along_y,
-                desc.collision,
-                desc.rendering,
-                Box::new(desc.feature),
-            )
+            EntityDescriptor {
+                images: desc.images,
+                z_along_y: desc.z_along_y,
+                collision_size: desc.collision_size,
+                collision_offset: desc.collision_offset,
+                rendering_size: desc.rendering_size,
+                rendering_offset: desc.rendering_offset,
+                feature: Box::new(desc.feature),
+            }
         });
         self.entities.push(desc_fn);
         (self.entities.len() - 1) as u16
@@ -309,12 +159,12 @@ impl<R> ContextBuilder<R> {
     {
         let desc_fn: RegFn<R, ItemDescriptor<ItemFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
-            ItemDescriptor::<ItemFeatureBox>::new(
-                desc.name_text,
-                desc.desc_text,
-                desc.image,
-                Box::new(desc.feature),
-            )
+            ItemDescriptor {
+                name_text: desc.name_text,
+                desc_text: desc.desc_text,
+                image: desc.image,
+                feature: Box::new(desc.feature),
+            }
         });
         self.items.push(desc_fn);
         (self.items.len() - 1) as u16
@@ -384,10 +234,10 @@ impl<R> ContextBuilder<R> {
 
             blocks.push(inner::BlockDescriptor {
                 size: desc.size,
-                collision_size: desc.collision[0],
-                collision_offset: desc.collision[1],
-                hint_size: desc.rendering[0],
-                hint_offset: desc.rendering[1],
+                collision_size: desc.collision_size,
+                collision_offset: desc.collision_offset,
+                hint_size: desc.rendering_size,
+                hint_offset: desc.rendering_offset,
             });
 
             let mut images = vec![];
@@ -408,8 +258,8 @@ impl<R> ContextBuilder<R> {
             blocks_view.push(block::BlockDescriptor {
                 images,
                 z_along_y: desc.z_along_y,
-                rendering_size: desc.rendering[0],
-                rendering_offset: desc.rendering[1],
+                rendering_size: desc.rendering_size,
+                rendering_offset: desc.rendering_offset,
             });
         }
 
@@ -436,10 +286,10 @@ impl<R> ContextBuilder<R> {
             entity_features.push(desc.feature);
 
             entities.push(inner::EntityDescriptor {
-                collision_size: desc.collision[0],
-                collision_offset: desc.collision[1],
-                hint_size: desc.rendering[0],
-                hint_offset: desc.rendering[1],
+                collision_size: desc.collision_size,
+                collision_offset: desc.collision_offset,
+                hint_size: desc.rendering_size,
+                hint_offset: desc.rendering_offset,
             });
 
             let mut images = vec![];
@@ -460,8 +310,8 @@ impl<R> ContextBuilder<R> {
             entities_view.push(entity::EntityDescriptor {
                 images,
                 z_along_y: desc.z_along_y,
-                rendering_size: desc.rendering[0],
-                rendering_offset: desc.rendering[1],
+                rendering_size: desc.rendering_size,
+                rendering_offset: desc.rendering_offset,
             });
         }
 
@@ -492,7 +342,17 @@ impl<R> ContextBuilder<R> {
             });
 
             // TODO: image
-            let image = load::<godot::classes::Image>(&desc.image.frames[0]);
+            let mut frames = vec![];
+            for image in desc.image.frames {
+                let image = load::<godot::classes::Image>(&image);
+                frames.push(image);
+            }
+
+            let image = item::ItemImageDescriptor {
+                frames,
+                step_tick: desc.image.step_tick,
+                is_loop: desc.image.is_loop,
+            };
 
             items_view.push(item::ItemDescriptor {
                 name_text: desc.name_text.clone(),

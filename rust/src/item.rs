@@ -44,19 +44,21 @@ impl ItemStore {
     pub fn get_name_text(&self, id: u32) -> Option<String> {
         self.props
             .get(id as usize)
-            .map(|prop| prop.name_text.clone())
+            .map(|prop| &prop.name_text)
+            .cloned()
     }
 
     pub fn get_desc_text(&self, id: u32) -> Option<String> {
         self.props
             .get(id as usize)
-            .map(|prop| prop.desc_text.clone())
+            .map(|prop| &prop.desc_text)
+            .cloned()
     }
 
     pub fn get_image(&self, id: u32) -> Option<Gd<godot::classes::Image>> {
         self.props
             .get(id as usize)
-            .and_then(|prop| prop.image.frames.get(0))
-            .map(|frame| frame.clone())
+            .and_then(|prop| prop.image.frames.first())
+            .cloned()
     }
 }

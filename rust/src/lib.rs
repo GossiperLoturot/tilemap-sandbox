@@ -48,6 +48,7 @@ impl PanicHook {
     }
 }
 
+#[allow(dead_code)]
 struct Registry {
     tile_dirt: u16,
     tile_grass: u16,
@@ -77,271 +78,301 @@ impl Root {
         let mut builder = decl::ContextBuilder::<Registry>::new();
 
         // tiles
-        let tile_dirt = builder.add_tile(|_| {
-            decl::TileDescriptor::single(
-                decl::ImageDescriptor::single("res://images/surface_dirt.webp"),
-                false,
-                (),
-            )
+        let tile_dirt = builder.add_tile(|_| decl::TileDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/surface_dirt.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            collision: false,
+            feature: (),
         });
-        let tile_grass = builder.add_tile(|_| {
-            decl::TileDescriptor::single(
-                decl::ImageDescriptor::single("res://images/surface_grass.webp"),
-                false,
-                (),
-            )
+        let tile_grass = builder.add_tile(|_| decl::TileDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/surface_grass.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            collision: false,
+            feature: (),
         });
 
         // blocks
-        let block_dandelion = builder.add_block(|_| {
-            decl::BlockDescriptor::single(
-                decl::ImageDescriptor::single("res://images/dandelion.webp"),
-                false,
-                IVec2::new(1, 1),
-                [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
-                [Vec2::new(1.0, 1.0), Vec2::new(0.0, 0.0)],
-                (),
-            )
+        let block_dandelion = builder.add_block(|_| decl::BlockDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/dandelion.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: (),
         });
-        let block_fallen_leaves = builder.add_block(|_| {
-            decl::BlockDescriptor::single(
-                decl::ImageDescriptor::single("res://images/fallen_leaves.webp"),
-                false,
-                IVec2::new(1, 1),
-                [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
-                [Vec2::new(1.0, 1.0), Vec2::new(0.0, 0.0)],
-                (),
-            )
+        let block_fallen_leaves = builder.add_block(|_| decl::BlockDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/fallen_leaves.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: (),
         });
-        let block_mix_grass = builder.add_block(|_| {
-            decl::BlockDescriptor::single(
-                decl::ImageDescriptor::single("res://images/mix_grass.webp"),
-                false,
-                IVec2::new(1, 1),
-                [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
-                [Vec2::new(1.0, 1.0), Vec2::new(0.0, 0.0)],
-                (),
-            )
+        let block_mix_grass = builder.add_block(|_| decl::BlockDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/mix_grass.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: (),
         });
-        let block_mix_pebbles = builder.add_block(|_| {
-            decl::BlockDescriptor::single(
-                decl::ImageDescriptor::single("res://images/mix_pebbles.webp"),
-                false,
-                IVec2::new(1, 1),
-                [Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)],
-                [Vec2::new(1.0, 1.0), Vec2::new(0.0, 0.0)],
-                (),
-            )
+        let block_mix_pebbles = builder.add_block(|_| decl::BlockDescriptor {
+            images: vec![decl::ImageDescriptor {
+                frames: vec!["res://images/mix_pebbles.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: (),
         });
 
         // entities
-        let entity_player = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/player_idle_0.webp",
-                            "res://images/player_idle_1.webp",
-                        ],
-                        24,
-                        true,
-                    ),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/player_walk_0.webp",
-                            "res://images/player_idle_0.webp",
-                            "res://images/player_walk_1.webp",
-                            "res://images/player_idle_1.webp",
-                        ],
-                        6,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(1.5, 2.25), Vec2::new(-0.75, 0.0)],
-                inner::PlayerEntityFeature,
-            )
-        });
-        let entity_pig = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/pig_idle_0.webp",
-                            "res://images/pig_idle_1.webp",
-                        ],
-                        24,
-                        true,
-                    ),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/pig_walk_0.webp",
-                            "res://images/pig_idle_0.webp",
-                            "res://images/pig_walk_1.webp",
-                            "res://images/pig_idle_1.webp",
-                        ],
-                        12,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(2.0, 2.0), Vec2::new(-1.0, 0.0)],
-                inner::AnimalEntityFeature {
-                    min_rest_secs: 0.0,
-                    max_rest_secs: 10.0,
-                    min_distance: 0.0,
-                    max_distance: 10.0,
-                    speed: 1.0,
-                    idle_variant: 0,
-                    walk_variant: 1,
+        let entity_player = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/player_idle_0.webp".into(),
+                        "res://images/player_idle_1.webp".into(),
+                    ],
+                    step_tick: 24,
+                    is_loop: true,
                 },
-            )
-        });
-        let entity_cow = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/cow_idle_0.webp",
-                            "res://images/cow_idle_1.webp",
-                        ],
-                        24,
-                        true,
-                    ),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/cow_walk_0.webp",
-                            "res://images/cow_idle_0.webp",
-                            "res://images/cow_walk_1.webp",
-                            "res://images/cow_idle_1.webp",
-                        ],
-                        12,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(2.0, 2.0), Vec2::new(-1.0, 0.0)],
-                inner::AnimalEntityFeature {
-                    min_rest_secs: 0.0,
-                    max_rest_secs: 10.0,
-                    min_distance: 0.0,
-                    max_distance: 10.0,
-                    speed: 1.0,
-                    idle_variant: 0,
-                    walk_variant: 1,
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/player_walk_0.webp".into(),
+                        "res://images/player_idle_0.webp".into(),
+                        "res://images/player_walk_1.webp".into(),
+                        "res://images/player_idle_1.webp".into(),
+                    ],
+                    step_tick: 6,
+                    is_loop: true,
                 },
-            )
+            ],
+            z_along_y: true,
+            rendering_size: Vec2::new(0.8, 0.8),
+            rendering_offset: Vec2::new(-0.4, 0.1),
+            collision_size: Vec2::new(1.5, 2.25),
+            collision_offset: Vec2::new(-0.75, 0.0),
+            feature: inner::PlayerEntityFeature,
         });
-        let entity_sheep = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/sheep_idle_0.webp",
-                            "res://images/sheep_idle_1.webp",
-                        ],
-                        24,
-                        true,
-                    ),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/sheep_walk_0.webp",
-                            "res://images/sheep_idle_0.webp",
-                            "res://images/sheep_walk_1.webp",
-                            "res://images/sheep_idle_1.webp",
-                        ],
-                        12,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(2.0, 2.0), Vec2::new(-1.0, 0.0)],
-                inner::AnimalEntityFeature {
-                    min_rest_secs: 0.0,
-                    max_rest_secs: 10.0,
-                    min_distance: 0.0,
-                    max_distance: 10.0,
-                    speed: 1.0,
-                    idle_variant: 0,
-                    walk_variant: 1,
+        let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/pig_idle_0.webp".into(),
+                        "res://images/pig_idle_1.webp".into(),
+                    ],
+                    step_tick: 24,
+                    is_loop: true,
                 },
-            )
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/pig_walk_0.webp".into(),
+                        "res://images/pig_idle_0.webp".into(),
+                        "res://images/pig_walk_1.webp".into(),
+                        "res://images/pig_idle_1.webp".into(),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(2.0, 2.0),
+            rendering_offset: Vec2::new(-1.0, 0.0),
+            feature: inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            },
         });
-        let entity_chicken = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::single("res://images/chicken_idle.webp"),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/chicken_walk.webp",
-                            "res://images/chicken_idle.webp",
-                        ],
-                        12,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(1.0, 1.0), Vec2::new(-0.5, 0.0)],
-                inner::AnimalEntityFeature {
-                    min_rest_secs: 0.0,
-                    max_rest_secs: 10.0,
-                    min_distance: 0.0,
-                    max_distance: 10.0,
-                    speed: 1.0,
-                    idle_variant: 0,
-                    walk_variant: 1,
+        let entity_cow = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/cow_idle_0.webp".into(),
+                        "res://images/cow_idle_1.webp".into(),
+                    ],
+                    step_tick: 24,
+                    is_loop: true,
                 },
-            )
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/cow_walk_0.webp".into(),
+                        "res://images/cow_idle_0.webp".into(),
+                        "res://images/cow_walk_1.webp".into(),
+                        "res://images/cow_idle_1.webp".into(),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(2.0, 2.0),
+            rendering_offset: Vec2::new(-1.0, 0.0),
+            feature: inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            },
         });
-        let entity_bird = builder.add_entity(|_| {
-            decl::EntityDescriptor::new(
-                vec![
-                    decl::ImageDescriptor::single("res://images/bird_idle.webp"),
-                    decl::ImageDescriptor::new(
-                        vec![
-                            "res://images/chicken_walk.webp",
-                            "res://images/chicken_idle.webp",
-                        ],
-                        12,
-                        true,
-                    ),
-                ],
-                true,
-                [Vec2::new(0.8, 0.8), Vec2::new(-0.4, 0.1)],
-                [Vec2::new(1.0, 1.0), Vec2::new(-0.5, 0.0)],
-                inner::AnimalEntityFeature {
-                    min_rest_secs: 0.0,
-                    max_rest_secs: 10.0,
-                    min_distance: 0.0,
-                    max_distance: 10.0,
-                    speed: 1.0,
-                    idle_variant: 0,
-                    walk_variant: 1,
+        let entity_sheep = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/sheep_idle_0.webp".into(),
+                        "res://images/sheep_idle_1.webp".into(),
+                    ],
+                    step_tick: 24,
+                    is_loop: true,
                 },
-            )
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/sheep_walk_0.webp".into(),
+                        "res://images/sheep_idle_0.webp".into(),
+                        "res://images/sheep_walk_1.webp".into(),
+                        "res://images/sheep_idle_1.webp".into(),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            rendering_size: Vec2::new(0.8, 0.8),
+            rendering_offset: Vec2::new(-0.4, 0.1),
+            collision_size: Vec2::new(2.0, 2.0),
+            collision_offset: Vec2::new(-1.0, 0.0),
+            feature: inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            },
+        });
+        let entity_chicken = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec!["res://images/chicken_idle.webp".into()],
+                    step_tick: 24,
+                    is_loop: true,
+                },
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/chicken_walk.webp".into(),
+                        "res://images/chicken_idle.webp".into(),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            rendering_size: Vec2::new(0.8, 0.8),
+            rendering_offset: Vec2::new(-0.4, 0.1),
+            collision_size: Vec2::new(1.0, 1.0),
+            collision_offset: Vec2::new(-0.5, 0.0),
+            feature: inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            },
+        });
+        let entity_bird = builder.add_entity(|_| decl::EntityDescriptor {
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec!["res://images/bird_idle.webp".into()],
+                    step_tick: 24,
+                    is_loop: true,
+                },
+                decl::ImageDescriptor {
+                    frames: vec![
+                        "res://images/chicken_walk.webp".into(),
+                        "res://images/chicken_idle.webp".into(),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            rendering_size: Vec2::new(0.8, 0.8),
+            rendering_offset: Vec2::new(-0.4, 0.1),
+            collision_size: Vec2::new(1.0, 1.0),
+            collision_offset: Vec2::new(-0.5, 0.0),
+            feature: inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            },
         });
 
         // item
-        let item_package = builder.add_item(|_| {
-            decl::ItemDescriptor::new(
-                "Package",
-                "A package of items.",
-                decl::ImageDescriptor::single("res://images/package.webp"),
-                (),
-            )
+        let item_package = builder.add_item(|_| decl::ItemDescriptor {
+            name_text: "Package".into(),
+            desc_text: "A package of items.".into(),
+            image: decl::ImageDescriptor {
+                frames: vec!["res://images/package.webp".into()],
+                step_tick: 0,
+                is_loop: false,
+            },
+            feature: (),
         });
 
         // gen rule
         builder.add_gen_rule(|reg| {
             let id = reg.tile_grass;
-            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor::new(
-                0.5,
-                move |root, location| {
+            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor {
+                prob: 0.5,
+                gen_fn: Box::new(move |root, location| {
                     let tile = inner::Tile {
                         id,
                         location,
@@ -349,14 +380,14 @@ impl Root {
                         render_param: Default::default(),
                     };
                     let _ = root.tile_insert(tile);
-                },
-            ))
+                }),
+            })
         });
         builder.add_gen_rule(|reg| {
             let id = reg.tile_dirt;
-            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor::new(
-                1.0,
-                move |root, location| {
+            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor {
+                prob: 1.0,
+                gen_fn: Box::new(move |root, location| {
                     let tile = inner::Tile {
                         id,
                         location,
@@ -364,14 +395,14 @@ impl Root {
                         render_param: Default::default(),
                     };
                     let _ = root.tile_insert(tile);
-                },
-            ))
+                }),
+            })
         });
         builder.add_gen_rule(|reg| {
             let id = reg.tile_dirt;
-            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor::new(
-                0.05,
-                move |root, location| {
+            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor {
+                prob: 0.05,
+                gen_fn: Box::new(move |root, location| {
                     let tile = inner::Block {
                         id,
                         location: location.as_ivec2(),
@@ -379,8 +410,8 @@ impl Root {
                         render_param: Default::default(),
                     };
                     let _ = root.block_insert(tile);
-                },
-            ))
+                }),
+            })
         });
 
         let register = Registry {
