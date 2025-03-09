@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://bdonfge0qyd6q"
+path="res://.godot/imported/chicken_idle.webp-b55d30a9b89e23740b5bdc6330d8ada5.image"
+
+[deps]
+
+source_file="res://images/chicken_idle.webp"
+dest_files=["res://.godot/imported/chicken_idle.webp-b55d30a9b89e23740b5bdc6330d8ada5.image"]
+
+[params]
+

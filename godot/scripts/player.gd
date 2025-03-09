@@ -6,14 +6,14 @@ class_name Player
 @export var camera: Camera3D
 @export var forward_size: float
 @export var view_size_over: float
+@export var label: Label
 
 var _scroll: float
 var _interpolated_scroll: float
 
 
 func _ready() -> void:
-	var entity = Entity.create(world.ENTITY_PLAYER, Vector2())
-	world._root.entity_insert(entity)
+	world._root.player_spawn(Vector2())
 
 
 func _process(delta) -> void:
@@ -39,7 +39,7 @@ func _process(delta) -> void:
 
 	var view_size = camera.size * 0.5 + view_size_over
 
-	world.min_forward_rect = Rect2(
+	world.min_forwarder_rect = Rect2(
 		location.x - forward_size,
 		location.y - forward_size,
 		forward_size * 2,
@@ -58,15 +58,7 @@ func _process(delta) -> void:
 		view_size * 2
 	)
 
-	if Input.is_action_just_pressed("inventory"):
-		open_inventory()
-
-
-func open_inventory() -> void:
-	var inventory_key = world._root.player_inventory()
-
-	var slot_size = world._root.item_get_slot_size(inventory_key)
-	print("inventory (slot size: %d)" % slot_size)
-	for index in range(slot_size):
-		var item = world._root.item_get_item(inventory_key, index)
-		print("├ item (id: %d, amount: %d)" % [item.id, item.amount])
+	var mouse_position = get_viewport().get_mouse_position()
+	var cursor = camera.project_ray_origin(mouse_position)
+	var name_text = world._root.tile_get_name_text(Vector2i(cursor.x, cursor.y))
+	label.text = name_text
