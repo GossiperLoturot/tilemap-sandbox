@@ -7,8 +7,16 @@ fn benchmark(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field: TileField = TileField::new(TileFieldDescriptor {
                 tiles: vec![
-                    TileDescriptor { collision: false },
-                    TileDescriptor { collision: false },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
                 ],
             });
 
@@ -33,8 +41,16 @@ fn benchmark(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field: TileField = TileField::new(TileFieldDescriptor {
                 tiles: vec![
-                    TileDescriptor { collision: false },
-                    TileDescriptor { collision: false },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
                 ],
             });
 
@@ -64,8 +80,16 @@ fn benchmark(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field: TileField = TileField::new(TileFieldDescriptor {
                 tiles: vec![
-                    TileDescriptor { collision: false },
-                    TileDescriptor { collision: false },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
                 ],
             });
 
@@ -95,8 +119,16 @@ fn benchmark(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field: TileField = TileField::new(TileFieldDescriptor {
                 tiles: vec![
-                    TileDescriptor { collision: false },
-                    TileDescriptor { collision: false },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                    TileDescriptor {
+                        name_text: "tile_0".into(),
+                        desc_text: "tile_0_desc".into(),
+                        collision: true,
+                    },
                 ],
             });
 

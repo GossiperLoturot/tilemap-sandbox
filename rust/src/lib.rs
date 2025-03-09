@@ -79,6 +79,8 @@ impl Root {
 
         // tiles
         let tile_dirt = builder.add_tile(|_| decl::TileDescriptor {
+            name_text: "Dirt".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/surface_dirt.webp".into()],
                 step_tick: 0,
@@ -88,6 +90,8 @@ impl Root {
             feature: (),
         });
         let tile_grass = builder.add_tile(|_| decl::TileDescriptor {
+            name_text: "Grass".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/surface_grass.webp".into()],
                 step_tick: 0,
@@ -178,10 +182,10 @@ impl Root {
                 },
             ],
             z_along_y: true,
-            rendering_size: Vec2::new(0.8, 0.8),
-            rendering_offset: Vec2::new(-0.4, 0.1),
-            collision_size: Vec2::new(1.5, 2.25),
-            collision_offset: Vec2::new(-0.75, 0.0),
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(1.5, 2.25),
+            rendering_offset: Vec2::new(-0.75, 0.0),
             feature: inner::PlayerEntityFeature,
         });
         let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
@@ -278,10 +282,10 @@ impl Root {
                 },
             ],
             z_along_y: true,
-            rendering_size: Vec2::new(0.8, 0.8),
-            rendering_offset: Vec2::new(-0.4, 0.1),
-            collision_size: Vec2::new(2.0, 2.0),
-            collision_offset: Vec2::new(-1.0, 0.0),
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(2.0, 2.0),
+            rendering_offset: Vec2::new(-1.0, 0.0),
             feature: inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
@@ -309,10 +313,10 @@ impl Root {
                 },
             ],
             z_along_y: true,
-            rendering_size: Vec2::new(0.8, 0.8),
-            rendering_offset: Vec2::new(-0.4, 0.1),
-            collision_size: Vec2::new(1.0, 1.0),
-            collision_offset: Vec2::new(-0.5, 0.0),
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(-0.5, 0.0),
             feature: inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
@@ -332,18 +336,18 @@ impl Root {
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/chicken_walk.webp".into(),
-                        "res://images/chicken_idle.webp".into(),
+                        "res://images/bird_walk.webp".into(),
+                        "res://images/bird_idle.webp".into(),
                     ],
                     step_tick: 12,
                     is_loop: true,
                 },
             ],
             z_along_y: true,
-            rendering_size: Vec2::new(0.8, 0.8),
-            rendering_offset: Vec2::new(-0.4, 0.1),
-            collision_size: Vec2::new(1.0, 1.0),
-            collision_offset: Vec2::new(-0.5, 0.0),
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(-0.5, 0.0),
             feature: inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
@@ -399,17 +403,32 @@ impl Root {
             })
         });
         builder.add_gen_rule(|reg| {
-            let id = reg.tile_dirt;
+            let id = reg.block_dandelion;
             decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor {
                 prob: 0.05,
                 gen_fn: Box::new(move |root, location| {
-                    let tile = inner::Block {
+                    let block = inner::Block {
                         id,
                         location: location.as_ivec2(),
                         data: Default::default(),
                         render_param: Default::default(),
                     };
-                    let _ = root.block_insert(tile);
+                    let _ = root.block_insert(block);
+                }),
+            })
+        });
+        builder.add_gen_rule(|reg| {
+            let id = reg.entity_bird;
+            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor {
+                prob: 0.05,
+                gen_fn: Box::new(move |root, location| {
+                    let entity = inner::Entity {
+                        id,
+                        location,
+                        data: Default::default(),
+                        render_param: Default::default(),
+                    };
+                    let _ = root.entity_insert(entity);
                 }),
             })
         });
@@ -443,6 +462,22 @@ impl Root {
         };
         let context = builder.build(register, desc);
         Gd::from_object(Self { context })
+    }
+
+    #[func]
+    fn tile_get_name_text(&self, location: Vector2i) -> String {
+        let location = IVec2::new(location.x, location.y);
+        let key = self.context.root.tile_get_by_point(location).unwrap();
+        let name_text = self.context.root.tile_get_name_text(key).unwrap();
+        name_text.into()
+    }
+
+    #[func]
+    fn tile_get_desc_text(&self, location: Vector2i) -> String {
+        let location = IVec2::new(location.x, location.y);
+        let key = self.context.root.tile_get_by_point(location).unwrap();
+        let name_text = self.context.root.tile_get_name_text(key).unwrap();
+        name_text.into()
     }
 
     #[func]

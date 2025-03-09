@@ -10,6 +10,8 @@ pub struct ImageDescriptor {
 }
 
 pub struct TileDescriptor<F> {
+    pub name_text: String,
+    pub desc_text: String,
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
     pub feature: F,
@@ -100,6 +102,8 @@ impl<R> ContextBuilder<R> {
         let desc_fn: RegFn<R, TileDescriptor<TileFeatureBox>> = Box::new(|map| {
             let desc = desc_fn(map);
             TileDescriptor {
+                name_text: desc.name_text,
+                desc_text: desc.desc_text,
                 images: desc.images,
                 collision: desc.collision,
                 feature: Box::new(desc.feature),
@@ -189,6 +193,8 @@ impl<R> ContextBuilder<R> {
             tile_features.push(desc.feature);
 
             tiles.push(inner::TileDescriptor {
+                name_text: desc.name_text,
+                desc_text: desc.desc_text,
                 collision: desc.collision,
             });
 

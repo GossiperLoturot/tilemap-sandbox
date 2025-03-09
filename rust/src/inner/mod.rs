@@ -127,6 +127,14 @@ impl Root {
         Ok(chunk)
     }
 
+    pub fn tile_get_name_text(&self, tile_key: TileKey) -> Result<&str, FieldError> {
+        self.tile_field.get_name_text(tile_key)
+    }
+
+    pub fn tile_get_desc_text(&self, tile_key: TileKey) -> Result<&str, FieldError> {
+        self.tile_field.get_desc_text(tile_key)
+    }
+
     // tile spatial features
 
     #[inline]

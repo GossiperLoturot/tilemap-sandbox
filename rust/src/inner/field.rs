@@ -8,6 +8,8 @@ pub type TileKey = (u32, u32);
 
 #[derive(Debug, Clone)]
 pub struct TileDescriptor {
+    pub name_text: String,
+    pub desc_text: String,
     pub collision: bool,
 }
 
@@ -18,6 +20,8 @@ pub struct TileFieldDescriptor {
 
 #[derive(Debug, Clone)]
 struct TileProperty {
+    name_text: String,
+    desc_text: String,
     collision: bool,
 }
 
@@ -65,6 +69,8 @@ impl TileField {
         let mut props = vec![];
         for tile in desc.tiles {
             props.push(TileProperty {
+                name_text: tile.name_text,
+                desc_text: tile.desc_text,
                 collision: tile.collision,
             });
         }
@@ -233,6 +239,20 @@ impl TileField {
         self.chunks
             .get(chunk_key as usize)
             .ok_or(FieldError::NotFound)
+    }
+
+    #[inline]
+    pub fn get_name_text(&self, key: TileKey) -> Result<&str, FieldError> {
+        let tile = self.get(key)?;
+        let prop = self.props.get(tile.id as usize).unwrap();
+        Ok(&prop.name_text)
+    }
+
+    #[inline]
+    pub fn get_desc_text(&self, key: TileKey) -> Result<&str, FieldError> {
+        let tile = self.get(key)?;
+        let prop = self.props.get(tile.id as usize).unwrap();
+        Ok(&prop.desc_text)
     }
 
     // spatial features
@@ -1160,8 +1180,16 @@ mod tests {
     fn crud_tile() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1195,8 +1223,16 @@ mod tests {
     fn insert_tile_with_invalid() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1242,8 +1278,16 @@ mod tests {
     fn modify_tile() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1290,8 +1334,16 @@ mod tests {
     fn modify_tile_with_invalid() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1340,8 +1392,16 @@ mod tests {
     fn modify_tile_with_move() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1372,8 +1432,16 @@ mod tests {
     fn collision_tile() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
 
@@ -1427,8 +1495,16 @@ mod tests {
     fn tile_chunk() {
         let mut field: TileField = TileField::new(TileFieldDescriptor {
             tiles: vec![
-                TileDescriptor { collision: true },
-                TileDescriptor { collision: true },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
+                TileDescriptor {
+                    name_text: "tile_0".into(),
+                    desc_text: "tile_0_desc".into(),
+                    collision: true,
+                },
             ],
         });
         assert_eq!(field.get_chunk_size(), 32);
