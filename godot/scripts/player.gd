@@ -6,7 +6,6 @@ class_name Player
 @export var camera: Camera3D
 @export var forward_size: float
 @export var view_size_over: float
-@export var label: Label
 
 var _scroll: float
 var _interpolated_scroll: float
@@ -17,10 +16,10 @@ func _ready() -> void:
 
 
 func _process(delta) -> void:
-	var input = Input.get_vector("left", "right", "down", "up")
-	world._root.player_insert_input(input)
+	var move = Input.get_vector("left", "right", "down", "up")
+	world._root.player_push_input(move)
 
-	var location = world._root.player_get_current_location()
+	var location = world._root.player_get_location()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))
@@ -57,8 +56,3 @@ func _process(delta) -> void:
 		view_size * 2,
 		view_size * 2
 	)
-
-	var mouse_position = get_viewport().get_mouse_position()
-	var cursor = camera.project_ray_origin(mouse_position)
-	var name_text = world._root.tile_get_name_text(Vector2i(cursor.x, cursor.y))
-	label.text = name_text

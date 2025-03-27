@@ -16,7 +16,7 @@ impl PlayerResource {
         Default::default()
     }
 
-    pub fn insert_current(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
+    pub fn insert_entity(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
         if self.current.is_some() {
             return Err(PlayerError::AlreadyExist.into());
         }
@@ -24,15 +24,15 @@ impl PlayerResource {
         Ok(())
     }
 
-    pub fn remove_current(&mut self) -> Result<EntityKey, RootError> {
+    pub fn remove_entity(&mut self) -> Result<EntityKey, RootError> {
         self.current.take().ok_or(PlayerError::NotFound.into())
     }
 
-    pub fn get_current(&self) -> Result<EntityKey, RootError> {
+    pub fn get_entity(&self) -> Result<EntityKey, RootError> {
         self.current.ok_or(PlayerError::NotFound.into())
     }
 
-    pub fn insert_input(&mut self, input: Vec2) -> Result<(), RootError> {
+    pub fn push_input(&mut self, input: Vec2) -> Result<(), RootError> {
         if self.input.is_some() {
             return Err(PlayerError::AlreadyExist.into());
         }
@@ -40,7 +40,7 @@ impl PlayerResource {
         Ok(())
     }
 
-    pub fn remove_input(&mut self) -> Result<Vec2, RootError> {
+    pub fn pop_input(&mut self) -> Result<Vec2, RootError> {
         self.input.take().ok_or(PlayerError::NotFound.into())
     }
 
@@ -50,7 +50,7 @@ impl PlayerResource {
 
     // utility
 
-    pub fn get_current_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
+    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
         let current = self.current.ok_or(PlayerError::NotFound)?;
         let location = root.entity_get(current)?.location;
         Ok(location)
@@ -93,7 +93,7 @@ impl EntityFeature for PlayerEntityFeature {
         })
         .unwrap();
 
-        root.player_insert_current(key).unwrap();
+        root.player_insert_entity(key).unwrap();
     }
 
     fn before_break(&self, root: &mut Root, key: EntityKey) {
@@ -104,7 +104,7 @@ impl EntityFeature for PlayerEntityFeature {
         let inventory_key = data.inventory_key;
         root.item_free_inventory(inventory_key).unwrap();
 
-        root.player_remove_current().unwrap();
+        root.player_remove_entity().unwrap();
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
@@ -113,7 +113,7 @@ impl EntityFeature for PlayerEntityFeature {
         let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
 
         // consume input
-        if let Ok(input) = root.player_remove_input() {
+        if let Ok(input) = root.player_pop_input() {
             let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
@@ -142,9 +142,9 @@ impl EntityFeature for PlayerEntityFeature {
             }
         }
 
-        root.player_remove_current().unwrap();
+        root.player_remove_entity().unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
-        root.player_insert_current(key).unwrap();
+        root.player_insert_entity(key).unwrap();
     }
 
     fn has_inventory(&self, _root: &Root, _key: EntityKey) -> bool {

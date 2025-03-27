@@ -9,6 +9,11 @@ class_name World
 var _root: Root
 
 
+func _init() -> void:
+	preload("res://shaders/field.gdshader")
+	preload("res://shaders/field_shadow.gdshader")
+
+
 func _ready() -> void:
 	_root = Root.create(get_world_3d())
 
@@ -16,9 +21,7 @@ func _ready() -> void:
 func _process(delta_secs) -> void:
 	# logic
 	_root.forwarder_exec_rect(min_forwarder_rect, delta_secs)
-
 	_root.gen_exec_rect(min_gen_rect)
-
 	_root.time_forward(delta_secs)
 
 	# rendering

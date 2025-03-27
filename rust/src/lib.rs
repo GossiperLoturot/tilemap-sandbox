@@ -465,22 +465,6 @@ impl Root {
     }
 
     #[func]
-    fn tile_get_name_text(&self, location: Vector2i) -> String {
-        let location = IVec2::new(location.x, location.y);
-        let key = self.context.root.tile_get_by_point(location).unwrap();
-        let name_text = self.context.root.tile_get_name_text(key).unwrap();
-        name_text.into()
-    }
-
-    #[func]
-    fn tile_get_desc_text(&self, location: Vector2i) -> String {
-        let location = IVec2::new(location.x, location.y);
-        let key = self.context.root.tile_get_by_point(location).unwrap();
-        let name_text = self.context.root.tile_get_name_text(key).unwrap();
-        name_text.into()
-    }
-
-    #[func]
     fn time_forward(&mut self, delta_secs: f32) {
         self.context.root.time_forward(delta_secs);
     }
@@ -519,14 +503,14 @@ impl Root {
     }
 
     #[func]
-    fn player_insert_input(&mut self, input: Vector2) {
+    fn player_push_input(&mut self, input: Vector2) {
         let input = Vec2::new(input.x, input.y);
-        self.context.root.player_insert_input(input).unwrap();
+        self.context.root.player_push_input(input).unwrap();
     }
 
     #[func]
-    fn player_get_current_location(&mut self) -> Vector2 {
-        let location = self.context.root.player_get_current_location().unwrap();
+    fn player_get_location(&mut self) -> Vector2 {
+        let location = self.context.root.player_get_location().unwrap();
         Vector2::new(location[0], location[1])
     }
 

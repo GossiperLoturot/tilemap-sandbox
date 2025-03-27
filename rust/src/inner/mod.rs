@@ -621,46 +621,46 @@ impl Root {
     }
 
     #[inline]
-    pub fn player_insert_current(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
+    pub fn player_insert_entity(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, _| resource.insert_current(entity_key),
+            |resource, _| resource.insert_entity(entity_key),
         )
         .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn player_remove_current(&mut self) -> Result<EntityKey, RootError> {
+    pub fn player_remove_entity(&mut self) -> Result<EntityKey, RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, _| resource.remove_current(),
+            |resource, _| resource.remove_entity(),
         )
         .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn player_get_current(&mut self) -> Result<EntityKey, RootError> {
+    pub fn player_get_entity(&mut self) -> Result<EntityKey, RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, _| resource.get_current(),
+            |resource, _| resource.get_entity(),
         )
         .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn player_insert_input(&mut self, input: Vec2) -> Result<(), RootError> {
+    pub fn player_push_input(&mut self, input: Vec2) -> Result<(), RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, _| resource.insert_input(input),
+            |resource, _| resource.push_input(input),
         )
         .ok_or(RootError::ResourceBusy)?
     }
 
     #[inline]
-    pub fn player_remove_input(&mut self) -> Result<Vec2, RootError> {
+    pub fn player_pop_input(&mut self) -> Result<Vec2, RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, _| resource.remove_input(),
+            |resource, _| resource.pop_input(),
         )
         .ok_or(RootError::ResourceBusy)?
     }
@@ -675,10 +675,10 @@ impl Root {
     }
 
     #[inline]
-    pub fn player_get_current_location(&mut self) -> Result<Vec2, RootError> {
+    pub fn player_get_location(&mut self) -> Result<Vec2, RootError> {
         self.exclusive(
             |root| &mut root.player_resource,
-            |resource, root| resource.get_current_location(root),
+            |resource, root| resource.get_location(root),
         )
         .ok_or(RootError::ResourceBusy)?
     }

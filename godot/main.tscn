@@ -4,26 +4,12 @@
 [ext_resource type="Script" path="res://scripts/player.gd" id="2_c0xk6"]
 [ext_resource type="Script" path="res://scripts/hook.gd" id="4_dx46x"]
 [ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="5_h8o78"]
-[ext_resource type="Shader" path="res://shaders/field.gdshader" id="5_kxxte"]
-[ext_resource type="Shader" path="res://shaders/field_shadow.gdshader" id="6_yaurj"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
 shader_parameter/vignette_intensity = 0.4
 shader_parameter/vignette_opacity = 0.25
 shader_parameter/vignette_color = Color(0, 0, 0, 1)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_gx6lw"]
-render_priority = 0
-shader = ExtResource("5_kxxte")
-shader_parameter/head_buffer = null
-shader_parameter/tick = null
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_u2d80"]
-render_priority = 0
-shader = ExtResource("6_yaurj")
-shader_parameter/head_buffer = null
-shader_parameter/tick = null
 
 [node name="Root" type="Node3D"]
 
@@ -41,7 +27,6 @@ world = NodePath("../World")
 camera = NodePath("../Camera3D")
 forward_size = 32.0
 view_size_over = 8.0
-label = NodePath("../CursorLabel")
 
 [node name="VignetteFilter" type="ColorRect" parent="."]
 material = SubResource("ShaderMaterial_eft26")
@@ -51,26 +36,5 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CursorLabel" type="Label" parent="."]
-offset_right = 40.0
-offset_bottom = 23.0
-
 [node name="Hook" type="Node" parent="."]
 script = ExtResource("4_dx46x")
-
-[node name="Preload" type="Node" parent="."]
-
-[node name="FieldShader" type="Control" parent="Preload"]
-material = SubResource("ShaderMaterial_gx6lw")
-layout_mode = 3
-anchors_preset = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="FieldShadowShader" type="Control" parent="Preload"]
-material = SubResource("ShaderMaterial_u2d80")
-layout_mode = 3
-anchors_preset = 0
-offset_top = -1.0
-offset_right = 40.0
-offset_bottom = 39.0
