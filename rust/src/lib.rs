@@ -1,3 +1,4 @@
+use decl::GenRuleDescriptor;
 use glam::*;
 use godot::prelude::*;
 
@@ -63,6 +64,7 @@ struct Registry {
     entity_chicken: u16,
     entity_bird: u16,
     item_package: u16,
+    inventory_player: u16,
 }
 
 #[derive(GodotClass)]
@@ -87,7 +89,7 @@ impl Root {
                 is_loop: false,
             }],
             collision: false,
-            feature: (),
+            feature: Box::new(()),
         });
         let tile_grass = builder.add_tile(|_| decl::TileDescriptor {
             name_text: "Grass".into(),
@@ -98,7 +100,7 @@ impl Root {
                 is_loop: false,
             }],
             collision: false,
-            feature: (),
+            feature: Box::new(()),
         });
 
         // blocks
@@ -114,7 +116,7 @@ impl Root {
             collision_offset: Vec2::new(0.0, 0.0),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(0.0, 0.0),
-            feature: (),
+            feature: Box::new(()),
         });
         let block_fallen_leaves = builder.add_block(|_| decl::BlockDescriptor {
             images: vec![decl::ImageDescriptor {
@@ -128,7 +130,7 @@ impl Root {
             collision_offset: Vec2::new(0.0, 0.0),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(0.0, 0.0),
-            feature: (),
+            feature: Box::new(()),
         });
         let block_mix_grass = builder.add_block(|_| decl::BlockDescriptor {
             images: vec![decl::ImageDescriptor {
@@ -142,7 +144,7 @@ impl Root {
             collision_offset: Vec2::new(0.0, 0.0),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(0.0, 0.0),
-            feature: (),
+            feature: Box::new(()),
         });
         let block_mix_pebbles = builder.add_block(|_| decl::BlockDescriptor {
             images: vec![decl::ImageDescriptor {
@@ -156,7 +158,7 @@ impl Root {
             collision_offset: Vec2::new(0.0, 0.0),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(0.0, 0.0),
-            feature: (),
+            feature: Box::new(()),
         });
 
         // entities
@@ -186,7 +188,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(1.5, 2.25),
             rendering_offset: Vec2::new(-0.75, 0.0),
-            feature: inner::PlayerEntityFeature,
+            feature: Box::new(inner::PlayerEntityFeature),
         });
         let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -214,7 +216,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(2.0, 2.0),
             rendering_offset: Vec2::new(-1.0, 0.0),
-            feature: inner::AnimalEntityFeature {
+            feature: Box::new(inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -222,7 +224,7 @@ impl Root {
                 speed: 1.0,
                 idle_variant: 0,
                 walk_variant: 1,
-            },
+            }),
         });
         let entity_cow = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -250,7 +252,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(2.0, 2.0),
             rendering_offset: Vec2::new(-1.0, 0.0),
-            feature: inner::AnimalEntityFeature {
+            feature: Box::new(inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -258,7 +260,7 @@ impl Root {
                 speed: 1.0,
                 idle_variant: 0,
                 walk_variant: 1,
-            },
+            }),
         });
         let entity_sheep = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -286,7 +288,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(2.0, 2.0),
             rendering_offset: Vec2::new(-1.0, 0.0),
-            feature: inner::AnimalEntityFeature {
+            feature: Box::new(inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -294,7 +296,7 @@ impl Root {
                 speed: 1.0,
                 idle_variant: 0,
                 walk_variant: 1,
-            },
+            }),
         });
         let entity_chicken = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -317,7 +319,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(-0.5, 0.0),
-            feature: inner::AnimalEntityFeature {
+            feature: Box::new(inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -325,7 +327,7 @@ impl Root {
                 speed: 1.0,
                 idle_variant: 0,
                 walk_variant: 1,
-            },
+            }),
         });
         let entity_bird = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -348,7 +350,7 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(1.0, 1.0),
             rendering_offset: Vec2::new(-0.5, 0.0),
-            feature: inner::AnimalEntityFeature {
+            feature: Box::new(inner::AnimalEntityFeature {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -356,7 +358,7 @@ impl Root {
                 speed: 1.0,
                 idle_variant: 0,
                 walk_variant: 1,
-            },
+            }),
         });
 
         // item
@@ -368,13 +370,16 @@ impl Root {
                 step_tick: 0,
                 is_loop: false,
             },
-            feature: (),
+            feature: Box::new(()),
         });
+
+        // inventory
+        let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {});
 
         // gen rule
         builder.add_gen_rule(|reg| {
             let id = reg.tile_grass;
-            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor {
+            let gen_rule = inner::MarchGenRule {
                 prob: 0.5,
                 gen_fn: Box::new(move |root, location| {
                     let tile = inner::Tile {
@@ -385,11 +390,14 @@ impl Root {
                     };
                     let _ = root.tile_insert(tile);
                 }),
-            })
+            };
+            GenRuleDescriptor {
+                gen_rule: Box::new(gen_rule),
+            }
         });
         builder.add_gen_rule(|reg| {
             let id = reg.tile_dirt;
-            decl::GenRuleDescriptor::March(decl::MarchGenRuleDescriptor {
+            let gen_rule = inner::MarchGenRule {
                 prob: 1.0,
                 gen_fn: Box::new(move |root, location| {
                     let tile = inner::Tile {
@@ -400,11 +408,14 @@ impl Root {
                     };
                     let _ = root.tile_insert(tile);
                 }),
-            })
+            };
+            GenRuleDescriptor {
+                gen_rule: Box::new(gen_rule),
+            }
         });
         builder.add_gen_rule(|reg| {
             let id = reg.block_dandelion;
-            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor {
+            let gen_rule = inner::SpawnGenRule {
                 prob: 0.05,
                 gen_fn: Box::new(move |root, location| {
                     let block = inner::Block {
@@ -415,11 +426,14 @@ impl Root {
                     };
                     let _ = root.block_insert(block);
                 }),
-            })
+            };
+            GenRuleDescriptor {
+                gen_rule: Box::new(gen_rule),
+            }
         });
         builder.add_gen_rule(|reg| {
             let id = reg.entity_bird;
-            decl::GenRuleDescriptor::Spawn(decl::SpawnGenRuleDescriptor {
+            let gen_rule = inner::SpawnGenRule {
                 prob: 0.05,
                 gen_fn: Box::new(move |root, location| {
                     let entity = inner::Entity {
@@ -430,7 +444,10 @@ impl Root {
                     };
                     let _ = root.entity_insert(entity);
                 }),
-            })
+            };
+            GenRuleDescriptor {
+                gen_rule: Box::new(gen_rule),
+            }
         });
 
         let register = Registry {
@@ -447,6 +464,7 @@ impl Root {
             entity_chicken,
             entity_bird,
             item_package,
+            inventory_player,
         };
         let desc = decl::BuildDescriptor {
             tile_shaders: vec!["res://shaders/field.gdshader".into()],
