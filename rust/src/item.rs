@@ -1,5 +1,7 @@
 use godot::prelude::*;
 
+use crate::inner;
+
 pub(crate) struct ItemImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
@@ -12,8 +14,15 @@ pub(crate) struct ItemDescriptor {
     pub image: ItemImageDescriptor,
 }
 
+pub(crate) struct InventoryDescriptor {
+    pub scene: Gd<PackedScene>,
+    pub slot_node_glob: String,
+}
+
 pub(crate) struct ItemStoreDescriptor {
     pub items: Vec<ItemDescriptor>,
+    pub inventories: Vec<InventoryDescriptor>,
+    pub node: Gd<godot::classes::Node>,
 }
 
 struct ItemProperty {
@@ -22,43 +31,92 @@ struct ItemProperty {
     image: ItemImageDescriptor,
 }
 
+struct InventoryProperty {
+    scene: Gd<PackedScene>,
+    slot_node_glob: String,
+}
+
+struct Inventory {
+    inventory_node: Gd<godot::classes::Node>,
+    slot_nodes: Array<Gd<godot::classes::Node>>,
+}
+
 #[derive(GodotClass)]
 #[class(no_init)]
 pub(crate) struct ItemStore {
-    props: Vec<ItemProperty>,
+    item_props: Vec<ItemProperty>,
+    inventory_props: Vec<InventoryProperty>,
+    node: Gd<godot::classes::Node>,
+
+    inventories: slab::Slab<Inventory>,
 }
 
 impl ItemStore {
     pub fn new(desc: ItemStoreDescriptor) -> Self {
-        let mut props = Vec::new();
+        let mut item_props = vec![];
         for desc in desc.items {
-            props.push(ItemProperty {
+            item_props.push(ItemProperty {
                 name_text: desc.name_text,
                 desc_text: desc.desc_text,
                 image: desc.image,
             });
         }
-        Self { props }
+
+        let mut inventory_props = vec![];
+        for desc in desc.inventories {
+            inventory_props.push(InventoryProperty {
+                scene: desc.scene,
+                slot_node_glob: desc.slot_node_glob,
+            });
+        }
+
+        Self {
+            node: desc.node,
+            item_props,
+            inventory_props,
+            inventories: slab::Slab::new(),
+        }
     }
 
-    pub fn get_name_text(&self, id: u32) -> Option<String> {
-        self.props
-            .get(id as usize)
-            .map(|prop| &prop.name_text)
-            .cloned()
+    pub fn open_inventory_by_entity(
+        &mut self,
+        root: &inner::Root,
+        key: inner::TileKey,
+    ) -> Result<u32, inner::RootError> {
+        let inventory_key = root
+            .entity_get_inventory(key)?
+            .expect("Entity does not have inventory");
+        let inventory = root.item_get_inventory(inventory_key)?;
+        let prop = self
+            .inventory_props
+            .get(inventory.id as usize)
+            .ok_or(inner::ItemError::InventoryInvalidId)?;
+
+        let key = self.inventories.vacant_key() as u32;
+
+        let inventory_node = prop
+            .scene
+            .instantiate()
+            .expect("Failed to instantiate inventory");
+        self.node.add_child(&inventory_node);
+
+        let slot_nodes = inventory_node.find_children(&prop.slot_node_glob);
+
+        let inventory = Inventory {
+            inventory_node,
+            slot_nodes,
+        };
+        self.inventories.insert(inventory);
+
+        Ok(key)
     }
 
-    pub fn get_desc_text(&self, id: u32) -> Option<String> {
-        self.props
-            .get(id as usize)
-            .map(|prop| &prop.desc_text)
-            .cloned()
-    }
-
-    pub fn get_image(&self, id: u32) -> Option<Gd<godot::classes::Image>> {
-        self.props
-            .get(id as usize)
-            .and_then(|prop| prop.image.frames.first())
-            .cloned()
+    pub fn close_inventory(&mut self, key: u32) -> Result<(), inner::ItemError> {
+        let inventory = self
+            .inventories
+            .try_remove(key as usize)
+            .ok_or(inner::ItemError::InventoryNotFound)?;
+        inventory.inventory_node.free();
+        Ok(())
     }
 }

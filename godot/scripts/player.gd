@@ -56,3 +56,8 @@ func _process(delta) -> void:
 		view_size * 2,
 		view_size * 2
 	)
+
+	if Input.is_action_just_released("inventory"):
+		var mouse_position = get_viewport().get_mouse_position()
+		var focus_location = camera.project_ray_origin(mouse_position)
+		world._root.item_open_inventory_by_entity(Vector2(focus_location.x, focus_location.y))

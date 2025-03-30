@@ -48,8 +48,6 @@ impl PlayerResource {
         self.input.ok_or(PlayerError::NotFound.into())
     }
 
-    // utility
-
     pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
         let current = self.current.ok_or(PlayerError::NotFound)?;
         let location = root.entity_get(current)?.location;
@@ -74,16 +72,14 @@ pub struct PlayerEntityData {
 impl EntityData for PlayerEntityData {}
 
 #[derive(Debug, Clone)]
-pub struct PlayerEntityFeature;
-
-impl PlayerEntityFeature {
-    const MOVE_SPEED: f32 = 3.0;
-    const INVENTORY_SIZE: u32 = 16;
+pub struct PlayerEntityFeature {
+    pub move_speed: f32,
+    pub inventory_id: u16,
 }
 
 impl EntityFeature for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
-        let inventory_key = root.item_alloc_inventory(Self::INVENTORY_SIZE).unwrap();
+        let inventory_key = root.item_insert_inventory(self.inventory_id).unwrap();
 
         root.entity_modify(key, |entity| {
             entity.data = Box::new(PlayerEntityData {
@@ -102,7 +98,7 @@ impl EntityFeature for PlayerEntityFeature {
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
 
         let inventory_key = data.inventory_key;
-        root.item_free_inventory(inventory_key).unwrap();
+        root.item_remove_inventory(inventory_key).unwrap();
 
         root.player_remove_entity().unwrap();
     }
@@ -117,7 +113,7 @@ impl EntityFeature for PlayerEntityFeature {
             let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
-                let location = entity.location + Self::MOVE_SPEED * input * delta_secs;
+                let location = entity.location + self.move_speed * input * delta_secs;
 
                 if !intersection_guard(root, key, location).unwrap() {
                     entity.location = location;

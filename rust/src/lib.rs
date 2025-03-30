@@ -76,7 +76,7 @@ struct Root {
 #[godot_api]
 impl Root {
     #[func]
-    fn create(world: Gd<godot::classes::World3D>) -> Gd<Self> {
+    fn create(world: Gd<godot::classes::World3D>, node: Gd<godot::classes::Node>) -> Gd<Self> {
         let mut builder = decl::ContextBuilder::<Registry>::new();
 
         // tiles
@@ -162,7 +162,7 @@ impl Root {
         });
 
         // entities
-        let entity_player = builder.add_entity(|_| decl::EntityDescriptor {
+        let entity_player = builder.add_entity(|reg| decl::EntityDescriptor {
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
@@ -188,7 +188,10 @@ impl Root {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(1.5, 2.25),
             rendering_offset: Vec2::new(-0.75, 0.0),
-            feature: Box::new(inner::PlayerEntityFeature),
+            feature: Box::new(inner::PlayerEntityFeature {
+                move_speed: 3.0,
+                inventory_id: reg.inventory_player,
+            }),
         });
         let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
             images: vec![
@@ -374,7 +377,10 @@ impl Root {
         });
 
         // inventory
-        let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {});
+        let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {
+            size: 32,
+            scene: "res://scenes/inventory_player.tscn".into(),
+        });
 
         // gen rule
         builder.add_gen_rule(|reg| {
@@ -477,6 +483,7 @@ impl Root {
                 "res://shaders/field_shadow.gdshader".into(),
             ],
             world,
+            node,
         };
         let context = builder.build(register, desc);
         Gd::from_object(Self { context })
@@ -530,6 +537,27 @@ impl Root {
     fn player_get_location(&mut self) -> Vector2 {
         let location = self.context.root.player_get_location().unwrap();
         Vector2::new(location[0], location[1])
+    }
+
+    #[func]
+    fn item_open_inventory_by_entity(&mut self, location: Vector2) -> u32 {
+        let location = Vec2::new(location.x, location.y);
+        let entities = self
+            .context
+            .root
+            .entity_get_by_hint_point(location)
+            .collect::<Vec<_>>();
+        let key = self
+            .context
+            .item_store
+            .open_inventory_by_entity(&self.context.root, entities[0])
+            .unwrap();
+        key
+    }
+
+    #[func]
+    fn item_close_inventory(&mut self, key: u32) {
+        self.context.item_store.close_inventory(key).unwrap();
     }
 
     #[func]

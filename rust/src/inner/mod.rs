@@ -497,20 +497,17 @@ impl Root {
     // item
 
     #[inline]
-    pub fn item_alloc_inventory(&mut self, slot_size: u32) -> Result<InventoryKey, ItemError> {
-        self.item_store.alloc_inventory(slot_size)
+    pub fn item_insert_inventory(&mut self, id: u16) -> Result<InventoryKey, ItemError> {
+        self.item_store.insert_inventory(id)
     }
 
     #[inline]
-    pub fn item_free_inventory(&mut self, inventory_key: InventoryKey) -> Result<(), ItemError> {
-        self.item_store.free_inventory(inventory_key)
+    pub fn item_remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, ItemError> {
+        self.item_store.remove_inventory(inventory_key)
     }
 
     #[inline]
-    pub fn item_get_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-    ) -> Result<&Inventory, ItemError> {
+    pub fn item_get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, ItemError> {
         self.item_store.get_inventory(inventory_key)
     }
 
@@ -530,7 +527,7 @@ impl Root {
 
     #[inline]
     pub fn item_search_item(
-        &mut self,
+        &self,
         inventory_key: InventoryKey,
         text: &str,
     ) -> Result<Vec<SlotKey>, ItemError> {

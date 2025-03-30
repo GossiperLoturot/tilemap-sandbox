@@ -45,7 +45,10 @@ pub struct ItemDescriptor {
     pub feature: Box<dyn inner::ItemFeature>,
 }
 
-pub struct InventoryDescriptor {}
+pub struct InventoryDescriptor {
+    pub size: u32,
+    pub scene: String,
+}
 
 pub struct GenRuleDescriptor {
     pub gen_rule: Box<dyn inner::GenRule>,
@@ -56,6 +59,7 @@ pub struct BuildDescriptor {
     pub block_shaders: Vec<String>,
     pub entity_shaders: Vec<String>,
     pub world: Gd<godot::classes::World3D>,
+    pub node: Gd<godot::classes::Node>,
 }
 
 type RegFn<R, T> = Box<dyn for<'a> FnOnce(&'a R) -> T>;
@@ -296,7 +300,6 @@ impl<R> ContextBuilder<R> {
                 name_text: desc.name_text.clone(),
             });
 
-            // TODO: image
             let mut frames = vec![];
             for image in desc.image.frames {
                 let image = load::<godot::classes::Image>(&image);
@@ -316,9 +319,28 @@ impl<R> ContextBuilder<R> {
             });
         }
 
-        let item_store_desc = inner::ItemStoreDescriptor { items };
+        let mut inventories = vec![];
+        let mut inventories_view = vec![];
+        for inventory in self.inventories {
+            let desc = inventory(&registry);
 
-        let item_store_view = item::ItemStore::new(item::ItemStoreDescriptor { items: items_view });
+            let scene = load::<godot::classes::PackedScene>(&desc.scene);
+
+            inventories.push(inner::InventoryDescriptor { size: desc.size });
+
+            inventories_view.push(item::InventoryDescriptor {
+                scene: scene.clone(),
+                slot_node_glob: "Slot#?*".into(),
+            });
+        }
+
+        let item_store_desc = inner::ItemStoreDescriptor { items, inventories };
+
+        let item_store_view = item::ItemStore::new(item::ItemStoreDescriptor {
+            items: items_view,
+            inventories: inventories_view,
+            node: desc.node,
+        });
 
         // gen rules
         let mut gen_rules = vec![];

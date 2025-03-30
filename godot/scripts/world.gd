@@ -15,7 +15,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	_root = Root.create(get_world_3d())
+	_root = Root.create(get_world_3d(), self)
 
 
 func _process(delta_secs) -> void:

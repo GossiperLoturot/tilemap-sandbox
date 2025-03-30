@@ -23,13 +23,24 @@ pub struct ItemDescriptor {
 }
 
 #[derive(Debug, Clone)]
+pub struct InventoryDescriptor {
+    pub size: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct ItemStoreDescriptor {
     pub items: Vec<ItemDescriptor>,
+    pub inventories: Vec<InventoryDescriptor>,
 }
 
 #[derive(Debug, Clone)]
 struct ItemProperty {
     name_text: String,
+}
+
+#[derive(Debug, Clone)]
+struct InventoryProperty {
+    size: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -48,46 +59,65 @@ pub struct Slot {
 
 #[derive(Debug, Clone)]
 pub struct Inventory {
-    pub version: u64,
+    pub id: u16,
+    pub size: u32,
     pub slots: Vec<Slot>,
+    pub version: u64,
 }
 
 #[derive(Debug, Clone)]
 pub struct ItemStore {
-    props: Vec<ItemProperty>,
+    item_props: Vec<ItemProperty>,
+    inventory_props: Vec<InventoryProperty>,
     inventories: slab::Slab<Inventory>,
 }
 
 impl ItemStore {
     pub fn new(desc: ItemStoreDescriptor) -> Self {
-        let mut props = vec![];
+        let mut item_props = vec![];
         for item in desc.items {
-            props.push(ItemProperty {
+            item_props.push(ItemProperty {
                 name_text: item.name_text,
             });
         }
 
+        let mut inventory_props = vec![];
+        for inventory in desc.inventories {
+            inventory_props.push(InventoryProperty {
+                size: inventory.size,
+            });
+        }
+
         Self {
-            props,
+            item_props,
+            inventory_props,
             inventories: Default::default(),
         }
     }
 
-    pub fn alloc_inventory(&mut self, slot_size: u32) -> Result<InventoryKey, ItemError> {
+    pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, ItemError> {
+        let props = self
+            .inventory_props
+            .get(id as usize)
+            .ok_or(ItemError::InventoryInvalidId)?;
+
         let inventory = Inventory {
+            id,
+            size: props.size,
+            slots: vec![Default::default(); props.size as usize],
             version: 0,
-            slots: vec![Default::default(); slot_size as usize],
         };
         let inventory_key = self.inventories.insert(inventory) as u32;
+
         Ok(inventory_key)
     }
 
-    pub fn free_inventory(&mut self, inventory_key: InventoryKey) -> Result<(), ItemError> {
-        let _ = self
+    pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, ItemError> {
+        let inventory = self
             .inventories
             .try_remove(inventory_key as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        Ok(())
+        Ok(inventory.id)
     }
 
     pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, ItemError> {
@@ -151,7 +181,7 @@ impl ItemStore {
             };
 
             let other_text = &self
-                .props
+                .item_props
                 .get(item.id as usize)
                 .ok_or(ItemError::ItemInvalidId)?
                 .name_text;
@@ -271,6 +301,7 @@ pub enum ItemError {
     ItemConflict,
     ItemInvalidId,
     InventoryNotFound,
+    InventoryInvalidId,
 }
 
 impl std::fmt::Display for ItemError {
@@ -278,8 +309,9 @@ impl std::fmt::Display for ItemError {
         match self {
             Self::ItemNotFound => write!(f, "not found item error"),
             Self::ItemConflict => write!(f, "conflict item error"),
-            Self::ItemInvalidId => write!(f, "invalid id error"),
+            Self::ItemInvalidId => write!(f, "invalid id item error"),
             Self::InventoryNotFound => write!(f, "not found inventory error"),
+            Self::InventoryInvalidId => write!(f, "invalid id inventory error"),
         }
     }
 }
