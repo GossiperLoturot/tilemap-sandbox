@@ -1,9 +1,9 @@
-[gd_scene load_steps=10 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=6 format=3 uid="uid://dwy0soa82f5eo"]
 
-[ext_resource type="Script" path="res://scripts/world.gd" id="1_b2r8a"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="2_c0xk6"]
-[ext_resource type="Script" path="res://scripts/hook.gd" id="4_dx46x"]
-[ext_resource type="Shader" path="res://shaders/vignette.gdshader" id="5_h8o78"]
+[ext_resource type="Script" uid="uid://bpv4xw5yua7lf" path="res://scripts/world.gd" id="1_b2r8a"]
+[ext_resource type="Script" uid="uid://cpx4qp1or133d" path="res://scripts/player.gd" id="2_c0xk6"]
+[ext_resource type="Script" uid="uid://bsd7tx34x8nw" path="res://scripts/hook.gd" id="4_dx46x"]
+[ext_resource type="Shader" uid="uid://lp00brq7ocmn" path="res://shaders/vignette.gdshader" id="5_h8o78"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -21,7 +21,7 @@ size = 32.0
 [node name="World" type="Node3D" parent="."]
 script = ExtResource("1_b2r8a")
 
-[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("world", "camera", "label")]
+[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("world", "camera")]
 script = ExtResource("2_c0xk6")
 world = NodePath("../World")
 camera = NodePath("../Camera3D")
