@@ -540,19 +540,43 @@ impl Root {
     }
 
     #[func]
+    fn item_open_inventory_by_tile(&mut self, location: Vector2) -> u32 {
+        let location = Vec2::new(location.x, location.y).as_ivec2();
+        let tile = self.context.root.tile_get_by_point(location).unwrap();
+        self.context
+            .item_store
+            .open_inventory_by_tile(&self.context.root, tile)
+            .unwrap()
+    }
+
+    #[func]
+    fn item_open_inventory_by_block(&mut self, location: Vector2) -> u32 {
+        let location = Vec2::new(location.x, location.y);
+        let block = self
+            .context
+            .root
+            .block_get_by_hint_point(location)
+            .next()
+            .unwrap();
+        self.context
+            .item_store
+            .open_inventory_by_block(&self.context.root, block)
+            .unwrap()
+    }
+
+    #[func]
     fn item_open_inventory_by_entity(&mut self, location: Vector2) -> u32 {
         let location = Vec2::new(location.x, location.y);
-        let entities = self
+        let entity = self
             .context
             .root
             .entity_get_by_hint_point(location)
-            .collect::<Vec<_>>();
-        let key = self
-            .context
-            .item_store
-            .open_inventory_by_entity(&self.context.root, entities[0])
+            .next()
             .unwrap();
-        key
+        self.context
+            .item_store
+            .open_inventory_by_entity(&self.context.root, entity)
+            .unwrap()
     }
 
     #[func]
