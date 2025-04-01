@@ -11,15 +11,16 @@ var _scroll: float
 var _interpolated_scroll: float
 
 
-func _ready() -> void:
-	world._root.player_spawn(Vector2())
+# spawn player
+func _enter_tree() -> void:
+	Root.player_spawn(Vector2())
 
 
 func _process(delta) -> void:
 	var move = Input.get_vector("left", "right", "down", "up")
-	world._root.player_push_input(move)
+	Root.player_push_input(move)
 
-	var location = world._root.player_get_location()
+	var location = Root.player_get_location()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))
@@ -60,4 +61,4 @@ func _process(delta) -> void:
 	if Input.is_action_just_released("inventory"):
 		var mouse_position = get_viewport().get_mouse_position()
 		var focus_location = camera.project_ray_origin(mouse_position)
-		world._root.item_open_inventory_by_entity(Vector2(focus_location.x, focus_location.y))
+		Root.item_open_inventory_by_entity(Vector2(focus_location.x, focus_location.y))

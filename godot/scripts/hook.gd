@@ -2,5 +2,9 @@ extends Node
 class_name Hook
 
 
-func _init() -> void:
-	PanicHook.set_hook()
+func _enter_tree() -> void:
+	PanicHook.open()
+
+
+func _exit_tree() -> void:
+	PanicHook.close()

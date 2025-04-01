@@ -1,4 +1,3 @@
-use decl::GenRuleDescriptor;
 use glam::*;
 use godot::prelude::*;
 
@@ -22,7 +21,7 @@ struct PanicHook {}
 #[godot_api]
 impl PanicHook {
     #[func]
-    fn set_hook() {
+    fn open() {
         godot_print!("Set panic hook");
 
         let hook = std::panic::take_hook();
@@ -47,6 +46,13 @@ impl PanicHook {
             hook(info);
         }));
     }
+
+    #[func]
+    fn close() {
+        godot_print!("Unset panic hook");
+
+        let _ = std::panic::take_hook();
+    }
 }
 
 #[allow(dead_code)]
@@ -67,16 +73,18 @@ struct Registry {
     inventory_player: u16,
 }
 
+thread_local! {
+    static CONTEXT: std::cell::RefCell<Option<decl::Context<Registry>>> = Default::default();
+}
+
 #[derive(GodotClass)]
 #[class(no_init)]
-struct Root {
-    context: decl::Context<Registry>,
-}
+struct Root;
 
 #[godot_api]
 impl Root {
     #[func]
-    fn create(world: Gd<godot::classes::World3D>, node: Gd<godot::classes::Node>) -> Gd<Self> {
+    fn open(world: Gd<godot::classes::World3D>, node: Gd<godot::classes::Node>) {
         let mut builder = decl::ContextBuilder::<Registry>::new();
 
         // tiles
@@ -397,7 +405,7 @@ impl Root {
                     let _ = root.tile_insert(tile);
                 }),
             };
-            GenRuleDescriptor {
+            decl::GenRuleDescriptor {
                 gen_rule: Box::new(gen_rule),
             }
         });
@@ -415,7 +423,7 @@ impl Root {
                     let _ = root.tile_insert(tile);
                 }),
             };
-            GenRuleDescriptor {
+            decl::GenRuleDescriptor {
                 gen_rule: Box::new(gen_rule),
             }
         });
@@ -433,7 +441,7 @@ impl Root {
                     let _ = root.block_insert(block);
                 }),
             };
-            GenRuleDescriptor {
+            decl::GenRuleDescriptor {
                 gen_rule: Box::new(gen_rule),
             }
         });
@@ -451,7 +459,7 @@ impl Root {
                     let _ = root.entity_insert(entity);
                 }),
             };
-            GenRuleDescriptor {
+            decl::GenRuleDescriptor {
                 gen_rule: Box::new(gen_rule),
             }
         });
@@ -486,118 +494,147 @@ impl Root {
             node,
         };
         let context = builder.build(register, desc);
-        Gd::from_object(Self { context })
+        CONTEXT.set(Some(context));
     }
 
     #[func]
-    fn time_forward(&mut self, delta_secs: f32) {
-        self.context.root.time_forward(delta_secs);
+    fn close() {
+        CONTEXT.take();
     }
 
     #[func]
-    fn forwarder_exec_rect(&mut self, min_rect: Rect2, delta_secs: f32) {
-        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-        let min_rect = [position, position + size];
+    fn time_forward(delta_secs: f32) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
 
-        self.context
-            .root
-            .forwarder_exec_rect(min_rect, delta_secs)
-            .unwrap();
+            context.root.time_forward(delta_secs);
+        })
     }
 
     #[func]
-    fn gen_exec_rect(&mut self, min_rect: Rect2) {
-        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-        let min_rect = [position, position + size];
+    fn forwarder_exec_rect(min_rect: Rect2, delta_secs: f32) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
 
-        self.context.root.gen_exec_rect(min_rect).unwrap();
+            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+            let min_rect = [position, position + size];
+            context
+                .root
+                .forwarder_exec_rect(min_rect, delta_secs)
+                .unwrap();
+        })
     }
 
     #[func]
-    fn player_spawn(&mut self, location: Vector2) {
-        let location = Vec2::new(location.x, location.y);
-        let entity = inner::Entity {
-            id: self.context.registry.entity_player,
-            location,
-            data: Default::default(),
-            render_param: Default::default(),
-        };
-        self.context.root.entity_insert(entity).unwrap();
+    fn gen_exec_rect(min_rect: Rect2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+            let min_rect = [position, position + size];
+            context.root.gen_exec_rect(min_rect).unwrap();
+        })
     }
 
     #[func]
-    fn player_push_input(&mut self, input: Vector2) {
-        let input = Vec2::new(input.x, input.y);
-        self.context.root.player_push_input(input).unwrap();
+    fn player_spawn(location: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let location = Vec2::new(location.x, location.y);
+            let entity = inner::Entity {
+                id: context.registry.entity_player,
+                location,
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            context.root.entity_insert(entity).unwrap();
+        })
     }
 
     #[func]
-    fn player_get_location(&mut self) -> Vector2 {
-        let location = self.context.root.player_get_location().unwrap();
-        Vector2::new(location[0], location[1])
+    fn player_push_input(input: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let input = Vec2::new(input.x, input.y);
+            context.root.player_push_input(input).unwrap();
+        })
     }
 
     #[func]
-    fn item_open_inventory_by_tile(&mut self, location: Vector2) -> u32 {
-        let location = Vec2::new(location.x, location.y).as_ivec2();
-        let tile = self.context.root.tile_get_by_point(location).unwrap();
-        self.context
-            .item_store
-            .open_inventory_by_tile(&self.context.root, tile)
-            .unwrap()
+    fn player_get_location() -> Vector2 {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let location = context.root.player_get_location().unwrap();
+            Vector2::new(location[0], location[1])
+        })
     }
 
     #[func]
-    fn item_open_inventory_by_block(&mut self, location: Vector2) -> u32 {
-        let location = Vec2::new(location.x, location.y);
-        let block = self
-            .context
-            .root
-            .block_get_by_hint_point(location)
-            .next()
-            .unwrap();
-        self.context
-            .item_store
-            .open_inventory_by_block(&self.context.root, block)
-            .unwrap()
+    fn item_open_inventory_by_tile(location: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let location = Vec2::new(location.x, location.y).as_ivec2();
+            let tile = context.root.tile_get_by_point(location).unwrap();
+            context
+                .item_store
+                .open_inventory_by_tile(&context.root, tile)
+                .unwrap();
+        })
     }
 
     #[func]
-    fn item_open_inventory_by_entity(&mut self, location: Vector2) -> u32 {
-        let location = Vec2::new(location.x, location.y);
-        let entity = self
-            .context
-            .root
-            .entity_get_by_hint_point(location)
-            .next()
-            .unwrap();
-        self.context
-            .item_store
-            .open_inventory_by_entity(&self.context.root, entity)
-            .unwrap()
+    fn item_open_inventory_by_block(location: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let location = Vec2::new(location.x, location.y);
+            let block = context
+                .root
+                .block_get_by_hint_point(location)
+                .next()
+                .unwrap();
+            context
+                .item_store
+                .open_inventory_by_block(&context.root, block)
+                .unwrap();
+        })
     }
 
     #[func]
-    fn item_close_inventory(&mut self, key: u32) {
-        self.context.item_store.close_inventory(key).unwrap();
+    fn item_open_inventory_by_entity(location: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let location = Vec2::new(location.x, location.y);
+            let entity = context
+                .root
+                .entity_get_by_hint_point(location)
+                .next()
+                .unwrap();
+            context
+                .item_store
+                .open_inventory_by_entity(&context.root, entity)
+                .unwrap();
+        })
     }
 
     #[func]
-    fn update_view(&mut self, min_rect: Rect2) {
-        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-        let min_rect = [position, position + size];
+    fn update_view(min_rect: Rect2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
 
-        self.context
-            .tile_field
-            .update_view(&self.context.root, min_rect);
-        self.context
-            .block_field
-            .update_view(&self.context.root, min_rect);
-        self.context
-            .entity_field
-            .update_view(&self.context.root, min_rect);
+            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+            let min_rect = [position, position + size];
+            context.tile_field.update_view(&context.root, min_rect);
+            context.block_field.update_view(&context.root, min_rect);
+            context.entity_field.update_view(&context.root, min_rect);
+        })
     }
 }

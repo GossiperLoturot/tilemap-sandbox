@@ -330,7 +330,6 @@ impl<R> ContextBuilder<R> {
 
             inventories_view.push(item::InventoryDescriptor {
                 scene: scene.clone(),
-                slot_node_glob: "Slot#?*".into(),
             });
         }
 

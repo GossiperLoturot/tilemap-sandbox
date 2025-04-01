@@ -1,19 +1,15 @@
 extends Control
-class_name Inventory
+class_name InventoryPlayer
 
 
-@export var _inventory_key: int
-@export var _slot_nodes: Array[Control]
+var _inventory_key: int
 
 
+# invoked by the instantiate function
 func set_inventory_key(inventory_key: int) -> void:
 	_inventory_key = inventory_key
 
 
-func get_slot_nodes() -> Array[Control]:
-	return _slot_nodes
-
-
+# invoked by the signal
 func close_inventory() -> void:
-	print("CLOSE")
-	queue_free()
+	self.queue_free()
