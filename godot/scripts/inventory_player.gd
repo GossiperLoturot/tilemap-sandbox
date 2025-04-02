@@ -2,6 +2,8 @@ extends Control
 class_name InventoryPlayer
 
 
+@export var item_nodes: Array[Control]
+
 var _inventory_key: int
 
 
@@ -13,3 +15,8 @@ func set_inventory_key(inventory_key: int) -> void:
 # invoked by the signal
 func close_inventory() -> void:
 	self.queue_free()
+
+
+func _process(_delta: float) -> void:
+	for i in item_nodes.size():
+		Root.item_draw_view(_inventory_key, i, item_nodes[i])

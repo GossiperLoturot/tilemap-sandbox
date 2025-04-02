@@ -73,9 +73,8 @@ struct Registry {
     inventory_player: u16,
 }
 
-thread_local! {
-    static CONTEXT: std::cell::RefCell<Option<decl::Context<Registry>>> = Default::default();
-}
+type MutCell<T> = std::cell::RefCell<Option<T>>;
+thread_local! { static CONTEXT: MutCell<decl::Context<Registry>> = Default::default(); }
 
 #[derive(GodotClass)]
 #[class(no_init)]
@@ -376,11 +375,11 @@ impl Root {
         let item_package = builder.add_item(|_| decl::ItemDescriptor {
             name_text: "Package".into(),
             desc_text: "A package of items.".into(),
-            image: decl::ImageDescriptor {
+            images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/package.webp".into()],
                 step_tick: 0,
                 is_loop: false,
-            },
+            }],
             feature: Box::new(()),
         });
 
@@ -550,7 +549,21 @@ impl Root {
                 data: Default::default(),
                 render_param: Default::default(),
             };
-            context.root.entity_insert(entity).unwrap();
+            let entity_key = context.root.entity_insert(entity).unwrap();
+
+            // for inventory and item rendering test
+            let inventory_key = context
+                .root
+                .entity_get_inventory(entity_key)
+                .unwrap()
+                .unwrap();
+            let item = inner::Item {
+                id: context.registry.item_package,
+                amount: 1,
+                data: Default::default(),
+                render_param: Default::default(),
+            };
+            context.root.item_push_item(inventory_key, item).unwrap();
         })
     }
 
@@ -620,6 +633,23 @@ impl Root {
             context
                 .item_store
                 .open_inventory_by_entity(&context.root, entity)
+                .unwrap();
+        })
+    }
+
+    #[func]
+    fn item_draw_view(
+        inventory_key: u32,
+        local_key: u32,
+        control_item: Gd<godot::classes::Control>,
+    ) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let slot_key = (inventory_key, local_key);
+            context
+                .item_store
+                .draw_view(&context.root, slot_key, control_item)
                 .unwrap();
         })
     }

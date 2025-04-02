@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c5ajqg4r7ukm0" path="res://scripts/inventory_player.gd" id="1_05u7a"]
 
-[node name="InventoryPlayer" type="Control"]
+[node name="InventoryPlayer" type="Control" node_paths=PackedStringArray("item_nodes")]
 custom_minimum_size = Vector2(320, 240)
 layout_mode = 3
 anchors_preset = 8
@@ -17,6 +17,7 @@ offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_05u7a")
+item_nodes = [NodePath("GridContainer/Slot#0"), NodePath("GridContainer/Slot#1"), NodePath("GridContainer/Slot#2")]
 
 [node name="Panel" type="Panel" parent="."]
 layout_mode = 1

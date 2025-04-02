@@ -41,7 +41,7 @@ pub struct EntityDescriptor {
 pub struct ItemDescriptor {
     pub name_text: String,
     pub desc_text: String,
-    pub image: ImageDescriptor,
+    pub images: Vec<ImageDescriptor>,
     pub feature: Box<dyn inner::ItemFeature>,
 }
 
@@ -300,22 +300,25 @@ impl<R> ContextBuilder<R> {
                 name_text: desc.name_text.clone(),
             });
 
-            let mut frames = vec![];
-            for image in desc.image.frames {
-                let image = load::<godot::classes::Image>(&image);
-                frames.push(image);
-            }
+            let mut images = vec![];
+            for image in desc.images {
+                let mut frames = vec![];
+                for image in image.frames {
+                    let image = load::<godot::classes::Image>(&image);
+                    frames.push(image);
+                }
 
-            let image = item::ItemImageDescriptor {
-                frames,
-                step_tick: desc.image.step_tick,
-                is_loop: desc.image.is_loop,
-            };
+                images.push(item::ItemImageDescriptor {
+                    frames,
+                    step_tick: image.step_tick,
+                    is_loop: image.is_loop,
+                });
+            }
 
             items_view.push(item::ItemDescriptor {
                 name_text: desc.name_text.clone(),
                 desc_text: desc.desc_text.clone(),
-                image,
+                images,
             });
         }
 

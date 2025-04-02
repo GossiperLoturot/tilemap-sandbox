@@ -17,11 +17,11 @@ func _enter_tree() -> void:
 	Root.open(get_world_3d(), self)
 
 
-func _process(delta_secs) -> void:
+func _process(delta: float) -> void:
 	# logic
-	Root.forwarder_exec_rect(min_forwarder_rect, delta_secs)
+	Root.forwarder_exec_rect(min_forwarder_rect, delta)
 	Root.gen_exec_rect(min_gen_rect)
-	Root.time_forward(delta_secs)
+	Root.time_forward(delta)
 	# rendering
 	Root.update_view(min_view_rect)
 
