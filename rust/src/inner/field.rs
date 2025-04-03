@@ -323,6 +323,8 @@ pub type BlockKey = (u32, u32);
 
 #[derive(Debug, Clone)]
 pub struct BlockDescriptor {
+    pub name_text: String,
+    pub desc_text: String,
     pub size: IVec2,
     pub collision_size: Vec2,
     pub collision_offset: Vec2,
@@ -337,6 +339,8 @@ pub struct BlockFieldDescriptor {
 
 #[derive(Debug, Clone)]
 struct BlockProperty {
+    name_text: String,
+    desc_text: String,
     size: IVec2,
     collision_size: Vec2,
     collision_offset: Vec2,
@@ -419,6 +423,8 @@ impl BlockField {
             }
 
             props.push(BlockProperty {
+                name_text: block.name_text,
+                desc_text: block.desc_text,
                 size: block.size,
                 collision_size: block.collision_size,
                 collision_offset: block.collision_offset,
@@ -625,6 +631,20 @@ impl BlockField {
             .ok_or(FieldError::NotFound)
     }
 
+    #[inline]
+    pub fn get_name_text(&self, key: BlockKey) -> Result<&str, FieldError> {
+        let block = self.get(key)?;
+        let prop = self.props.get(block.id as usize).unwrap();
+        Ok(&prop.name_text)
+    }
+
+    #[inline]
+    pub fn get_desc_text(&self, key: BlockKey) -> Result<&str, FieldError> {
+        let block = self.get(key)?;
+        let prop = self.props.get(block.id as usize).unwrap();
+        Ok(&prop.desc_text)
+    }
+
     // spatial features
 
     #[inline]
@@ -786,6 +806,8 @@ pub type EntityKey = (u32, u32);
 
 #[derive(Debug, Clone)]
 pub struct EntityDescriptor {
+    pub name_text: String,
+    pub desc_text: String,
     pub collision_size: Vec2,
     pub collision_offset: Vec2,
     pub hint_size: Vec2,
@@ -799,6 +821,8 @@ pub struct EntityFieldDescriptor {
 
 #[derive(Debug, Clone)]
 pub struct EntityProperty {
+    name_text: String,
+    desc_text: String,
     collision_size: Vec2,
     collision_offset: Vec2,
     hint_size: Vec2,
@@ -866,6 +890,8 @@ impl EntityField {
             }
 
             props.push(EntityProperty {
+                name_text: entity.name_text,
+                desc_text: entity.desc_text,
                 collision_size: entity.collision_size,
                 collision_offset: entity.collision_offset,
                 hint_size: entity.hint_size,
@@ -1038,6 +1064,20 @@ impl EntityField {
         self.chunks
             .get(chunk_key as usize)
             .ok_or(FieldError::NotFound)
+    }
+
+    #[inline]
+    pub fn get_name_text(&self, key: EntityKey) -> Result<&str, FieldError> {
+        let entity = self.get(key)?;
+        let prop = self.props.get(entity.id as usize).unwrap();
+        Ok(&prop.name_text)
+    }
+
+    #[inline]
+    pub fn get_desc_text(&self, key: EntityKey) -> Result<&str, FieldError> {
+        let entity = self.get(key)?;
+        let prop = self.props.get(entity.id as usize).unwrap();
+        Ok(&prop.desc_text)
     }
 
     // spatial features
@@ -1546,6 +1586,8 @@ mod tests {
     fn block_field_with_invalid() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
+                name_text: "block_0".into(),
+                desc_text: "block_0_desc".into(),
                 size: IVec2::new(-1, -1),
                 collision_size: Vec2::new(1.0, 1.0),
                 collision_offset: Vec2::new(0.0, 0.0),
@@ -1560,6 +1602,8 @@ mod tests {
     fn block_field_with_invalid_collision() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
+                name_text: "block_0".into(),
+                desc_text: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
                 collision_size: Vec2::new(-1.0, -1.0),
                 collision_offset: Vec2::new(0.0, 0.0),
@@ -1574,6 +1618,8 @@ mod tests {
     fn block_field_with_invalid_hint() {
         let _: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![BlockDescriptor {
+                name_text: "block_0".into(),
+                desc_text: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
                 collision_size: Vec2::new(1.0, 1.0),
                 collision_offset: Vec2::new(0.0, 0.0),
@@ -1588,6 +1634,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1595,6 +1643,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1641,6 +1691,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1648,6 +1700,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1700,6 +1754,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1707,6 +1763,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1760,6 +1818,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1767,6 +1827,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1824,6 +1886,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1831,6 +1895,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1868,6 +1934,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1875,6 +1943,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1935,6 +2005,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -1942,6 +2014,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -2002,6 +2076,8 @@ mod tests {
         let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
             blocks: vec![
                 BlockDescriptor {
+                    name_text: "block_0".into(),
+                    desc_text: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -2009,6 +2085,8 @@ mod tests {
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 BlockDescriptor {
+                    name_text: "block_1".into(),
+                    desc_text: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
@@ -2056,6 +2134,8 @@ mod tests {
     fn entity_field_with_invalid_collision() {
         let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
+                name_text: "entity_0".into(),
+                desc_text: "entity_0_desc".into(),
                 collision_size: Vec2::new(-1.0, -1.0),
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
@@ -2069,6 +2149,8 @@ mod tests {
     fn entity_field_with_invalid_hint() {
         let _: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![EntityDescriptor {
+                name_text: "entity_0".into(),
+                desc_text: "entity_0_desc".into(),
                 collision_size: Vec2::new(1.0, 1.0),
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(-1.0, -1.0),
@@ -2082,12 +2164,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2122,12 +2208,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2152,12 +2242,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2205,12 +2299,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2243,12 +2341,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2280,12 +2382,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2345,12 +2451,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
@@ -2410,12 +2520,16 @@ mod tests {
         let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
             entities: vec![
                 EntityDescriptor {
+                    name_text: "entity_0".into(),
+                    desc_text: "entity_0_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
                 },
                 EntityDescriptor {
+                    name_text: "entity_1".into(),
+                    desc_text: "entity_1_desc".into(),
                     collision_size: Vec2::new(1.0, 1.0),
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),

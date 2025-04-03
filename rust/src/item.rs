@@ -116,7 +116,7 @@ impl ItemStore {
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
             .tile_get_inventory(tile_key)?
-            .expect("Tile does not have inventory");
+            .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
     }
@@ -128,7 +128,7 @@ impl ItemStore {
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
             .block_get_inventory(block_key)?
-            .expect("Block does not have inventory");
+            .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
     }
@@ -140,7 +140,7 @@ impl ItemStore {
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
             .entity_get_inventory(tile_key)?
-            .expect("Entity does not have inventory");
+            .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
     }
@@ -168,6 +168,60 @@ impl ItemStore {
         Ok(())
     }
 
+    pub fn has_item(
+        &mut self,
+        root: &inner::Root,
+        slot_key: inner::SlotKey,
+    ) -> Result<bool, inner::ItemError> {
+        let (inventory_key, local_key) = slot_key;
+        let inventory = root.item_get_inventory(inventory_key)?;
+        let slot = inventory
+            .slots
+            .get(local_key as usize)
+            .ok_or(inner::ItemError::ItemNotFound)?;
+        Ok(slot.item.is_some())
+    }
+
+    pub fn get_name_text(
+        &mut self,
+        root: &inner::Root,
+        slot_key: inner::SlotKey,
+    ) -> Result<String, inner::ItemError> {
+        let (inventory_key, local_key) = slot_key;
+        let inventory = root.item_get_inventory(inventory_key)?;
+        let slot = inventory
+            .slots
+            .get(local_key as usize)
+            .ok_or(inner::ItemError::ItemNotFound)?;
+        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
+
+        let item_prop = self
+            .item_props
+            .get(item.id as usize)
+            .ok_or(inner::ItemError::ItemInvalidId)?;
+        Ok(item_prop.name_text.clone())
+    }
+
+    pub fn get_desc_text(
+        &mut self,
+        root: &inner::Root,
+        slot_key: inner::SlotKey,
+    ) -> Result<String, inner::ItemError> {
+        let (inventory_key, local_key) = slot_key;
+        let inventory = root.item_get_inventory(inventory_key)?;
+        let slot = inventory
+            .slots
+            .get(local_key as usize)
+            .ok_or(inner::ItemError::ItemNotFound)?;
+        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
+
+        let item_prop = self
+            .item_props
+            .get(item.id as usize)
+            .ok_or(inner::ItemError::ItemInvalidId)?;
+        Ok(item_prop.desc_text.clone())
+    }
+
     pub fn draw_view(
         &self,
         root: &inner::Root,
@@ -180,32 +234,32 @@ impl ItemStore {
             .slots
             .get(local_key as usize)
             .ok_or(inner::ItemError::ItemNotFound)?;
+        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
 
-        if let Some(item) = &slot.item {
-            let canvas_item = control_item.get_canvas_item();
+        // rendering
 
-            let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
+        let canvas_item = control_item.get_canvas_item();
 
-            let image_head =
-                &self.image_heads[item.id as usize][item.render_param.variant as usize];
-            let texcoord_id = if image_head.step_tick == 0 {
-                image_head.start_texcoord_id
+        let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
+
+        let image_head = &self.image_heads[item.id as usize][item.render_param.variant as usize];
+        let texcoord_id = if image_head.step_tick == 0 {
+            image_head.start_texcoord_id
+        } else {
+            let step_id =
+                (root.time_tick() as u32 - item.render_param.tick) / image_head.step_tick as u32;
+            let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
+            if image_head.is_loop {
+                image_head.start_texcoord_id + (step_id % step_size)
             } else {
-                let step_id = (root.time_tick() as u32 - item.render_param.tick)
-                    / image_head.step_tick as u32;
-                let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
-                if image_head.is_loop {
-                    image_head.start_texcoord_id + (step_id % step_size)
-                } else {
-                    image_head.start_texcoord_id + u32::min(step_id, step_size - 1)
-                }
-            };
-            let texture = self.textures[texcoord_id as usize];
+                image_head.start_texcoord_id + u32::min(step_id, step_size - 1)
+            }
+        };
+        let texture = self.textures[texcoord_id as usize];
 
-            let mut rendering_server = godot::classes::RenderingServer::singleton();
-            rendering_server.canvas_item_clear(canvas_item);
-            rendering_server.canvas_item_add_texture_rect(canvas_item, rect, texture);
-        }
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        rendering_server.canvas_item_clear(canvas_item);
+        rendering_server.canvas_item_add_texture_rect(canvas_item, rect, texture);
 
         Ok(())
     }

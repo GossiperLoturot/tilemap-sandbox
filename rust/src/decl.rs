@@ -18,6 +18,8 @@ pub struct TileDescriptor {
 }
 
 pub struct BlockDescriptor {
+    pub name_text: String,
+    pub desc_text: String,
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub size: IVec2,
@@ -29,6 +31,8 @@ pub struct BlockDescriptor {
 }
 
 pub struct EntityDescriptor {
+    pub name_text: String,
+    pub desc_text: String,
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub collision_size: Vec2,
@@ -192,6 +196,8 @@ impl<R> ContextBuilder<R> {
             block_features.push(desc.feature);
 
             blocks.push(inner::BlockDescriptor {
+                name_text: desc.name_text,
+                desc_text: desc.desc_text,
                 size: desc.size,
                 collision_size: desc.collision_size,
                 collision_offset: desc.collision_offset,
@@ -245,6 +251,8 @@ impl<R> ContextBuilder<R> {
             entity_features.push(desc.feature);
 
             entities.push(inner::EntityDescriptor {
+                name_text: desc.name_text,
+                desc_text: desc.desc_text,
                 collision_size: desc.collision_size,
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,

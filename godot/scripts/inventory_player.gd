@@ -19,4 +19,5 @@ func close_inventory() -> void:
 
 func _process(_delta: float) -> void:
 	for i in item_nodes.size():
-		Root.item_draw_view(_inventory_key, i, item_nodes[i])
+		if Root.item_has_item(_inventory_key, i):
+			Root.item_draw_view(_inventory_key, i, item_nodes[i])

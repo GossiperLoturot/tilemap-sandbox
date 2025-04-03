@@ -242,6 +242,14 @@ impl Root {
         Ok(chunk)
     }
 
+    pub fn block_get_name_text(&self, block_key: BlockKey) -> Result<&str, FieldError> {
+        self.block_field.get_name_text(block_key)
+    }
+
+    pub fn block_get_desc_text(&self, block_key: BlockKey) -> Result<&str, FieldError> {
+        self.block_field.get_desc_text(block_key)
+    }
+
     // block spatial features
 
     #[inline]
@@ -404,6 +412,14 @@ impl Root {
             .ok_or(FieldError::NotFound)?;
         let chunk = self.entity_field.get_chunk(chunk_key).unwrap();
         Ok(chunk)
+    }
+
+    pub fn entity_get_name_text(&self, entity_key: EntityKey) -> Result<&str, FieldError> {
+        self.entity_field.get_name_text(entity_key)
+    }
+
+    pub fn entity_get_desc_text(&self, entity_key: EntityKey) -> Result<&str, FieldError> {
+        self.entity_field.get_desc_text(entity_key)
     }
 
     // entity collision features

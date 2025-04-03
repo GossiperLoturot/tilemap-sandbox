@@ -159,6 +159,8 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
+                        name_text: "block_0".into(),
+                        desc_text: "block_0_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -166,6 +168,8 @@ fn benchmark(c: &mut Criterion) {
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
+                        name_text: "block_1".into(),
+                        desc_text: "block_1_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -197,6 +201,8 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
+                        name_text: "block_0".into(),
+                        desc_text: "block_0_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -204,6 +210,8 @@ fn benchmark(c: &mut Criterion) {
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
+                        name_text: "block_1".into(),
+                        desc_text: "block_1_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -240,6 +248,8 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
+                        name_text: "block_0".into(),
+                        desc_text: "block_0_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -247,6 +257,8 @@ fn benchmark(c: &mut Criterion) {
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
+                        name_text: "block_1".into(),
+                        desc_text: "block_1_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -283,6 +295,8 @@ fn benchmark(c: &mut Criterion) {
             let mut field: BlockField = BlockField::new(BlockFieldDescriptor {
                 blocks: vec![
                     BlockDescriptor {
+                        name_text: "block_0".into(),
+                        desc_text: "block_0_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -290,6 +304,8 @@ fn benchmark(c: &mut Criterion) {
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     BlockDescriptor {
+                        name_text: "block_1".into(),
+                        desc_text: "block_1_desc".into(),
                         size: IVec2::new(1, 1),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
@@ -326,12 +342,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
+                        name_text: "entity_0".into(),
+                        desc_text: "entity_0_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
+                        name_text: "entity_1".into(),
+                        desc_text: "entity_1_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
@@ -362,12 +382,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
+                        name_text: "entity_0".into(),
+                        desc_text: "entity_0_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
+                        name_text: "entity_1".into(),
+                        desc_text: "entity_1_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
@@ -403,12 +427,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
+                        name_text: "entity_0".into(),
+                        desc_text: "entity_0_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
+                        name_text: "entity_1".into(),
+                        desc_text: "entity_1_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
@@ -444,12 +472,16 @@ fn benchmark(c: &mut Criterion) {
             let mut field: EntityField = EntityField::new(EntityFieldDescriptor {
                 entities: vec![
                     EntityDescriptor {
+                        name_text: "entity_0".into(),
+                        desc_text: "entity_0_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
                     },
                     EntityDescriptor {
+                        name_text: "entity_1".into(),
+                        desc_text: "entity_1_desc".into(),
                         collision_size: Vec2::new(1.0, 1.0),
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),

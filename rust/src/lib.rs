@@ -112,6 +112,8 @@ impl Root {
 
         // blocks
         let block_dandelion = builder.add_block(|_| decl::BlockDescriptor {
+            name_text: "Dandelion".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/dandelion.webp".into()],
                 step_tick: 0,
@@ -126,6 +128,8 @@ impl Root {
             feature: Box::new(()),
         });
         let block_fallen_leaves = builder.add_block(|_| decl::BlockDescriptor {
+            name_text: "Fallen Leaves".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/fallen_leaves.webp".into()],
                 step_tick: 0,
@@ -140,6 +144,8 @@ impl Root {
             feature: Box::new(()),
         });
         let block_mix_grass = builder.add_block(|_| decl::BlockDescriptor {
+            name_text: "Grass".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/mix_grass.webp".into()],
                 step_tick: 0,
@@ -154,6 +160,8 @@ impl Root {
             feature: Box::new(()),
         });
         let block_mix_pebbles = builder.add_block(|_| decl::BlockDescriptor {
+            name_text: "Pebbles".into(),
+            desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
                 frames: vec!["res://images/mix_pebbles.webp".into()],
                 step_tick: 0,
@@ -170,6 +178,8 @@ impl Root {
 
         // entities
         let entity_player = builder.add_entity(|reg| decl::EntityDescriptor {
+            name_text: "Player".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
@@ -201,6 +211,8 @@ impl Root {
             }),
         });
         let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
+            name_text: "Pig".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
@@ -237,6 +249,8 @@ impl Root {
             }),
         });
         let entity_cow = builder.add_entity(|_| decl::EntityDescriptor {
+            name_text: "Cow".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
@@ -273,6 +287,8 @@ impl Root {
             }),
         });
         let entity_sheep = builder.add_entity(|_| decl::EntityDescriptor {
+            name_text: "Sheep".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
@@ -309,6 +325,8 @@ impl Root {
             }),
         });
         let entity_chicken = builder.add_entity(|_| decl::EntityDescriptor {
+            name_text: "Chicken".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec!["res://images/chicken_idle.webp".into()],
@@ -340,6 +358,8 @@ impl Root {
             }),
         });
         let entity_bird = builder.add_entity(|_| decl::EntityDescriptor {
+            name_text: "Bird".into(),
+            desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec!["res://images/bird_idle.webp".into()],
@@ -593,11 +613,11 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y).as_ivec2();
-            let tile = context.root.tile_get_by_point(location).unwrap();
-            context
-                .item_store
-                .open_inventory_by_tile(&context.root, tile)
-                .unwrap();
+            if let Some(tile) = context.root.tile_get_by_point(location) {
+                let _ = context
+                    .item_store
+                    .open_inventory_by_tile(&context.root, tile);
+            }
         })
     }
 
@@ -607,15 +627,11 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y);
-            let block = context
-                .root
-                .block_get_by_hint_point(location)
-                .next()
-                .unwrap();
-            context
-                .item_store
-                .open_inventory_by_block(&context.root, block)
-                .unwrap();
+            if let Some(block) = context.root.block_get_by_hint_point(location).next() {
+                let _ = context
+                    .item_store
+                    .open_inventory_by_block(&context.root, block);
+            }
         })
     }
 
@@ -625,15 +641,52 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y);
-            let entity = context
-                .root
-                .entity_get_by_hint_point(location)
-                .next()
-                .unwrap();
+            if let Some(entity) = context.root.entity_get_by_hint_point(location).next() {
+                let _ = context
+                    .item_store
+                    .open_inventory_by_entity(&context.root, entity);
+            }
+        })
+    }
+
+    #[func]
+    fn item_has_item(inventory_key: u32, local_key: u32) -> bool {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let slot_key = (inventory_key, local_key);
             context
                 .item_store
-                .open_inventory_by_entity(&context.root, entity)
+                .has_item(&context.root, slot_key)
+                .unwrap()
+        })
+    }
+
+    #[func]
+    fn item_get_name_text(inventory_key: u32, local_key: u32) -> GString {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let slot_key = (inventory_key, local_key);
+            let text = context
+                .item_store
+                .get_name_text(&context.root, slot_key)
                 .unwrap();
+            text.into()
+        })
+    }
+
+    #[func]
+    fn item_get_desc_text(inventory_key: u32, local_key: u32) -> GString {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let slot_key = (inventory_key, local_key);
+            let text = context
+                .item_store
+                .get_desc_text(&context.root, slot_key)
+                .unwrap();
+            text.into()
         })
     }
 
@@ -651,6 +704,79 @@ impl Root {
                 .item_store
                 .draw_view(&context.root, slot_key, control_item)
                 .unwrap();
+        })
+    }
+
+    #[func]
+    fn get_select_size(location: Vector2) -> u32 {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let point = Vec2::new(location.x, location.y).as_ivec2();
+            let tiles = context
+                .root
+                .tile_get_by_point(point)
+                .into_iter()
+                .collect::<Vec<_>>();
+            let point = Vec2::new(location.x, location.y);
+            let blocks = context
+                .root
+                .block_get_by_hint_point(point)
+                .collect::<Vec<_>>();
+            let point = Vec2::new(location.x, location.y);
+            let entity = context
+                .root
+                .entity_get_by_hint_point(point)
+                .collect::<Vec<_>>();
+
+            (tiles.len() + blocks.len() + entity.len()) as u32
+        })
+    }
+
+    #[func]
+    fn get_select_name_text(location: Vector2, key: u32) -> GString {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let point = Vec2::new(location.x, location.y).as_ivec2();
+            let tiles = context
+                .root
+                .tile_get_by_point(point)
+                .into_iter()
+                .collect::<Vec<_>>();
+            let point = Vec2::new(location.x, location.y);
+            let blocks = context
+                .root
+                .block_get_by_hint_point(point)
+                .collect::<Vec<_>>();
+            let point = Vec2::new(location.x, location.y);
+            let entities = context
+                .root
+                .entity_get_by_hint_point(point)
+                .collect::<Vec<_>>();
+
+            let (lb, ub) = (0, tiles.len() as u32);
+            if key < ub {
+                let tile = tiles[(key - lb) as usize];
+                let name = context.root.tile_get_name_text(tile).unwrap();
+                return name.into();
+            }
+
+            let (lb, ub) = (ub, ub + blocks.len() as u32);
+            if key < ub {
+                let block = blocks[(key - lb) as usize];
+                let name = context.root.block_get_name_text(block).unwrap();
+                return name.into();
+            }
+
+            let (lb, ub) = (ub, ub + entities.len() as u32);
+            if key < ub {
+                let entity = entities[(key - lb) as usize];
+                let name = context.root.entity_get_name_text(entity).unwrap();
+                return name.into();
+            }
+
+            panic!("key out of range");
         })
     }
 

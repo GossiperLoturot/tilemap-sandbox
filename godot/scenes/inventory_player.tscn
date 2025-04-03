@@ -44,14 +44,17 @@ offset_right = 32.0
 offset_bottom = 104.0
 
 [node name="Slot#0" type="Control" parent="GridContainer"]
+texture_filter = 1
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 
 [node name="Slot#1" type="Control" parent="GridContainer"]
+texture_filter = 1
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 
 [node name="Slot#2" type="Control" parent="GridContainer"]
+texture_filter = 1
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 2
 
