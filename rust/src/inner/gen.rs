@@ -17,7 +17,7 @@ pub struct MarchGenRule {
 
 impl GenRule for MarchGenRule {
     fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
-        let rng = &mut rand::rng();
+        let rng = &mut rand::thread_rng();
 
         for y in 0..CHUNK_SIZE as i32 {
             for x in 0..CHUNK_SIZE as i32 {
@@ -26,7 +26,7 @@ impl GenRule for MarchGenRule {
                     chunk_location[1] * CHUNK_SIZE as i32 + y,
                 );
 
-                let value = rand::Rng::random_range(rng, 0.0..1.0);
+                let value = rand::Rng::gen_range(rng, 0.0..1.0);
                 if self.prob < value {
                     continue;
                 }
@@ -53,12 +53,12 @@ pub struct SpawnGenRule {
 
 impl GenRule for SpawnGenRule {
     fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
-        let rng = &mut rand::rng();
+        let rng = &mut rand::thread_rng();
 
         let size = (self.prob * (CHUNK_SIZE * CHUNK_SIZE) as f32) as i32;
         for _ in 0..size {
-            let u = rand::Rng::random_range(rng, 0.0..CHUNK_SIZE as f32);
-            let v = rand::Rng::random_range(rng, 0.0..CHUNK_SIZE as f32);
+            let u = rand::Rng::gen_range(rng, 0.0..CHUNK_SIZE as f32);
+            let v = rand::Rng::gen_range(rng, 0.0..CHUNK_SIZE as f32);
 
             let location = Vec2::new(
                 (chunk_location.x * CHUNK_SIZE as i32) as f32 + u,

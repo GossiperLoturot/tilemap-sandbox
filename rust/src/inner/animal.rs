@@ -52,8 +52,7 @@ impl EntityFeature for AnimalEntityFeature {
 
         let data = entity.data.downcast_mut::<AnimalEntityData>().unwrap();
 
-        use rand::Rng;
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         match data.state {
             AnimalEntityDataState::Init => {
                 data.state = AnimalEntityDataState::WaitStart;
@@ -62,7 +61,7 @@ impl EntityFeature for AnimalEntityFeature {
                 entity.render_param.variant = self.idle_variant;
                 entity.render_param.tick = root.time_tick() as u32;
 
-                let secs = rng.random_range(data.min_rest_secs..data.max_rest_secs);
+                let secs = rand::Rng::gen_range(&mut rng, data.min_rest_secs..data.max_rest_secs);
                 data.state = AnimalEntityDataState::Wait(secs);
             }
             AnimalEntityDataState::Wait(secs) => {
@@ -77,8 +76,8 @@ impl EntityFeature for AnimalEntityFeature {
                 entity.render_param.variant = self.walk_variant;
                 entity.render_param.tick = root.time_tick() as u32;
 
-                let angle = rng.random_range(0.0..std::f32::consts::PI * 2.0);
-                let distance = rng.random_range(data.min_distance..data.max_distance);
+                let angle = rand::Rng::gen_range(&mut rng, 0.0..std::f32::consts::PI * 2.0);
+                let distance = rand::Rng::gen_range(&mut rng, data.min_distance..data.max_distance);
                 let destination = entity.location + Vec2::from_angle(angle) * distance;
                 data.state = AnimalEntityDataState::Trip(destination);
             }
