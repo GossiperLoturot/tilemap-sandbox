@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://c2yxg41vkcoi5"]
+
+[node name="InventoryItem" type="PanelContainer"]
+
+[node name="Container" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="Placeholder" type="Control" parent="Container"]
+texture_filter = 1
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2

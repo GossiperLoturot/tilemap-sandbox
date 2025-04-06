@@ -1,61 +1,131 @@
-[gd_scene load_steps=2 format=3 uid="uid://bkinyq3ym20l8"]
+[gd_scene load_steps=3 format=3 uid="uid://bkinyq3ym20l8"]
 
 [ext_resource type="Script" uid="uid://c5ajqg4r7ukm0" path="res://scripts/inventory_player.gd" id="1_05u7a"]
+[ext_resource type="PackedScene" uid="uid://c2yxg41vkcoi5" path="res://scenes/inventory_item.tscn" id="2_vbacu"]
 
-[node name="InventoryPlayer" type="Control" node_paths=PackedStringArray("item_nodes")]
-custom_minimum_size = Vector2(320, 240)
-layout_mode = 3
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -160.0
-offset_top = -120.0
-offset_right = 160.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="InventoryPlayer" type="PanelContainer"]
+offset_right = 364.0
+offset_bottom = 224.0
 script = ExtResource("1_05u7a")
-item_nodes = [NodePath("GridContainer/Slot#0"), NodePath("GridContainer/Slot#1"), NodePath("GridContainer/Slot#2")]
 
-[node name="Panel" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Container" type="VBoxContainer" parent="."]
+layout_mode = 2
 
-[node name="Button" type="Button" parent="."]
+[node name="Header" type="HBoxContainer" parent="Container"]
+layout_mode = 2
+alignment = 2
+
+[node name="CloseButton" type="Button" parent="Container/Header"]
 custom_minimum_size = Vector2(32, 32)
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -32.0
-offset_bottom = 32.0
-grow_horizontal = 0
+layout_mode = 2
 text = "x"
 
-[node name="GridContainer" type="GridContainer" parent="."]
-layout_mode = 0
-offset_right = 32.0
-offset_bottom = 104.0
+[node name="Body" type="MarginContainer" parent="Container"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
 
-[node name="Slot#0" type="Control" parent="GridContainer"]
-texture_filter = 1
-custom_minimum_size = Vector2(32, 32)
+[node name="Container" type="GridContainer" parent="Container/Body"]
+layout_mode = 2
+columns = 8
+
+[node name="InventoryItem#0" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
 layout_mode = 2
 
-[node name="Slot#1" type="Control" parent="GridContainer"]
-texture_filter = 1
-custom_minimum_size = Vector2(32, 32)
+[node name="InventoryItem#1" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
 layout_mode = 2
 
-[node name="Slot#2" type="Control" parent="GridContainer"]
-texture_filter = 1
-custom_minimum_size = Vector2(32, 32)
+[node name="InventoryItem#2" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
 layout_mode = 2
 
-[connection signal="pressed" from="Button" to="." method="close_inventory"]
+[node name="InventoryItem#3" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#4" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#5" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#6" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#7" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#8" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#9" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#10" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#11" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#12" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#13" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#14" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#15" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#16" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#17" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#18" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#19" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#20" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#21" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#22" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#23" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#24" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#25" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#26" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#27" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#28" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#29" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#30" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[node name="InventoryItem#31" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
+layout_mode = 2
+
+[connection signal="gui_input" from="Container/Header" to="." method="drag_inventory"]
+[connection signal="pressed" from="Container/Header/CloseButton" to="." method="close_inventory"]

@@ -1,8 +1,10 @@
 extends Node3D
-class_name Player
 
 
-@export var world: World
+signal change_min_forwarder_rect(rect: Rect2)
+signal change_min_gen_rect(rect: Rect2)
+signal change_min_view_rect(rect: Rect2)
+
 @export var camera: Camera3D
 @export var forward_size: float
 @export var view_size_over: float
@@ -39,26 +41,26 @@ func _process(delta) -> void:
 
 	var view_size = camera.size * 0.5 + view_size_over
 
-	world.min_forwarder_rect = Rect2(
+	change_min_forwarder_rect.emit(Rect2(
 		location.x - forward_size,
 		location.y - forward_size,
 		forward_size * 2,
 		forward_size * 2
-	)
-	world.min_gen_rect = Rect2(
+	))
+	change_min_gen_rect.emit(Rect2(
 		location.x - view_size,
 		location.y - view_size,
 		view_size * 2,
 		view_size * 2
-	)
-	world.min_view_rect = Rect2(
+	))
+	change_min_view_rect.emit(Rect2(
 		location.x - view_size,
 		location.y - view_size,
 		view_size * 2,
 		view_size * 2
-	)
+	))
 
-	if Input.is_action_just_released("inventory"):
-		var mouse_position = get_viewport().get_mouse_position()
-		var focus_location = camera.project_ray_origin(mouse_position)
-		Root.item_open_inventory_by_entity(Vector2(focus_location.x, focus_location.y))
+
+# kill player
+func _exit_tree() -> void:
+	pass #Root.player_kill()

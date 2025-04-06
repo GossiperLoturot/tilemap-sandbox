@@ -1,0 +1,33 @@
+[gd_scene load_steps=2 format=3 uid="uid://cyidwdky23fs5"]
+
+[ext_resource type="Script" uid="uid://cny4u131cmbjm" path="res://scripts/picker.gd" id="1_37lji"]
+
+[node name="Picker" type="PanelContainer"]
+offset_right = 137.0
+offset_bottom = 47.0
+script = ExtResource("1_37lji")
+
+[node name="Container" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="Container"]
+layout_mode = 2
+alignment = 2
+
+[node name="CloseButton" type="Button" parent="Container/Header"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "x"
+
+[node name="Body" type="MarginContainer" parent="Container"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Container" type="VBoxContainer" parent="Container/Body"]
+layout_mode = 2
+
+[connection signal="gui_input" from="Container/Header" to="." method="drag_inventory"]
+[connection signal="pressed" from="Container/Header/CloseButton" to="." method="close_inventory"]

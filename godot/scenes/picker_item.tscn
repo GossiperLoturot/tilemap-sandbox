@@ -1,0 +1,17 @@
+[gd_scene load_steps=0 format=3 uid="uid://vi4qet71dd5h"]
+
+[node name="PickerItem" type="PanelContainer"]
+
+[node name="Container" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="Placeholder" type="Label" parent="Container"]
+texture_filter = 1
+layout_mode = 2
+text = "PLACEHOLDER"
+horizontal_alignment = 1
+vertical_alignment = 1

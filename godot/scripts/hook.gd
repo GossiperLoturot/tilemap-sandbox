@@ -1,5 +1,4 @@
 extends Node
-class_name Hook
 
 
 func _enter_tree() -> void:

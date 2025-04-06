@@ -1,5 +1,4 @@
 extends Node3D
-class_name World
 
 
 @export var min_forwarder_rect: Rect2
@@ -28,3 +27,15 @@ func _process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	Root.close()
+
+
+func change_min_forwarder_rect(rect: Rect2) -> void:
+	min_forwarder_rect = rect
+
+
+func change_min_gen_rect(rect: Rect2) -> void:
+	min_gen_rect = rect
+
+
+func change_min_view_rect(rect: Rect2) -> void:
+	min_view_rect = rect
