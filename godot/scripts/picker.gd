@@ -12,10 +12,12 @@ func _enter_tree() -> void:
 func _process(_delta: float) -> void:
 	for old in _deployment.get_children():
 		old.queue_free()
-	for i in Root.get_select_size(_point):
+	for i in Root.get_pick_size(_point):
 		var picker_item = preload("res://scenes/picker_item.tscn").instantiate()
-		picker_item.get_node("Container/Placeholder").text = Root.get_select_name_text(_point, i)
 		_deployment.add_child(picker_item)
+
+		var label = picker_item.get_node("Container/Placeholder")
+		label.text = Root.get_pick_name_text(_point, i)
 
 
 # invoked by the instantiate function dynamically from other script

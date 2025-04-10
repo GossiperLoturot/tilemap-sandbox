@@ -91,7 +91,7 @@ impl Root {
             name_text: "Dirt".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/surface_dirt.webp".into()],
+                frames: vec![load("res://images/surface_dirt.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -102,7 +102,7 @@ impl Root {
             name_text: "Grass".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/surface_grass.webp".into()],
+                frames: vec![load("res://images/surface_grass.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -115,7 +115,7 @@ impl Root {
             name_text: "Dandelion".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/dandelion.webp".into()],
+                frames: vec![load("res://images/dandelion.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -131,7 +131,7 @@ impl Root {
             name_text: "Fallen Leaves".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/fallen_leaves.webp".into()],
+                frames: vec![load("res://images/fallen_leaves.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -147,7 +147,7 @@ impl Root {
             name_text: "Grass".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/mix_grass.webp".into()],
+                frames: vec![load("res://images/mix_grass.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -163,7 +163,7 @@ impl Root {
             name_text: "Pebbles".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/mix_pebbles.webp".into()],
+                frames: vec![load("res://images/mix_pebbles.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -183,18 +183,18 @@ impl Root {
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/player_idle_0.webp".into(),
-                        "res://images/player_idle_1.webp".into(),
+                        load("res://images/player_idle_0.webp"),
+                        load("res://images/player_idle_1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/player_walk_0.webp".into(),
-                        "res://images/player_idle_0.webp".into(),
-                        "res://images/player_walk_1.webp".into(),
-                        "res://images/player_idle_1.webp".into(),
+                        load("res://images/player_walk_1.webp"),
+                        load("res://images/player_idle_0.webp"),
+                        load("res://images/player_walk_1.webp"),
+                        load("res://images/player_idle_1.webp"),
                     ],
                     step_tick: 6,
                     is_loop: true,
@@ -216,18 +216,18 @@ impl Root {
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/pig_idle_0.webp".into(),
-                        "res://images/pig_idle_1.webp".into(),
+                        load("res://images/pig_idle_0.webp"),
+                        load("res://images/pig_idle_1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/pig_walk_0.webp".into(),
-                        "res://images/pig_idle_0.webp".into(),
-                        "res://images/pig_walk_1.webp".into(),
-                        "res://images/pig_idle_1.webp".into(),
+                        load("res://images/pig_walk_0.webp"),
+                        load("res://images/pig_idle_0.webp"),
+                        load("res://images/pig_walk_1.webp"),
+                        load("res://images/pig_idle_1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -254,18 +254,18 @@ impl Root {
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/cow_idle_0.webp".into(),
-                        "res://images/cow_idle_1.webp".into(),
+                        load("res://images/cow_idle_0.webp"),
+                        load("res://images/cow_idle_1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/cow_walk_0.webp".into(),
-                        "res://images/cow_idle_0.webp".into(),
-                        "res://images/cow_walk_1.webp".into(),
-                        "res://images/cow_idle_1.webp".into(),
+                        load("res://images/cow_walk_0.webp"),
+                        load("res://images/cow_idle_0.webp"),
+                        load("res://images/cow_walk_1.webp"),
+                        load("res://images/cow_idle_1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -292,18 +292,18 @@ impl Root {
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/sheep_idle_0.webp".into(),
-                        "res://images/sheep_idle_1.webp".into(),
+                        load("res://images/sheep_idle_0.webp"),
+                        load("res://images/sheep_idle_1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/sheep_walk_0.webp".into(),
-                        "res://images/sheep_idle_0.webp".into(),
-                        "res://images/sheep_walk_1.webp".into(),
-                        "res://images/sheep_idle_1.webp".into(),
+                        load("res://images/sheep_walk_0.webp"),
+                        load("res://images/sheep_idle_0.webp"),
+                        load("res://images/sheep_walk_1.webp"),
+                        load("res://images/sheep_idle_1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -329,14 +329,14 @@ impl Root {
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
-                    frames: vec!["res://images/chicken_idle.webp".into()],
+                    frames: vec![load("res://images/chicken_idle.webp")],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/chicken_walk.webp".into(),
-                        "res://images/chicken_idle.webp".into(),
+                        load("res://images/chicken_walk.webp"),
+                        load("res://images/chicken_idle.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -362,14 +362,14 @@ impl Root {
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
-                    frames: vec!["res://images/bird_idle.webp".into()],
+                    frames: vec![load("res://images/bird_idle.webp")],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        "res://images/bird_walk.webp".into(),
-                        "res://images/bird_idle.webp".into(),
+                        load("res://images/bird_walk.webp"),
+                        load("res://images/bird_idle.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -396,7 +396,7 @@ impl Root {
             name_text: "Package".into(),
             desc_text: "A package of items.".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec!["res://images/package.webp".into()],
+                frames: vec![load("res://images/package.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -406,7 +406,10 @@ impl Root {
         // inventory
         let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {
             size: 32,
-            scene: "res://scenes/inventory_player.tscn".into(),
+            scene: load("res://scenes/inventory_player.tscn"),
+            callback: Box::new(|mut instance, key| {
+                instance.call("set_inventory_key", &[key.to_variant()]);
+            }),
         });
 
         // gen rule
@@ -500,14 +503,14 @@ impl Root {
             inventory_player,
         };
         let desc = decl::BuildDescriptor {
-            tile_shaders: vec!["res://shaders/field.gdshader".into()],
+            tile_shaders: vec![load("res://shaders/field.gdshader")],
             block_shaders: vec![
-                "res://shaders/field.gdshader".into(),
-                "res://shaders/field_shadow.gdshader".into(),
+                load("res://shaders/field.gdshader"),
+                load("res://shaders/field_shadow.gdshader"),
             ],
             entity_shaders: vec![
-                "res://shaders/field.gdshader".into(),
-                "res://shaders/field_shadow.gdshader".into(),
+                load("res://shaders/field.gdshader"),
+                load("res://shaders/field_shadow.gdshader"),
             ],
             world,
             node,
@@ -608,7 +611,7 @@ impl Root {
     }
 
     #[func]
-    fn item_open_inventory_by_tile(location: Vector2) {
+    fn open_inventory_by_tile(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -622,7 +625,7 @@ impl Root {
     }
 
     #[func]
-    fn item_open_inventory_by_block(location: Vector2) {
+    fn open_inventory_by_block(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -636,7 +639,7 @@ impl Root {
     }
 
     #[func]
-    fn item_open_inventory_by_entity(location: Vector2) {
+    fn open_inventory_by_entity(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -650,7 +653,7 @@ impl Root {
     }
 
     #[func]
-    fn item_has_item(inventory_key: u32, local_key: u32) -> bool {
+    fn has_item(inventory_key: u32, local_key: u32) -> bool {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -663,52 +666,62 @@ impl Root {
     }
 
     #[func]
-    fn item_get_name_text(inventory_key: u32, local_key: u32) -> GString {
+    fn get_item_amount(inventory_key: u32, local_key: u32) -> u32 {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let slot_key = (inventory_key, local_key);
+            
+            context
+                .item_store
+                .get_item_amount(&context.root, slot_key)
+                .unwrap()
+        })
+    }
+
+    #[func]
+    fn get_item_name_text(inventory_key: u32, local_key: u32) -> GString {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
             let slot_key = (inventory_key, local_key);
             let text = context
                 .item_store
-                .get_name_text(&context.root, slot_key)
+                .get_item_name_text(&context.root, slot_key)
                 .unwrap();
             text.into()
         })
     }
 
     #[func]
-    fn item_get_desc_text(inventory_key: u32, local_key: u32) -> GString {
+    fn get_item_desc_text(inventory_key: u32, local_key: u32) -> GString {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
             let slot_key = (inventory_key, local_key);
             let text = context
                 .item_store
-                .get_desc_text(&context.root, slot_key)
+                .get_item_desc_text(&context.root, slot_key)
                 .unwrap();
             text.into()
         })
     }
 
     #[func]
-    fn item_draw_view(
-        inventory_key: u32,
-        local_key: u32,
-        control_item: Gd<godot::classes::Control>,
-    ) {
+    fn draw_item(inventory_key: u32, local_key: u32, control_item: Gd<godot::classes::Control>) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
             let slot_key = (inventory_key, local_key);
             context
                 .item_store
-                .draw_view(&context.root, slot_key, control_item)
+                .draw_item(&context.root, slot_key, control_item)
                 .unwrap();
         })
     }
 
     #[func]
-    fn get_select_size(location: Vector2) -> u32 {
+    fn get_pick_size(location: Vector2) -> u32 {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -734,7 +747,7 @@ impl Root {
     }
 
     #[func]
-    fn get_select_name_text(location: Vector2, key: u32) -> GString {
+    fn get_pick_name_text(location: Vector2, key: u32) -> GString {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 

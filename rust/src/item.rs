@@ -16,7 +16,8 @@ pub(crate) struct ItemDescriptor {
 }
 
 pub(crate) struct InventoryDescriptor {
-    pub scene: Gd<PackedScene>,
+    pub scene: Gd<godot::classes::PackedScene>,
+    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
 }
 
 pub(crate) struct ItemStoreDescriptor {
@@ -38,7 +39,8 @@ struct ItemProperty {
 }
 
 struct InventoryProperty {
-    scene: Gd<PackedScene>,
+    pub scene: Gd<godot::classes::PackedScene>,
+    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
 }
 
 pub(crate) struct ItemStore {
@@ -57,26 +59,17 @@ impl ItemStore {
         let mut free_handles = vec![];
 
         let mut item_props = vec![];
-        for desc in &desc.items {
+        let mut image_heads = vec![];
+        let mut textures = vec![];
+        for desc in desc.items {
             item_props.push(ItemProperty {
                 name_text: desc.name_text.clone(),
                 desc_text: desc.desc_text.clone(),
             });
-        }
 
-        let mut inventory_props = vec![];
-        for desc in &desc.inventories {
-            inventory_props.push(InventoryProperty {
-                scene: desc.scene.clone(),
-            });
-        }
-
-        let mut image_heads = vec![];
-        let mut textures = vec![];
-        for item in desc.items {
             let mut sub_image_heads = vec![];
 
-            for image in item.images {
+            for image in desc.images {
                 if textures.len() + image.frames.len() >= i32::MAX as usize {
                     panic!("number of frame must be less than i32::MAX");
                 }
@@ -97,6 +90,14 @@ impl ItemStore {
             }
 
             image_heads.push(sub_image_heads);
+        }
+
+        let mut inventory_props = vec![];
+        for desc in desc.inventories {
+            inventory_props.push(InventoryProperty {
+                scene: desc.scene.clone(),
+                callback: desc.callback,
+            });
         }
 
         Self {
@@ -156,14 +157,14 @@ impl ItemStore {
             .get(inventory.id as usize)
             .ok_or(inner::ItemError::InventoryInvalidId)?;
 
-        let mut inventory_node = prop
+        let instance = prop
             .scene
             .instantiate()
             .expect("Failed to instantiate inventory");
-        self.node.add_child(&inventory_node);
+        self.node.add_child(&instance);
 
         // invoke after method
-        inventory_node.call("set_inventory_key", &[inventory_key.to_variant()]);
+        (*prop.callback)(instance, inventory_key);
 
         Ok(())
     }
@@ -182,7 +183,23 @@ impl ItemStore {
         Ok(slot.item.is_some())
     }
 
-    pub fn get_name_text(
+    pub fn get_item_amount(
+        &mut self,
+        root: &inner::Root,
+        slot_key: inner::SlotKey,
+    ) -> Result<u32, inner::ItemError> {
+        let (inventory_key, local_key) = slot_key;
+        let inventory = root.item_get_inventory(inventory_key)?;
+        let slot = inventory
+            .slots
+            .get(local_key as usize)
+            .ok_or(inner::ItemError::ItemNotFound)?;
+        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
+
+        Ok(item.amount)
+    }
+
+    pub fn get_item_name_text(
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
@@ -202,7 +219,7 @@ impl ItemStore {
         Ok(item_prop.name_text.clone())
     }
 
-    pub fn get_desc_text(
+    pub fn get_item_desc_text(
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
@@ -222,7 +239,7 @@ impl ItemStore {
         Ok(item_prop.desc_text.clone())
     }
 
-    pub fn draw_view(
+    pub fn draw_item(
         &self,
         root: &inner::Root,
         slot_key: inner::SlotKey,

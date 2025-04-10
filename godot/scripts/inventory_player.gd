@@ -44,8 +44,8 @@ func _enter_tree() -> void:
 
 func _process(_delta: float) -> void:
 	for i in _item_nodes.size():
-		if Root.item_has_item(_inventory_key, i):
-			Root.item_draw_view(_inventory_key, i, _item_nodes[i])
+		if Root.has_item(_inventory_key, i):
+			Root.draw_item(_inventory_key, i, _item_nodes[i])
 
 
 # invoked by the instantiate function dynamically from native library

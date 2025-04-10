@@ -12,7 +12,7 @@ func _process(_delta: float) -> void:
 	var point = Vector2(project_position.x, project_position.y)
 
 	if Input.is_action_just_released("inventory"):
-		Root.item_open_inventory_by_entity(point)
+		Root.open_inventory_by_entity(point)
 
 	if Input.is_action_just_pressed("secondary"):
 		if _picker:

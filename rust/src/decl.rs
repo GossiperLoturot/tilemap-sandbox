@@ -4,7 +4,7 @@ use godot::prelude::*;
 use crate::*;
 
 pub struct ImageDescriptor {
-    pub frames: Vec<String>,
+    pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
@@ -51,7 +51,8 @@ pub struct ItemDescriptor {
 
 pub struct InventoryDescriptor {
     pub size: u32,
-    pub scene: String,
+    pub scene: Gd<godot::classes::PackedScene>,
+    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
 }
 
 pub struct GenRuleDescriptor {
@@ -59,9 +60,9 @@ pub struct GenRuleDescriptor {
 }
 
 pub struct BuildDescriptor {
-    pub tile_shaders: Vec<String>,
-    pub block_shaders: Vec<String>,
-    pub entity_shaders: Vec<String>,
+    pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
+    pub block_shaders: Vec<Gd<godot::classes::Shader>>,
+    pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
     pub node: Gd<godot::classes::Node>,
 }
@@ -159,7 +160,6 @@ impl<R> ContextBuilder<R> {
             for image in desc.images {
                 let mut frames = vec![];
                 for image in image.frames {
-                    let image = load::<godot::classes::Image>(&image);
                     frames.push(image);
                 }
 
@@ -176,8 +176,7 @@ impl<R> ContextBuilder<R> {
         let tile_field_desc = inner::TileFieldDescriptor { tiles };
 
         let mut tile_shaders = vec![];
-        for shader in &desc.tile_shaders {
-            let shader = load::<godot::classes::Shader>(shader);
+        for shader in desc.tile_shaders {
             tile_shaders.push(shader);
         }
         let tile_field_view = tile::TileField::new(tile::TileFieldDescriptor {
@@ -209,7 +208,6 @@ impl<R> ContextBuilder<R> {
             for image in desc.images {
                 let mut frames = vec![];
                 for image in image.frames {
-                    let image = load::<godot::classes::Image>(&image);
                     frames.push(image);
                 }
 
@@ -231,8 +229,7 @@ impl<R> ContextBuilder<R> {
         let block_field_desc = inner::BlockFieldDescriptor { blocks };
 
         let mut block_shaders = vec![];
-        for shader in &desc.block_shaders {
-            let shader = load::<godot::classes::Shader>(shader);
+        for shader in desc.block_shaders {
             block_shaders.push(shader);
         }
         let block_field_view = block::BlockField::new(block::BlockFieldDescriptor {
@@ -263,7 +260,6 @@ impl<R> ContextBuilder<R> {
             for image in desc.images {
                 let mut frames = vec![];
                 for image in image.frames {
-                    let image = load::<godot::classes::Image>(&image);
                     frames.push(image);
                 }
 
@@ -285,8 +281,7 @@ impl<R> ContextBuilder<R> {
         let entity_field_desc = inner::EntityFieldDescriptor { entities };
 
         let mut entity_shaders = vec![];
-        for shader in &desc.entity_shaders {
-            let shader = load::<godot::classes::Shader>(shader);
+        for shader in desc.entity_shaders {
             entity_shaders.push(shader);
         }
         let entity_field_view = entity::EntityField::new(entity::EntityFieldDescriptor {
@@ -312,7 +307,6 @@ impl<R> ContextBuilder<R> {
             for image in desc.images {
                 let mut frames = vec![];
                 for image in image.frames {
-                    let image = load::<godot::classes::Image>(&image);
                     frames.push(image);
                 }
 
@@ -335,12 +329,11 @@ impl<R> ContextBuilder<R> {
         for inventory in self.inventories {
             let desc = inventory(&registry);
 
-            let scene = load::<godot::classes::PackedScene>(&desc.scene);
-
             inventories.push(inner::InventoryDescriptor { size: desc.size });
 
             inventories_view.push(item::InventoryDescriptor {
-                scene: scene.clone(),
+                scene: desc.scene,
+                callback: desc.callback,
             });
         }
 
