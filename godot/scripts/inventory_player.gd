@@ -3,6 +3,7 @@ extends Control
 
 var _inventory_key: int
 var _item_nodes: Array[Control]
+var _src_local_key: int = -1
 
 
 func _enter_tree() -> void:
@@ -41,11 +42,14 @@ func _enter_tree() -> void:
 		$"Container/Body/Container/InventoryItem#31/Container/Placeholder",
 	]
 
+	# register function for each slot
+	for i in _item_nodes.size():
+		_item_nodes[i].connect("gui_input", cursor_slot.bind(i))
+
 
 func _process(_delta: float) -> void:
 	for i in _item_nodes.size():
-		if Root.has_item(_inventory_key, i):
-			Root.draw_item(_inventory_key, i, _item_nodes[i])
+		Root.draw_item(_inventory_key, i, _item_nodes[i])
 
 
 # invoked by the instantiate function dynamically from native library
@@ -64,3 +68,16 @@ func drag_inventory(event: InputEvent) -> void:
 # invoked by the signal
 func close_inventory() -> void:
 	self.queue_free()
+
+
+# invoked by the signal
+func cursor_slot(event: InputEvent, local_key: int) -> void:
+	if event is InputEventMouseButton:
+		var is_inside = self.get_viewport_rect().has_point(self.get_global_mouse_position())
+		if event.button_mask == MOUSE_BUTTON_MASK_LEFT:
+			if _src_local_key == -1:
+				# nothing to do
+				_src_local_key = local_key
+			else:
+				Root.swap_item(_inventory_key, _src_local_key, _inventory_key, local_key)
+				_src_local_key = -1

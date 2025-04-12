@@ -251,32 +251,35 @@ impl ItemStore {
             .slots
             .get(local_key as usize)
             .ok_or(inner::ItemError::ItemNotFound)?;
-        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
 
         // rendering
 
         let canvas_item = control_item.get_canvas_item();
 
-        let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
-
-        let image_head = &self.image_heads[item.id as usize][item.render_param.variant as usize];
-        let texcoord_id = if image_head.step_tick == 0 {
-            image_head.start_texcoord_id
-        } else {
-            let step_id =
-                (root.time_tick() as u32 - item.render_param.tick) / image_head.step_tick as u32;
-            let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
-            if image_head.is_loop {
-                image_head.start_texcoord_id + (step_id % step_size)
-            } else {
-                image_head.start_texcoord_id + u32::min(step_id, step_size - 1)
-            }
-        };
-        let texture = self.textures[texcoord_id as usize];
-
         let mut rendering_server = godot::classes::RenderingServer::singleton();
         rendering_server.canvas_item_clear(canvas_item);
-        rendering_server.canvas_item_add_texture_rect(canvas_item, rect, texture);
+
+        if let Some(item) = &slot.item {
+            let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
+
+            let image_head =
+                &self.image_heads[item.id as usize][item.render_param.variant as usize];
+            let texcoord_id = if image_head.step_tick == 0 {
+                image_head.start_texcoord_id
+            } else {
+                let step_id = (root.time_tick() as u32 - item.render_param.tick)
+                    / image_head.step_tick as u32;
+                let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
+                if image_head.is_loop {
+                    image_head.start_texcoord_id + (step_id % step_size)
+                } else {
+                    image_head.start_texcoord_id + u32::min(step_id, step_size - 1)
+                }
+            };
+            let texture = self.textures[texcoord_id as usize];
+
+            rendering_server.canvas_item_add_texture_rect(canvas_item, rect, texture);
+        }
 
         Ok(())
     }

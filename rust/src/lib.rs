@@ -191,7 +191,7 @@ impl Root {
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/player_walk_1.webp"),
+                        load("res://images/player_walk_0.webp"),
                         load("res://images/player_idle_0.webp"),
                         load("res://images/player_walk_1.webp"),
                         load("res://images/player_idle_1.webp"),
@@ -671,7 +671,7 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let slot_key = (inventory_key, local_key);
-            
+
             context
                 .item_store
                 .get_item_amount(&context.root, slot_key)
@@ -704,6 +704,31 @@ impl Root {
                 .get_item_desc_text(&context.root, slot_key)
                 .unwrap();
             text.into()
+        })
+    }
+
+    #[func]
+    fn swap_item(
+        src_inventory_key: u32,
+        src_local_key: u32,
+        dst_inventory_key: u32,
+        dst_local_key: u32,
+    ) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let src_slot_key = (src_inventory_key, src_local_key);
+            let dst_slot_key = (dst_inventory_key, dst_local_key);
+
+            let src_item = context.root.item_remove_item(src_slot_key);
+            let dst_item = context.root.item_remove_item(dst_slot_key);
+
+            if let Ok(item) = dst_item {
+                let _ = context.root.item_insert_item(src_slot_key, item);
+            }
+            if let Ok(item) = src_item {
+                let _ = context.root.item_insert_item(dst_slot_key, item);
+            }
         })
     }
 
