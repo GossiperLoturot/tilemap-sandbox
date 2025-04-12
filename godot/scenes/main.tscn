@@ -1,10 +1,20 @@
-[gd_scene load_steps=7 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=18 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" uid="uid://bsd7tx34x8nw" path="res://scripts/hook.gd" id="1_1bvp3"]
 [ext_resource type="Script" uid="uid://bpv4xw5yua7lf" path="res://scripts/world.gd" id="1_b2r8a"]
 [ext_resource type="Script" uid="uid://cpx4qp1or133d" path="res://scripts/player.gd" id="2_c0xk6"]
+[ext_resource type="AudioStream" uid="uid://gumg40tyyq06" path="res://audio/Donut.ogg" id="3_jkv2x"]
+[ext_resource type="AudioStream" uid="uid://d3h4pd2n5pl4q" path="res://audio/image.ogg" id="4_jkv2x"]
 [ext_resource type="Shader" uid="uid://lp00brq7ocmn" path="res://shaders/vignette.gdshader" id="5_h8o78"]
+[ext_resource type="AudioStream" uid="uid://c5nioe2rf6v21" path="res://audio/MEET UP.ogg" id="5_jbj1t"]
 [ext_resource type="Script" uid="uid://bcv1qv4wrveco" path="res://scripts/ui.gd" id="5_tbgi4"]
+[ext_resource type="AudioStream" uid="uid://bk16hklyvh7hf" path="res://audio/monoui.ogg" id="6_muem4"]
+[ext_resource type="AudioStream" uid="uid://bmnjaoout1aik" path="res://audio/Sept..ogg" id="7_dp3eg"]
+[ext_resource type="AudioStream" uid="uid://dkufs3i1x5fne" path="res://audio/Soranaka.ogg" id="8_0ld40"]
+[ext_resource type="AudioStream" uid="uid://b5qpppyablenr" path="res://audio/swim.ogg" id="9_gqmmt"]
+[ext_resource type="Script" uid="uid://cu6r4o63rqnx1" path="res://scripts/audio.gd" id="10_jkv2x"]
+[ext_resource type="AudioStream" uid="uid://6wq024pbdqnx" path="res://audio/冷夏.ogg" id="10_yc10j"]
+[ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -20,6 +30,21 @@ script = ExtResource("1_1bvp3")
 [node name="UI" type="Node" parent="." node_paths=PackedStringArray("camera")]
 script = ExtResource("5_tbgi4")
 camera = NodePath("../Camera3D")
+
+[node name="Audio" type="AudioStreamPlayer" parent="."]
+volume_db = -20.0
+script = ExtResource("10_jkv2x")
+names = Array[String](["Donut - もえるごみ", "image - もえるごみ", "MEET UP - もえるごみ", "monoui - もえるごみ", "Sept. - もえるごみ", "Soranaka - もえるごみ", "swim - もえるごみ", "冷夏 - もえるごみ"])
+streams = Array[AudioStream]([ExtResource("3_jkv2x"), ExtResource("4_jkv2x"), ExtResource("5_jbj1t"), ExtResource("6_muem4"), ExtResource("7_dp3eg"), ExtResource("8_0ld40"), ExtResource("9_gqmmt"), ExtResource("10_yc10j")])
+
+[node name="AudioStatus" parent="UI" instance=ExtResource("14_jbj1t")]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -39.0
+offset_bottom = 0.0
+grow_vertical = 0
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 32)
@@ -44,6 +69,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="stream_changed"]
 [connection signal="change_min_forwarder_rect" from="Player" to="World" method="change_min_forwarder_rect"]
 [connection signal="change_min_gen_rect" from="Player" to="World" method="change_min_gen_rect"]
 [connection signal="change_min_view_rect" from="Player" to="World" method="change_min_view_rect"]

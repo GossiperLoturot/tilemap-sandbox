@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3 uid="uid://c4385iln2rtsi"]
+
+[ext_resource type="Script" uid="uid://du07v2tgej3rr" path="res://scripts/audio_status.gd" id="1_65tug"]
+
+[node name="AudioStatus" type="MarginContainer" node_paths=PackedStringArray("label")]
+offset_right = 204.0
+offset_bottom = 39.0
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+script = ExtResource("1_65tug")
+label = NodePath("Label")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 2
+text = "♪ AUDIO_STREAM_NAME"
+vertical_alignment = 1
