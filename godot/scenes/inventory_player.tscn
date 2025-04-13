@@ -3,10 +3,12 @@
 [ext_resource type="Script" uid="uid://c5ajqg4r7ukm0" path="res://scripts/inventory_player.gd" id="1_05u7a"]
 [ext_resource type="PackedScene" uid="uid://c2yxg41vkcoi5" path="res://scenes/inventory_item.tscn" id="2_vbacu"]
 
-[node name="InventoryPlayer" type="PanelContainer"]
+[node name="InventoryPlayer" type="PanelContainer" node_paths=PackedStringArray("item_deploy")]
 offset_right = 364.0
 offset_bottom = 224.0
 script = ExtResource("1_05u7a")
+item_scene = ExtResource("2_vbacu")
+item_deploy = NodePath("Container/Body/Container")
 
 [node name="Container" type="VBoxContainer" parent="."]
 layout_mode = 2
@@ -31,101 +33,5 @@ theme_override_constants/margin_bottom = 8
 layout_mode = 2
 columns = 8
 
-[node name="InventoryItem#0" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#1" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#2" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#3" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#4" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#5" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#6" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#7" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#8" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#9" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#10" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#11" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#12" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#13" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#14" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#15" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#16" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#17" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#18" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#19" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#20" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#21" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#22" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#23" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#24" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#25" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#26" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#27" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#28" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#29" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#30" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[node name="InventoryItem#31" parent="Container/Body/Container" instance=ExtResource("2_vbacu")]
-layout_mode = 2
-
-[connection signal="gui_input" from="Container/Header" to="." method="drag_inventory"]
-[connection signal="pressed" from="Container/Header/CloseButton" to="." method="close_inventory"]
+[connection signal="gui_input" from="Container/Header" to="." method="_on_header_gui_input"]
+[connection signal="pressed" from="Container/Header/CloseButton" to="." method="_on_close_button_pressed"]

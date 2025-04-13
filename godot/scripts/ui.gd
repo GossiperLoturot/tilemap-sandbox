@@ -1,22 +1,28 @@
-extends Node
+extends Control
 
 
 @export var camera: Camera3D
-
-var _picker: Node
+@export var picker: Node
 
 
 func _process(_delta: float) -> void:
-	var mouse_position = get_viewport().get_mouse_position()
-	var project_position = camera.project_ray_origin(mouse_position)
-	var point = Vector2(project_position.x, project_position.y)
+	if Input.is_action_just_pressed("inventory"):
+		Root.open_inventory_player()
 
-	if Input.is_action_just_released("inventory"):
-		Root.open_inventory_by_entity(point)
 
-	if Input.is_action_just_pressed("secondary"):
-		if _picker:
-			_picker.queue_free()
-		_picker = preload("res://scenes/picker.tscn").instantiate()
-		_picker.call("set_point", point)
-		self.add_child(_picker)
+func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var mouse_position = self.get_global_mouse_position()
+		var is_inside = self.get_viewport_rect().has_point(mouse_position)
+		if is_inside:
+			var projection = camera.project_ray_origin(mouse_position)
+			var world_position = Vector2(projection.x, projection.y)
+			picker.call("on_pick_changed", world_position, mouse_position)
+
+
+func _on_mouse_entered() -> void:
+	picker.call("on_pick_entered")
+
+
+func _on_mouse_exited() -> void:
+	picker.call("on_pick_existed")

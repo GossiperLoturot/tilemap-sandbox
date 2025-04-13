@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://cu6r4o63rqnx1" path="res://scripts/audio.gd" id="10_jkv2x"]
 [ext_resource type="AudioStream" uid="uid://6wq024pbdqnx" path="res://audio/冷夏.ogg" id="10_yc10j"]
 [ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
+[ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/picker.tscn" id="14_jkv2x"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -22,20 +23,37 @@ shader_parameter/vignette_intensity = 0.4
 shader_parameter/vignette_opacity = 0.25
 shader_parameter/vignette_color = Color(0, 0, 0, 1)
 
-[node name="Root" type="Node3D"]
+[node name="Root" type="Node"]
 
 [node name="Hook" type="Node" parent="."]
 script = ExtResource("1_1bvp3")
-
-[node name="UI" type="Node" parent="." node_paths=PackedStringArray("camera")]
-script = ExtResource("5_tbgi4")
-camera = NodePath("../Camera3D")
 
 [node name="Audio" type="AudioStreamPlayer" parent="."]
 volume_db = -20.0
 script = ExtResource("10_jkv2x")
 names = Array[String](["Donut - もえるごみ", "image - もえるごみ", "MEET UP - もえるごみ", "monoui - もえるごみ", "Sept. - もえるごみ", "Soranaka - もえるごみ", "swim - もえるごみ", "冷夏 - もえるごみ"])
 streams = Array[AudioStream]([ExtResource("3_jkv2x"), ExtResource("4_jkv2x"), ExtResource("5_jbj1t"), ExtResource("6_muem4"), ExtResource("7_dp3eg"), ExtResource("8_0ld40"), ExtResource("9_gqmmt"), ExtResource("10_yc10j")])
+
+[node name="UI" type="Control" parent="." node_paths=PackedStringArray("camera", "picker")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5_tbgi4")
+camera = NodePath("../World/Camera3D")
+picker = NodePath("Picker")
+
+[node name="VignetteFilter" type="ColorRect" parent="UI"]
+material = SubResource("ShaderMaterial_eft26")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="AudioStatus" parent="UI" instance=ExtResource("14_jbj1t")]
 layout_mode = 1
@@ -46,30 +64,29 @@ offset_top = -39.0
 offset_bottom = 0.0
 grow_vertical = 0
 
-[node name="Camera3D" type="Camera3D" parent="."]
+[node name="Picker" parent="UI" instance=ExtResource("14_jkv2x")]
+layout_mode = 0
+
+[node name="World" type="Node3D" parent="." node_paths=PackedStringArray("ui")]
+script = ExtResource("1_b2r8a")
+ui = NodePath("../UI")
+
+[node name="Camera3D" type="Camera3D" parent="World"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 32)
 projection = 1
+current = true
 size = 32.0
 
-[node name="World" type="Node3D" parent="."]
-script = ExtResource("1_b2r8a")
-
-[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("camera")]
+[node name="Player" type="Node3D" parent="World" node_paths=PackedStringArray("camera")]
 script = ExtResource("2_c0xk6")
 camera = NodePath("../Camera3D")
 forward_size = 32.0
 view_size_over = 8.0
 
-[node name="VignetteFilter" type="ColorRect" parent="."]
-material = SubResource("ShaderMaterial_eft26")
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="stream_changed"]
-[connection signal="change_min_forwarder_rect" from="Player" to="World" method="change_min_forwarder_rect"]
-[connection signal="change_min_gen_rect" from="Player" to="World" method="change_min_gen_rect"]
-[connection signal="change_min_view_rect" from="Player" to="World" method="change_min_view_rect"]
+[connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="_on_stream_changed"]
+[connection signal="gui_input" from="UI" to="UI" method="_on_gui_input"]
+[connection signal="mouse_entered" from="UI" to="UI" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="UI" to="UI" method="_on_mouse_exited"]
+[connection signal="forwarder_rect_changed" from="World/Player" to="World" method="_on_forwarder_rect_changed"]
+[connection signal="gen_rect_changed" from="World/Player" to="World" method="_on_gen_rect_changed"]
+[connection signal="view_rect_changed" from="World/Player" to="World" method="_on_view_rect_changed"]

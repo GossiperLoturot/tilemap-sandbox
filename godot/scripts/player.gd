@@ -1,16 +1,15 @@
 extends Node3D
 
 
-signal change_min_forwarder_rect(rect: Rect2)
-signal change_min_gen_rect(rect: Rect2)
-signal change_min_view_rect(rect: Rect2)
-
 @export var camera: Camera3D
 @export var forward_size: float
 @export var view_size_over: float
-
 var _scroll: float
 var _interpolated_scroll: float
+
+signal forwarder_rect_changed(rect: Rect2)
+signal gen_rect_changed(rect: Rect2)
+signal view_rect_changed(rect: Rect2)
 
 
 # spawn player
@@ -31,7 +30,7 @@ func _process(delta) -> void:
 	_interpolated_scroll = lerp(_interpolated_scroll, _scroll, delta * 10.0)
 	camera.size = exp(_interpolated_scroll)
 
-	var viewport_size = get_viewport().size;
+	var viewport_size = self.get_viewport().size;
 	if viewport_size.x > viewport_size.y:
 		camera.keep_aspect = Camera3D.KEEP_WIDTH
 	else:
@@ -41,19 +40,19 @@ func _process(delta) -> void:
 
 	var view_size = camera.size * 0.5 + view_size_over
 
-	change_min_forwarder_rect.emit(Rect2(
+	forwarder_rect_changed.emit(Rect2(
 		location.x - forward_size,
 		location.y - forward_size,
 		forward_size * 2,
 		forward_size * 2
 	))
-	change_min_gen_rect.emit(Rect2(
+	gen_rect_changed.emit(Rect2(
 		location.x - view_size,
 		location.y - view_size,
 		view_size * 2,
 		view_size * 2
 	))
-	change_min_view_rect.emit(Rect2(
+	view_rect_changed.emit(Rect2(
 		location.x - view_size,
 		location.y - view_size,
 		view_size * 2,
@@ -63,4 +62,4 @@ func _process(delta) -> void:
 
 # kill player
 func _exit_tree() -> void:
-	pass #Root.player_kill()
+	pass # Root.player_kill()

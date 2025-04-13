@@ -4,8 +4,8 @@ extends Control
 @export var label: Label
 
 
-func stream_changed(name: String) -> void:
-	label.text = "♪ %s" % name
+func _on_stream_changed(name_text: String) -> void:
+	label.text = "♪ %s" % name_text
 
 	var tween = label.create_tween()
 	tween.tween_property(label, "modulate:a", 1.0, 1.0)

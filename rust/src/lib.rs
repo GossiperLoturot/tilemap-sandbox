@@ -408,7 +408,7 @@ impl Root {
             size: 32,
             scene: load("res://scenes/inventory_player.tscn"),
             callback: Box::new(|mut instance, key| {
-                instance.call("set_inventory_key", &[key.to_variant()]);
+                instance.call("on_inventory_changed", &[key.to_variant()]);
             }),
         });
 
@@ -648,6 +648,19 @@ impl Root {
                 let _ = context
                     .item_store
                     .open_inventory_by_entity(&context.root, entity);
+            }
+        })
+    }
+
+    #[func]
+    fn open_inventory_player() {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            if let Ok(inventory_key) = context.root.player_get_inventory_key() {
+                let _ = context
+                    .item_store
+                    .open_inventory(&context.root, inventory_key);
             }
         })
     }

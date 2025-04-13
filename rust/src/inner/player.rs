@@ -53,6 +53,12 @@ impl PlayerResource {
         let location = root.entity_get(current)?.location;
         Ok(location)
     }
+
+    pub fn get_inventory_key(&mut self, root: &inner::Root) -> Result<InventoryKey, RootError> {
+        let current = self.current.ok_or(PlayerError::NotFound)?;
+        let inventory_key = root.entity_get_inventory(current)?.unwrap();
+        Ok(inventory_key)
+    }
 }
 
 // feature

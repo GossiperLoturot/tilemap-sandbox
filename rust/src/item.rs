@@ -146,7 +146,7 @@ impl ItemStore {
         Ok(())
     }
 
-    fn open_inventory(
+    pub fn open_inventory(
         &mut self,
         root: &inner::Root,
         inventory_key: inner::InventoryKey,

@@ -1,6 +1,10 @@
-[gd_scene load_steps=0 format=3 uid="uid://vi4qet71dd5h"]
+[gd_scene load_steps=2 format=3 uid="uid://vi4qet71dd5h"]
 
-[node name="PickerItem" type="PanelContainer"]
+[ext_resource type="Script" uid="uid://ce54hqvtg48io" path="res://scripts/picker_item.gd" id="1_1jlk3"]
+
+[node name="PickerItem" type="PanelContainer" node_paths=PackedStringArray("label")]
+script = ExtResource("1_1jlk3")
+label = NodePath("Container/Placeholder")
 
 [node name="Container" type="MarginContainer" parent="."]
 layout_mode = 2

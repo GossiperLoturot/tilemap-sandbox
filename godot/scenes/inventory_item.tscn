@@ -1,6 +1,10 @@
-[gd_scene format=3 uid="uid://c2yxg41vkcoi5"]
+[gd_scene load_steps=2 format=3 uid="uid://c2yxg41vkcoi5"]
 
-[node name="InventoryItem" type="PanelContainer"]
+[ext_resource type="Script" uid="uid://bemqkl7e66x2u" path="res://scripts/inventory_item.gd" id="1_u4rwp"]
+
+[node name="InventoryItem" type="PanelContainer" node_paths=PackedStringArray("placeholder_node")]
+script = ExtResource("1_u4rwp")
+placeholder_node = NodePath("Container/Placeholder")
 
 [node name="Container" type="MarginContainer" parent="."]
 layout_mode = 2

@@ -695,6 +695,15 @@ impl Root {
         )
         .ok_or(RootError::ResourceBusy)?
     }
+
+    #[inline]
+    pub fn player_get_inventory_key(&mut self) -> Result<InventoryKey, RootError> {
+        self.exclusive(
+            |root| &mut root.player_resource,
+            |resource, root| resource.get_inventory_key(root),
+        )
+        .ok_or(RootError::ResourceBusy)?
+    }
 }
 
 // error handling
