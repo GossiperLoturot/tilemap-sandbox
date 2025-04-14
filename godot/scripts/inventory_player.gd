@@ -5,7 +5,6 @@ const ITEM_SIZE: int = 32;
 
 @export var item_scene: PackedScene
 @export var item_deploy: Node
-var _item_nodes: Array[Control]
 
 
 func _enter_tree() -> void:
@@ -13,13 +12,12 @@ func _enter_tree() -> void:
 		var item_instance = item_scene.instantiate()
 		item_deploy.add_child(item_instance)
 
-		_item_nodes.append(item_instance)
 
-
-# invoked dynamicaly
-func on_inventory_changed(inventory_key: int) -> void:
+# invoked dynamicaly from native library
+func change_inventory(ui: Control, inventory_key: int) -> void:
 	for i in ITEM_SIZE:
-		_item_nodes[i].call("on_inventory_item_changed", inventory_key, i)
+		var child = item_deploy.get_child(i)
+		child.call("change_inventory_item", ui, inventory_key, i)
 
 
 func _on_header_gui_input(event: InputEvent) -> void:

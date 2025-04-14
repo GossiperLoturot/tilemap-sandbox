@@ -3,6 +3,9 @@ use godot::prelude::*;
 
 use crate::inner;
 
+pub type InventoryFn =
+    Box<dyn Fn(Gd<godot::classes::Node>, Gd<godot::classes::Node>, inner::InventoryKey)>;
+
 pub(crate) struct ItemImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
@@ -17,13 +20,13 @@ pub(crate) struct ItemDescriptor {
 
 pub(crate) struct InventoryDescriptor {
     pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
+    pub callback: InventoryFn,
 }
 
 pub(crate) struct ItemStoreDescriptor {
     pub items: Vec<ItemDescriptor>,
     pub inventories: Vec<InventoryDescriptor>,
-    pub node: Gd<godot::classes::Node>,
+    pub ui: Gd<godot::classes::Node>,
 }
 
 struct ImageHead {
@@ -40,13 +43,13 @@ struct ItemProperty {
 
 struct InventoryProperty {
     pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
+    pub callback: InventoryFn,
 }
 
 pub(crate) struct ItemStore {
     item_props: Vec<ItemProperty>,
     inventory_props: Vec<InventoryProperty>,
-    node: Gd<godot::classes::Node>,
+    ui: Gd<godot::classes::Node>,
     image_heads: Vec<Vec<ImageHead>>,
     textures: Vec<Rid>,
     free_handles: Vec<Rid>,
@@ -101,7 +104,7 @@ impl ItemStore {
         }
 
         Self {
-            node: desc.node,
+            ui: desc.ui,
             item_props,
             inventory_props,
             image_heads,
@@ -161,10 +164,10 @@ impl ItemStore {
             .scene
             .instantiate()
             .expect("Failed to instantiate inventory");
-        self.node.add_child(&instance);
+        self.ui.add_child(&instance);
 
         // invoke after method
-        (*prop.callback)(instance, inventory_key);
+        (*prop.callback)(self.ui.clone(), instance, inventory_key);
 
         Ok(())
     }

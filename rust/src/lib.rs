@@ -83,7 +83,7 @@ struct Root;
 #[godot_api]
 impl Root {
     #[func]
-    fn open(world: Gd<godot::classes::World3D>, node: Gd<godot::classes::Node>) {
+    fn open(world: Gd<godot::classes::World3D>, ui: Gd<godot::classes::Node>) {
         let mut builder = decl::ContextBuilder::<Registry>::new();
 
         // tiles
@@ -407,8 +407,8 @@ impl Root {
         let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {
             size: 32,
             scene: load("res://scenes/inventory_player.tscn"),
-            callback: Box::new(|mut instance, key| {
-                instance.call("on_inventory_changed", &[key.to_variant()]);
+            callback: Box::new(|ui, mut instance, key| {
+                instance.call("change_inventory", &[ui.to_variant(), key.to_variant()]);
             }),
         });
 
@@ -513,7 +513,7 @@ impl Root {
                 load("res://shaders/field_shadow.gdshader"),
             ],
             world,
-            node,
+            ui,
         };
         let context = builder.build(register, desc);
         CONTEXT.set(Some(context));
