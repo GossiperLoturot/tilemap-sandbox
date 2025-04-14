@@ -25,6 +25,11 @@ func on_pick_changed(world_position: Vector2, screen_position: Vector2) -> void:
 
 
 # invoked dynamicaly
+func on_pick_item_changed(inventory_key: int, local_key: int, screen_position: Vector2) -> void:
+	pass
+
+
+# invoked dynamicaly
 func on_pick_entered() -> void:
 	self.show()
 

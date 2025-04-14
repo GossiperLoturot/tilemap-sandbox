@@ -10,6 +10,11 @@ func _process(_delta: float) -> void:
 		Root.open_inventory_player()
 
 
+# invoked dynamically
+func on_pick_item_changed(inventory_key: int, local_key: int, mouse_position: Vector2) -> void:
+	picker.call("on_pick_item_changed", inventory_key, local_key, mouse_position)
+
+
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var mouse_position = self.get_global_mouse_position()

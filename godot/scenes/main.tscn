@@ -23,7 +23,7 @@ shader_parameter/vignette_intensity = 0.4
 shader_parameter/vignette_opacity = 0.25
 shader_parameter/vignette_color = Color(0, 0, 0, 1)
 
-[node name="Root" type="Node"]
+[node name="Main" type="Node"]
 
 [node name="Hook" type="Node" parent="."]
 script = ExtResource("1_1bvp3")

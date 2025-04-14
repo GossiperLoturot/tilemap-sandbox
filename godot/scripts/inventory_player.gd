@@ -17,9 +17,9 @@ func _enter_tree() -> void:
 
 
 # invoked dynamicaly
-func on_inventory_changed(inventory_key: int) -> void:
+func on_inventory_changed(ui: Control, inventory_key: int) -> void:
 	for i in ITEM_SIZE:
-		_item_nodes[i].call("on_inventory_item_changed", inventory_key, i)
+		_item_nodes[i].call("on_inventory_item_changed", ui, inventory_key, i)
 
 
 func _on_header_gui_input(event: InputEvent) -> void:

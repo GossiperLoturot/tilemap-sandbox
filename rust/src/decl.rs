@@ -52,7 +52,7 @@ pub struct ItemDescriptor {
 pub struct InventoryDescriptor {
     pub size: u32,
     pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: Box<dyn Fn(Gd<godot::classes::Node>, inner::InventoryKey)>,
+    pub callback: item::InventoryFn,
 }
 
 pub struct GenRuleDescriptor {
@@ -64,7 +64,7 @@ pub struct BuildDescriptor {
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
     pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
-    pub node: Gd<godot::classes::Node>,
+    pub ui: Gd<godot::classes::Node>,
 }
 
 type RegFn<R, T> = Box<dyn for<'a> FnOnce(&'a R) -> T>;
@@ -342,7 +342,7 @@ impl<R> ContextBuilder<R> {
         let item_store_view = item::ItemStore::new(item::ItemStoreDescriptor {
             items: items_view,
             inventories: inventories_view,
-            node: desc.node,
+            ui: desc.ui,
         });
 
         // gen rules
