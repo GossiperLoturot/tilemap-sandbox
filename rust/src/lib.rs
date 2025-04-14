@@ -408,7 +408,7 @@ impl Root {
             size: 32,
             scene: load("res://scenes/inventory_player.tscn"),
             callback: Box::new(|ui, mut instance, key| {
-                instance.call("on_inventory_changed", &[ui.to_variant(), key.to_variant()]);
+                instance.call("change_inventory", &[ui.to_variant(), key.to_variant()]);
             }),
         });
 
