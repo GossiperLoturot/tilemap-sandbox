@@ -832,6 +832,22 @@ impl Root {
     }
 
     #[func]
+    fn set_pick(location: Vector2) {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let point = Vec2::new(location.x, location.y).as_ivec2();
+            let tiles = context
+                .root
+                .tile_get_by_point(point)
+                .into_iter()
+                .collect::<Vec<_>>();
+
+            context.tile_field.set_pick(&tiles);
+        })
+    }
+
+    #[func]
     fn update_view(min_rect: Rect2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();

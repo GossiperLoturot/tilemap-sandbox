@@ -74,6 +74,7 @@ impl TileField {
     const MAX_PAGE_SIZE: usize = 8;
     const BAKE_TEXTURE_SIZE: usize = 1024;
     const MAX_BUFFER_SIZE: usize = 1024;
+    const MAX_PICK_SIZE: usize = 4;
 
     pub fn new(desc: TileFieldDescriptor) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
@@ -273,7 +274,28 @@ impl TileField {
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
-            min_rect: None,
+            min_rect: Default::default(),
+        }
+    }
+
+    pub fn set_pick(&self, tile_keys: &[inner::TileKey]) {
+        let mut rendering_server = godot::classes::RenderingServer::singleton();
+
+        let mut pick_data = [-1; Self::MAX_PICK_SIZE * 2];
+
+        for (i, (chunk_key, local_key)) in tile_keys.iter().take(Self::MAX_PICK_SIZE).enumerate() {
+            pick_data[i * 2] = *chunk_key as i32;
+            pick_data[i * 2 + 1] = *local_key as i32;
+        }
+
+        for (_, up_chunk) in &self.up_chunks {
+            for material in &up_chunk.materials {
+                rendering_server.material_set_param(
+                    *material,
+                    "pick_data",
+                    &PackedInt32Array::from(pick_data.as_slice()).to_variant(),
+                );
+            }
         }
     }
 
@@ -290,19 +312,19 @@ impl TileField {
         // remove/insert view chunk
 
         if Some(min_rect) != self.min_rect {
-            let mut chunk_keys = vec![];
-            for (chunk_key, _) in &self.up_chunks {
+            let mut chunk_locations = vec![];
+            for (chunk_location, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_key[0] < min_rect[0].x || min_rect[1].x < chunk_key[0];
+                    chunk_location[0] < min_rect[0].x || min_rect[1].x < chunk_location[0];
                 let is_out_of_range_y =
-                    chunk_key[1] < min_rect[0].y || min_rect[1].y < chunk_key[1];
+                    chunk_location[1] < min_rect[0].y || min_rect[1].y < chunk_location[1];
                 if is_out_of_range_x || is_out_of_range_y {
-                    chunk_keys.push(*chunk_key);
+                    chunk_locations.push(*chunk_location);
                 }
             }
 
-            for chunk_key in chunk_keys {
-                let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
+            for chunk_location in chunk_locations {
+                let up_chunk = self.up_chunks.remove(&chunk_location).unwrap();
 
                 rendering_server.instance_set_visible(up_chunk.instance, false);
 
@@ -311,9 +333,9 @@ impl TileField {
 
             for y in min_rect[0].y..=min_rect[1].y {
                 for x in min_rect[0].x..=min_rect[1].x {
-                    let chunk_key = IVec2::new(x, y);
+                    let chunk_location = IVec2::new(x, y);
 
-                    if self.up_chunks.contains_key(&chunk_key) {
+                    if self.up_chunks.contains_key(&chunk_location) {
                         continue;
                     }
 
@@ -325,7 +347,7 @@ impl TileField {
 
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
-                    self.up_chunks.insert(chunk_key, down_chunk.up());
+                    self.up_chunks.insert(chunk_location, down_chunk.up());
                 }
             }
 
@@ -334,8 +356,8 @@ impl TileField {
 
         // update view chunk
 
-        for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = root.tile_get_chunk(*chunk_key) else {
+        for (chunk_location, up_chunk) in &mut self.up_chunks {
+            let Ok((chunk_key, chunk)) = root.tile_get_chunk(*chunk_location) else {
                 continue;
             };
 
@@ -353,8 +375,10 @@ impl TileField {
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
             let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
+            let mut idx_buffer = [0; Self::MAX_BUFFER_SIZE * 2];
 
-            for (i, (_, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate() {
+            for (i, (local_key, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate()
+            {
                 instance_buffer[i * 12] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
@@ -383,6 +407,9 @@ impl TileField {
                 head_buffer[i * 4 + 2] =
                     image_head.step_tick as i32 | ((image_head.is_loop as i32) << 16);
                 head_buffer[i * 4 + 3] = tile.render_param.tick as i32;
+
+                idx_buffer[i * 2] = chunk_key as i32;
+                idx_buffer[i * 2 + 1] = local_key as i32;
             }
 
             rendering_server.multimesh_set_buffer(
@@ -395,6 +422,12 @@ impl TileField {
                     *material,
                     "head_buffer",
                     &PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
+                );
+
+                rendering_server.material_set_param(
+                    *material,
+                    "idx_buffer",
+                    &PackedInt32Array::from(idx_buffer.as_slice()).to_variant(),
                 );
             }
 

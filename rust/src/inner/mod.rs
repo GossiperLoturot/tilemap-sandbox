@@ -118,13 +118,16 @@ impl Root {
         self.tile_field.get_chunk_size()
     }
 
-    pub fn tile_get_chunk(&self, chunk_location: IVec2) -> Result<&field::TileChunk, FieldError> {
+    pub fn tile_get_chunk(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<(u32, &field::TileChunk), FieldError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
             .ok_or(FieldError::NotFound)?;
         let chunk = self.tile_field.get_chunk(chunk_key).unwrap();
-        Ok(chunk)
+        Ok((chunk_key, chunk))
     }
 
     pub fn tile_get_name_text(&self, tile_key: TileKey) -> Result<&str, FieldError> {

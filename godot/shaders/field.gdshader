@@ -3,16 +3,19 @@ render_mode skip_vertex_transform, unshaded;
 
 #define MAX_BUFFER_SIZE 1024
 #define ALPHA_THRESHOLD 0.5
-
 uniform sampler2DArray texture_array: source_color, repeat_disable, filter_nearest;
 uniform sampler2D bake_texture: repeat_disable, filter_nearest;
 uniform ivec4[MAX_BUFFER_SIZE] head_buffer;
+uniform ivec2[MAX_BUFFER_SIZE] idx_buffer;
 uniform int tick;
+
+#define MAX_PICK_SIZE 4
+uniform ivec2[MAX_PICK_SIZE] pick_data;
 
 varying flat float PAGE;
 
 void vertex() {
-	// Decode bake_texture and head buffer
+	// Decode bake_texture and head_buffer
 
 	int start_texcoord_id = head_buffer[INSTANCE_ID].x;
 	int end_texcoord_id = head_buffer[INSTANCE_ID].y;
@@ -40,6 +43,18 @@ void vertex() {
 	UV = UV * texcoord.zw + texcoord.xy;
 	PAGE = misc.x;
 
+	// Decode pick_data and idx_buffer
+
+	bool match = false;
+	for (int i = 0; i < MAX_PICK_SIZE; i ++) {
+		match = match || pick_data[i] == idx_buffer[INSTANCE_ID];
+	}
+	if (match) {
+		COLOR.rgb = vec3(1.25);
+	} else {
+		COLOR.rgb = vec3(1.0);
+	}
+
 	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
@@ -50,5 +65,5 @@ void fragment() {
 		discard;
 	}
 
-	ALBEDO = col.rgb;
+	ALBEDO = col.rgb * COLOR.rgb;
 }

@@ -18,6 +18,7 @@ func _process(_delta: float) -> void:
 
 func change_pick_field(world_position: Vector2, mouse_position: Vector2) -> void:
 	var texts: Array[String]
+	Root.set_pick(world_position)
 	for i in Root.get_pick_size(world_position):
 		var text = Root.get_pick_name_text(world_position, i)
 		texts.append(text)
