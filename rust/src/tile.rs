@@ -273,7 +273,7 @@ impl TileField {
             down_chunks,
             up_chunks: Default::default(),
             free_handles,
-            min_rect: None,
+            min_rect: Default::default(),
         }
     }
 
@@ -290,19 +290,19 @@ impl TileField {
         // remove/insert view chunk
 
         if Some(min_rect) != self.min_rect {
-            let mut chunk_keys = vec![];
-            for (chunk_key, _) in &self.up_chunks {
+            let mut chunk_locations = vec![];
+            for (chunk_location, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_key[0] < min_rect[0].x || min_rect[1].x < chunk_key[0];
+                    chunk_location[0] < min_rect[0].x || min_rect[1].x < chunk_location[0];
                 let is_out_of_range_y =
-                    chunk_key[1] < min_rect[0].y || min_rect[1].y < chunk_key[1];
+                    chunk_location[1] < min_rect[0].y || min_rect[1].y < chunk_location[1];
                 if is_out_of_range_x || is_out_of_range_y {
-                    chunk_keys.push(*chunk_key);
+                    chunk_locations.push(*chunk_location);
                 }
             }
 
-            for chunk_key in chunk_keys {
-                let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
+            for chunk_location in chunk_locations {
+                let up_chunk = self.up_chunks.remove(&chunk_location).unwrap();
 
                 rendering_server.instance_set_visible(up_chunk.instance, false);
 
@@ -311,9 +311,9 @@ impl TileField {
 
             for y in min_rect[0].y..=min_rect[1].y {
                 for x in min_rect[0].x..=min_rect[1].x {
-                    let chunk_key = IVec2::new(x, y);
+                    let chunk_location = IVec2::new(x, y);
 
-                    if self.up_chunks.contains_key(&chunk_key) {
+                    if self.up_chunks.contains_key(&chunk_location) {
                         continue;
                     }
 
@@ -325,7 +325,7 @@ impl TileField {
 
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
-                    self.up_chunks.insert(chunk_key, down_chunk.up());
+                    self.up_chunks.insert(chunk_location, down_chunk.up());
                 }
             }
 
@@ -334,8 +334,8 @@ impl TileField {
 
         // update view chunk
 
-        for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = root.tile_get_chunk(*chunk_key) else {
+        for (chunk_location, up_chunk) in &mut self.up_chunks {
+            let Ok(chunk) = root.tile_get_chunk(*chunk_location) else {
                 continue;
             };
 
@@ -353,6 +353,7 @@ impl TileField {
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
             let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
+            let mut color_buffer = [0; Self::MAX_BUFFER_SIZE];
 
             for (i, (_, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate() {
                 instance_buffer[i * 12] = 2.0;
@@ -378,12 +379,19 @@ impl TileField {
 
                 let image_head =
                     &self.image_heads[tile.id as usize][tile.render_param.variant as usize];
-                head_buffer[i * 4] = image_head.start_texcoord_id as i32;
-                head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
+                head_buffer[i * 4] = image_head.start_texcoord_id;
+                head_buffer[i * 4 + 1] = image_head.end_texcoord_id;
                 head_buffer[i * 4 + 2] =
-                    image_head.step_tick as i32 | ((image_head.is_loop as i32) << 16);
-                head_buffer[i * 4 + 3] = tile.render_param.tick as i32;
+                    image_head.step_tick as u32 | ((image_head.is_loop as u32) << 16);
+                head_buffer[i * 4 + 3] = tile.render_param.tick;
+
+                // 32-17 bit blending
+                // 16-01 bit color
+                color_buffer[i] = tile.render_param.override_color;
             }
+
+            let head_buffer: &[i32] = unsafe { std::mem::transmute(head_buffer.as_slice()) };
+            let color_buffer: &[i32] = unsafe { std::mem::transmute(color_buffer.as_slice()) };
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
@@ -394,7 +402,12 @@ impl TileField {
                 rendering_server.material_set_param(
                     *material,
                     "head_buffer",
-                    &PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
+                    &PackedInt32Array::from(head_buffer).to_variant(),
+                );
+                rendering_server.material_set_param(
+                    *material,
+                    "color_buffer",
+                    &PackedInt32Array::from(color_buffer).to_variant(),
                 );
             }
 

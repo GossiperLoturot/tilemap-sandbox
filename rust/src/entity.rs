@@ -372,6 +372,7 @@ impl EntityField {
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
             let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
+            let mut color_buffer = [0; Self::MAX_BUFFER_SIZE];
 
             for (i, (_, entity)) in chunk
                 .entities
@@ -398,12 +399,19 @@ impl EntityField {
 
                 let image_head =
                     &self.image_heads[entity.id as usize][entity.render_param.variant as usize];
-                head_buffer[i * 4] = image_head.start_texcoord_id as i32;
-                head_buffer[i * 4 + 1] = image_head.end_texcoord_id as i32;
+                head_buffer[i * 4] = image_head.start_texcoord_id;
+                head_buffer[i * 4 + 1] = image_head.end_texcoord_id;
                 head_buffer[i * 4 + 2] =
-                    image_head.step_tick as i32 | ((image_head.is_loop as i32) << 16);
-                head_buffer[i * 4 + 3] = entity.render_param.tick as i32;
+                    image_head.step_tick as u32 | ((image_head.is_loop as u32) << 16);
+                head_buffer[i * 4 + 3] = entity.render_param.tick;
+
+                // 32-17 bit blending
+                // 16-01 bit color
+                color_buffer[i] = entity.render_param.override_color;
             }
+
+            let head_buffer: &[i32] = unsafe { std::mem::transmute(head_buffer.as_slice()) };
+            let color_buffer: &[i32] = unsafe { std::mem::transmute(color_buffer.as_slice()) };
 
             rendering_server.multimesh_set_buffer(
                 up_chunk.multimesh,
@@ -414,7 +422,12 @@ impl EntityField {
                 rendering_server.material_set_param(
                     *material,
                     "head_buffer",
-                    &PackedInt32Array::from(head_buffer.as_slice()).to_variant(),
+                    &PackedInt32Array::from(head_buffer).to_variant(),
+                );
+                rendering_server.material_set_param(
+                    *material,
+                    "color_buffer",
+                    &PackedInt32Array::from(color_buffer).to_variant(),
                 );
             }
 

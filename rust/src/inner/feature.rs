@@ -6,6 +6,7 @@ use super::*;
 pub struct TileRenderParam {
     pub variant: u8,
     pub tick: u32,
+    pub override_color: u32,
 }
 
 pub trait TileData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
@@ -83,6 +84,7 @@ impl Default for Box<dyn TileFeature> {
 pub struct BlockRenderParam {
     pub variant: u8,
     pub tick: u32,
+    pub override_color: u32,
 }
 
 pub trait BlockData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
@@ -160,6 +162,7 @@ impl Default for Box<dyn BlockFeature> {
 pub struct EntityRenderParam {
     pub variant: u8,
     pub tick: u32,
+    pub override_color: u32,
 }
 
 pub trait EntityData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
