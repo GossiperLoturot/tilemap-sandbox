@@ -1,7 +1,7 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::*;
+use crate::{pick::PickDescriptor, *};
 
 pub struct ImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
@@ -63,6 +63,7 @@ pub struct BuildDescriptor {
     pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
     pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
+    pub pick_shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
     pub ui: Gd<godot::classes::Node>,
 }
@@ -202,6 +203,7 @@ impl<R> ContextBuilder<R> {
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,
                 hint_offset: desc.rendering_offset,
+                z_along_y: desc.z_along_y,
             });
 
             let mut images = vec![];
@@ -254,6 +256,7 @@ impl<R> ContextBuilder<R> {
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,
                 hint_offset: desc.rendering_offset,
+                z_along_y: desc.z_along_y,
             });
 
             let mut images = vec![];
@@ -357,6 +360,12 @@ impl<R> ContextBuilder<R> {
 
         let gen_resource_desc = inner::GenResourceDescriptor { gen_rules };
 
+        let pick_desc = PickDescriptor {
+            shader: desc.pick_shader,
+            world: desc.world.clone(),
+        };
+        let pick_view = pick::Pick::new(pick_desc);
+
         let root = inner::Root::new(inner::RootDescriptor {
             tile_field: tile_field_desc,
             block_field: block_field_desc,
@@ -376,6 +385,7 @@ impl<R> ContextBuilder<R> {
             block_field: block_field_view,
             entity_field: entity_field_view,
             item_store: item_store_view,
+            pick: pick_view,
             registry,
         }
     }
@@ -387,5 +397,6 @@ pub struct Context<R> {
     pub block_field: block::BlockField,
     pub entity_field: entity::EntityField,
     pub item_store: item::ItemStore,
+    pub pick: pick::Pick,
     pub registry: R,
 }

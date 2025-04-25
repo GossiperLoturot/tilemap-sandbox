@@ -166,6 +166,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     BlockDescriptor {
                         name_text: "block_1".into(),
@@ -175,6 +176,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -208,6 +210,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     BlockDescriptor {
                         name_text: "block_1".into(),
@@ -217,6 +220,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -255,6 +259,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     BlockDescriptor {
                         name_text: "block_1".into(),
@@ -264,6 +269,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -302,6 +308,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     BlockDescriptor {
                         name_text: "block_1".into(),
@@ -311,6 +318,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -348,6 +356,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     EntityDescriptor {
                         name_text: "entity_1".into(),
@@ -356,6 +365,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -388,6 +398,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     EntityDescriptor {
                         name_text: "entity_1".into(),
@@ -396,6 +407,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -433,6 +445,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     EntityDescriptor {
                         name_text: "entity_1".into(),
@@ -441,6 +454,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });
@@ -478,6 +492,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                     EntityDescriptor {
                         name_text: "entity_1".into(),
@@ -486,6 +501,7 @@ fn benchmark(c: &mut Criterion) {
                         collision_offset: Vec2::new(0.0, 0.0),
                         hint_size: Vec2::new(1.0, 1.0),
                         hint_offset: Vec2::new(0.0, 0.0),
+                        z_along_y: false,
                     },
                 ],
             });

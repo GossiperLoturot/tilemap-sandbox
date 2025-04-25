@@ -7,6 +7,7 @@ mod block;
 mod decl;
 mod entity;
 mod item;
+mod pick;
 mod tile;
 
 struct Extension;
@@ -512,6 +513,7 @@ impl Root {
                 load("res://shaders/field.gdshader"),
                 load("res://shaders/field_shadow.gdshader"),
             ],
+            pick_shader: load("res://shaders/pick.gdshader"),
             world,
             ui,
         };
@@ -763,7 +765,7 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let point = Vec2::new(location.x, location.y).as_ivec2();
+            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
                 .tile_get_by_point(point)
@@ -789,7 +791,7 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let point = Vec2::new(location.x, location.y).as_ivec2();
+            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
                 .tile_get_by_point(point)
@@ -836,50 +838,28 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let point = Vec2::new(location.x, location.y).round().as_ivec2();
+            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
                 .tile_get_by_point(point)
                 .into_iter()
                 .collect::<Vec<_>>();
-            for tile_key in tiles {
-                context
-                    .root
-                    .tile_modify(tile_key, |tile| {
-                        tile.render_param.override_color = 0x4444FFFF;
-                    })
-                    .unwrap();
-            }
 
             let point = Vec2::new(location.x, location.y);
             let blocks = context
                 .root
                 .block_get_by_hint_point(point)
-                .into_iter()
                 .collect::<Vec<_>>();
-            for block_key in blocks {
-                context
-                    .root
-                    .block_modify(block_key, |block| {
-                        block.render_param.override_color = 0x4444FFFF;
-                    })
-                    .unwrap();
-            }
 
             let point = Vec2::new(location.x, location.y);
-            let entity = context
+            let entities = context
                 .root
                 .entity_get_by_hint_point(point)
-                .into_iter()
                 .collect::<Vec<_>>();
-            for entity_key in entity {
-                context
-                    .root
-                    .entity_modify(entity_key, |entity| {
-                        entity.render_param.override_color = 0x4444FFFF;
-                    })
-                    .unwrap();
-            }
+
+            context
+                .pick
+                .update_view(&context.root, &tiles, &blocks, &entities);
         })
     }
 

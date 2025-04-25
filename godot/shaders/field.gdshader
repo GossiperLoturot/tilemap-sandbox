@@ -6,11 +6,9 @@ render_mode skip_vertex_transform, unshaded;
 uniform sampler2DArray texture_array: source_color, repeat_disable, filter_nearest;
 uniform sampler2D bake_texture: repeat_disable, filter_nearest;
 uniform uvec4[MAX_BUFFER_SIZE] head_buffer;
-uniform uint[MAX_BUFFER_SIZE] color_buffer;
 uniform uint tick;
 
 varying flat float PAGE;
-varying flat vec4 BLEND;
 
 void vertex() {
 	// Decode bake_texture and head_buffer
@@ -44,21 +42,6 @@ void vertex() {
 	UV = UV * texcoord.zw + texcoord.xy;
 	PAGE = misc.x;
 
-	// Decode color_buffer
-	uint color = color_buffer[INSTANCE_ID];
-	BLEND = vec4(
-		float((color >> 28u) & 0xFu) / float(0xFu),
-		float((color >> 24u) & 0xFu) / float(0xFu),
-		float((color >> 20u) & 0xFu) / float(0xFu),
-		float((color >> 16u) & 0xFu) / float(0xFu)
-	);
-	COLOR = vec4(
-		float((color >> 12u) & 0xFu) / float(0xFu),
-		float((color >> 08u) & 0xFu) / float(0xFu),
-		float((color >> 04u) & 0xFu) / float(0xFu),
-		float((color >> 00u) & 0xFu) / float(0xFu)
-	);
-
 	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
@@ -69,5 +52,5 @@ void fragment() {
 		discard;
 	}
 
-	ALBEDO = mix(col.rgb, COLOR.rgb, BLEND.rgb);
+	ALBEDO = col.rgb;
 }

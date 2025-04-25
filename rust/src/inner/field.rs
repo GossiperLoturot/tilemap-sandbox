@@ -330,6 +330,7 @@ pub struct BlockDescriptor {
     pub collision_offset: Vec2,
     pub hint_size: Vec2,
     pub hint_offset: Vec2,
+    pub z_along_y: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -346,6 +347,7 @@ struct BlockProperty {
     collision_offset: Vec2,
     hint_size: Vec2,
     hint_offset: Vec2,
+    z_along_y: bool,
 }
 
 impl BlockProperty {
@@ -430,6 +432,7 @@ impl BlockField {
                 collision_offset: block.collision_offset,
                 hint_size: block.hint_size,
                 hint_offset: block.hint_offset,
+                z_along_y: block.z_along_y,
             });
         }
 
@@ -649,7 +652,7 @@ impl BlockField {
 
     #[inline]
     pub fn get_base_rect(&self, id: u16) -> Result<[IVec2; 2], FieldError> {
-        let prop = self.props.get(id as usize).unwrap();
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
         Ok(prop.rect(Default::default()))
     }
 
@@ -703,7 +706,7 @@ impl BlockField {
 
     #[inline]
     pub fn get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        let prop = self.props.get(id as usize).unwrap();
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
         Ok(prop.collision_rect(Default::default()).unwrap_or_default())
     }
 
@@ -752,8 +755,14 @@ impl BlockField {
     // hint features
 
     #[inline]
+    pub fn get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
+        Ok(prop.z_along_y)
+    }
+
+    #[inline]
     pub fn get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        let prop = self.props.get(id as usize).unwrap();
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
         Ok(prop.hint_rect(Default::default()).unwrap_or_default())
     }
 
@@ -812,6 +821,7 @@ pub struct EntityDescriptor {
     pub collision_offset: Vec2,
     pub hint_size: Vec2,
     pub hint_offset: Vec2,
+    pub z_along_y: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -827,6 +837,7 @@ pub struct EntityProperty {
     collision_offset: Vec2,
     hint_size: Vec2,
     hint_offset: Vec2,
+    z_along_y: bool,
 }
 
 impl EntityProperty {
@@ -835,6 +846,7 @@ impl EntityProperty {
         if self.collision_size[0] * self.collision_size[1] == 0.0 {
             return None;
         }
+
         Some([
             location + self.collision_offset,
             location + self.collision_offset + self.collision_size,
@@ -846,6 +858,7 @@ impl EntityProperty {
         if self.hint_size[0] * self.hint_size[1] == 0.0 {
             return None;
         }
+
         Some([
             location + self.hint_offset,
             location + self.hint_offset + self.hint_size,
@@ -896,6 +909,7 @@ impl EntityField {
                 collision_offset: entity.collision_offset,
                 hint_size: entity.hint_size,
                 hint_offset: entity.hint_offset,
+                z_along_y: entity.z_along_y,
             });
         }
 
@@ -1091,7 +1105,7 @@ impl EntityField {
 
     #[inline]
     pub fn get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        let prop = self.props.get(id as usize).unwrap();
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
         Ok(prop.collision_rect(Default::default()).unwrap_or_default())
     }
 
@@ -1140,8 +1154,14 @@ impl EntityField {
     // hint features
 
     #[inline]
+    pub fn get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
+        Ok(prop.z_along_y)
+    }
+
+    #[inline]
     pub fn get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        let prop = self.props.get(id as usize).unwrap();
+        let prop = self.props.get(id as usize).ok_or(FieldError::InvalidId)?;
         Ok(prop.hint_rect(Default::default()).unwrap_or_default())
     }
 
@@ -1593,6 +1613,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
+                z_along_y: false,
             }],
         });
     }
@@ -1609,6 +1630,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
+                z_along_y: false,
             }],
         });
     }
@@ -1625,6 +1647,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(-1.0, -1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
+                z_along_y: false,
             }],
         });
     }
@@ -1641,6 +1664,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1650,6 +1674,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -1698,6 +1723,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1707,6 +1733,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -1761,6 +1788,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1770,6 +1798,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -1825,6 +1854,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1834,6 +1864,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -1893,6 +1924,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1902,6 +1934,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -1941,6 +1974,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -1950,6 +1984,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2012,6 +2047,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -2021,6 +2057,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2083,6 +2120,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 BlockDescriptor {
                     name_text: "block_1".into(),
@@ -2092,6 +2130,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2140,6 +2179,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
+                z_along_y: false,
             }],
         });
     }
@@ -2155,6 +2195,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(-1.0, -1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
+                z_along_y: false,
             }],
         });
     }
@@ -2170,6 +2211,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2178,6 +2220,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2214,6 +2257,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2222,6 +2266,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2248,6 +2293,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2256,6 +2302,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2305,6 +2352,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2313,6 +2361,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2347,6 +2396,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2355,6 +2405,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2388,6 +2439,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2396,6 +2448,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2457,6 +2510,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2465,6 +2519,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });
@@ -2526,6 +2581,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
                 EntityDescriptor {
                     name_text: "entity_1".into(),
@@ -2534,6 +2590,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
+                    z_along_y: false,
                 },
             ],
         });

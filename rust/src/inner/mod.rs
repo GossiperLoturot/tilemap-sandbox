@@ -320,6 +320,11 @@ impl Root {
     // block hint features
 
     #[inline]
+    pub fn block_get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
+        self.block_field.get_base_z_along_y(id)
+    }
+
+    #[inline]
     pub fn block_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
         self.block_field.get_base_hint_rect(id)
     }
@@ -464,6 +469,11 @@ impl Root {
     }
 
     // entity hint features
+
+    #[inline]
+    pub fn entity_get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
+        self.entity_field.get_base_z_along_y(id)
+    }
 
     #[inline]
     pub fn entity_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {

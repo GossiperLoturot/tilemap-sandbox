@@ -11,6 +11,7 @@ var _view_rect: Rect2
 func _init() -> void:
 	preload("res://shaders/field.gdshader")
 	preload("res://shaders/field_shadow.gdshader")
+	preload("res://shaders/pick.gdshader")
 
 
 func _enter_tree() -> void:
