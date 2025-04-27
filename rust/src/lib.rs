@@ -864,6 +864,15 @@ impl Root {
     }
 
     #[func]
+    fn clear_pick() {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            context.pick.update_view(&context.root, &[], &[], &[]);
+        })
+    }
+
+    #[func]
     fn update_view(min_rect: Rect2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();

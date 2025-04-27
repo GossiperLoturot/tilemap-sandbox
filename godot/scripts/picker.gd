@@ -8,7 +8,7 @@ extends Control
 # invoked dynamicaly
 func change_pick(texts: Array[String], screen_position: Vector2) -> void:
 	for child in item_deploy.get_children():
-		child.queue_free()
+		child.free()
 
 	for text in texts:
 		var item_instance = item_scene.instantiate()

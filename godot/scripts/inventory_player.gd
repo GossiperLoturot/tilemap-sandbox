@@ -20,6 +20,12 @@ func change_inventory(ui: Control, inventory_key: int) -> void:
 		child.call("change_inventory_item", ui, inventory_key, i)
 
 
+func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			self.get_parent().move_child(self, -1)
+
+
 func _on_header_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var is_inside = self.get_viewport_rect().has_point(self.get_global_mouse_position())

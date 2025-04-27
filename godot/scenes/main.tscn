@@ -65,6 +65,7 @@ offset_bottom = 0.0
 grow_vertical = 0
 
 [node name="Picker" parent="UI" instance=ExtResource("14_jkv2x")]
+z_index = 1
 layout_mode = 0
 
 [node name="World" type="Node3D" parent="." node_paths=PackedStringArray("ui")]

@@ -3,9 +3,12 @@
 [ext_resource type="Script" uid="uid://cny4u131cmbjm" path="res://scripts/picker.gd" id="1_37lji"]
 [ext_resource type="PackedScene" uid="uid://vi4qet71dd5h" path="res://scenes/picker_item.tscn" id="2_llkt3"]
 
-[node name="Picker" type="PanelContainer" node_paths=PackedStringArray("item_deploy")]
-offset_right = 137.0
-offset_bottom = 47.0
+[node name="Picker" type="Control" node_paths=PackedStringArray("item_deploy")]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 128.0
+offset_bottom = 16.0
+size_flags_vertical = 4
 mouse_filter = 2
 script = ExtResource("1_37lji")
 item_scene = ExtResource("2_llkt3")
@@ -13,6 +16,9 @@ item_deploy = NodePath("Body/Container")
 
 [node name="Body" type="MarginContainer" parent="."]
 layout_mode = 2
+offset_right = 128.0
+offset_bottom = 16.0
+size_flags_vertical = 4
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
@@ -20,3 +26,4 @@ theme_override_constants/margin_bottom = 8
 
 [node name="Container" type="VBoxContainer" parent="Body"]
 layout_mode = 2
+size_flags_vertical = 4

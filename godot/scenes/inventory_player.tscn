@@ -4,8 +4,17 @@
 [ext_resource type="PackedScene" uid="uid://c2yxg41vkcoi5" path="res://scenes/inventory_item.tscn" id="2_vbacu"]
 
 [node name="InventoryPlayer" type="PanelContainer" node_paths=PackedStringArray("item_deploy")]
-offset_right = 364.0
-offset_bottom = 224.0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_05u7a")
 item_scene = ExtResource("2_vbacu")
 item_deploy = NodePath("Container/Body/Container")
@@ -33,5 +42,6 @@ theme_override_constants/margin_bottom = 8
 layout_mode = 2
 columns = 8
 
+[connection signal="gui_input" from="." to="." method="_on_gui_input"]
 [connection signal="gui_input" from="Container/Header" to="." method="_on_header_gui_input"]
 [connection signal="pressed" from="Container/Header/CloseButton" to="." method="_on_close_button_pressed"]
