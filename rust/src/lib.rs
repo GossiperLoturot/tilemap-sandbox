@@ -501,6 +501,10 @@ impl Root {
         let resource = inner::GenResource::new(desc);
         context.root.insert_resources(resource).unwrap();
 
+        // register player system
+        let resource = inner::PlayerResource::new();
+        context.root.insert_resources(resource).unwrap();
+
         CONTEXT.set(Some(context));
     }
 
