@@ -4,21 +4,14 @@ use super::*;
 
 // resource
 
-#[derive(Debug, Default)]
-pub struct ForwarderResource {}
+pub struct ForwarderSystem;
 
-impl ForwarderResource {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-
+impl ForwarderSystem {
     pub fn exec_rect(
-        &self,
         root: &mut inner::Root,
         min_rect: [Vec2; 2],
         delta_secs: f32,
-    ) -> Result<(), RootError> {
+    ) -> Result<(), std::convert::Infallible> {
         // tile
         let chunk_size = root.tile_get_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
@@ -29,7 +22,7 @@ impl ForwarderResource {
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
                 let chunk_location = IVec2::new(x, y);
-                self.tile_forward_chunk(root, chunk_location, delta_secs);
+                Self::tile_forward_chunk(root, chunk_location, delta_secs);
             }
         }
 
@@ -43,7 +36,7 @@ impl ForwarderResource {
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
                 let chunk_location = IVec2::new(x, y);
-                self.block_forward_chunk(root, chunk_location, delta_secs);
+                Self::block_forward_chunk(root, chunk_location, delta_secs);
             }
         }
 
@@ -57,19 +50,14 @@ impl ForwarderResource {
         for y in rect[0][1]..=rect[1][1] {
             for x in rect[0][0]..=rect[1][0] {
                 let chunk_location = IVec2::new(x, y);
-                self.entity_forward_chunk(root, chunk_location, delta_secs);
+                Self::entity_forward_chunk(root, chunk_location, delta_secs);
             }
         }
 
         Ok(())
     }
 
-    pub fn tile_forward_chunk(
-        &self,
-        root: &mut inner::Root,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) {
+    fn tile_forward_chunk(root: &mut inner::Root, chunk_location: IVec2, delta_secs: f32) {
         let Some(chunk_key) = root.tile_field.get_by_chunk_location(chunk_location) else {
             return;
         };
@@ -91,12 +79,7 @@ impl ForwarderResource {
         }
     }
 
-    pub fn block_forward_chunk(
-        &self,
-        root: &mut inner::Root,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) {
+    fn block_forward_chunk(root: &mut inner::Root, chunk_location: IVec2, delta_secs: f32) {
         let Some(chunk_key) = root.block_field.get_by_chunk_location(chunk_location) else {
             return;
         };
@@ -118,12 +101,7 @@ impl ForwarderResource {
         }
     }
 
-    pub fn entity_forward_chunk(
-        &self,
-        root: &mut inner::Root,
-        chunk_location: IVec2,
-        delta_secs: f32,
-    ) {
+    fn entity_forward_chunk(root: &mut inner::Root, chunk_location: IVec2, delta_secs: f32) {
         let Some(chunk_key) = root.entity_field.get_by_chunk_location(chunk_location) else {
             return;
         };

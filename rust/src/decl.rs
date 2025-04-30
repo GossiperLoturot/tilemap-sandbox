@@ -1,7 +1,7 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::{pick::PickDescriptor, *};
+use crate::*;
 
 pub struct ImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
@@ -55,10 +55,6 @@ pub struct InventoryDescriptor {
     pub callback: item::InventoryFn,
 }
 
-pub struct GenRuleDescriptor {
-    pub gen_rule: Box<dyn inner::GenRule>,
-}
-
 pub struct BuildDescriptor {
     pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
@@ -76,7 +72,6 @@ pub struct ContextBuilder<R> {
     entities: Vec<RegFn<R, EntityDescriptor>>,
     items: Vec<RegFn<R, ItemDescriptor>>,
     inventories: Vec<RegFn<R, InventoryDescriptor>>,
-    gen_rules: Vec<RegFn<R, GenRuleDescriptor>>,
     _phantom: std::marker::PhantomData<R>,
 }
 
@@ -88,7 +83,6 @@ impl<R> ContextBuilder<R> {
             entities: Default::default(),
             items: Default::default(),
             inventories: Default::default(),
-            gen_rules: Default::default(),
             _phantom: Default::default(),
         }
     }
@@ -131,14 +125,6 @@ impl<R> ContextBuilder<R> {
     {
         self.inventories.push(Box::new(desc_fn));
         (self.inventories.len() - 1) as u16
-    }
-
-    pub fn add_gen_rule<L>(&mut self, desc_fn: L) -> u16
-    where
-        L: FnOnce(&R) -> GenRuleDescriptor + 'static,
-    {
-        self.gen_rules.push(Box::new(desc_fn));
-        (self.gen_rules.len() - 1) as u16
     }
 
     pub fn build(self, registry: R, desc: BuildDescriptor) -> Context<R> {
@@ -348,23 +334,10 @@ impl<R> ContextBuilder<R> {
             ui: desc.ui,
         });
 
-        // gen rules
-        let mut gen_rules = vec![];
-        for gen_rule in self.gen_rules {
-            let desc = gen_rule(&registry);
-
-            let gen_rule = desc.gen_rule;
-
-            gen_rules.push(gen_rule);
-        }
-
-        let gen_resource_desc = inner::GenResourceDescriptor { gen_rules };
-
-        let pick_desc = PickDescriptor {
+        let pick_view = pick::Pick::new(pick::PickDescriptor {
             shader: desc.pick_shader,
             world: desc.world.clone(),
-        };
-        let pick_view = pick::Pick::new(pick_desc);
+        });
 
         let root = inner::Root::new(inner::RootDescriptor {
             tile_field: tile_field_desc,
@@ -376,9 +349,8 @@ impl<R> ContextBuilder<R> {
             block_features: block_features.into(),
             entity_features: entity_features.into(),
             item_features: item_features.into(),
-
-            gen_resource: gen_resource_desc,
         });
+
         Context {
             root,
             tile_field: tile_field_view,

@@ -5,6 +5,7 @@ pub use forwarder::*;
 pub use gen::*;
 pub use item::*;
 pub use player::*;
+pub use resource::*;
 pub use time::*;
 
 use glam::*;
@@ -16,6 +17,7 @@ mod forwarder;
 mod gen;
 mod item;
 mod player;
+mod resource;
 mod time;
 
 type RcVec<T> = std::rc::Rc<[T]>;
@@ -31,55 +33,68 @@ pub struct RootDescriptor {
     pub block_features: RcVec<Box<dyn BlockFeature>>,
     pub entity_features: RcVec<Box<dyn EntityFeature>>,
     pub item_features: RcVec<Box<dyn ItemFeature>>,
-
-    pub gen_resource: GenResourceDescriptor,
 }
 
 #[derive(Debug)]
 pub struct Root {
-    // isolated fields
+    time_store: TimeStore,
+
+    // isolated data
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
     item_store: ItemStore,
-    time_store: TimeStore,
 
-    // readonly shared fields
+    // readonly shared data
     tile_features: RcVec<Box<dyn TileFeature>>,
     block_features: RcVec<Box<dyn BlockFeature>>,
     entity_features: RcVec<Box<dyn EntityFeature>>,
     item_features: RcVec<Box<dyn ItemFeature>>,
 
-    // shared fields
-    forwarder_resource: Option<ForwarderResource>,
-    gen_resource: Option<GenResource>,
-    player_resource: Option<PlayerResource>,
+    // shared data
+    resources: Resources,
 }
 
 impl Root {
     #[inline]
     pub fn new(desc: RootDescriptor) -> Self {
         Self {
+            time_store: TimeStore::new(),
+
             tile_field: TileField::new(desc.tile_field),
             block_field: BlockField::new(desc.block_field),
             entity_field: EntityField::new(desc.entity_field),
             item_store: ItemStore::new(desc.item_store),
-            time_store: TimeStore::new(),
 
             tile_features: desc.tile_features,
             block_features: desc.block_features,
             entity_features: desc.entity_features,
             item_features: desc.item_features,
 
-            forwarder_resource: Some(ForwarderResource::new()),
-            gen_resource: Some(GenResource::new(desc.gen_resource)),
-            player_resource: Some(PlayerResource::new()),
+            resources: Resources::new(),
         }
+    }
+
+    // time
+
+    #[inline]
+    pub fn time_tick_per_secs(&self) -> u64 {
+        self.time_store.tick_per_secs()
+    }
+
+    #[inline]
+    pub fn time_tick(&self) -> u64 {
+        self.time_store.tick()
+    }
+
+    #[inline]
+    pub fn time_forward(&mut self, delta_secs: f32) {
+        self.time_store.forward(delta_secs);
     }
 
     // tile
 
-    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, FieldError> {
+    pub fn tile_insert(&mut self, tile: field::Tile) -> Result<TileKey, RootError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
@@ -89,14 +104,15 @@ impl Root {
         Ok(tile_key)
     }
 
-    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, FieldError> {
+    pub fn tile_remove(&mut self, tile_key: TileKey) -> Result<field::Tile, RootError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
             .get(tile.id as usize)
             .ok_or(FieldError::InvalidId)?;
         feature.before_break(self, tile_key);
-        self.tile_field.remove(tile_key)
+        let tile = self.tile_field.remove(tile_key)?;
+        Ok(tile)
     }
 
     #[inline]
@@ -109,8 +125,9 @@ impl Root {
     }
 
     #[inline]
-    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile, FieldError> {
-        self.tile_field.get(tile_key)
+    pub fn tile_get(&self, tile_key: TileKey) -> Result<&field::Tile, RootError> {
+        let tile_key = self.tile_field.get(tile_key)?;
+        Ok(tile_key)
     }
 
     #[inline]
@@ -118,7 +135,7 @@ impl Root {
         self.tile_field.get_chunk_size()
     }
 
-    pub fn tile_get_chunk(&self, chunk_location: IVec2) -> Result<&field::TileChunk, FieldError> {
+    pub fn tile_get_chunk(&self, chunk_location: IVec2) -> Result<&field::TileChunk, RootError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -127,12 +144,14 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn tile_get_name_text(&self, tile_key: TileKey) -> Result<&str, FieldError> {
-        self.tile_field.get_name_text(tile_key)
+    pub fn tile_get_name_text(&self, tile_key: TileKey) -> Result<&str, RootError> {
+        let name_text = self.tile_field.get_name_text(tile_key)?;
+        Ok(name_text)
     }
 
-    pub fn tile_get_desc_text(&self, tile_key: TileKey) -> Result<&str, FieldError> {
-        self.tile_field.get_desc_text(tile_key)
+    pub fn tile_get_desc_text(&self, tile_key: TileKey) -> Result<&str, RootError> {
+        let desc_text = self.tile_field.get_desc_text(tile_key)?;
+        Ok(desc_text)
     }
 
     // tile spatial features
@@ -150,8 +169,9 @@ impl Root {
     // tile collision features
 
     #[inline]
-    pub fn tile_get_collision_rect(&self, tile_key: TileKey) -> Result<[Vec2; 2], FieldError> {
-        self.tile_field.get_collision_rect(tile_key)
+    pub fn tile_get_collision_rect(&self, tile_key: TileKey) -> Result<[Vec2; 2], RootError> {
+        let rect = self.tile_field.get_collision_rect(tile_key)?;
+        Ok(rect)
     }
 
     #[inline]
@@ -180,10 +200,7 @@ impl Root {
     // tile inventory
 
     #[inline]
-    pub fn tile_get_inventory(
-        &self,
-        tile_key: TileKey,
-    ) -> Result<Option<InventoryKey>, FieldError> {
+    pub fn tile_get_inventory(&self, tile_key: TileKey) -> Result<Option<InventoryKey>, RootError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
@@ -194,7 +211,7 @@ impl Root {
 
     // block
 
-    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, FieldError> {
+    pub fn block_insert(&mut self, block: field::Block) -> Result<BlockKey, RootError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
@@ -204,14 +221,15 @@ impl Root {
         Ok(block_key)
     }
 
-    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, FieldError> {
+    pub fn block_remove(&mut self, block_key: BlockKey) -> Result<field::Block, RootError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
             .get(block.id as usize)
             .ok_or(FieldError::InvalidId)?;
         feature.before_break(self, block_key);
-        self.block_field.remove(block_key)
+        let block = self.block_field.remove(block_key)?;
+        Ok(block)
     }
 
     #[inline]
@@ -224,8 +242,9 @@ impl Root {
     }
 
     #[inline]
-    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block, FieldError> {
-        self.block_field.get(block_key)
+    pub fn block_get(&self, block_key: BlockKey) -> Result<&field::Block, RootError> {
+        let block = self.block_field.get(block_key)?;
+        Ok(block)
     }
 
     #[inline]
@@ -233,7 +252,7 @@ impl Root {
         self.block_field.get_chunk_size()
     }
 
-    pub fn block_get_chunk(&self, chunk_location: IVec2) -> Result<&field::BlockChunk, FieldError> {
+    pub fn block_get_chunk(&self, chunk_location: IVec2) -> Result<&field::BlockChunk, RootError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -242,24 +261,28 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn block_get_name_text(&self, block_key: BlockKey) -> Result<&str, FieldError> {
-        self.block_field.get_name_text(block_key)
+    pub fn block_get_name_text(&self, block_key: BlockKey) -> Result<&str, RootError> {
+        let name_text = self.block_field.get_name_text(block_key)?;
+        Ok(name_text)
     }
 
-    pub fn block_get_desc_text(&self, block_key: BlockKey) -> Result<&str, FieldError> {
-        self.block_field.get_desc_text(block_key)
+    pub fn block_get_desc_text(&self, block_key: BlockKey) -> Result<&str, RootError> {
+        let desc_text = self.block_field.get_desc_text(block_key)?;
+        Ok(desc_text)
     }
 
     // block spatial features
 
     #[inline]
-    pub fn block_get_base_rect(&self, id: u16) -> Result<[IVec2; 2], FieldError> {
-        self.block_field.get_base_rect(id)
+    pub fn block_get_base_rect(&self, id: u16) -> Result<[IVec2; 2], RootError> {
+        let rect = self.block_field.get_base_rect(id)?;
+        Ok(rect)
     }
 
     #[inline]
-    pub fn block_get_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], FieldError> {
-        self.block_field.get_rect(block_key)
+    pub fn block_get_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], RootError> {
+        let rect = self.block_field.get_rect(block_key)?;
+        Ok(rect)
     }
 
     #[inline]
@@ -285,13 +308,15 @@ impl Root {
     // block collision features
 
     #[inline]
-    pub fn block_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        self.block_field.get_base_collision_rect(id)
+    pub fn block_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+        let rect = self.block_field.get_base_collision_rect(id)?;
+        Ok(rect)
     }
 
     #[inline]
-    pub fn block_get_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], FieldError> {
-        self.block_field.get_collision_rect(block_key)
+    pub fn block_get_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
+        let rect = self.block_field.get_collision_rect(block_key)?;
+        Ok(rect)
     }
 
     #[inline]
@@ -320,18 +345,20 @@ impl Root {
     // block hint features
 
     #[inline]
-    pub fn block_get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
-        self.block_field.get_base_z_along_y(id)
+    pub fn block_get_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
+        let z_along_y = self.block_field.get_base_z_along_y(id)?;
+        Ok(z_along_y)
+    }
+
+    pub fn block_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+        let block = self.block_field.get_base_hint_rect(id)?;
+        Ok(block)
     }
 
     #[inline]
-    pub fn block_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        self.block_field.get_base_hint_rect(id)
-    }
-
-    #[inline]
-    pub fn block_get_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], FieldError> {
-        self.block_field.get_hint_rect(block_key)
+    pub fn block_get_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
+        let block = self.block_field.get_hint_rect(block_key)?;
+        Ok(block)
     }
 
     #[inline]
@@ -360,7 +387,7 @@ impl Root {
     pub fn block_get_inventory(
         &self,
         block_key: BlockKey,
-    ) -> Result<Option<InventoryKey>, FieldError> {
+    ) -> Result<Option<InventoryKey>, RootError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
@@ -371,7 +398,7 @@ impl Root {
 
     // entity
 
-    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, FieldError> {
+    pub fn entity_insert(&mut self, entity: field::Entity) -> Result<EntityKey, RootError> {
         let features = self.entity_features.clone();
         let feature = features
             .get(entity.id as usize)
@@ -381,14 +408,15 @@ impl Root {
         Ok(entity_key)
     }
 
-    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, FieldError> {
+    pub fn entity_remove(&mut self, entity_key: EntityKey) -> Result<field::Entity, RootError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
             .get(entity.id as usize)
             .ok_or(FieldError::InvalidId)?;
         feature.before_break(self, entity_key);
-        self.entity_field.remove(entity_key)
+        let entity = self.entity_field.remove(entity_key)?;
+        Ok(entity)
     }
 
     #[inline]
@@ -396,13 +424,15 @@ impl Root {
         &mut self,
         entity_key: EntityKey,
         f: impl FnOnce(&mut field::Entity),
-    ) -> Result<field::EntityKey, FieldError> {
-        self.entity_field.modify(entity_key, f)
+    ) -> Result<field::EntityKey, RootError> {
+        let entity_key = self.entity_field.modify(entity_key, f)?;
+        Ok(entity_key)
     }
 
     #[inline]
-    pub fn entity_get(&self, entity_key: EntityKey) -> Result<&field::Entity, FieldError> {
-        self.entity_field.get(entity_key)
+    pub fn entity_get(&self, entity_key: EntityKey) -> Result<&field::Entity, RootError> {
+        let entity = self.entity_field.get(entity_key)?;
+        Ok(entity)
     }
 
     #[inline]
@@ -410,7 +440,7 @@ impl Root {
         self.entity_field.get_chunk_size()
     }
 
-    pub fn entity_get_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, FieldError> {
+    pub fn entity_get_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, RootError> {
         let chunk_key = self
             .entity_field
             .get_by_chunk_location(chunk_key)
@@ -419,27 +449,28 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn entity_get_name_text(&self, entity_key: EntityKey) -> Result<&str, FieldError> {
-        self.entity_field.get_name_text(entity_key)
+    pub fn entity_get_name_text(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+        let name_text = self.entity_field.get_name_text(entity_key)?;
+        Ok(name_text)
     }
 
-    pub fn entity_get_desc_text(&self, entity_key: EntityKey) -> Result<&str, FieldError> {
-        self.entity_field.get_desc_text(entity_key)
+    pub fn entity_get_desc_text(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+        let desc_text = self.entity_field.get_desc_text(entity_key)?;
+        Ok(desc_text)
     }
 
     // entity collision features
 
     #[inline]
-    pub fn entity_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        self.entity_field.get_base_collision_rect(id)
+    pub fn entity_get_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+        let rect = self.entity_field.get_base_collision_rect(id)?;
+        Ok(rect)
     }
 
     #[inline]
-    pub fn entity_get_collision_rect(
-        &self,
-        entity_key: EntityKey,
-    ) -> Result<[Vec2; 2], FieldError> {
-        self.entity_field.get_collision_rect(entity_key)
+    pub fn entity_get_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
+        let rect = self.entity_field.get_collision_rect(entity_key)?;
+        Ok(rect)
     }
 
     #[inline]
@@ -471,18 +502,20 @@ impl Root {
     // entity hint features
 
     #[inline]
-    pub fn entity_get_base_z_along_y(&self, id: u16) -> Result<bool, FieldError> {
-        self.entity_field.get_base_z_along_y(id)
+    pub fn entity_get_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
+        let z_along_y = self.entity_field.get_base_z_along_y(id)?;
+        Ok(z_along_y)
+    }
+
+    pub fn entity_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+        let rect = self.entity_field.get_base_hint_rect(id)?;
+        Ok(rect)
     }
 
     #[inline]
-    pub fn entity_get_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], FieldError> {
-        self.entity_field.get_base_hint_rect(id)
-    }
-
-    #[inline]
-    pub fn entity_get_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], FieldError> {
-        self.entity_field.get_hint_rect(entity_key)
+    pub fn entity_get_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
+        let rect = self.entity_field.get_hint_rect(entity_key)?;
+        Ok(rect)
     }
 
     #[inline]
@@ -511,7 +544,7 @@ impl Root {
     pub fn entity_get_inventory(
         &self,
         entity_key: EntityKey,
-    ) -> Result<Option<InventoryKey>, FieldError> {
+    ) -> Result<Option<InventoryKey>, RootError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
@@ -523,18 +556,21 @@ impl Root {
     // item
 
     #[inline]
-    pub fn item_insert_inventory(&mut self, id: u16) -> Result<InventoryKey, ItemError> {
-        self.item_store.insert_inventory(id)
+    pub fn item_insert_inventory(&mut self, id: u16) -> Result<InventoryKey, RootError> {
+        let inventory_key = self.item_store.insert_inventory(id)?;
+        Ok(inventory_key)
     }
 
     #[inline]
-    pub fn item_remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, ItemError> {
-        self.item_store.remove_inventory(inventory_key)
+    pub fn item_remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, RootError> {
+        let id = self.item_store.remove_inventory(inventory_key)?;
+        Ok(id)
     }
 
     #[inline]
-    pub fn item_get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, ItemError> {
-        self.item_store.get_inventory(inventory_key)
+    pub fn item_get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, RootError> {
+        let inventory = self.item_store.get_inventory(inventory_key)?;
+        Ok(inventory)
     }
 
     #[inline]
@@ -542,13 +578,15 @@ impl Root {
         &mut self,
         inventory_key: InventoryKey,
         item: Item,
-    ) -> Result<(), ItemError> {
-        self.item_store.push_item(inventory_key, item)
+    ) -> Result<(), RootError> {
+        self.item_store.push_item(inventory_key, item)?;
+        Ok(())
     }
 
     #[inline]
-    pub fn item_pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, ItemError> {
-        self.item_store.pop_item(inventory_key)
+    pub fn item_pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, RootError> {
+        let item = self.item_store.pop_item(inventory_key)?;
+        Ok(item)
     }
 
     #[inline]
@@ -556,18 +594,21 @@ impl Root {
         &self,
         inventory_key: InventoryKey,
         text: &str,
-    ) -> Result<Vec<SlotKey>, ItemError> {
-        self.item_store.search_item(inventory_key, text)
+    ) -> Result<Vec<SlotKey>, RootError> {
+        let item_key = self.item_store.search_item(inventory_key, text)?;
+        Ok(item_key)
     }
 
     #[inline]
-    pub fn item_insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
-        self.item_store.insert_item(slot_key, item)
+    pub fn item_insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), RootError> {
+        self.item_store.insert_item(slot_key, item)?;
+        Ok(())
     }
 
     #[inline]
-    pub fn item_remove_item(&mut self, slot_key: SlotKey) -> Result<Item, ItemError> {
-        self.item_store.remove_item(slot_key)
+    pub fn item_remove_item(&mut self, slot_key: SlotKey) -> Result<Item, RootError> {
+        let item = self.item_store.remove_item(slot_key)?;
+        Ok(item)
     }
 
     #[inline]
@@ -575,12 +616,13 @@ impl Root {
         &mut self,
         slot_key: SlotKey,
         f: impl FnOnce(&mut Item),
-    ) -> Result<(), ItemError> {
-        self.item_store.modify_item(slot_key, f)
+    ) -> Result<(), RootError> {
+        self.item_store.modify_item(slot_key, f)?;
+        Ok(())
     }
 
     #[inline]
-    pub fn item_use_item(&mut self, slot_key: SlotKey) -> Result<(), ItemError> {
+    pub fn item_use_item(&mut self, slot_key: SlotKey) -> Result<(), RootError> {
         let features = self.item_features.clone();
         let item = self.item_store.get_item(slot_key)?;
         let feature = features
@@ -590,129 +632,24 @@ impl Root {
         Ok(())
     }
 
-    // time
+    // resources
 
     #[inline]
-    pub fn time_tick_per_secs(&self) -> u64 {
-        self.time_store.tick_per_secs()
+    pub fn insert_resources<T: 'static>(&mut self, resource: T) -> Result<(), RootError> {
+        self.resources.insert::<T>(resource)?;
+        Ok(())
     }
 
     #[inline]
-    pub fn time_tick(&self) -> u64 {
-        self.time_store.tick()
+    pub fn remove_resources<T: 'static>(&mut self) -> Result<T, RootError> {
+        let resource = self.resources.remove::<T>()?;
+        Ok(resource)
     }
 
     #[inline]
-    pub fn time_forward(&mut self, delta_secs: f32) {
-        self.time_store.forward(delta_secs);
-    }
-
-    // others
-
-    #[inline]
-    fn exclusive<Field, Output>(
-        &mut self,
-        ref_fn: impl Fn(&mut Self) -> &mut Option<Field>,
-        run_fn: impl Fn(&mut Field, &mut Self) -> Output,
-    ) -> Option<Output> {
-        let mut resource = ref_fn(self).take()?;
-        let value = run_fn(&mut resource, self);
-        *ref_fn(self) = Some(resource);
-        Some(value)
-    }
-
-    #[inline]
-    pub fn forwarder_exec_rect(
-        &mut self,
-        min_rect: [Vec2; 2],
-        delta_secs: f32,
-    ) -> Result<(), RootError> {
-        self.exclusive(
-            |root| &mut root.forwarder_resource,
-            |resource, root| resource.exec_rect(root, min_rect, delta_secs),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn gen_exec_rect(&mut self, min_rect: [Vec2; 2]) -> Result<(), RootError> {
-        self.exclusive(
-            |root| &mut root.gen_resource,
-            |resource, root| resource.exec_rect(root, min_rect),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_insert_entity(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.insert_entity(entity_key),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_remove_entity(&mut self) -> Result<EntityKey, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.remove_entity(),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_get_entity(&mut self) -> Result<EntityKey, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.get_entity(),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_push_input(&mut self, input: Vec2) -> Result<(), RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.push_input(input),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_pop_input(&mut self) -> Result<Vec2, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.pop_input(),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_get_input(&mut self) -> Result<Vec2, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, _| resource.get_input(),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_get_location(&mut self) -> Result<Vec2, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, root| resource.get_location(root),
-        )
-        .ok_or(RootError::ResourceBusy)?
-    }
-
-    #[inline]
-    pub fn player_get_inventory_key(&mut self) -> Result<InventoryKey, RootError> {
-        self.exclusive(
-            |root| &mut root.player_resource,
-            |resource, root| resource.get_inventory_key(root),
-        )
-        .ok_or(RootError::ResourceBusy)?
+    pub fn find_resources<T: 'static>(&self) -> Result<ResourceCell<T>, RootError> {
+        let resource = self.resources.find::<T>()?;
+        Ok(resource)
     }
 }
 
@@ -722,8 +659,7 @@ impl Root {
 pub enum RootError {
     FieldError(FieldError),
     ItemError(ItemError),
-    PlayerError(PlayerError),
-    ResourceBusy,
+    ResourceError(ResourceError),
 }
 
 impl std::fmt::Display for RootError {
@@ -731,8 +667,7 @@ impl std::fmt::Display for RootError {
         match self {
             Self::FieldError(e) => e.fmt(f),
             Self::ItemError(e) => e.fmt(f),
-            Self::PlayerError(e) => e.fmt(f),
-            Self::ResourceBusy => write!(f, "resource is busy"),
+            Self::ResourceError(e) => e.fmt(f),
         }
     }
 }
@@ -742,8 +677,7 @@ impl std::error::Error for RootError {
         match self {
             Self::FieldError(e) => Some(e),
             Self::ItemError(e) => Some(e),
-            Self::PlayerError(e) => Some(e),
-            _ => None,
+            Self::ResourceError(e) => Some(e),
         }
     }
 }
@@ -760,8 +694,8 @@ impl From<ItemError> for RootError {
     }
 }
 
-impl From<PlayerError> for RootError {
-    fn from(e: PlayerError) -> Self {
-        Self::PlayerError(e)
+impl From<ResourceError> for RootError {
+    fn from(e: ResourceError) -> Self {
+        Self::ResourceError(e)
     }
 }

@@ -10,6 +10,8 @@ pub trait GenRule: std::fmt::Debug {
     fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2);
 }
 
+// rules
+
 pub struct MarchGenRule {
     pub prob: f32,
     pub gen_fn: GenFn<IVec2>,
@@ -99,12 +101,17 @@ impl GenResource {
             visit: ahash::AHashSet::new(),
         }
     }
+}
 
-    pub fn exec_rect(
-        &mut self,
-        root: &mut inner::Root,
-        min_rect: [Vec2; 2],
-    ) -> Result<(), RootError> {
+// system
+
+pub struct GenSystem;
+
+impl GenSystem {
+    pub fn exec_rect(root: &mut inner::Root, min_rect: [Vec2; 2]) -> Result<(), RootError> {
+        let resource = root.find_resources::<GenResource>()?;
+        let mut resource = resource.borrow_mut()?;
+
         let chunk_size = Vec2::splat(CHUNK_SIZE as f32);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -115,13 +122,13 @@ impl GenResource {
             for x in min_rect[0].x..=min_rect[1].x {
                 let chunk_location = IVec2::new(x, y);
 
-                if self.visit.contains(&chunk_location) {
+                if resource.visit.contains(&chunk_location) {
                     continue;
                 }
 
-                self.visit.insert(chunk_location);
+                resource.visit.insert(chunk_location);
 
-                for gen_rule in &self.gen_rules {
+                for gen_rule in &resource.gen_rules {
                     gen_rule.gen_chunk(root, chunk_location);
                 }
             }

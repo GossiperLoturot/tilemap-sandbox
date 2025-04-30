@@ -110,7 +110,7 @@ fn intersection_guard(
     root: &mut Root,
     entity_key: EntityKey,
     new_location: Vec2,
-) -> Result<bool, FieldError> {
+) -> Result<bool, RootError> {
     let entity = root.entity_get(entity_key)?;
     let base_rect = root.entity_get_base_collision_rect(entity.id)?;
 

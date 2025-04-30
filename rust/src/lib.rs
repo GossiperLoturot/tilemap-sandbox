@@ -413,80 +413,6 @@ impl Root {
             }),
         });
 
-        // gen rule
-        builder.add_gen_rule(|reg| {
-            let id = reg.tile_grass;
-            let gen_rule = inner::MarchGenRule {
-                prob: 0.5,
-                gen_fn: Box::new(move |root, location| {
-                    let tile = inner::Tile {
-                        id,
-                        location,
-                        data: Default::default(),
-                        render_param: Default::default(),
-                    };
-                    let _ = root.tile_insert(tile);
-                }),
-            };
-            decl::GenRuleDescriptor {
-                gen_rule: Box::new(gen_rule),
-            }
-        });
-        builder.add_gen_rule(|reg| {
-            let id = reg.tile_dirt;
-            let gen_rule = inner::MarchGenRule {
-                prob: 1.0,
-                gen_fn: Box::new(move |root, location| {
-                    let tile = inner::Tile {
-                        id,
-                        location,
-                        data: Default::default(),
-                        render_param: Default::default(),
-                    };
-                    let _ = root.tile_insert(tile);
-                }),
-            };
-            decl::GenRuleDescriptor {
-                gen_rule: Box::new(gen_rule),
-            }
-        });
-        builder.add_gen_rule(|reg| {
-            let id = reg.block_dandelion;
-            let gen_rule = inner::SpawnGenRule {
-                prob: 0.05,
-                gen_fn: Box::new(move |root, location| {
-                    let block = inner::Block {
-                        id,
-                        location: location.as_ivec2(),
-                        data: Default::default(),
-                        render_param: Default::default(),
-                    };
-                    let _ = root.block_insert(block);
-                }),
-            };
-            decl::GenRuleDescriptor {
-                gen_rule: Box::new(gen_rule),
-            }
-        });
-        builder.add_gen_rule(|reg| {
-            let id = reg.entity_bird;
-            let gen_rule = inner::SpawnGenRule {
-                prob: 0.05,
-                gen_fn: Box::new(move |root, location| {
-                    let entity = inner::Entity {
-                        id,
-                        location,
-                        data: Default::default(),
-                        render_param: Default::default(),
-                    };
-                    let _ = root.entity_insert(entity);
-                }),
-            };
-            decl::GenRuleDescriptor {
-                gen_rule: Box::new(gen_rule),
-            }
-        });
-
         let register = Registry {
             tile_dirt,
             tile_grass,
@@ -517,7 +443,64 @@ impl Root {
             world,
             ui,
         };
-        let context = builder.build(register, desc);
+        let mut context = builder.build(register, desc);
+
+        // register gen system
+        let desc = inner::GenResourceDescriptor {
+            gen_rules: vec![
+                Box::new(inner::MarchGenRule {
+                    prob: 0.5,
+                    gen_fn: Box::new(move |root, location| {
+                        let tile = inner::Tile {
+                            id: tile_grass,
+                            location,
+                            data: Default::default(),
+                            render_param: Default::default(),
+                        };
+                        let _ = root.tile_insert(tile);
+                    }),
+                }),
+                Box::new(inner::MarchGenRule {
+                    prob: 1.0,
+                    gen_fn: Box::new(move |root, location| {
+                        let tile = inner::Tile {
+                            id: tile_dirt,
+                            location,
+                            data: Default::default(),
+                            render_param: Default::default(),
+                        };
+                        let _ = root.tile_insert(tile);
+                    }),
+                }),
+                Box::new(inner::SpawnGenRule {
+                    prob: 0.05,
+                    gen_fn: Box::new(move |root, location| {
+                        let block = inner::Block {
+                            id: block_dandelion,
+                            location: location.as_ivec2(),
+                            data: Default::default(),
+                            render_param: Default::default(),
+                        };
+                        let _ = root.block_insert(block);
+                    }),
+                }),
+                Box::new(inner::SpawnGenRule {
+                    prob: 0.05,
+                    gen_fn: Box::new(move |root, location| {
+                        let entity = inner::Entity {
+                            id: entity_bird,
+                            location,
+                            data: Default::default(),
+                            render_param: Default::default(),
+                        };
+                        let _ = root.entity_insert(entity);
+                    }),
+                }),
+            ],
+        };
+        let resource = inner::GenResource::new(desc);
+        context.root.insert_resources(resource).unwrap();
+
         CONTEXT.set(Some(context));
     }
 
@@ -543,10 +526,7 @@ impl Root {
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
-            context
-                .root
-                .forwarder_exec_rect(min_rect, delta_secs)
-                .unwrap();
+            inner::ForwarderSystem::exec_rect(&mut context.root, min_rect, delta_secs).unwrap();
         })
     }
 
@@ -558,7 +538,7 @@ impl Root {
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
-            context.root.gen_exec_rect(min_rect).unwrap();
+            inner::GenSystem::exec_rect(&mut context.root, min_rect).unwrap();
         })
     }
 
@@ -598,7 +578,7 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let input = Vec2::new(input.x, input.y);
-            context.root.player_push_input(input).unwrap();
+            inner::PlayerSystem::push_input(&mut context.root, input).unwrap();
         })
     }
 
@@ -607,7 +587,7 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let location = context.root.player_get_location().unwrap();
+            let location = inner::PlayerSystem::get_location(&context.root).unwrap();
             Vector2::new(location[0], location[1])
         })
     }
@@ -659,7 +639,7 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            if let Ok(inventory_key) = context.root.player_get_inventory_key() {
+            if let Ok(inventory_key) = inner::PlayerSystem::get_inventory_key(&context.root) {
                 let _ = context
                     .item_store
                     .open_inventory(&context.root, inventory_key);

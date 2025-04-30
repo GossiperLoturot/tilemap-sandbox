@@ -15,47 +15,75 @@ impl PlayerResource {
     pub fn new() -> Self {
         Default::default()
     }
+}
 
-    pub fn insert_entity(&mut self, entity_key: EntityKey) -> Result<(), RootError> {
-        if self.current.is_some() {
-            return Err(PlayerError::AlreadyExist.into());
+pub struct PlayerSystem;
+
+impl PlayerSystem {
+    pub fn insert_entity(root: &mut Root, entity_key: EntityKey) -> Result<(), PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let mut resource = resource.borrow_mut().map_err(RootError::from)?;
+
+        if resource.current.is_some() {
+            return Err(PlayerError::AlreadyExist);
         }
-        self.current = Some(entity_key);
+        resource.current = Some(entity_key);
         Ok(())
     }
 
-    pub fn remove_entity(&mut self) -> Result<EntityKey, RootError> {
-        self.current.take().ok_or(PlayerError::NotFound.into())
+    pub fn remove_entity(root: &mut Root) -> Result<EntityKey, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let mut resource = resource.borrow_mut().map_err(RootError::from)?;
+
+        resource.current.take().ok_or(PlayerError::NotFound)
     }
 
-    pub fn get_entity(&self) -> Result<EntityKey, RootError> {
-        self.current.ok_or(PlayerError::NotFound.into())
+    pub fn get_entity(root: &Root) -> Result<EntityKey, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let resource = resource.borrow().map_err(RootError::from)?;
+
+        resource.current.ok_or(PlayerError::NotFound)
     }
 
-    pub fn push_input(&mut self, input: Vec2) -> Result<(), RootError> {
-        if self.input.is_some() {
-            return Err(PlayerError::AlreadyExist.into());
+    pub fn push_input(root: &mut Root, input: Vec2) -> Result<(), PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let mut resource = resource.borrow_mut().map_err(RootError::from)?;
+
+        if resource.input.is_some() {
+            return Err(PlayerError::AlreadyExist);
         }
-        self.input = Some(input);
+        resource.input = Some(input);
         Ok(())
     }
 
-    pub fn pop_input(&mut self) -> Result<Vec2, RootError> {
-        self.input.take().ok_or(PlayerError::NotFound.into())
+    pub fn pop_input(root: &mut Root) -> Result<Vec2, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let mut resource = resource.borrow_mut().map_err(RootError::from)?;
+
+        resource.input.take().ok_or(PlayerError::NotFound)
     }
 
-    pub fn get_input(&self) -> Result<Vec2, RootError> {
-        self.input.ok_or(PlayerError::NotFound.into())
+    pub fn get_input(root: &Root) -> Result<Vec2, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let resource = resource.borrow().map_err(RootError::from)?;
+
+        resource.input.ok_or(PlayerError::NotFound)
     }
 
-    pub fn get_location(&mut self, root: &inner::Root) -> Result<Vec2, RootError> {
-        let current = self.current.ok_or(PlayerError::NotFound)?;
+    pub fn get_location(root: &inner::Root) -> Result<Vec2, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let resource = resource.borrow().map_err(RootError::from)?;
+
+        let current = resource.current.ok_or(PlayerError::NotFound)?;
         let location = root.entity_get(current)?.location;
         Ok(location)
     }
 
-    pub fn get_inventory_key(&mut self, root: &inner::Root) -> Result<InventoryKey, RootError> {
-        let current = self.current.ok_or(PlayerError::NotFound)?;
+    pub fn get_inventory_key(root: &inner::Root) -> Result<InventoryKey, PlayerError> {
+        let resource = root.find_resources::<PlayerResource>()?;
+        let resource = resource.borrow().map_err(RootError::from)?;
+
+        let current = resource.current.ok_or(PlayerError::NotFound)?;
         let inventory_key = root.entity_get_inventory(current)?.unwrap();
         Ok(inventory_key)
     }
@@ -95,7 +123,7 @@ impl EntityFeature for PlayerEntityFeature {
         })
         .unwrap();
 
-        root.player_insert_entity(key).unwrap();
+        PlayerSystem::insert_entity(root, key).unwrap();
     }
 
     fn before_break(&self, root: &mut Root, key: EntityKey) {
@@ -106,7 +134,7 @@ impl EntityFeature for PlayerEntityFeature {
         let inventory_key = data.inventory_key;
         root.item_remove_inventory(inventory_key).unwrap();
 
-        root.player_remove_entity().unwrap();
+        PlayerSystem::remove_entity(root).unwrap();
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
@@ -115,7 +143,7 @@ impl EntityFeature for PlayerEntityFeature {
         let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
 
         // consume input
-        if let Ok(input) = root.player_pop_input() {
+        if let Ok(input) = PlayerSystem::pop_input(root) {
             let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
@@ -144,9 +172,9 @@ impl EntityFeature for PlayerEntityFeature {
             }
         }
 
-        root.player_remove_entity().unwrap();
+        PlayerSystem::remove_entity(root).unwrap();
         let key = root.entity_modify(key, move |e| *e = entity).unwrap();
-        root.player_insert_entity(key).unwrap();
+        PlayerSystem::insert_entity(root, key).unwrap();
     }
 
     fn has_inventory(&self, _root: &Root, _key: EntityKey) -> bool {
@@ -168,7 +196,7 @@ fn intersection_guard(
     root: &mut Root,
     entity_key: EntityKey,
     new_location: Vec2,
-) -> Result<bool, FieldError> {
+) -> Result<bool, RootError> {
     let entity = root.entity_get(entity_key)?;
     let base_rect = root.entity_get_base_collision_rect(entity.id)?;
 
@@ -196,6 +224,7 @@ fn intersection_guard(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlayerError {
+    RootError(RootError),
     AlreadyExist,
     NotFound,
 }
@@ -203,10 +232,24 @@ pub enum PlayerError {
 impl std::fmt::Display for PlayerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::RootError(e) => e.fmt(f),
             Self::AlreadyExist => write!(f, "already exist error"),
             Self::NotFound => write!(f, "not found error"),
         }
     }
 }
 
-impl std::error::Error for PlayerError {}
+impl std::error::Error for PlayerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::RootError(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<RootError> for PlayerError {
+    fn from(e: RootError) -> Self {
+        Self::RootError(e)
+    }
+}

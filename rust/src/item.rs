@@ -153,7 +153,7 @@ impl ItemStore {
         &mut self,
         root: &inner::Root,
         inventory_key: inner::InventoryKey,
-    ) -> Result<(), inner::ItemError> {
+    ) -> Result<(), inner::RootError> {
         let inventory = root.item_get_inventory(inventory_key)?;
         let prop = self
             .inventory_props
@@ -176,7 +176,7 @@ impl ItemStore {
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
-    ) -> Result<bool, inner::ItemError> {
+    ) -> Result<bool, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
         let inventory = root.item_get_inventory(inventory_key)?;
         let slot = inventory
@@ -190,7 +190,7 @@ impl ItemStore {
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
-    ) -> Result<u32, inner::ItemError> {
+    ) -> Result<u32, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
         let inventory = root.item_get_inventory(inventory_key)?;
         let slot = inventory
@@ -206,7 +206,7 @@ impl ItemStore {
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
-    ) -> Result<String, inner::ItemError> {
+    ) -> Result<String, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
         let inventory = root.item_get_inventory(inventory_key)?;
         let slot = inventory
@@ -226,7 +226,7 @@ impl ItemStore {
         &mut self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
-    ) -> Result<String, inner::ItemError> {
+    ) -> Result<String, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
         let inventory = root.item_get_inventory(inventory_key)?;
         let slot = inventory
@@ -247,7 +247,7 @@ impl ItemStore {
         root: &inner::Root,
         slot_key: inner::SlotKey,
         control_item: Gd<godot::classes::Control>,
-    ) -> Result<(), inner::ItemError> {
+    ) -> Result<(), inner::RootError> {
         let (inventory_key, local_key) = slot_key;
         let inventory = root.item_get_inventory(inventory_key)?;
         let slot = inventory
