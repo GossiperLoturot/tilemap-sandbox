@@ -59,7 +59,7 @@ pub struct BuildDescriptor {
     pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
     pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
-    pub pick_shader: Gd<godot::classes::Shader>,
+    pub selector_shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
     pub ui: Gd<godot::classes::Node>,
 }
@@ -326,16 +326,16 @@ impl<R> ContextBuilder<R> {
             });
         }
 
-        let item_store_desc = inner::ItemStoreDescriptor { items, inventories };
+        let item_storage_desc = inner::ItemStorageDescriptor { items, inventories };
 
-        let item_store_view = item::ItemStore::new(item::ItemStoreDescriptor {
+        let item_storage_view = item::ItemStorage::new(item::ItemStorageDescriptor {
             items: items_view,
             inventories: inventories_view,
             ui: desc.ui,
         });
 
-        let pick_view = pick::Pick::new(pick::PickDescriptor {
-            shader: desc.pick_shader,
+        let selector_view = selector::Selector::new(selector::SelectorDescriptor {
+            shader: desc.selector_shader,
             world: desc.world.clone(),
         });
 
@@ -343,7 +343,7 @@ impl<R> ContextBuilder<R> {
             tile_field: tile_field_desc,
             block_field: block_field_desc,
             entity_field: entity_field_desc,
-            item_store: item_store_desc,
+            item_storage: item_storage_desc,
 
             tile_features: tile_features.into(),
             block_features: block_features.into(),
@@ -356,8 +356,8 @@ impl<R> ContextBuilder<R> {
             tile_field: tile_field_view,
             block_field: block_field_view,
             entity_field: entity_field_view,
-            item_store: item_store_view,
-            pick: pick_view,
+            item_storage: item_storage_view,
+            selector: selector_view,
             registry,
         }
     }
@@ -368,7 +368,7 @@ pub struct Context<R> {
     pub tile_field: tile::TileField,
     pub block_field: block::BlockField,
     pub entity_field: entity::EntityField,
-    pub item_store: item::ItemStore,
-    pub pick: pick::Pick,
+    pub item_storage: item::ItemStorage,
+    pub selector: selector::Selector,
     pub registry: R,
 }

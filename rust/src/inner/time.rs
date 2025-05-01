@@ -1,10 +1,10 @@
 #[derive(Debug, Clone, Default)]
-pub struct TimeStore {
+pub struct TimeStorage {
     tick: u64,
     temporary: f32,
 }
 
-impl TimeStore {
+impl TimeStorage {
     const TICK_PER_SECS: u64 = 24;
 
     #[inline]
@@ -18,7 +18,7 @@ impl TimeStore {
     }
 
     #[inline]
-    pub fn tick(&self) -> u64 {
+    pub fn get_tick(&self) -> u64 {
         self.tick
     }
 

@@ -280,7 +280,7 @@ impl TileField {
     pub fn update_view(&mut self, root: &inner::Root, min_rect: [Vec2; 2]) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
-        let chunk_size = root.tile_get_chunk_size() as f32;
+        let chunk_size = root.get_tile_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -335,7 +335,7 @@ impl TileField {
         // update view chunk
 
         for (chunk_location, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = root.tile_get_chunk(*chunk_location) else {
+            let Ok(chunk) = root.get_tile_chunk(*chunk_location) else {
                 continue;
             };
 
@@ -343,7 +343,7 @@ impl TileField {
                 rendering_server.material_set_param(
                     *material,
                     "tick",
-                    &(root.time_tick() as i32).to_variant(),
+                    &(root.get_tick() as i32).to_variant(),
                 );
             }
 

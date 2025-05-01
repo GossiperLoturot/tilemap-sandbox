@@ -3,20 +3,20 @@ use godot::prelude::*;
 
 use crate::inner;
 
-pub(crate) struct PickDescriptor {
+pub(crate) struct SelectorDescriptor {
     pub shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
 }
 
-pub(crate) struct Pick {
+pub(crate) struct Selector {
     multimesh: Rid,
     free_handles: Vec<Rid>,
 }
 
-impl Pick {
+impl Selector {
     const MAX_BUFFER_SIZE: usize = 64;
 
-    pub fn new(desc: PickDescriptor) -> Self {
+    pub fn new(desc: SelectorDescriptor) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut free_handles = vec![];
@@ -95,7 +95,7 @@ impl Pick {
         let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
 
         for tile_key in tile_keys {
-            let tile = root.tile_get(*tile_key).unwrap();
+            let tile = root.get_tile(*tile_key).unwrap();
 
             instance_buffer[i * 12] = 1.0;
             instance_buffer[i * 12 + 1] = 0.0;
@@ -116,9 +116,9 @@ impl Pick {
         }
 
         for block_key in block_keys {
-            let block = root.block_get(*block_key).unwrap();
-            let hint_rect = root.block_get_base_hint_rect(block.id).unwrap();
-            let z_along_y = root.block_get_base_z_along_y(block.id).unwrap();
+            let block = root.get_block(*block_key).unwrap();
+            let hint_rect = root.get_block_base_hint_rect(block.id).unwrap();
+            let z_along_y = root.get_block_base_z_along_y(block.id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];
@@ -143,9 +143,9 @@ impl Pick {
         }
 
         for entity_key in entity_keys {
-            let entity = root.entity_get(*entity_key).unwrap();
-            let hint_rect = root.entity_get_base_hint_rect(entity.id).unwrap();
-            let z_along_y = root.entity_get_base_z_along_y(entity.id).unwrap();
+            let entity = root.get_entity(*entity_key).unwrap();
+            let hint_rect = root.get_entity_base_hint_rect(entity.id).unwrap();
+            let z_along_y = root.get_entity_base_z_along_y(entity.id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];
@@ -176,7 +176,7 @@ impl Pick {
     }
 }
 
-impl Drop for Pick {
+impl Drop for Selector {
     fn drop(&mut self) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
         for free_handle in &self.free_handles {

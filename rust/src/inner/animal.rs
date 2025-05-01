@@ -34,7 +34,7 @@ pub struct AnimalEntityFeature {
 
 impl EntityFeature for AnimalEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
-        root.entity_modify(key, |entity| {
+        root.modify_entity(key, |entity| {
             entity.data = Box::new(AnimalEntityData {
                 min_rest_secs: self.min_rest_secs,
                 max_rest_secs: self.max_rest_secs,
@@ -48,7 +48,7 @@ impl EntityFeature for AnimalEntityFeature {
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).unwrap().clone();
+        let mut entity = root.get_entity(key).unwrap().clone();
 
         let data = entity.data.downcast_mut::<AnimalEntityData>().unwrap();
 
@@ -59,7 +59,7 @@ impl EntityFeature for AnimalEntityFeature {
             }
             AnimalEntityDataState::WaitStart => {
                 entity.render_param.variant = self.idle_variant;
-                entity.render_param.tick = root.time_tick() as u32;
+                entity.render_param.tick = root.get_tick() as u32;
 
                 let secs = rand::Rng::gen_range(&mut rng, data.min_rest_secs..data.max_rest_secs);
                 data.state = AnimalEntityDataState::Wait(secs);
@@ -74,7 +74,7 @@ impl EntityFeature for AnimalEntityFeature {
             }
             AnimalEntityDataState::TripStart => {
                 entity.render_param.variant = self.walk_variant;
-                entity.render_param.tick = root.time_tick() as u32;
+                entity.render_param.tick = root.get_tick() as u32;
 
                 let angle = rand::Rng::gen_range(&mut rng, 0.0..std::f32::consts::PI * 2.0);
                 let distance = rand::Rng::gen_range(&mut rng, data.min_distance..data.max_distance);
@@ -100,7 +100,7 @@ impl EntityFeature for AnimalEntityFeature {
             }
         }
 
-        root.entity_modify(key, move |e| *e = entity).unwrap();
+        root.modify_entity(key, move |e| *e = entity).unwrap();
     }
 }
 
@@ -111,8 +111,8 @@ fn intersection_guard(
     entity_key: EntityKey,
     new_location: Vec2,
 ) -> Result<bool, RootError> {
-    let entity = root.entity_get(entity_key)?;
-    let base_rect = root.entity_get_base_collision_rect(entity.id)?;
+    let entity = root.get_entity(entity_key)?;
+    let base_rect = root.get_entity_base_collision_rect(entity.id)?;
 
     #[rustfmt::skip]
     let rect = [
@@ -120,16 +120,16 @@ fn intersection_guard(
         new_location + base_rect[1],
     ];
 
-    if root.tile_has_by_collision_rect(rect) {
+    if root.has_tile_by_collision_rect(rect) {
         return Ok(true);
     }
 
-    if root.block_has_by_collision_rect(rect) {
+    if root.has_block_by_collision_rect(rect) {
         return Ok(true);
     }
 
     let intersect = root
-        .entity_get_by_collision_rect(rect)
+        .get_entity_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key);
     Ok(intersect)
 }

@@ -4,28 +4,28 @@ use super::*;
 
 const CHUNK_SIZE: u32 = 32;
 
-pub type GenFn<T> = Box<dyn Fn(&mut Root, T)>;
+pub type PlaceFn<T> = Box<dyn Fn(&mut Root, T)>;
 
-pub trait GenRule: std::fmt::Debug {
-    fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2);
+pub trait Generator: std::fmt::Debug {
+    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2);
 }
 
-// rules
+// method for generating chunk
 
-pub struct MarchGenRule {
+pub struct MarchGenerator {
     pub prob: f32,
-    pub gen_fn: GenFn<IVec2>,
+    pub place_fn: PlaceFn<IVec2>,
 }
 
-impl GenRule for MarchGenRule {
-    fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
+impl Generator for MarchGenerator {
+    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
         let rng = &mut rand::thread_rng();
 
         for y in 0..CHUNK_SIZE as i32 {
             for x in 0..CHUNK_SIZE as i32 {
                 let location = IVec2::new(
-                    chunk_location[0] * CHUNK_SIZE as i32 + x,
-                    chunk_location[1] * CHUNK_SIZE as i32 + y,
+                    chunk_location.x * CHUNK_SIZE as i32 + x,
+                    chunk_location.y * CHUNK_SIZE as i32 + y,
                 );
 
                 let value = rand::Rng::gen_range(rng, 0.0..1.0);
@@ -33,28 +33,28 @@ impl GenRule for MarchGenRule {
                     continue;
                 }
 
-                (*self.gen_fn)(root, location);
+                (*self.place_fn)(root, location);
             }
         }
     }
 }
 
-impl std::fmt::Debug for MarchGenRule {
+impl std::fmt::Debug for MarchGenerator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MarchGenRule")
+        f.debug_struct("MarchGenerator")
             .field("prob", &self.prob)
-            .field("gen_fn", &"...")
+            .field("place_fn", &"...")
             .finish()
     }
 }
 
-pub struct SpawnGenRule {
+pub struct SpawnGenerator {
     pub prob: f32,
-    pub gen_fn: GenFn<Vec2>,
+    pub place_fn: PlaceFn<Vec2>,
 }
 
-impl GenRule for SpawnGenRule {
-    fn gen_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
+impl Generator for SpawnGenerator {
+    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
         let rng = &mut rand::thread_rng();
 
         let size = (self.prob * (CHUNK_SIZE * CHUNK_SIZE) as f32) as i32;
@@ -67,49 +67,49 @@ impl GenRule for SpawnGenRule {
                 (chunk_location.y * CHUNK_SIZE as i32) as f32 + v,
             );
 
-            (*self.gen_fn)(root, location)
+            (*self.place_fn)(root, location)
         }
     }
 }
 
-impl std::fmt::Debug for SpawnGenRule {
+impl std::fmt::Debug for SpawnGenerator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpawnGenRule")
+        f.debug_struct("SpawnGenerator")
             .field("prob", &self.prob)
-            .field("gen_fn", &"...")
+            .field("place_fn", &"...")
             .finish()
     }
 }
 
 #[derive(Debug)]
-pub struct GenResourceDescriptor {
-    pub gen_rules: Vec<Box<dyn GenRule>>,
+pub struct GeneratorResourceDescriptor {
+    pub generators: Vec<Box<dyn Generator>>,
 }
 
 // resource
 
 #[derive(Debug)]
-pub struct GenResource {
-    gen_rules: Vec<Box<dyn GenRule>>,
-    visit: ahash::AHashSet<IVec2>,
+pub struct GeneratorResource {
+    generators: Vec<Box<dyn Generator>>,
+    visited: ahash::AHashSet<IVec2>,
 }
 
-impl GenResource {
-    pub fn new(desc: GenResourceDescriptor) -> Self {
+impl GeneratorResource {
+    pub fn new(desc: GeneratorResourceDescriptor) -> Self {
         Self {
-            gen_rules: desc.gen_rules,
-            visit: ahash::AHashSet::new(),
+            generators: desc.generators,
+            visited: ahash::AHashSet::new(),
         }
     }
 }
 
 // system
 
-pub struct GenSystem;
+pub struct GeneratorSystem;
 
-impl GenSystem {
+impl GeneratorSystem {
     pub fn exec_rect(root: &mut inner::Root, min_rect: [Vec2; 2]) -> Result<(), RootError> {
-        let resource = root.find_resources::<GenResource>()?;
+        let resource = root.find_resources::<GeneratorResource>()?;
         let mut resource = resource.borrow_mut()?;
 
         let chunk_size = Vec2::splat(CHUNK_SIZE as f32);
@@ -122,14 +122,14 @@ impl GenSystem {
             for x in min_rect[0].x..=min_rect[1].x {
                 let chunk_location = IVec2::new(x, y);
 
-                if resource.visit.contains(&chunk_location) {
+                if resource.visited.contains(&chunk_location) {
                     continue;
                 }
 
-                resource.visit.insert(chunk_location);
+                resource.visited.insert(chunk_location);
 
-                for gen_rule in &resource.gen_rules {
-                    gen_rule.gen_chunk(root, chunk_location);
+                for generator in &resource.generators {
+                    generator.generate_chunk(root, chunk_location);
                 }
             }
         }

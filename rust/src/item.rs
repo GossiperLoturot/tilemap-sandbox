@@ -23,7 +23,7 @@ pub(crate) struct InventoryDescriptor {
     pub callback: InventoryFn,
 }
 
-pub(crate) struct ItemStoreDescriptor {
+pub(crate) struct ItemStorageDescriptor {
     pub items: Vec<ItemDescriptor>,
     pub inventories: Vec<InventoryDescriptor>,
     pub ui: Gd<godot::classes::Node>,
@@ -46,7 +46,7 @@ struct InventoryProperty {
     pub callback: InventoryFn,
 }
 
-pub(crate) struct ItemStore {
+pub(crate) struct ItemStorage {
     item_props: Vec<ItemProperty>,
     inventory_props: Vec<InventoryProperty>,
     ui: Gd<godot::classes::Node>,
@@ -55,8 +55,8 @@ pub(crate) struct ItemStore {
     free_handles: Vec<Rid>,
 }
 
-impl ItemStore {
-    pub fn new(desc: ItemStoreDescriptor) -> Self {
+impl ItemStorage {
+    pub fn new(desc: ItemStorageDescriptor) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut free_handles = vec![];
@@ -119,7 +119,7 @@ impl ItemStore {
         tile_key: inner::TileKey,
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
-            .tile_get_inventory(tile_key)?
+            .get_tile_inventory(tile_key)?
             .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
@@ -131,7 +131,7 @@ impl ItemStore {
         block_key: inner::BlockKey,
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
-            .block_get_inventory(block_key)?
+            .get_block_inventory(block_key)?
             .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
@@ -143,7 +143,7 @@ impl ItemStore {
         tile_key: inner::TileKey,
     ) -> Result<(), inner::RootError> {
         let inventory_key = root
-            .entity_get_inventory(tile_key)?
+            .get_inventory_by_entity(tile_key)?
             .ok_or(inner::ItemError::InventoryNotFound)?;
         self.open_inventory(root, inventory_key)?;
         Ok(())
@@ -154,7 +154,7 @@ impl ItemStore {
         root: &inner::Root,
         inventory_key: inner::InventoryKey,
     ) -> Result<(), inner::RootError> {
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let prop = self
             .inventory_props
             .get(inventory.id as usize)
@@ -173,12 +173,12 @@ impl ItemStore {
     }
 
     pub fn has_item(
-        &mut self,
+        &self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
     ) -> Result<bool, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
@@ -187,12 +187,12 @@ impl ItemStore {
     }
 
     pub fn get_item_amount(
-        &mut self,
+        &self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
     ) -> Result<u32, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
@@ -203,12 +203,12 @@ impl ItemStore {
     }
 
     pub fn get_item_name_text(
-        &mut self,
+        &self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
     ) -> Result<String, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
@@ -223,12 +223,12 @@ impl ItemStore {
     }
 
     pub fn get_item_desc_text(
-        &mut self,
+        &self,
         root: &inner::Root,
         slot_key: inner::SlotKey,
     ) -> Result<String, inner::RootError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
@@ -249,7 +249,7 @@ impl ItemStore {
         control_item: Gd<godot::classes::Control>,
     ) -> Result<(), inner::RootError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.item_get_inventory(inventory_key)?;
+        let inventory = root.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
@@ -270,8 +270,8 @@ impl ItemStore {
             let texcoord_id = if image_head.step_tick == 0 {
                 image_head.start_texcoord_id
             } else {
-                let step_id = (root.time_tick() as u32 - item.render_param.tick)
-                    / image_head.step_tick as u32;
+                let step_id =
+                    (root.get_tick() as u32 - item.render_param.tick) / image_head.step_tick as u32;
                 let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
                 if image_head.is_loop {
                     image_head.start_texcoord_id + (step_id % step_size)
@@ -288,7 +288,7 @@ impl ItemStore {
     }
 }
 
-impl Drop for ItemStore {
+impl Drop for ItemStorage {
     fn drop(&mut self) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
         for free_handle in &self.free_handles {

@@ -13,7 +13,7 @@ impl ForwarderSystem {
         delta_secs: f32,
     ) -> Result<(), std::convert::Infallible> {
         // tile
-        let chunk_size = root.tile_get_chunk_size() as f32;
+        let chunk_size = root.get_tile_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -27,7 +27,7 @@ impl ForwarderSystem {
         }
 
         // block
-        let chunk_size = root.block_get_chunk_size() as f32;
+        let chunk_size = root.get_block_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -41,7 +41,7 @@ impl ForwarderSystem {
         }
 
         // entity
-        let chunk_size = root.entity_get_chunk_size() as f32;
+        let chunk_size = root.get_entity_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),

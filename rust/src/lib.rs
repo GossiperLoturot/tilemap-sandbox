@@ -7,7 +7,7 @@ mod block;
 mod decl;
 mod entity;
 mod item;
-mod pick;
+mod selector;
 mod tile;
 
 struct Extension;
@@ -439,66 +439,66 @@ impl Root {
                 load("res://shaders/field.gdshader"),
                 load("res://shaders/field_shadow.gdshader"),
             ],
-            pick_shader: load("res://shaders/pick.gdshader"),
+            selector_shader: load("res://shaders/selector.gdshader"),
             world,
             ui,
         };
         let mut context = builder.build(register, desc);
 
-        // register gen system
-        let desc = inner::GenResourceDescriptor {
-            gen_rules: vec![
-                Box::new(inner::MarchGenRule {
+        // register generator system
+        let desc = inner::GeneratorResourceDescriptor {
+            generators: vec![
+                Box::new(inner::MarchGenerator {
                     prob: 0.5,
-                    gen_fn: Box::new(move |root, location| {
+                    place_fn: Box::new(move |root, location| {
                         let tile = inner::Tile {
                             id: tile_grass,
                             location,
                             data: Default::default(),
                             render_param: Default::default(),
                         };
-                        let _ = root.tile_insert(tile);
+                        let _ = root.insert_tile(tile);
                     }),
                 }),
-                Box::new(inner::MarchGenRule {
+                Box::new(inner::MarchGenerator {
                     prob: 1.0,
-                    gen_fn: Box::new(move |root, location| {
+                    place_fn: Box::new(move |root, location| {
                         let tile = inner::Tile {
                             id: tile_dirt,
                             location,
                             data: Default::default(),
                             render_param: Default::default(),
                         };
-                        let _ = root.tile_insert(tile);
+                        let _ = root.insert_tile(tile);
                     }),
                 }),
-                Box::new(inner::SpawnGenRule {
+                Box::new(inner::SpawnGenerator {
                     prob: 0.05,
-                    gen_fn: Box::new(move |root, location| {
+                    place_fn: Box::new(move |root, location| {
                         let block = inner::Block {
                             id: block_dandelion,
                             location: location.as_ivec2(),
                             data: Default::default(),
                             render_param: Default::default(),
                         };
-                        let _ = root.block_insert(block);
+                        let _ = root.insert_block(block);
                     }),
                 }),
-                Box::new(inner::SpawnGenRule {
+                Box::new(inner::SpawnGenerator {
                     prob: 0.05,
-                    gen_fn: Box::new(move |root, location| {
+                    place_fn: Box::new(move |root, location| {
                         let entity = inner::Entity {
                             id: entity_bird,
                             location,
                             data: Default::default(),
                             render_param: Default::default(),
                         };
-                        let _ = root.entity_insert(entity);
+                        let _ = root.insert_entity(entity);
                     }),
                 }),
             ],
         };
-        let resource = inner::GenResource::new(desc);
+        let resource = inner::GeneratorResource::new(desc);
         context.root.insert_resources(resource).unwrap();
 
         // register player system
@@ -514,16 +514,16 @@ impl Root {
     }
 
     #[func]
-    fn time_forward(delta_secs: f32) {
+    fn forward_time(delta_secs: f32) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            context.root.time_forward(delta_secs);
+            context.root.forward_time(delta_secs);
         })
     }
 
     #[func]
-    fn forwarder_exec_rect(min_rect: Rect2, delta_secs: f32) {
+    fn forwarde_rect(min_rect: Rect2, delta_secs: f32) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -535,19 +535,19 @@ impl Root {
     }
 
     #[func]
-    fn gen_exec_rect(min_rect: Rect2) {
+    fn generate_rect(min_rect: Rect2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
-            inner::GenSystem::exec_rect(&mut context.root, min_rect).unwrap();
+            inner::GeneratorSystem::exec_rect(&mut context.root, min_rect).unwrap();
         })
     }
 
     #[func]
-    fn player_spawn(location: Vector2) {
+    fn spawn_player(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -558,12 +558,12 @@ impl Root {
                 data: Default::default(),
                 render_param: Default::default(),
             };
-            let entity_key = context.root.entity_insert(entity).unwrap();
+            let entity_key = context.root.insert_entity(entity).unwrap();
 
             // for inventory and item rendering test
             let inventory_key = context
                 .root
-                .entity_get_inventory(entity_key)
+                .get_inventory_by_entity(entity_key)
                 .unwrap()
                 .unwrap();
             let item = inner::Item {
@@ -572,12 +572,12 @@ impl Root {
                 data: Default::default(),
                 render_param: Default::default(),
             };
-            context.root.item_push_item(inventory_key, item).unwrap();
+            context.root.push_item(inventory_key, item).unwrap();
         })
     }
 
     #[func]
-    fn player_push_input(input: Vector2) {
+    fn push_player_input(input: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -587,12 +587,25 @@ impl Root {
     }
 
     #[func]
-    fn player_get_location() -> Vector2 {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_player_location() -> Vector2 {
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let location = inner::PlayerSystem::get_location(&context.root).unwrap();
             Vector2::new(location[0], location[1])
+        })
+    }
+
+    #[func]
+    fn open_player_inventory() {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            if let Ok(inventory_key) = inner::PlayerSystem::get_inventory_key(&context.root) {
+                let _ = context
+                    .item_storage
+                    .open_inventory(&context.root, inventory_key);
+            }
         })
     }
 
@@ -602,9 +615,9 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y).as_ivec2();
-            if let Some(tile) = context.root.tile_get_by_point(location) {
+            if let Some(tile) = context.root.get_tile_by_point(location) {
                 let _ = context
-                    .item_store
+                    .item_storage
                     .open_inventory_by_tile(&context.root, tile);
             }
         })
@@ -616,9 +629,9 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y);
-            if let Some(block) = context.root.block_get_by_hint_point(location).next() {
+            if let Some(block) = context.root.get_block_by_hint_point(location).next() {
                 let _ = context
-                    .item_store
+                    .item_storage
                     .open_inventory_by_block(&context.root, block);
             }
         })
@@ -630,35 +643,22 @@ impl Root {
             let context = context.as_mut().unwrap();
 
             let location = Vec2::new(location.x, location.y);
-            if let Some(entity) = context.root.entity_get_by_hint_point(location).next() {
+            if let Some(entity) = context.root.get_entity_by_hint_point(location).next() {
                 let _ = context
-                    .item_store
+                    .item_storage
                     .open_inventory_by_entity(&context.root, entity);
             }
         })
     }
 
     #[func]
-    fn open_inventory_player() {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
-
-            if let Ok(inventory_key) = inner::PlayerSystem::get_inventory_key(&context.root) {
-                let _ = context
-                    .item_store
-                    .open_inventory(&context.root, inventory_key);
-            }
-        })
-    }
-
-    #[func]
     fn has_item(inventory_key: u32, local_key: u32) -> bool {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let slot_key = (inventory_key, local_key);
             context
-                .item_store
+                .item_storage
                 .has_item(&context.root, slot_key)
                 .unwrap()
         })
@@ -666,13 +666,13 @@ impl Root {
 
     #[func]
     fn get_item_amount(inventory_key: u32, local_key: u32) -> u32 {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let slot_key = (inventory_key, local_key);
 
             context
-                .item_store
+                .item_storage
                 .get_item_amount(&context.root, slot_key)
                 .unwrap()
         })
@@ -680,12 +680,12 @@ impl Root {
 
     #[func]
     fn get_item_name_text(inventory_key: u32, local_key: u32) -> GString {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let slot_key = (inventory_key, local_key);
             let text = context
-                .item_store
+                .item_storage
                 .get_item_name_text(&context.root, slot_key)
                 .unwrap();
             text.into()
@@ -694,12 +694,12 @@ impl Root {
 
     #[func]
     fn get_item_desc_text(inventory_key: u32, local_key: u32) -> GString {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let slot_key = (inventory_key, local_key);
             let text = context
-                .item_store
+                .item_storage
                 .get_item_desc_text(&context.root, slot_key)
                 .unwrap();
             text.into()
@@ -719,51 +719,51 @@ impl Root {
             let src_slot_key = (src_inventory_key, src_local_key);
             let dst_slot_key = (dst_inventory_key, dst_local_key);
 
-            let src_item = context.root.item_remove_item(src_slot_key);
-            let dst_item = context.root.item_remove_item(dst_slot_key);
+            let src_item = context.root.remove_item(src_slot_key);
+            let dst_item = context.root.remove_item(dst_slot_key);
 
             if let Ok(item) = dst_item {
-                let _ = context.root.item_insert_item(src_slot_key, item);
+                let _ = context.root.insert_item(src_slot_key, item);
             }
             if let Ok(item) = src_item {
-                let _ = context.root.item_insert_item(dst_slot_key, item);
+                let _ = context.root.insert_item(dst_slot_key, item);
             }
         })
     }
 
     #[func]
     fn draw_item(inventory_key: u32, local_key: u32, control_item: Gd<godot::classes::Control>) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let slot_key = (inventory_key, local_key);
             context
-                .item_store
+                .item_storage
                 .draw_item(&context.root, slot_key, control_item)
                 .unwrap();
         })
     }
 
     #[func]
-    fn get_pick_size(location: Vector2) -> u32 {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_select_size(location: Vector2) -> u32 {
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
-                .tile_get_by_point(point)
+                .get_tile_by_point(point)
                 .into_iter()
                 .collect::<Vec<_>>();
             let point = Vec2::new(location.x, location.y);
             let blocks = context
                 .root
-                .block_get_by_hint_point(point)
+                .get_block_by_hint_point(point)
                 .collect::<Vec<_>>();
             let point = Vec2::new(location.x, location.y);
             let entity = context
                 .root
-                .entity_get_by_hint_point(point)
+                .get_entity_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             (tiles.len() + blocks.len() + entity.len()) as u32
@@ -771,45 +771,45 @@ impl Root {
     }
 
     #[func]
-    fn get_pick_name_text(location: Vector2, key: u32) -> GString {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_select_name_text(location: Vector2, key: u32) -> GString {
+        CONTEXT.with_borrow(|context| {
+            let context = context.as_ref().unwrap();
 
             let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
-                .tile_get_by_point(point)
+                .get_tile_by_point(point)
                 .into_iter()
                 .collect::<Vec<_>>();
             let point = Vec2::new(location.x, location.y);
             let blocks = context
                 .root
-                .block_get_by_hint_point(point)
+                .get_block_by_hint_point(point)
                 .collect::<Vec<_>>();
             let point = Vec2::new(location.x, location.y);
             let entities = context
                 .root
-                .entity_get_by_hint_point(point)
+                .get_entity_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             let (lb, ub) = (0, tiles.len() as u32);
             if key < ub {
                 let tile = tiles[(key - lb) as usize];
-                let name = context.root.tile_get_name_text(tile).unwrap();
+                let name = context.root.get_tile_name_text(tile).unwrap();
                 return name.into();
             }
 
             let (lb, ub) = (ub, ub + blocks.len() as u32);
             if key < ub {
                 let block = blocks[(key - lb) as usize];
-                let name = context.root.block_get_name_text(block).unwrap();
+                let name = context.root.get_block_name_text(block).unwrap();
                 return name.into();
             }
 
             let (lb, ub) = (ub, ub + entities.len() as u32);
             if key < ub {
                 let entity = entities[(key - lb) as usize];
-                let name = context.root.entity_get_name_text(entity).unwrap();
+                let name = context.root.get_entity_name_text(entity).unwrap();
                 return name.into();
             }
 
@@ -818,41 +818,41 @@ impl Root {
     }
 
     #[func]
-    fn set_pick(location: Vector2) {
+    fn set_selector(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
             let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .root
-                .tile_get_by_point(point)
+                .get_tile_by_point(point)
                 .into_iter()
                 .collect::<Vec<_>>();
 
             let point = Vec2::new(location.x, location.y);
             let blocks = context
                 .root
-                .block_get_by_hint_point(point)
+                .get_block_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             let point = Vec2::new(location.x, location.y);
             let entities = context
                 .root
-                .entity_get_by_hint_point(point)
+                .get_entity_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             context
-                .pick
+                .selector
                 .update_view(&context.root, &tiles, &blocks, &entities);
         })
     }
 
     #[func]
-    fn clear_pick() {
+    fn clear_selector() {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            context.pick.update_view(&context.root, &[], &[], &[]);
+            context.selector.update_view(&context.root, &[], &[], &[]);
         })
     }
 

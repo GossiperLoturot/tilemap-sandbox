@@ -75,7 +75,7 @@ impl PlayerSystem {
         let resource = resource.borrow().map_err(RootError::from)?;
 
         let current = resource.current.ok_or(PlayerError::NotFound)?;
-        let location = root.entity_get(current)?.location;
+        let location = root.get_entity(current)?.location;
         Ok(location)
     }
 
@@ -84,7 +84,7 @@ impl PlayerSystem {
         let resource = resource.borrow().map_err(RootError::from)?;
 
         let current = resource.current.ok_or(PlayerError::NotFound)?;
-        let inventory_key = root.entity_get_inventory(current)?.unwrap();
+        let inventory_key = root.get_inventory_by_entity(current)?.unwrap();
         Ok(inventory_key)
     }
 }
@@ -113,9 +113,9 @@ pub struct PlayerEntityFeature {
 
 impl EntityFeature for PlayerEntityFeature {
     fn after_place(&self, root: &mut Root, key: EntityKey) {
-        let inventory_key = root.item_insert_inventory(self.inventory_id).unwrap();
+        let inventory_key = root.insert_inventory(self.inventory_id).unwrap();
 
-        root.entity_modify(key, |entity| {
+        root.modify_entity(key, |entity| {
             entity.data = Box::new(PlayerEntityData {
                 state: PlayerEntityDataState::Wait,
                 inventory_key,
@@ -127,18 +127,18 @@ impl EntityFeature for PlayerEntityFeature {
     }
 
     fn before_break(&self, root: &mut Root, key: EntityKey) {
-        let entity = root.entity_get(key).unwrap();
+        let entity = root.get_entity(key).unwrap();
 
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
 
         let inventory_key = data.inventory_key;
-        root.item_remove_inventory(inventory_key).unwrap();
+        root.remove_inventory(inventory_key).unwrap();
 
         PlayerSystem::remove_entity(root).unwrap();
     }
 
     fn forward(&self, root: &mut Root, key: EntityKey, delta_secs: f32) {
-        let mut entity = root.entity_get(key).unwrap().clone();
+        let mut entity = root.get_entity(key).unwrap().clone();
 
         let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
 
@@ -158,14 +158,14 @@ impl EntityFeature for PlayerEntityFeature {
                 PlayerEntityDataState::Wait => {
                     if is_move {
                         entity.render_param.variant = 1;
-                        entity.render_param.tick = root.time_tick() as u32;
+                        entity.render_param.tick = root.get_tick() as u32;
                         data.state = PlayerEntityDataState::Move;
                     }
                 }
                 PlayerEntityDataState::Move => {
                     if !is_move {
                         entity.render_param.variant = 0;
-                        entity.render_param.tick = root.time_tick() as u32;
+                        entity.render_param.tick = root.get_tick() as u32;
                         data.state = PlayerEntityDataState::Wait;
                     }
                 }
@@ -173,7 +173,7 @@ impl EntityFeature for PlayerEntityFeature {
         }
 
         PlayerSystem::remove_entity(root).unwrap();
-        let key = root.entity_modify(key, move |e| *e = entity).unwrap();
+        let key = root.modify_entity(key, move |e| *e = entity).unwrap();
         PlayerSystem::insert_entity(root, key).unwrap();
     }
 
@@ -182,7 +182,7 @@ impl EntityFeature for PlayerEntityFeature {
     }
 
     fn get_inventory(&self, root: &Root, key: EntityKey) -> Option<InventoryKey> {
-        let entity = root.entity_get(key).unwrap();
+        let entity = root.get_entity(key).unwrap();
 
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
 
@@ -197,8 +197,8 @@ fn intersection_guard(
     entity_key: EntityKey,
     new_location: Vec2,
 ) -> Result<bool, RootError> {
-    let entity = root.entity_get(entity_key)?;
-    let base_rect = root.entity_get_base_collision_rect(entity.id)?;
+    let entity = root.get_entity(entity_key)?;
+    let base_rect = root.get_entity_base_collision_rect(entity.id)?;
 
     #[rustfmt::skip]
     let rect = [
@@ -206,16 +206,16 @@ fn intersection_guard(
         new_location + base_rect[1],
     ];
 
-    if root.tile_has_by_collision_rect(rect) {
+    if root.has_tile_by_collision_rect(rect) {
         return Ok(true);
     }
 
-    if root.block_has_by_collision_rect(rect) {
+    if root.has_block_by_collision_rect(rect) {
         return Ok(true);
     }
 
     let intersect = root
-        .entity_get_by_collision_rect(rect)
+        .get_entity_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key);
     Ok(intersect)
 }

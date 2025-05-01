@@ -12,7 +12,7 @@ pub struct ItemEntityFeature;
 
 impl EntityFeature for ItemEntityFeature {}
 
-// item store
+// item storage
 
 pub type InventoryKey = u32;
 pub type SlotKey = (InventoryKey, u32);
@@ -28,7 +28,7 @@ pub struct InventoryDescriptor {
 }
 
 #[derive(Debug, Clone)]
-pub struct ItemStoreDescriptor {
+pub struct ItemStorageDescriptor {
     pub items: Vec<ItemDescriptor>,
     pub inventories: Vec<InventoryDescriptor>,
 }
@@ -66,14 +66,14 @@ pub struct Inventory {
 }
 
 #[derive(Debug, Clone)]
-pub struct ItemStore {
+pub struct ItemStorage {
     item_props: Vec<ItemProperty>,
     inventory_props: Vec<InventoryProperty>,
     inventories: slab::Slab<Inventory>,
 }
 
-impl ItemStore {
-    pub fn new(desc: ItemStoreDescriptor) -> Self {
+impl ItemStorage {
+    pub fn new(desc: ItemStorageDescriptor) -> Self {
         let mut item_props = vec![];
         for item in desc.items {
             item_props.push(ItemProperty {
