@@ -108,7 +108,7 @@ impl GeneratorResource {
 pub struct GeneratorSystem;
 
 impl GeneratorSystem {
-    pub fn exec_rect(root: &mut inner::Root, min_rect: [Vec2; 2]) -> Result<(), RootError> {
+    pub fn generate(root: &mut inner::Root, min_rect: [Vec2; 2]) -> Result<(), RootError> {
         let resource = root.find_resources::<GeneratorResource>()?;
         let mut resource = resource.borrow_mut()?;
 

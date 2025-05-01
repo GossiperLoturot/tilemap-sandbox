@@ -530,7 +530,7 @@ impl Root {
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
-            inner::ForwarderSystem::exec_rect(&mut context.root, min_rect, delta_secs).unwrap();
+            inner::ForwarderSystem::forward(&mut context.root, min_rect, delta_secs).unwrap();
         })
     }
 
@@ -542,7 +542,7 @@ impl Root {
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
-            inner::GeneratorSystem::exec_rect(&mut context.root, min_rect).unwrap();
+            inner::GeneratorSystem::generate(&mut context.root, min_rect).unwrap();
         })
     }
 
@@ -592,7 +592,7 @@ impl Root {
             let context = context.as_ref().unwrap();
 
             let location = inner::PlayerSystem::get_location(&context.root).unwrap();
-            Vector2::new(location[0], location[1])
+            Vector2::new(location.x, location.y)
         })
     }
 

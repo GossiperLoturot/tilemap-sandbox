@@ -361,7 +361,7 @@ impl BlockProperty {
 
     #[rustfmt::skip]
     fn collision_rect(&self, location: IVec2) -> Option<[Vec2; 2]> {
-        if self.collision_size[0] * self.collision_size[1] == 0.0 {
+        if self.collision_size.x * self.collision_size.y == 0.0 {
             return None;
         }
 
@@ -373,7 +373,7 @@ impl BlockProperty {
 
     #[rustfmt::skip]
     fn hint_rect(&self, location: IVec2) -> Option<[Vec2; 2]> {
-        if self.hint_size[0] * self.hint_size[1] == 0.0 {
+        if self.hint_size.x * self.hint_size.y == 0.0 {
             return None;
         }
 
@@ -414,13 +414,13 @@ impl BlockField {
     pub fn new(desc: BlockFieldDescriptor) -> Self {
         let mut props = vec![];
         for block in desc.blocks {
-            if block.size[0] <= 0 || block.size[1] <= 0 {
+            if block.size.x <= 0 || block.size.y <= 0 {
                 panic!("size must be positive");
             }
-            if block.collision_size[0] < 0.0 || block.collision_size[1] < 0.0 {
+            if block.collision_size.x < 0.0 || block.collision_size.y < 0.0 {
                 panic!("collision size must be non-negative");
             }
-            if block.hint_size[0] < 0.0 || block.hint_size[1] < 0.0 {
+            if block.hint_size.x < 0.0 || block.hint_size.y < 0.0 {
                 panic!("hint size must be non-negative");
             }
 
@@ -843,7 +843,7 @@ pub struct EntityProperty {
 impl EntityProperty {
     #[rustfmt::skip]
     fn collision_rect(&self, location: Vec2) -> Option<[Vec2; 2]> {
-        if self.collision_size[0] * self.collision_size[1] == 0.0 {
+        if self.collision_size.x * self.collision_size.y == 0.0 {
             return None;
         }
 
@@ -855,7 +855,7 @@ impl EntityProperty {
 
     #[rustfmt::skip]
     fn hint_rect(&self, location: Vec2) -> Option<[Vec2; 2]> {
-        if self.hint_size[0] * self.hint_size[1] == 0.0 {
+        if self.hint_size.x * self.hint_size.y == 0.0 {
             return None;
         }
 
@@ -895,10 +895,10 @@ impl EntityField {
     pub fn new(desc: EntityFieldDescriptor) -> Self {
         let mut props = vec![];
         for entity in desc.entities {
-            if entity.collision_size[0] < 0.0 || entity.collision_size[1] < 0.0 {
+            if entity.collision_size.x < 0.0 || entity.collision_size.y < 0.0 {
                 panic!("collision size must be non-negative");
             }
-            if entity.hint_size[0] < 0.0 || entity.hint_size[1] < 0.0 {
+            if entity.hint_size.x < 0.0 || entity.hint_size.y < 0.0 {
                 panic!("hint size must be non-negative");
             }
 

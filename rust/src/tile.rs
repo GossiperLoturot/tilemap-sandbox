@@ -293,9 +293,9 @@ impl TileField {
             let mut chunk_locations = vec![];
             for (chunk_location, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_location[0] < min_rect[0].x || min_rect[1].x < chunk_location[0];
+                    chunk_location.x < min_rect[0].x || min_rect[1].x < chunk_location.x;
                 let is_out_of_range_y =
-                    chunk_location[1] < min_rect[0].y || min_rect[1].y < chunk_location[1];
+                    chunk_location.y < min_rect[0].y || min_rect[1].y < chunk_location.y;
                 if is_out_of_range_x || is_out_of_range_y {
                     chunk_locations.push(*chunk_location);
                 }

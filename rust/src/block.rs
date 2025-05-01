@@ -317,9 +317,9 @@ impl BlockField {
             let mut chunk_keys = vec![];
             for (chunk_key, _) in &self.up_chunks {
                 let is_out_of_range_x =
-                    chunk_key[0] < min_rect[0].x || min_rect[1].x < chunk_key[0];
+                    chunk_key.x < min_rect[0].x || min_rect[1].x < chunk_key.x;
                 let is_out_of_range_y =
-                    chunk_key[1] < min_rect[0].y || min_rect[1].y < chunk_key[1];
+                    chunk_key.y < min_rect[0].y || min_rect[1].y < chunk_key.y;
                 if is_out_of_range_x || is_out_of_range_y {
                     chunk_keys.push(*chunk_key);
                 }
