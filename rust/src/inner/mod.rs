@@ -39,20 +39,20 @@ pub struct RootDescriptor {
 pub struct Root {
     time_storage: TimeStorage,
 
-    // isolated data
+    // structured data storage
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
     item_storage: ItemStorage,
 
-    // readonly shared data
+    // readonly functional data storage
     tile_features: RcVec<Box<dyn TileFeature>>,
     block_features: RcVec<Box<dyn BlockFeature>>,
     entity_features: RcVec<Box<dyn EntityFeature>>,
     item_features: RcVec<Box<dyn ItemFeature>>,
 
-    // shared data
-    resources: Resources,
+    // external data storage
+    resource_storage: ResourceStorage,
 }
 
 impl Root {
@@ -71,7 +71,7 @@ impl Root {
             entity_features: desc.entity_features,
             item_features: desc.item_features,
 
-            resources: Resources::new(),
+            resource_storage: ResourceStorage::new(),
         }
     }
 
@@ -631,20 +631,29 @@ impl Root {
     // resources
 
     #[inline]
-    pub fn insert_resources<T: 'static>(&mut self, resource: T) -> Result<(), RootError> {
-        self.resources.insert::<T>(resource)?;
+    pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), RootError>
+    where
+        T: Resource + 'static,
+    {
+        self.resource_storage.insert::<T>(resource)?;
         Ok(())
     }
 
     #[inline]
-    pub fn remove_resources<T: 'static>(&mut self) -> Result<T, RootError> {
-        let resource = self.resources.remove::<T>()?;
+    pub fn remove_resources<T>(&mut self) -> Result<T, RootError>
+    where
+        T: Resource + 'static,
+    {
+        let resource = self.resource_storage.remove::<T>()?;
         Ok(resource)
     }
 
     #[inline]
-    pub fn find_resources<T: 'static>(&self) -> Result<ResourceCell<T>, RootError> {
-        let resource = self.resources.find::<T>()?;
+    pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, RootError>
+    where
+        T: Resource + 'static,
+    {
+        let resource = self.resource_storage.find::<T>()?;
         Ok(resource)
     }
 }

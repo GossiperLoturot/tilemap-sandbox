@@ -17,6 +17,10 @@ impl PlayerResource {
     }
 }
 
+impl Resource for PlayerResource {}
+
+// system
+
 pub struct PlayerSystem;
 
 impl PlayerSystem {

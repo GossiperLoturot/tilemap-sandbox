@@ -103,6 +103,8 @@ impl GeneratorResource {
     }
 }
 
+impl Resource for GeneratorResource {}
+
 // system
 
 pub struct GeneratorSystem;

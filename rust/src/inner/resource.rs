@@ -1,3 +1,5 @@
+pub trait Resource {}
+
 #[derive(Debug, Clone)]
 pub struct ResourceCell<T> {
     value: std::rc::Rc<std::cell::RefCell<T>>,
@@ -14,16 +16,19 @@ impl<T> ResourceCell<T> {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Resources {
+pub struct ResourceStorage {
     resources: ahash::AHashMap<std::any::TypeId, std::rc::Rc<dyn std::any::Any>>,
 }
 
-impl Resources {
+impl ResourceStorage {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn insert<T: 'static>(&mut self, resource: T) -> Result<(), ResourceError> {
+    pub fn insert<T>(&mut self, resource: T) -> Result<(), ResourceError>
+    where
+        T: Resource + 'static,
+    {
         let typed = std::rc::Rc::new(std::cell::RefCell::new(resource));
         let wrap = typed as std::rc::Rc<dyn std::any::Any>;
 
@@ -33,7 +38,10 @@ impl Resources {
         Ok(())
     }
 
-    pub fn remove<T: 'static>(&mut self) -> Result<T, ResourceError> {
+    pub fn remove<T>(&mut self) -> Result<T, ResourceError>
+    where
+        T: Resource + 'static,
+    {
         let typ = std::any::TypeId::of::<T>();
         let wrap = self.resources.remove(&typ).ok_or(ResourceError::NotFound)?;
 
@@ -43,7 +51,10 @@ impl Resources {
         Ok(value)
     }
 
-    pub fn find<T: 'static>(&self) -> Result<ResourceCell<T>, ResourceError> {
+    pub fn find<T>(&self) -> Result<ResourceCell<T>, ResourceError>
+    where
+        T: Resource + 'static,
+    {
         let typ = std::any::TypeId::of::<T>();
         let wrap_ref = self.resources.get(&typ).ok_or(ResourceError::NotFound)?;
         let wrap = wrap_ref.clone();

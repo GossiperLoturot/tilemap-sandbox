@@ -24,7 +24,7 @@ impl Default for Box<dyn TileData> {
     }
 }
 
-pub trait TileFeature: dyn_clone::DynClone + std::fmt::Debug {
+pub trait TileFeature: std::fmt::Debug {
     /// Invoked after place tile with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -67,8 +67,6 @@ pub trait TileFeature: dyn_clone::DynClone + std::fmt::Debug {
     }
 }
 
-dyn_clone::clone_trait_object!(TileFeature);
-
 impl TileFeature for () {}
 
 impl Default for Box<dyn TileFeature> {
@@ -102,7 +100,7 @@ impl Default for Box<dyn BlockData> {
     }
 }
 
-pub trait BlockFeature: dyn_clone::DynClone + std::fmt::Debug {
+pub trait BlockFeature: std::fmt::Debug {
     /// Invoked after place block with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -145,8 +143,6 @@ pub trait BlockFeature: dyn_clone::DynClone + std::fmt::Debug {
     }
 }
 
-dyn_clone::clone_trait_object!(BlockFeature);
-
 impl BlockFeature for () {}
 
 impl Default for Box<dyn BlockFeature> {
@@ -180,7 +176,7 @@ impl Default for Box<dyn EntityData> {
     }
 }
 
-pub trait EntityFeature: dyn_clone::DynClone + std::fmt::Debug {
+pub trait EntityFeature: std::fmt::Debug {
     /// Invoked after place entity with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
     ///
@@ -239,8 +235,6 @@ pub trait EntityFeature: dyn_clone::DynClone + std::fmt::Debug {
     fn pick_up(&self, _root: &mut Root, _key: EntityKey, _inventory_key: InventoryKey) {}
 }
 
-dyn_clone::clone_trait_object!(EntityFeature);
-
 impl EntityFeature for () {}
 
 impl Default for Box<dyn EntityFeature> {
@@ -273,7 +267,7 @@ impl Default for Box<dyn ItemData> {
     }
 }
 
-pub trait ItemFeature: dyn_clone::DynClone + std::fmt::Debug {
+pub trait ItemFeature: std::fmt::Debug {
     fn after_pick(&self, _root: &mut Root, _key: SlotKey) {}
 
     fn before_drop(&self, _root: &mut Root, _key: SlotKey) {}
@@ -282,8 +276,6 @@ pub trait ItemFeature: dyn_clone::DynClone + std::fmt::Debug {
 
     fn r#use(&self, _root: &mut Root, _key: SlotKey) {}
 }
-
-dyn_clone::clone_trait_object!(ItemFeature);
 
 impl ItemFeature for () {}
 
