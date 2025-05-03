@@ -7,7 +7,7 @@ mod block;
 mod decl;
 mod entity;
 mod item;
-mod selector;
+mod selection;
 mod tile;
 
 struct Extension;
@@ -61,9 +61,9 @@ struct Registry {
     tile_dirt: u16,
     tile_grass: u16,
     block_dandelion: u16,
-    block_fallen_leaves: u16,
-    block_mix_grass: u16,
-    block_mix_pebbles: u16,
+    block_fallenleaves: u16,
+    block_mixgrass: u16,
+    block_mixpebbles: u16,
     entity_player: u16,
     entity_pig: u16,
     entity_cow: u16,
@@ -74,8 +74,25 @@ struct Registry {
     inventory_player: u16,
 }
 
-type MutCell<T> = std::cell::RefCell<Option<T>>;
-thread_local! { static CONTEXT: MutCell<decl::Context<Registry>> = Default::default(); }
+impl inner::Resource for Registry {}
+
+struct Retriever {
+    retrieve_callable: Callable,
+}
+
+impl Retriever {
+    fn new(retrieve_callable: Callable) -> Self {
+        Self { retrieve_callable }
+    }
+
+    fn load<T: FromGodot>(&self, name: &str) -> T {
+        let ret = self.retrieve_callable.call(&[name.to_variant()]);
+        ret.to()
+    }
+}
+
+type Body = decl::Context;
+thread_local! { static CONTEXT: std::cell::RefCell<Option<Body>> = Default::default(); }
 
 #[derive(GodotClass)]
 #[class(no_init)]
@@ -84,26 +101,15 @@ struct Root;
 #[godot_api]
 impl Root {
     #[func]
-    fn open(world: Gd<godot::classes::World3D>, ui: Gd<godot::classes::Node>) {
-        let mut builder = decl::ContextBuilder::<Registry>::new();
+    fn open(retrieve_callable: Callable) {
+        let mut builder = decl::ContextBuilder::<(&Registry, &Retriever)>::new();
 
-        // tiles
-        let tile_dirt = builder.add_tile(|_| decl::TileDescriptor {
+        // dirt tile
+        let tile_dirt = builder.add_tile(|(_, retriever)| decl::TileDescriptor {
             name_text: "Dirt".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/surface_dirt.webp")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            collision: false,
-            feature: Box::new(()),
-        });
-        let tile_grass = builder.add_tile(|_| decl::TileDescriptor {
-            name_text: "Grass".into(),
-            desc_text: "".into(),
-            images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/surface_grass.webp")],
+                frames: vec![retriever.load("image_tile_dirt")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -111,60 +117,25 @@ impl Root {
             feature: Box::new(()),
         });
 
-        // blocks
-        let block_dandelion = builder.add_block(|_| decl::BlockDescriptor {
+        // grass tile
+        let tile_grass = builder.add_tile(|(_, retriever)| decl::TileDescriptor {
+            name_text: "Grass".into(),
+            desc_text: "".into(),
+            images: vec![decl::ImageDescriptor {
+                frames: vec![retriever.load("image_tile_grass")],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            collision: false,
+            feature: Box::new(()),
+        });
+
+        // dandelion block
+        let block_dandelion = builder.add_block(|(_, retriever)| decl::BlockDescriptor {
             name_text: "Dandelion".into(),
             desc_text: "".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/dandelion.webp")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            z_along_y: false,
-            size: IVec2::new(1, 1),
-            collision_size: Vec2::new(0.0, 0.0),
-            collision_offset: Vec2::new(0.0, 0.0),
-            rendering_size: Vec2::new(1.0, 1.0),
-            rendering_offset: Vec2::new(0.0, 0.0),
-            feature: Box::new(()),
-        });
-        let block_fallen_leaves = builder.add_block(|_| decl::BlockDescriptor {
-            name_text: "Fallen Leaves".into(),
-            desc_text: "".into(),
-            images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/fallen_leaves.webp")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            z_along_y: false,
-            size: IVec2::new(1, 1),
-            collision_size: Vec2::new(0.0, 0.0),
-            collision_offset: Vec2::new(0.0, 0.0),
-            rendering_size: Vec2::new(1.0, 1.0),
-            rendering_offset: Vec2::new(0.0, 0.0),
-            feature: Box::new(()),
-        });
-        let block_mix_grass = builder.add_block(|_| decl::BlockDescriptor {
-            name_text: "Grass".into(),
-            desc_text: "".into(),
-            images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/mix_grass.webp")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            z_along_y: false,
-            size: IVec2::new(1, 1),
-            collision_size: Vec2::new(0.0, 0.0),
-            collision_offset: Vec2::new(0.0, 0.0),
-            rendering_size: Vec2::new(1.0, 1.0),
-            rendering_offset: Vec2::new(0.0, 0.0),
-            feature: Box::new(()),
-        });
-        let block_mix_pebbles = builder.add_block(|_| decl::BlockDescriptor {
-            name_text: "Pebbles".into(),
-            desc_text: "".into(),
-            images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/mix_pebbles.webp")],
+                frames: vec![retriever.load("image_block_dandelion")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -177,25 +148,79 @@ impl Root {
             feature: Box::new(()),
         });
 
-        // entities
-        let entity_player = builder.add_entity(|reg| decl::EntityDescriptor {
+        // fallen leaves block
+        let block_fallenleaves = builder.add_block(|(_, retriever)| decl::BlockDescriptor {
+            name_text: "Fallen Leaves".into(),
+            desc_text: "".into(),
+            images: vec![decl::ImageDescriptor {
+                frames: vec![retriever.load("image_block_fallenleaves")],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: Box::new(()),
+        });
+
+        // mix grass block
+        let block_mixgrass = builder.add_block(|(_, retriever)| decl::BlockDescriptor {
+            name_text: "Grass".into(),
+            desc_text: "".into(),
+            images: vec![decl::ImageDescriptor {
+                frames: vec![retriever.load("image_block_mixgrass")],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: Box::new(()),
+        });
+
+        // mix pebbles block
+        let block_mixpebbles = builder.add_block(|(_, retriever)| decl::BlockDescriptor {
+            name_text: "Pebbles".into(),
+            desc_text: "".into(),
+            images: vec![decl::ImageDescriptor {
+                frames: vec![retriever.load("image_block_mixpebbles")],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            z_along_y: false,
+            size: IVec2::new(1, 1),
+            collision_size: Vec2::new(0.0, 0.0),
+            collision_offset: Vec2::new(0.0, 0.0),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(0.0, 0.0),
+            feature: Box::new(()),
+        });
+
+        // player entity
+        let entity_player = builder.add_entity(|(registry, retriever)| decl::EntityDescriptor {
             name_text: "Player".into(),
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/player_idle_0.webp"),
-                        load("res://images/player_idle_1.webp"),
+                        retriever.load("image_entity_player_idle0"),
+                        retriever.load("image_entity_player_idle1"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/player_walk_0.webp"),
-                        load("res://images/player_idle_0.webp"),
-                        load("res://images/player_walk_1.webp"),
-                        load("res://images/player_idle_1.webp"),
+                        retriever.load("image_entity_player_walk0"),
+                        retriever.load("image_entity_player_idle0"),
+                        retriever.load("image_entity_player_walk1"),
+                        retriever.load("image_entity_player_idle1"),
                     ],
                     step_tick: 6,
                     is_loop: true,
@@ -208,27 +233,29 @@ impl Root {
             rendering_offset: Vec2::new(-0.75, 0.0),
             feature: Box::new(inner::PlayerEntityFeature {
                 move_speed: 3.0,
-                inventory_id: reg.inventory_player,
+                inventory_id: registry.inventory_player,
             }),
         });
-        let entity_pig = builder.add_entity(|_| decl::EntityDescriptor {
+
+        // pig entity
+        let entity_pig = builder.add_entity(|(_, retriever)| decl::EntityDescriptor {
             name_text: "Pig".into(),
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/pig_idle_0.webp"),
-                        load("res://images/pig_idle_1.webp"),
+                        retriever.load("image_entity_pig_idle0"),
+                        retriever.load("image_entity_pig_idle1"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/pig_walk_0.webp"),
-                        load("res://images/pig_idle_0.webp"),
-                        load("res://images/pig_walk_1.webp"),
-                        load("res://images/pig_idle_1.webp"),
+                        retriever.load("image_entity_pig_walk0"),
+                        retriever.load("image_entity_pig_idle0"),
+                        retriever.load("image_entity_pig_walk1"),
+                        retriever.load("image_entity_pig_idle1"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -249,24 +276,26 @@ impl Root {
                 walk_variant: 1,
             }),
         });
-        let entity_cow = builder.add_entity(|_| decl::EntityDescriptor {
+
+        // cow entity
+        let entity_cow = builder.add_entity(|(_, retriever)| decl::EntityDescriptor {
             name_text: "Cow".into(),
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/cow_idle_0.webp"),
-                        load("res://images/cow_idle_1.webp"),
+                        retriever.load("image_entity_cow_idle0"),
+                        retriever.load("image_entity_cow_idle1"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/cow_walk_0.webp"),
-                        load("res://images/cow_idle_0.webp"),
-                        load("res://images/cow_walk_1.webp"),
-                        load("res://images/cow_idle_1.webp"),
+                        retriever.load("image_entity_cow_walk0"),
+                        retriever.load("image_entity_cow_idle0"),
+                        retriever.load("image_entity_cow_walk1"),
+                        retriever.load("image_entity_cow_idle1"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -287,24 +316,26 @@ impl Root {
                 walk_variant: 1,
             }),
         });
-        let entity_sheep = builder.add_entity(|_| decl::EntityDescriptor {
+
+        // sheep entity
+        let entity_sheep = builder.add_entity(|(_, retriever)| decl::EntityDescriptor {
             name_text: "Sheep".into(),
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/sheep_idle_0.webp"),
-                        load("res://images/sheep_idle_1.webp"),
+                        retriever.load("image_entity_sheep_idle0"),
+                        retriever.load("image_entity_sheep_idle1"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/sheep_walk_0.webp"),
-                        load("res://images/sheep_idle_0.webp"),
-                        load("res://images/sheep_walk_1.webp"),
-                        load("res://images/sheep_idle_1.webp"),
+                        retriever.load("image_entity_sheep_walk0"),
+                        retriever.load("image_entity_sheep_idle0"),
+                        retriever.load("image_entity_sheep_walk1"),
+                        retriever.load("image_entity_sheep_idle1"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -325,52 +356,21 @@ impl Root {
                 walk_variant: 1,
             }),
         });
-        let entity_chicken = builder.add_entity(|_| decl::EntityDescriptor {
+
+        // chicken entity
+        let entity_chicken = builder.add_entity(|(_, retriever)| decl::EntityDescriptor {
             name_text: "Chicken".into(),
             desc_text: "".into(),
             images: vec![
                 decl::ImageDescriptor {
-                    frames: vec![load("res://images/chicken_idle.webp")],
+                    frames: vec![retriever.load("image_entity_chicken_idle")],
                     step_tick: 24,
                     is_loop: true,
                 },
                 decl::ImageDescriptor {
                     frames: vec![
-                        load("res://images/chicken_walk.webp"),
-                        load("res://images/chicken_idle.webp"),
-                    ],
-                    step_tick: 12,
-                    is_loop: true,
-                },
-            ],
-            z_along_y: true,
-            collision_size: Vec2::new(0.8, 0.8),
-            collision_offset: Vec2::new(-0.4, 0.1),
-            rendering_size: Vec2::new(1.0, 1.0),
-            rendering_offset: Vec2::new(-0.5, 0.0),
-            feature: Box::new(inner::AnimalEntityFeature {
-                min_rest_secs: 0.0,
-                max_rest_secs: 10.0,
-                min_distance: 0.0,
-                max_distance: 10.0,
-                speed: 1.0,
-                idle_variant: 0,
-                walk_variant: 1,
-            }),
-        });
-        let entity_bird = builder.add_entity(|_| decl::EntityDescriptor {
-            name_text: "Bird".into(),
-            desc_text: "".into(),
-            images: vec![
-                decl::ImageDescriptor {
-                    frames: vec![load("res://images/bird_idle.webp")],
-                    step_tick: 24,
-                    is_loop: true,
-                },
-                decl::ImageDescriptor {
-                    frames: vec![
-                        load("res://images/bird_walk.webp"),
-                        load("res://images/bird_idle.webp"),
+                        retriever.load("image_entity_chicken_walk"),
+                        retriever.load("image_entity_chicken_idle"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -392,34 +392,66 @@ impl Root {
             }),
         });
 
-        // item
-        let item_package = builder.add_item(|_| decl::ItemDescriptor {
+        // bird entity
+        let entity_bird = builder.add_entity(|(_, retriever)| decl::EntityDescriptor {
+            name_text: "Bird".into(),
+            desc_text: "".into(),
+            images: vec![
+                decl::ImageDescriptor {
+                    frames: vec![retriever.load("image_entity_bird_idle")],
+                    step_tick: 24,
+                    is_loop: true,
+                },
+                decl::ImageDescriptor {
+                    frames: vec![
+                        retriever.load("image_entity_bird_walk"),
+                        retriever.load("image_entity_bird_idle"),
+                    ],
+                    step_tick: 12,
+                    is_loop: true,
+                },
+            ],
+            z_along_y: true,
+            collision_size: Vec2::new(0.8, 0.8),
+            collision_offset: Vec2::new(-0.4, 0.1),
+            rendering_size: Vec2::new(1.0, 1.0),
+            rendering_offset: Vec2::new(-0.5, 0.0),
+            feature: Box::new(inner::AnimalEntityFeature {
+                min_rest_secs: 0.0,
+                max_rest_secs: 10.0,
+                min_distance: 0.0,
+                max_distance: 10.0,
+                speed: 1.0,
+                idle_variant: 0,
+                walk_variant: 1,
+            }),
+        });
+
+        // package item
+        let item_package = builder.add_item(|(_, retriever)| decl::ItemDescriptor {
             name_text: "Package".into(),
             desc_text: "A package of items.".into(),
             images: vec![decl::ImageDescriptor {
-                frames: vec![load("res://images/package.webp")],
+                frames: vec![retriever.load("image_item_package")],
                 step_tick: 0,
                 is_loop: false,
             }],
             feature: Box::new(()),
         });
 
-        // inventory
-        let inventory_player = builder.add_inventory(|_| decl::InventoryDescriptor {
+        // player inventory
+        let inventory_player = builder.add_inventory(|(_, retriever)| decl::InventoryDescriptor {
             size: 32,
-            scene: load("res://scenes/inventory_player.tscn"),
-            callback: Box::new(|ui, mut instance, key| {
-                instance.call("change_inventory", &[ui.to_variant(), key.to_variant()]);
-            }),
+            callback: retriever.load("callable_inventory_player"),
         });
 
-        let register = Registry {
+        let registry = Registry {
             tile_dirt,
             tile_grass,
             block_dandelion,
-            block_fallen_leaves,
-            block_mix_grass,
-            block_mix_pebbles,
+            block_fallenleaves,
+            block_mixgrass,
+            block_mixpebbles,
             entity_player,
             entity_pig,
             entity_cow,
@@ -429,23 +461,26 @@ impl Root {
             item_package,
             inventory_player,
         };
+        let retriever = Retriever::new(retrieve_callable);
         let desc = decl::BuildDescriptor {
-            tile_shaders: vec![load("res://shaders/field.gdshader")],
+            tile_shaders: vec![retriever.load("shader_field")],
             block_shaders: vec![
-                load("res://shaders/field.gdshader"),
-                load("res://shaders/field_shadow.gdshader"),
+                retriever.load("shader_field"),
+                retriever.load("shader_field_shadow"),
             ],
             entity_shaders: vec![
-                load("res://shaders/field.gdshader"),
-                load("res://shaders/field_shadow.gdshader"),
+                retriever.load("shader_field"),
+                retriever.load("shader_field_shadow"),
             ],
-            selector_shader: load("res://shaders/selector.gdshader"),
-            world,
-            ui,
+            selection_shader: retriever.load("shader_selection"),
+            viewport: retriever.load("viewport"),
         };
-        let mut context = builder.build(register, desc);
+        let mut context = builder.build((&registry, &retriever), desc);
 
-        // register generator system
+        // registry
+        context.root.insert_resources(registry).unwrap();
+
+        // generator system
         let desc = inner::GeneratorResourceDescriptor {
             generators: vec![
                 Box::new(inner::MarchGenerator {
@@ -501,7 +536,7 @@ impl Root {
         let resource = inner::GeneratorResource::new(desc);
         context.root.insert_resources(resource).unwrap();
 
-        // register player system
+        // player system
         let resource = inner::PlayerResource::new();
         context.root.insert_resources(resource).unwrap();
 
@@ -551,9 +586,12 @@ impl Root {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
+            let registry = context.root.find_resources::<Registry>().unwrap();
+            let registry = registry.borrow().unwrap();
+
             let location = Vec2::new(location.x, location.y);
             let entity = inner::Entity {
-                id: context.registry.entity_player,
+                id: registry.entity_player,
                 location,
                 data: Default::default(),
                 render_param: Default::default(),
@@ -567,7 +605,7 @@ impl Root {
                 .unwrap()
                 .unwrap();
             let item = inner::Item {
-                id: context.registry.item_package,
+                id: registry.item_package,
                 amount: 1,
                 data: Default::default(),
                 render_param: Default::default(),
@@ -745,80 +783,7 @@ impl Root {
     }
 
     #[func]
-    fn get_select_size(location: Vector2) -> u32 {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
-            let tiles = context
-                .root
-                .get_tile_by_point(point)
-                .into_iter()
-                .collect::<Vec<_>>();
-            let point = Vec2::new(location.x, location.y);
-            let blocks = context
-                .root
-                .get_block_by_hint_point(point)
-                .collect::<Vec<_>>();
-            let point = Vec2::new(location.x, location.y);
-            let entity = context
-                .root
-                .get_entity_by_hint_point(point)
-                .collect::<Vec<_>>();
-
-            (tiles.len() + blocks.len() + entity.len()) as u32
-        })
-    }
-
-    #[func]
-    fn get_select_name_text(location: Vector2, key: u32) -> GString {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
-            let tiles = context
-                .root
-                .get_tile_by_point(point)
-                .into_iter()
-                .collect::<Vec<_>>();
-            let point = Vec2::new(location.x, location.y);
-            let blocks = context
-                .root
-                .get_block_by_hint_point(point)
-                .collect::<Vec<_>>();
-            let point = Vec2::new(location.x, location.y);
-            let entities = context
-                .root
-                .get_entity_by_hint_point(point)
-                .collect::<Vec<_>>();
-
-            let (lb, ub) = (0, tiles.len() as u32);
-            if key < ub {
-                let tile = tiles[(key - lb) as usize];
-                let name = context.root.get_tile_name_text(tile).unwrap();
-                return name.into();
-            }
-
-            let (lb, ub) = (ub, ub + blocks.len() as u32);
-            if key < ub {
-                let block = blocks[(key - lb) as usize];
-                let name = context.root.get_block_name_text(block).unwrap();
-                return name.into();
-            }
-
-            let (lb, ub) = (ub, ub + entities.len() as u32);
-            if key < ub {
-                let entity = entities[(key - lb) as usize];
-                let name = context.root.get_entity_name_text(entity).unwrap();
-                return name.into();
-            }
-
-            panic!("key out of range");
-        })
-    }
-
-    #[func]
-    fn set_selector(location: Vector2) {
+    fn set_selection(location: Vector2) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
@@ -842,17 +807,27 @@ impl Root {
                 .collect::<Vec<_>>();
 
             context
-                .selector
+                .selection
                 .update_view(&context.root, &tiles, &blocks, &entities);
         })
     }
 
     #[func]
-    fn clear_selector() {
+    fn get_selection_size() -> u32 {
+        todo!()
+    }
+
+    #[func]
+    fn get_selection_name_text() -> GString {
+        todo!()
+    }
+
+    #[func]
+    fn clear_selection() {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            context.selector.update_view(&context.root, &[], &[], &[]);
+            context.selection.update_view(&context.root, &[], &[], &[]);
         })
     }
 

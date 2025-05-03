@@ -51,31 +51,29 @@ pub struct ItemDescriptor {
 
 pub struct InventoryDescriptor {
     pub size: u32,
-    pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: item::InventoryFn,
+    pub callback: Callable,
 }
 
 pub struct BuildDescriptor {
     pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
     pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
-    pub selector_shader: Gd<godot::classes::Shader>,
-    pub world: Gd<godot::classes::World3D>,
-    pub ui: Gd<godot::classes::Node>,
+    pub selection_shader: Gd<godot::classes::Shader>,
+    pub viewport: Gd<godot::classes::Viewport>,
 }
 
-type RegFn<R, T> = Box<dyn for<'a> FnOnce(&'a R) -> T>;
+type RegisterFn<T, U> = Box<dyn for<'a> FnOnce(&'a T) -> U>;
 
-pub struct ContextBuilder<R> {
-    tiles: Vec<RegFn<R, TileDescriptor>>,
-    blocks: Vec<RegFn<R, BlockDescriptor>>,
-    entities: Vec<RegFn<R, EntityDescriptor>>,
-    items: Vec<RegFn<R, ItemDescriptor>>,
-    inventories: Vec<RegFn<R, InventoryDescriptor>>,
-    _phantom: std::marker::PhantomData<R>,
+pub struct ContextBuilder<T> {
+    tiles: Vec<RegisterFn<T, TileDescriptor>>,
+    blocks: Vec<RegisterFn<T, BlockDescriptor>>,
+    entities: Vec<RegisterFn<T, EntityDescriptor>>,
+    items: Vec<RegisterFn<T, ItemDescriptor>>,
+    inventories: Vec<RegisterFn<T, InventoryDescriptor>>,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<R> ContextBuilder<R> {
+impl<T> ContextBuilder<T> {
     pub fn new() -> Self {
         Self {
             tiles: Default::default(),
@@ -87,53 +85,55 @@ impl<R> ContextBuilder<R> {
         }
     }
 
-    pub fn add_tile<L>(&mut self, desc_fn: L) -> u16
+    pub fn add_tile<F>(&mut self, desc_fn: F) -> u16
     where
-        L: FnOnce(&R) -> TileDescriptor + 'static,
+        F: FnOnce(&T) -> TileDescriptor + 'static,
     {
         self.tiles.push(Box::new(desc_fn));
         (self.tiles.len() - 1) as u16
     }
 
-    pub fn add_block<L>(&mut self, desc_fn: L) -> u16
+    pub fn add_block<F>(&mut self, desc_fn: F) -> u16
     where
-        L: FnOnce(&R) -> BlockDescriptor + 'static,
+        F: FnOnce(&T) -> BlockDescriptor + 'static,
     {
         self.blocks.push(Box::new(desc_fn));
         (self.blocks.len() - 1) as u16
     }
 
-    pub fn add_entity<L>(&mut self, desc_fn: L) -> u16
+    pub fn add_entity<F>(&mut self, desc_fn: F) -> u16
     where
-        L: FnOnce(&R) -> EntityDescriptor + 'static,
+        F: FnOnce(&T) -> EntityDescriptor + 'static,
     {
         self.entities.push(Box::new(desc_fn));
         (self.entities.len() - 1) as u16
     }
 
-    pub fn add_item<L>(&mut self, desc_fn: L) -> u16
+    pub fn add_item<F>(&mut self, desc_fn: F) -> u16
     where
-        L: FnOnce(&R) -> ItemDescriptor + 'static,
+        F: FnOnce(&T) -> ItemDescriptor + 'static,
     {
         self.items.push(Box::new(desc_fn));
         (self.items.len() - 1) as u16
     }
 
-    pub fn add_inventory<L>(&mut self, desc_fn: L) -> u16
+    pub fn add_inventory<F>(&mut self, desc_fn: F) -> u16
     where
-        L: FnOnce(&R) -> InventoryDescriptor + 'static,
+        F: FnOnce(&T) -> InventoryDescriptor + 'static,
     {
         self.inventories.push(Box::new(desc_fn));
         (self.inventories.len() - 1) as u16
     }
 
-    pub fn build(self, registry: R, desc: BuildDescriptor) -> Context<R> {
+    pub fn build(self, args: T, desc: BuildDescriptor) -> Context {
+        let world = desc.viewport.get_world_3d().unwrap();
+
         // tile field
         let mut tile_features = vec![];
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
-            let desc = tile(&registry);
+            let desc = tile(&args);
 
             tile_features.push(desc.feature);
 
@@ -169,7 +169,7 @@ impl<R> ContextBuilder<R> {
         let tile_field_view = tile::TileField::new(tile::TileFieldDescriptor {
             tiles: tiles_view,
             shaders: tile_shaders,
-            world: desc.world.clone(),
+            world: world.clone(),
         });
 
         // block field
@@ -177,7 +177,7 @@ impl<R> ContextBuilder<R> {
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
-            let desc = block(&registry);
+            let desc = block(&args);
 
             block_features.push(desc.feature);
 
@@ -223,7 +223,7 @@ impl<R> ContextBuilder<R> {
         let block_field_view = block::BlockField::new(block::BlockFieldDescriptor {
             blocks: blocks_view,
             shaders: block_shaders,
-            world: desc.world.clone(),
+            world: world.clone(),
         });
 
         // entity filed
@@ -231,7 +231,7 @@ impl<R> ContextBuilder<R> {
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
-            let desc = entity(&registry);
+            let desc = entity(&args);
 
             entity_features.push(desc.feature);
 
@@ -276,7 +276,7 @@ impl<R> ContextBuilder<R> {
         let entity_field_view = entity::EntityField::new(entity::EntityFieldDescriptor {
             entities: entities_view,
             shaders: entity_shaders,
-            world: desc.world.clone(),
+            world: world.clone(),
         });
 
         // item field
@@ -284,7 +284,7 @@ impl<R> ContextBuilder<R> {
         let mut items = vec![];
         let mut items_view = vec![];
         for item in self.items {
-            let desc = item(&registry);
+            let desc = item(&args);
 
             item_features.push(desc.feature);
 
@@ -316,12 +316,11 @@ impl<R> ContextBuilder<R> {
         let mut inventories = vec![];
         let mut inventories_view = vec![];
         for inventory in self.inventories {
-            let desc = inventory(&registry);
+            let desc = inventory(&args);
 
             inventories.push(inner::InventoryDescriptor { size: desc.size });
 
             inventories_view.push(item::InventoryDescriptor {
-                scene: desc.scene,
                 callback: desc.callback,
             });
         }
@@ -331,12 +330,11 @@ impl<R> ContextBuilder<R> {
         let item_storage_view = item::ItemStorage::new(item::ItemStorageDescriptor {
             items: items_view,
             inventories: inventories_view,
-            ui: desc.ui,
         });
 
-        let selector_view = selector::Selector::new(selector::SelectorDescriptor {
-            shader: desc.selector_shader,
-            world: desc.world.clone(),
+        let selection_view = selection::Selection::new(selection::SelectionDescriptor {
+            shader: desc.selection_shader,
+            world: world.clone(),
         });
 
         let root = inner::Root::new(inner::RootDescriptor {
@@ -357,18 +355,16 @@ impl<R> ContextBuilder<R> {
             block_field: block_field_view,
             entity_field: entity_field_view,
             item_storage: item_storage_view,
-            selector: selector_view,
-            registry,
+            selection: selection_view,
         }
     }
 }
 
-pub struct Context<R> {
+pub struct Context {
     pub root: inner::Root,
     pub tile_field: tile::TileField,
     pub block_field: block::BlockField,
     pub entity_field: entity::EntityField,
     pub item_storage: item::ItemStorage,
-    pub selector: selector::Selector,
-    pub registry: R,
+    pub selection: selection::Selection,
 }

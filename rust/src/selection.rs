@@ -3,20 +3,20 @@ use godot::prelude::*;
 
 use crate::inner;
 
-pub(crate) struct SelectorDescriptor {
+pub(crate) struct SelectionDescriptor {
     pub shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
 }
 
-pub(crate) struct Selector {
+pub(crate) struct Selection {
     multimesh: Rid,
     free_handles: Vec<Rid>,
 }
 
-impl Selector {
+impl Selection {
     const MAX_BUFFER_SIZE: usize = 64;
 
-    pub fn new(desc: SelectorDescriptor) -> Self {
+    pub fn new(desc: SelectionDescriptor) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut free_handles = vec![];
@@ -176,7 +176,7 @@ impl Selector {
     }
 }
 
-impl Drop for Selector {
+impl Drop for Selection {
     fn drop(&mut self) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
         for free_handle in &self.free_handles {

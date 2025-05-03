@@ -3,9 +3,6 @@ use godot::prelude::*;
 
 use crate::inner;
 
-pub type InventoryFn =
-    Box<dyn Fn(Gd<godot::classes::Node>, Gd<godot::classes::Node>, inner::InventoryKey)>;
-
 pub(crate) struct ItemImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
@@ -19,14 +16,12 @@ pub(crate) struct ItemDescriptor {
 }
 
 pub(crate) struct InventoryDescriptor {
-    pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: InventoryFn,
+    pub callback: Callable,
 }
 
 pub(crate) struct ItemStorageDescriptor {
     pub items: Vec<ItemDescriptor>,
     pub inventories: Vec<InventoryDescriptor>,
-    pub ui: Gd<godot::classes::Node>,
 }
 
 struct ImageHead {
@@ -42,14 +37,12 @@ struct ItemProperty {
 }
 
 struct InventoryProperty {
-    pub scene: Gd<godot::classes::PackedScene>,
-    pub callback: InventoryFn,
+    pub callback: Callable,
 }
 
 pub(crate) struct ItemStorage {
     item_props: Vec<ItemProperty>,
     inventory_props: Vec<InventoryProperty>,
-    ui: Gd<godot::classes::Node>,
     image_heads: Vec<Vec<ImageHead>>,
     textures: Vec<Rid>,
     free_handles: Vec<Rid>,
@@ -98,13 +91,11 @@ impl ItemStorage {
         let mut inventory_props = vec![];
         for desc in desc.inventories {
             inventory_props.push(InventoryProperty {
-                scene: desc.scene.clone(),
                 callback: desc.callback,
             });
         }
 
         Self {
-            ui: desc.ui,
             item_props,
             inventory_props,
             image_heads,
@@ -160,14 +151,7 @@ impl ItemStorage {
             .get(inventory.id as usize)
             .ok_or(inner::ItemError::InventoryInvalidId)?;
 
-        let instance = prop
-            .scene
-            .instantiate()
-            .expect("Failed to instantiate inventory");
-        self.ui.add_child(&instance);
-
-        // invoke after method
-        (*prop.callback)(self.ui.clone(), instance, inventory_key);
+        prop.callback.call(&[inventory_key.to_variant()]);
 
         Ok(())
     }
