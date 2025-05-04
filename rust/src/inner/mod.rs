@@ -56,7 +56,6 @@ pub struct Root {
 }
 
 impl Root {
-    #[inline]
     pub fn new(desc: RootDescriptor) -> Self {
         Self {
             time_storage: TimeStorage::new(),
@@ -77,17 +76,14 @@ impl Root {
 
     // time
 
-    #[inline]
     pub fn tick_per_secs(&self) -> u64 {
-        self.time_storage.tick_per_secs()
+        self.time_storage.get_tick_per_secs()
     }
 
-    #[inline]
     pub fn get_tick(&self) -> u64 {
         self.time_storage.get_tick()
     }
 
-    #[inline]
     pub fn forward_time(&mut self, delta_secs: f32) {
         self.time_storage.forward(delta_secs);
     }
@@ -115,7 +111,6 @@ impl Root {
         Ok(tile)
     }
 
-    #[inline]
     pub fn modify_tile(
         &mut self,
         tile_key: TileKey,
@@ -124,13 +119,11 @@ impl Root {
         self.tile_field.modify(tile_key, f)
     }
 
-    #[inline]
     pub fn get_tile(&self, tile_key: TileKey) -> Result<&field::Tile, RootError> {
         let tile_key = self.tile_field.get(tile_key)?;
         Ok(tile_key)
     }
 
-    #[inline]
     pub fn get_tile_chunk_size(&self) -> u32 {
         self.tile_field.get_chunk_size()
     }
@@ -144,42 +137,37 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_tile_name_text(&self, tile_key: TileKey) -> Result<&str, RootError> {
-        let name_text = self.tile_field.get_name_text(tile_key)?;
-        Ok(name_text)
+    pub fn get_tile_display_name(&self, tile_key: TileKey) -> Result<&str, RootError> {
+        let display_name = self.tile_field.get_display_name(tile_key)?;
+        Ok(display_name)
     }
 
-    pub fn get_tile_desc_text(&self, tile_key: TileKey) -> Result<&str, RootError> {
-        let desc_text = self.tile_field.get_desc_text(tile_key)?;
-        Ok(desc_text)
+    pub fn get_tile_description(&self, tile_key: TileKey) -> Result<&str, RootError> {
+        let description = self.tile_field.get_description(tile_key)?;
+        Ok(description)
     }
 
     // tile spatial features
 
-    #[inline]
     pub fn has_tile_by_point(&self, point: IVec2) -> bool {
         self.tile_field.has_by_point(point)
     }
 
-    #[inline]
     pub fn get_tile_by_point(&self, point: IVec2) -> Option<TileKey> {
         self.tile_field.get_by_point(point)
     }
 
     // tile collision features
 
-    #[inline]
     pub fn get_tile_collision_rect(&self, tile_key: TileKey) -> Result<[Vec2; 2], RootError> {
         let rect = self.tile_field.get_collision_rect(tile_key)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn has_tile_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
         self.tile_field.has_by_collision_rect(rect)
     }
 
-    #[inline]
     pub fn get_tile_by_collision_rect(
         &self,
         rect: [Vec2; 2],
@@ -187,19 +175,16 @@ impl Root {
         self.tile_field.get_by_collision_rect(rect)
     }
 
-    #[inline]
     pub fn has_tile_by_collision_point(&self, point: Vec2) -> bool {
         self.tile_field.has_by_collision_point(point)
     }
 
-    #[inline]
     pub fn get_tile_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileKey> + '_ {
         self.tile_field.get_by_collision_point(point)
     }
 
     // tile inventory
 
-    #[inline]
     pub fn get_tile_inventory(&self, tile_key: TileKey) -> Result<Option<InventoryKey>, RootError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
@@ -232,7 +217,6 @@ impl Root {
         Ok(block)
     }
 
-    #[inline]
     pub fn modify_block(
         &mut self,
         block_key: BlockKey,
@@ -241,13 +225,11 @@ impl Root {
         self.block_field.modify(block_key, f)
     }
 
-    #[inline]
     pub fn get_block(&self, block_key: BlockKey) -> Result<&field::Block, RootError> {
         let block = self.block_field.get(block_key)?;
         Ok(block)
     }
 
-    #[inline]
     pub fn get_block_chunk_size(&self) -> u32 {
         self.block_field.get_chunk_size()
     }
@@ -261,80 +243,68 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_block_name_text(&self, block_key: BlockKey) -> Result<&str, RootError> {
-        let name_text = self.block_field.get_name_text(block_key)?;
-        Ok(name_text)
+    pub fn get_block_display_name(&self, block_key: BlockKey) -> Result<&str, RootError> {
+        let display_name = self.block_field.get_display_name(block_key)?;
+        Ok(display_name)
     }
 
-    pub fn get_block_desc_text(&self, block_key: BlockKey) -> Result<&str, RootError> {
-        let desc_text = self.block_field.get_desc_text(block_key)?;
-        Ok(desc_text)
+    pub fn get_block_description(&self, block_key: BlockKey) -> Result<&str, RootError> {
+        let description = self.block_field.get_description(block_key)?;
+        Ok(description)
     }
 
     // block spatial features
 
-    #[inline]
     pub fn get_block_base_rect(&self, id: u16) -> Result<[IVec2; 2], RootError> {
         let rect = self.block_field.get_base_rect(id)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn get_block_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], RootError> {
         let rect = self.block_field.get_rect(block_key)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn has_block_by_point(&self, point: IVec2) -> bool {
         self.block_field.has_by_point(point)
     }
 
-    #[inline]
     pub fn get_block_by_point(&self, point: IVec2) -> Option<BlockKey> {
         self.block_field.get_by_point(point)
     }
 
-    #[inline]
     pub fn has_block_by_rect(&self, rect: [IVec2; 2]) -> bool {
         self.block_field.has_by_rect(rect)
     }
 
-    #[inline]
     pub fn get_block_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
         self.block_field.get_by_rect(rect)
     }
 
     // block collision features
 
-    #[inline]
     pub fn get_block_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
         let rect = self.block_field.get_base_collision_rect(id)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn get_block_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
         let rect = self.block_field.get_collision_rect(block_key)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn has_block_by_collision_point(&self, point: Vec2) -> bool {
         self.block_field.has_by_collision_point(point)
     }
 
-    #[inline]
     pub fn get_block_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
         self.block_field.get_by_collision_point(point)
     }
 
-    #[inline]
     pub fn has_block_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
         self.block_field.has_by_collision_rect(rect)
     }
 
-    #[inline]
     pub fn get_block_by_collision_rect(
         &self,
         rect: [Vec2; 2],
@@ -344,7 +314,6 @@ impl Root {
 
     // block hint features
 
-    #[inline]
     pub fn get_block_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
         let z_along_y = self.block_field.get_base_z_along_y(id)?;
         Ok(z_along_y)
@@ -355,35 +324,29 @@ impl Root {
         Ok(block)
     }
 
-    #[inline]
     pub fn get_block_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
         let block = self.block_field.get_hint_rect(block_key)?;
         Ok(block)
     }
 
-    #[inline]
     pub fn has_block_by_hint_point(&self, point: Vec2) -> bool {
         self.block_field.has_by_hint_point(point)
     }
 
-    #[inline]
     pub fn get_block_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
         self.block_field.get_by_hint_point(point)
     }
 
-    #[inline]
     pub fn has_block_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
         self.block_field.has_by_hint_rect(rect)
     }
 
-    #[inline]
     pub fn get_block_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
         self.block_field.get_by_hint_rect(rect)
     }
 
     // block inventory
 
-    #[inline]
     pub fn get_block_inventory(
         &self,
         block_key: BlockKey,
@@ -419,7 +382,6 @@ impl Root {
         Ok(entity)
     }
 
-    #[inline]
     pub fn modify_entity(
         &mut self,
         entity_key: EntityKey,
@@ -429,13 +391,11 @@ impl Root {
         Ok(entity_key)
     }
 
-    #[inline]
     pub fn get_entity(&self, entity_key: EntityKey) -> Result<&field::Entity, RootError> {
         let entity = self.entity_field.get(entity_key)?;
         Ok(entity)
     }
 
-    #[inline]
     pub fn get_entity_chunk_size(&self) -> u32 {
         self.entity_field.get_chunk_size()
     }
@@ -449,36 +409,32 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_entity_name_text(&self, entity_key: EntityKey) -> Result<&str, RootError> {
-        let name_text = self.entity_field.get_name_text(entity_key)?;
-        Ok(name_text)
+    pub fn get_entity_display_name(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+        let display_name = self.entity_field.get_display_name(entity_key)?;
+        Ok(display_name)
     }
 
-    pub fn get_entity_desc_text(&self, entity_key: EntityKey) -> Result<&str, RootError> {
-        let desc_text = self.entity_field.get_desc_text(entity_key)?;
-        Ok(desc_text)
+    pub fn get_entity_description(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+        let description = self.entity_field.get_description(entity_key)?;
+        Ok(description)
     }
 
     // entity collision features
 
-    #[inline]
     pub fn get_entity_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
         let rect = self.entity_field.get_base_collision_rect(id)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn get_entity_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
         let rect = self.entity_field.get_collision_rect(entity_key)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn has_entity_by_collision_point(&self, point: Vec2) -> bool {
         self.entity_field.has_by_collision_point(point)
     }
 
-    #[inline]
     pub fn get_entity_by_collision_point(
         &self,
         point: Vec2,
@@ -486,12 +442,10 @@ impl Root {
         self.entity_field.get_by_collision_point(point)
     }
 
-    #[inline]
     pub fn has_entity_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
         self.entity_field.has_by_collision_rect(rect)
     }
 
-    #[inline]
     pub fn get_entity_by_collision_rect(
         &self,
         rect: [Vec2; 2],
@@ -501,7 +455,6 @@ impl Root {
 
     // entity hint features
 
-    #[inline]
     pub fn get_entity_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
         let z_along_y = self.entity_field.get_base_z_along_y(id)?;
         Ok(z_along_y)
@@ -512,35 +465,29 @@ impl Root {
         Ok(rect)
     }
 
-    #[inline]
     pub fn get_entity_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
         let rect = self.entity_field.get_hint_rect(entity_key)?;
         Ok(rect)
     }
 
-    #[inline]
     pub fn has_entity_by_hint_point(&self, point: Vec2) -> bool {
         self.entity_field.has_by_hint_point(point)
     }
 
-    #[inline]
     pub fn get_entity_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
         self.entity_field.get_by_hint_point(point)
     }
 
-    #[inline]
     pub fn has_entity_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
         self.entity_field.has_by_hint_rect(rect)
     }
 
-    #[inline]
     pub fn get_entity_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
         self.entity_field.get_by_hint_rect(rect)
     }
 
     // entity inventory
 
-    #[inline]
     pub fn get_inventory_by_entity(
         &self,
         entity_key: EntityKey,
@@ -555,59 +502,60 @@ impl Root {
 
     // item
 
-    #[inline]
     pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, RootError> {
         let inventory_key = self.item_storage.insert_inventory(id)?;
         Ok(inventory_key)
     }
 
-    #[inline]
     pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, RootError> {
         let id = self.item_storage.remove_inventory(inventory_key)?;
         Ok(id)
     }
 
-    #[inline]
     pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, RootError> {
         let inventory = self.item_storage.get_inventory(inventory_key)?;
         Ok(inventory)
     }
 
-    #[inline]
-    pub fn push_item(&mut self, inventory_key: InventoryKey, item: Item) -> Result<(), RootError> {
-        self.item_storage.push_item(inventory_key, item)?;
+    pub fn push_item_to_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+        item: Item,
+    ) -> Result<(), RootError> {
+        self.item_storage
+            .push_item_to_inventory(inventory_key, item)?;
         Ok(())
     }
 
-    #[inline]
-    pub fn pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, RootError> {
-        let item = self.item_storage.pop_item(inventory_key)?;
+    pub fn pop_item_from_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<Item, RootError> {
+        let item = self.item_storage.pop_item_from_inventory(inventory_key)?;
         Ok(item)
     }
 
-    #[inline]
-    pub fn search_item(
+    pub fn search_item_in_inventory(
         &self,
         inventory_key: InventoryKey,
         text: &str,
     ) -> Result<Vec<SlotKey>, RootError> {
-        let item_key = self.item_storage.search_item(inventory_key, text)?;
+        let item_key = self
+            .item_storage
+            .search_item_in_inventory(inventory_key, text)?;
         Ok(item_key)
     }
 
-    #[inline]
     pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), RootError> {
         self.item_storage.insert_item(slot_key, item)?;
         Ok(())
     }
 
-    #[inline]
     pub fn remove_item(&mut self, slot_key: SlotKey) -> Result<Item, RootError> {
         let item = self.item_storage.remove_item(slot_key)?;
         Ok(item)
     }
 
-    #[inline]
     pub fn modify_item(
         &mut self,
         slot_key: SlotKey,
@@ -617,7 +565,28 @@ impl Root {
         Ok(())
     }
 
-    #[inline]
+    pub fn swap_item(&mut self, slot_key_a: SlotKey, slot_key_b: SlotKey) -> Result<(), RootError> {
+        self.item_storage.swap_item(slot_key_a, slot_key_b)?;
+        Ok(())
+    }
+
+    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, RootError> {
+        let item = self.item_storage.get_item(slot_key)?;
+        Ok(item)
+    }
+
+    pub fn get_item_display_name(&self, slot_key: SlotKey) -> Result<&str, RootError> {
+        let display_name = self.item_storage.get_item_display_name(slot_key)?;
+        Ok(display_name)
+    }
+
+    pub fn get_item_description(&self, slot_key: SlotKey) -> Result<&str, RootError> {
+        let description = self.item_storage.get_item_description(slot_key)?;
+        Ok(description)
+    }
+
+    // item feature
+
     pub fn use_item(&mut self, slot_key: SlotKey) -> Result<(), RootError> {
         let features = self.item_features.clone();
         let item = self.item_storage.get_item(slot_key)?;
@@ -630,7 +599,6 @@ impl Root {
 
     // resources
 
-    #[inline]
     pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), RootError>
     where
         T: Resource + 'static,
@@ -639,7 +607,6 @@ impl Root {
         Ok(())
     }
 
-    #[inline]
     pub fn remove_resources<T>(&mut self) -> Result<T, RootError>
     where
         T: Resource + 'static,
@@ -648,7 +615,6 @@ impl Root {
         Ok(resource)
     }
 
-    #[inline]
     pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, RootError>
     where
         T: Resource + 'static,

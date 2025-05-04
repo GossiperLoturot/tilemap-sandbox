@@ -10,8 +10,6 @@ pub(crate) struct ItemImageDescriptor {
 }
 
 pub(crate) struct ItemDescriptor {
-    pub name_text: String,
-    pub desc_text: String,
     pub images: Vec<ItemImageDescriptor>,
 }
 
@@ -31,10 +29,7 @@ struct ImageHead {
     is_loop: bool,
 }
 
-struct ItemProperty {
-    name_text: String,
-    desc_text: String,
-}
+struct ItemProperty {}
 
 struct InventoryProperty {
     pub callback: Callable,
@@ -58,10 +53,7 @@ impl ItemStorage {
         let mut image_heads = vec![];
         let mut textures = vec![];
         for desc in desc.items {
-            item_props.push(ItemProperty {
-                name_text: desc.name_text.clone(),
-                desc_text: desc.desc_text.clone(),
-            });
+            item_props.push(ItemProperty {});
 
             let mut sub_image_heads = vec![];
 
@@ -154,76 +146,6 @@ impl ItemStorage {
         prop.callback.call(&[inventory_key.to_variant()]);
 
         Ok(())
-    }
-
-    pub fn has_item(
-        &self,
-        root: &inner::Root,
-        slot_key: inner::SlotKey,
-    ) -> Result<bool, inner::RootError> {
-        let (inventory_key, local_key) = slot_key;
-        let inventory = root.get_inventory(inventory_key)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
-            .ok_or(inner::ItemError::ItemNotFound)?;
-        Ok(slot.item.is_some())
-    }
-
-    pub fn get_item_amount(
-        &self,
-        root: &inner::Root,
-        slot_key: inner::SlotKey,
-    ) -> Result<u32, inner::RootError> {
-        let (inventory_key, local_key) = slot_key;
-        let inventory = root.get_inventory(inventory_key)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
-            .ok_or(inner::ItemError::ItemNotFound)?;
-        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
-
-        Ok(item.amount)
-    }
-
-    pub fn get_item_name_text(
-        &self,
-        root: &inner::Root,
-        slot_key: inner::SlotKey,
-    ) -> Result<String, inner::RootError> {
-        let (inventory_key, local_key) = slot_key;
-        let inventory = root.get_inventory(inventory_key)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
-            .ok_or(inner::ItemError::ItemNotFound)?;
-        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
-
-        let item_prop = self
-            .item_props
-            .get(item.id as usize)
-            .ok_or(inner::ItemError::ItemInvalidId)?;
-        Ok(item_prop.name_text.clone())
-    }
-
-    pub fn get_item_desc_text(
-        &self,
-        root: &inner::Root,
-        slot_key: inner::SlotKey,
-    ) -> Result<String, inner::RootError> {
-        let (inventory_key, local_key) = slot_key;
-        let inventory = root.get_inventory(inventory_key)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
-            .ok_or(inner::ItemError::ItemNotFound)?;
-        let item = slot.item.as_ref().ok_or(inner::ItemError::ItemNotFound)?;
-
-        let item_prop = self
-            .item_props
-            .get(item.id as usize)
-            .ok_or(inner::ItemError::ItemInvalidId)?;
-        Ok(item_prop.desc_text.clone())
     }
 
     pub fn draw_item(

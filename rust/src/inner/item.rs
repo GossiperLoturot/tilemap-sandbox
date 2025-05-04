@@ -19,7 +19,8 @@ pub type SlotKey = (InventoryKey, u32);
 
 #[derive(Debug, Clone)]
 pub struct ItemDescriptor {
-    pub name_text: String,
+    pub display_name: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +36,8 @@ pub struct ItemStorageDescriptor {
 
 #[derive(Debug, Clone)]
 struct ItemProperty {
-    name_text: String,
+    display_name: String,
+    description: String,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +79,8 @@ impl ItemStorage {
         let mut item_props = vec![];
         for item in desc.items {
             item_props.push(ItemProperty {
-                name_text: item.name_text,
+                display_name: item.display_name,
+                description: item.description,
             });
         }
 
@@ -94,6 +97,8 @@ impl ItemStorage {
             inventories: Default::default(),
         }
     }
+
+    // inventory
 
     pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, ItemError> {
         let props = self
@@ -126,7 +131,13 @@ impl ItemStorage {
             .ok_or(ItemError::InventoryNotFound)
     }
 
-    pub fn push_item(&mut self, inventory_key: InventoryKey, item: Item) -> Result<(), ItemError> {
+    // inventory + item
+
+    pub fn push_item_to_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+        item: Item,
+    ) -> Result<(), ItemError> {
         let inventory = self
             .inventories
             .get_mut(inventory_key as usize)
@@ -144,7 +155,10 @@ impl ItemStorage {
         Ok(())
     }
 
-    pub fn pop_item(&mut self, inventory_key: InventoryKey) -> Result<Item, ItemError> {
+    pub fn pop_item_from_inventory(
+        &mut self,
+        inventory_key: InventoryKey,
+    ) -> Result<Item, ItemError> {
         let inventory = self
             .inventories
             .get_mut(inventory_key as usize)
@@ -162,7 +176,7 @@ impl ItemStorage {
         Ok(item)
     }
 
-    pub fn search_item(
+    pub fn search_item_in_inventory(
         &self,
         inventory_key: InventoryKey,
         text: &str,
@@ -184,7 +198,7 @@ impl ItemStorage {
                 .item_props
                 .get(item.id as usize)
                 .ok_or(ItemError::ItemInvalidId)?
-                .name_text;
+                .display_name;
             if other_text.contains(text) || text.contains(other_text) {
                 let slot_key = (inventory_key, local_key as u32);
                 slot_keys.push(slot_key);
@@ -193,6 +207,8 @@ impl ItemStorage {
 
         Ok(slot_keys)
     }
+
+    // item
 
     pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
         let (inventory_key, local_key) = slot_key;
@@ -272,6 +288,24 @@ impl ItemStorage {
         Ok(())
     }
 
+    pub fn swap_item(
+        &mut self,
+        src_slot_key: SlotKey,
+        dst_slot_key: SlotKey,
+    ) -> Result<(), ItemError> {
+        let src_item = self.remove_item(src_slot_key);
+        let dst_item = self.remove_item(dst_slot_key);
+
+        if let Ok(item) = dst_item {
+            self.insert_item(src_slot_key, item)?;
+        }
+        if let Ok(item) = src_item {
+            self.insert_item(dst_slot_key, item)?;
+        }
+
+        Ok(())
+    }
+
     pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, ItemError> {
         let (inventory_key, local_key) = slot_key;
 
@@ -290,6 +324,20 @@ impl ItemStorage {
 
         let item = slot.item.as_ref().ok_or(ItemError::ItemNotFound)?;
         Ok(item)
+    }
+
+    // item property
+
+    pub fn get_item_display_name(&self, key: SlotKey) -> Result<&str, ItemError> {
+        let item = self.get_item(key)?;
+        let prop = self.item_props.get(item.id as usize).unwrap();
+        Ok(&prop.display_name)
+    }
+
+    pub fn get_item_description(&self, key: SlotKey) -> Result<&str, ItemError> {
+        let item = self.get_item(key)?;
+        let prop = self.item_props.get(item.id as usize).unwrap();
+        Ok(&prop.description)
     }
 }
 

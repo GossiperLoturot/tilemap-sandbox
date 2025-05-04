@@ -7,17 +7,14 @@ pub struct TimeStorage {
 impl TimeStorage {
     const TICK_PER_SECS: u64 = 24;
 
-    #[inline]
     pub fn new() -> Self {
         Default::default()
     }
 
-    #[inline]
-    pub fn tick_per_secs(&self) -> u64 {
+    pub fn get_tick_per_secs(&self) -> u64 {
         Self::TICK_PER_SECS
     }
 
-    #[inline]
     pub fn get_tick(&self) -> u64 {
         self.tick
     }

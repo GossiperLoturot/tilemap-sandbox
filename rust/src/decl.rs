@@ -3,6 +3,77 @@ use godot::prelude::*;
 
 use crate::*;
 
+// retriever for loading resources
+
+pub struct Retriever {
+    retrieve_callable: Callable,
+}
+
+impl Retriever {
+    pub fn new(retrieve_callable: Callable) -> Self {
+        Self { retrieve_callable }
+    }
+
+    pub fn load<T>(&self, name: &str) -> T
+    where
+        T: FromGodot,
+    {
+        if self.retrieve_callable.is_null() {
+            panic!("Retriever callable is null");
+        }
+        if self.retrieve_callable.get_argument_count() < 1 {
+            panic!("Retriever callable must have at least one argument");
+        }
+        let ret = self.retrieve_callable.call(&[name.to_variant()]);
+
+        match ret.try_to() {
+            Ok(value) => {
+                // successfully converted to the expected type
+                value
+            }
+            Err(e) => {
+                let found_type = ret.get_type().as_str();
+                let expected_type = std::any::type_name::<T>();
+                panic!(
+                    "Failed to load resource {}: Expected type is {}, but found type is {}.\n{}",
+                    name, found_type, expected_type, e
+                );
+            }
+        }
+    }
+}
+
+// registry
+
+#[derive(Default)]
+pub struct Registry {
+    storage: ahash::AHashMap<String, u16>,
+}
+
+impl Registry {
+    pub fn set(&mut self, name: String, value: u16) {
+        if self.storage.contains_key(&name) {
+            panic!("Name {} already exists", name);
+        }
+
+        self.storage.insert(name, value);
+    }
+
+    pub fn get(&self, name: &str) -> u16 {
+        match self.storage.get(name) {
+            Some(value) => {
+                // successfully get the value
+                *value
+            }
+            None => {
+                panic!("Name {} not found", name);
+            }
+        }
+    }
+}
+
+// descriptor for building the context
+
 pub struct ImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
@@ -10,16 +81,16 @@ pub struct ImageDescriptor {
 }
 
 pub struct TileDescriptor {
-    pub name_text: String,
-    pub desc_text: String,
+    pub display_name: String,
+    pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
     pub feature: Box<dyn inner::TileFeature>,
 }
 
 pub struct BlockDescriptor {
-    pub name_text: String,
-    pub desc_text: String,
+    pub display_name: String,
+    pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub size: IVec2,
@@ -31,8 +102,8 @@ pub struct BlockDescriptor {
 }
 
 pub struct EntityDescriptor {
-    pub name_text: String,
-    pub desc_text: String,
+    pub display_name: String,
+    pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub z_along_y: bool,
     pub collision_size: Vec2,
@@ -43,8 +114,8 @@ pub struct EntityDescriptor {
 }
 
 pub struct ItemDescriptor {
-    pub name_text: String,
-    pub desc_text: String,
+    pub display_name: String,
+    pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub feature: Box<dyn inner::ItemFeature>,
 }
@@ -62,18 +133,17 @@ pub struct BuildDescriptor {
     pub viewport: Gd<godot::classes::Viewport>,
 }
 
-type RegisterFn<T, U> = Box<dyn for<'a> FnOnce(&'a T) -> U>;
-
-pub struct ContextBuilder<T> {
-    tiles: Vec<RegisterFn<T, TileDescriptor>>,
-    blocks: Vec<RegisterFn<T, BlockDescriptor>>,
-    entities: Vec<RegisterFn<T, EntityDescriptor>>,
-    items: Vec<RegisterFn<T, ItemDescriptor>>,
-    inventories: Vec<RegisterFn<T, InventoryDescriptor>>,
-    _phantom: std::marker::PhantomData<T>,
+type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry, &'a Retriever) -> T>;
+pub struct ContextBuilder {
+    tiles: Vec<RegisterFn<TileDescriptor>>,
+    blocks: Vec<RegisterFn<BlockDescriptor>>,
+    entities: Vec<RegisterFn<EntityDescriptor>>,
+    items: Vec<RegisterFn<ItemDescriptor>>,
+    inventories: Vec<RegisterFn<InventoryDescriptor>>,
+    registry: Registry,
 }
 
-impl<T> ContextBuilder<T> {
+impl ContextBuilder {
     pub fn new() -> Self {
         Self {
             tiles: Default::default(),
@@ -81,65 +151,73 @@ impl<T> ContextBuilder<T> {
             entities: Default::default(),
             items: Default::default(),
             inventories: Default::default(),
-            _phantom: Default::default(),
+            registry: Default::default(),
         }
     }
 
-    pub fn add_tile<F>(&mut self, desc_fn: F) -> u16
+    pub fn add_tile<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&T) -> TileDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> TileDescriptor + 'static,
     {
         self.tiles.push(Box::new(desc_fn));
-        (self.tiles.len() - 1) as u16
+        let id = (self.tiles.len() - 1) as u16;
+        self.registry.set(name, id);
     }
 
-    pub fn add_block<F>(&mut self, desc_fn: F) -> u16
+    pub fn add_block<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&T) -> BlockDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> BlockDescriptor + 'static,
     {
         self.blocks.push(Box::new(desc_fn));
-        (self.blocks.len() - 1) as u16
+        let id = (self.blocks.len() - 1) as u16;
+        self.registry.set(name, id);
     }
 
-    pub fn add_entity<F>(&mut self, desc_fn: F) -> u16
+    pub fn add_entity<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&T) -> EntityDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> EntityDescriptor + 'static,
     {
         self.entities.push(Box::new(desc_fn));
-        (self.entities.len() - 1) as u16
+        let id = (self.entities.len() - 1) as u16;
+        self.registry.set(name, id);
     }
 
-    pub fn add_item<F>(&mut self, desc_fn: F) -> u16
+    pub fn add_item<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&T) -> ItemDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> ItemDescriptor + 'static,
     {
         self.items.push(Box::new(desc_fn));
-        (self.items.len() - 1) as u16
+        let id = (self.items.len() - 1) as u16;
+        self.registry.set(name, id);
     }
 
-    pub fn add_inventory<F>(&mut self, desc_fn: F) -> u16
+    pub fn add_inventory<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&T) -> InventoryDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> InventoryDescriptor + 'static,
     {
         self.inventories.push(Box::new(desc_fn));
-        (self.inventories.len() - 1) as u16
+        let id = (self.inventories.len() - 1) as u16;
+        self.registry.set(name, id);
     }
 
-    pub fn build(self, args: T, desc: BuildDescriptor) -> Context {
-        let world = desc.viewport.get_world_3d().unwrap();
+    pub fn build(self, retriever: &Retriever, desc: BuildDescriptor) -> Context {
+        let world = desc
+            .viewport
+            .get_world_3d()
+            .unwrap_or_else(|| panic!("Failed to get World3D from {}", desc.viewport));
 
         // tile field
         let mut tile_features = vec![];
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
-            let desc = tile(&args);
+            let desc = tile(&self.registry, retriever);
 
             tile_features.push(desc.feature);
 
             tiles.push(inner::TileDescriptor {
-                name_text: desc.name_text,
-                desc_text: desc.desc_text,
+                display_name: desc.display_name,
+                description: desc.description,
                 collision: desc.collision,
             });
 
@@ -177,13 +255,13 @@ impl<T> ContextBuilder<T> {
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
-            let desc = block(&args);
+            let desc = block(&self.registry, retriever);
 
             block_features.push(desc.feature);
 
             blocks.push(inner::BlockDescriptor {
-                name_text: desc.name_text,
-                desc_text: desc.desc_text,
+                display_name: desc.display_name,
+                description: desc.description,
                 size: desc.size,
                 collision_size: desc.collision_size,
                 collision_offset: desc.collision_offset,
@@ -231,13 +309,13 @@ impl<T> ContextBuilder<T> {
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
-            let desc = entity(&args);
+            let desc = entity(&self.registry, retriever);
 
             entity_features.push(desc.feature);
 
             entities.push(inner::EntityDescriptor {
-                name_text: desc.name_text,
-                desc_text: desc.desc_text,
+                display_name: desc.display_name,
+                description: desc.description,
                 collision_size: desc.collision_size,
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,
@@ -284,12 +362,13 @@ impl<T> ContextBuilder<T> {
         let mut items = vec![];
         let mut items_view = vec![];
         for item in self.items {
-            let desc = item(&args);
+            let desc = item(&self.registry, retriever);
 
             item_features.push(desc.feature);
 
             items.push(inner::ItemDescriptor {
-                name_text: desc.name_text.clone(),
+                display_name: desc.display_name,
+                description: desc.description,
             });
 
             let mut images = vec![];
@@ -306,17 +385,13 @@ impl<T> ContextBuilder<T> {
                 });
             }
 
-            items_view.push(item::ItemDescriptor {
-                name_text: desc.name_text.clone(),
-                desc_text: desc.desc_text.clone(),
-                images,
-            });
+            items_view.push(item::ItemDescriptor { images });
         }
 
         let mut inventories = vec![];
         let mut inventories_view = vec![];
         for inventory in self.inventories {
-            let desc = inventory(&args);
+            let desc = inventory(&self.registry, retriever);
 
             inventories.push(inner::InventoryDescriptor { size: desc.size });
 
@@ -356,6 +431,7 @@ impl<T> ContextBuilder<T> {
             entity_field: entity_field_view,
             item_storage: item_storage_view,
             selection: selection_view,
+            registry: self.registry,
         }
     }
 }
@@ -367,4 +443,5 @@ pub struct Context {
     pub entity_field: entity::EntityField,
     pub item_storage: item::ItemStorage,
     pub selection: selection::Selection,
+    pub registry: Registry,
 }
