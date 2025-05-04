@@ -15,7 +15,7 @@
 [ext_resource type="Script" uid="uid://cu6r4o63rqnx1" path="res://scripts/audio.gd" id="10_jkv2x"]
 [ext_resource type="AudioStream" uid="uid://6wq024pbdqnx" path="res://audio/冷夏.ogg" id="10_yc10j"]
 [ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
-[ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/picker.tscn" id="14_jkv2x"]
+[ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/selection.tscn" id="14_jkv2x"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -34,7 +34,7 @@ script = ExtResource("10_jkv2x")
 names = Array[String](["Donut - もえるごみ", "image - もえるごみ", "MEET UP - もえるごみ", "monoui - もえるごみ", "Sept. - もえるごみ", "Soranaka - もえるごみ", "swim - もえるごみ", "冷夏 - もえるごみ"])
 streams = Array[AudioStream]([ExtResource("3_jkv2x"), ExtResource("4_jkv2x"), ExtResource("5_jbj1t"), ExtResource("6_muem4"), ExtResource("7_dp3eg"), ExtResource("8_0ld40"), ExtResource("9_gqmmt"), ExtResource("10_yc10j")])
 
-[node name="UI" type="Control" parent="." node_paths=PackedStringArray("camera", "picker")]
+[node name="UI" type="Control" parent="." node_paths=PackedStringArray("camera", "selection")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -43,7 +43,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("5_tbgi4")
 camera = NodePath("../World/Camera3D")
-picker = NodePath("Picker")
+selection = NodePath("Selection")
 
 [node name="VignetteFilter" type="ColorRect" parent="UI"]
 material = SubResource("ShaderMaterial_eft26")
@@ -64,7 +64,7 @@ offset_top = -39.0
 offset_bottom = 0.0
 grow_vertical = 0
 
-[node name="Picker" parent="UI" instance=ExtResource("14_jkv2x")]
+[node name="Selection" parent="UI" instance=ExtResource("14_jkv2x")]
 z_index = 1
 layout_mode = 0
 

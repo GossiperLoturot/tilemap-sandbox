@@ -5,5 +5,5 @@ extends Control
 
 
 # invoked dynamicaly
-func change_pick_item(text: String) -> void:
+func change_selection_item(text: String) -> void:
 	label.text = text

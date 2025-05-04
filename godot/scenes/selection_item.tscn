@@ -1,9 +1,9 @@
 [gd_scene load_steps=2 format=3 uid="uid://vi4qet71dd5h"]
 
-[ext_resource type="Script" uid="uid://ce54hqvtg48io" path="res://scripts/picker_item.gd" id="1_1jlk3"]
+[ext_resource type="Script" uid="uid://ce54hqvtg48io" path="res://scripts/selection_item.gd" id="1_myi6l"]
 
-[node name="PickerItem" type="PanelContainer" node_paths=PackedStringArray("label")]
-script = ExtResource("1_1jlk3")
+[node name="SelectorItem" type="PanelContainer" node_paths=PackedStringArray("label")]
+script = ExtResource("1_myi6l")
 label = NodePath("Container/Placeholder")
 
 [node name="Container" type="MarginContainer" parent="."]

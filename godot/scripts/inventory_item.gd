@@ -19,12 +19,12 @@ func change_inventory_item(ui: Control, inventory_key: int, local_key: int) -> v
 	_inventory_key = inventory_key
 	_local_key = local_key
 
-	ui.connect("item_picked", func(inventory_key: int, local_key: int):
+	ui.connect("item_selected", func(inventory_key: int, local_key: int):
 		if inventory_key == _inventory_key and local_key == _local_key:
 			_brightness2 = 1.5
 			change_brightness()
 		pass)
-	ui.connect("item_unpicked", func(inventory_key: int, local_key: int):
+	ui.connect("item_unselected", func(inventory_key: int, local_key: int):
 		if inventory_key == _inventory_key and local_key == _local_key:
 			_brightness2 = 1.0
 			change_brightness()
@@ -41,13 +41,13 @@ func change_brightness():
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var mouse_position = self.get_global_mouse_position()
-		_ui.call("change_pick_item", _inventory_key, _local_key, mouse_position)
+		_ui.call("change_select_item", _inventory_key, _local_key, mouse_position)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_ui.call("confirm_pick_item", _inventory_key, _local_key)
+		_ui.call("confirm_select_item", _inventory_key, _local_key)
 
 
 func _on_mouse_entered() -> void:
-	_ui.call("show_pick")
+	_ui.call("show_selection")
 
 	var tween = self.create_tween()
 	tween.tween_method(func(v: float):
@@ -58,7 +58,7 @@ func _on_mouse_entered() -> void:
 
 
 func _on_mouse_exited() -> void:
-	_ui.call("hide_pick")
+	_ui.call("hide_selection")
 
 	var tween = self.create_tween()
 	tween.tween_method(func(v: float):

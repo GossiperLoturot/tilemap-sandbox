@@ -1,9 +1,9 @@
 [gd_scene load_steps=3 format=3 uid="uid://cyidwdky23fs5"]
 
-[ext_resource type="Script" uid="uid://cny4u131cmbjm" path="res://scripts/picker.gd" id="1_37lji"]
-[ext_resource type="PackedScene" uid="uid://vi4qet71dd5h" path="res://scenes/picker_item.tscn" id="2_llkt3"]
+[ext_resource type="Script" uid="uid://cny4u131cmbjm" path="res://scripts/selection.gd" id="1_37lji"]
+[ext_resource type="PackedScene" uid="uid://vi4qet71dd5h" path="res://scenes/selection_item.tscn" id="2_llkt3"]
 
-[node name="Picker" type="Control" node_paths=PackedStringArray("item_deploy")]
+[node name="Selection" type="Control" node_paths=PackedStringArray("item_deploy")]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 128.0
