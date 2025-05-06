@@ -335,9 +335,10 @@ impl TileField {
         // update view chunk
 
         for (chunk_location, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = dataflow.get_tile_chunk(*chunk_location) else {
+            let Some(chunk_key) = dataflow.get_tile_chunk_by_chunk_location(*chunk_location) else {
                 continue;
             };
+            let chunk = dataflow.get_tile_chunk(chunk_key).unwrap();
 
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(

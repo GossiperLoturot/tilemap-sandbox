@@ -494,7 +494,6 @@ dependencies = [
  "godot",
  "image",
  "image-atlas",
- "rand",
  "rstar",
  "slab",
 ]
@@ -503,9 +502,11 @@ dependencies = [
 name = "native-main"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "glam",
  "godot",
  "native-core",
+ "rand",
 ]
 
 [[package]]

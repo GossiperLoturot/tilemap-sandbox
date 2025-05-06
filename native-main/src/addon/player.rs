@@ -1,6 +1,5 @@
-use crate::dataflow;
-
-use super::*;
+use glam::*;
+use native_core::dataflow::*;
 
 // resource
 
@@ -77,7 +76,7 @@ impl PlayerSystem {
         resource.input.ok_or(PlayerError::NotFound)
     }
 
-    pub fn get_location(dataflow: &dataflow::Dataflow) -> Result<Vec2, PlayerError> {
+    pub fn get_location(dataflow: &Dataflow) -> Result<Vec2, PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let resource = resource.borrow().map_err(DataflowError::from)?;
 
@@ -86,7 +85,7 @@ impl PlayerSystem {
         Ok(location)
     }
 
-    pub fn get_inventory_key(dataflow: &dataflow::Dataflow) -> Result<InventoryKey, PlayerError> {
+    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryKey, PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let resource = resource.borrow().map_err(DataflowError::from)?;
 

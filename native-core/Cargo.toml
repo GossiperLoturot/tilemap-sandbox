@@ -15,7 +15,6 @@ glam = "0.28"
 godot = "0.2"
 image = { version = "0.25", default-features = false }
 image-atlas = "0.4"
-rand = "0.8"
 rstar = "0.12"
 slab = "0.4"
 

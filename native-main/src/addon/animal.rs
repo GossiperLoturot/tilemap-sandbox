@@ -1,4 +1,5 @@
-use super::*;
+use glam::*;
+use native_core::dataflow::*;
 
 #[derive(Debug, Clone)]
 pub enum AnimalEntityDataState {

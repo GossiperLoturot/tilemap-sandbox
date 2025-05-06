@@ -1,9 +1,8 @@
-use crate::dataflow;
-
-use super::*;
+use glam::*;
+use native_core::dataflow::*;
 
 pub trait Generator: std::fmt::Debug {
-    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]);
+    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]);
 }
 
 // method for generating chunk
@@ -16,11 +15,11 @@ pub struct MarchGenerator {
 }
 
 impl Generator for MarchGenerator {
-    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]) {
+    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]) {
         let rng = &mut rand::thread_rng();
 
         for y in rect[0].y..rect[1].y {
-            for x in rect[0].x..rect[1].y {
+            for x in rect[0].x..rect[1].x {
                 let location = IVec2::new(x, y);
 
                 let value = rand::Rng::gen_range(rng, 0.0..1.0);
@@ -49,7 +48,7 @@ pub struct SpawnGenerator {
 }
 
 impl Generator for SpawnGenerator {
-    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]) {
+    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]) {
         let rng = &mut rand::thread_rng();
 
         let area = (rect[1] - rect[0]).element_product();
@@ -104,10 +103,7 @@ pub struct GeneratorSystem;
 impl GeneratorSystem {
     const CHUNK_SIZE: u32 = 32;
 
-    pub fn generate(
-        dataflow: &mut dataflow::Dataflow,
-        min_rect: [Vec2; 2],
-    ) -> Result<(), DataflowError> {
+    pub fn generate(dataflow: &mut Dataflow, min_rect: [Vec2; 2]) -> Result<(), DataflowError> {
         let resource = dataflow.find_resources::<GeneratorResource>()?;
         let mut resource = resource.borrow_mut()?;
 

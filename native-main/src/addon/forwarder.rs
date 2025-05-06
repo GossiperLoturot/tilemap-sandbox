@@ -1,12 +1,11 @@
-use crate::dataflow;
-
-use super::*;
+use glam::*;
+use native_core::dataflow::*;
 
 pub struct ForwarderSystem;
 
 impl ForwarderSystem {
     pub fn forward(
-        dataflow: &mut dataflow::Dataflow,
+        dataflow: &mut Dataflow,
         min_rect: [Vec2; 2],
         delta_secs: f32,
     ) -> Result<(), std::convert::Infallible> {
@@ -56,68 +55,65 @@ impl ForwarderSystem {
     }
 }
 
-fn forward_tile_chunk(dataflow: &mut dataflow::Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Some(chunk_key) = dataflow.tile_field.get_by_chunk_location(chunk_location) else {
+fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
+    let Some(chunk_key) = dataflow.get_tile_chunk_by_chunk_location(chunk_location) else {
         return;
     };
-    let chunk = dataflow.tile_field.get_chunk(chunk_key).unwrap();
+    let chunk = dataflow.get_tile_chunk(chunk_key).unwrap();
 
     let mut local_keys = vec![];
     for (local_key, _) in &chunk.tiles {
         local_keys.push(local_key as u32);
     }
 
-    let features = dataflow.tile_features.clone();
     for local_key in local_keys {
         let tile_key = (chunk_key, local_key);
-        let Ok(tile) = dataflow.tile_field.get(tile_key) else {
+        let Ok(tile) = dataflow.get_tile(tile_key) else {
             continue;
         };
-        let feature = features.get(tile.id as usize).unwrap();
+        let feature = dataflow.get_tile_feature(tile.id).unwrap();
         feature.forward(dataflow, tile_key, delta_secs);
     }
 }
 
-fn forward_block_chunk(dataflow: &mut dataflow::Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Some(chunk_key) = dataflow.block_field.get_by_chunk_location(chunk_location) else {
+fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
+    let Some(chunk_key) = dataflow.get_block_chunk_by_chunk_location(chunk_location) else {
         return;
     };
-    let chunk = dataflow.block_field.get_chunk(chunk_key).unwrap();
+    let chunk = dataflow.get_block_chunk(chunk_key).unwrap();
 
     let mut local_keys = vec![];
     for (local_key, _) in &chunk.blocks {
         local_keys.push(local_key as u32);
     }
 
-    let features = dataflow.block_features.clone();
     for local_key in local_keys {
         let block_key = (chunk_key, local_key);
-        let Ok(block) = dataflow.block_field.get(block_key) else {
+        let Ok(block) = dataflow.get_block(block_key) else {
             continue;
         };
-        let feature = features.get(block.id as usize).unwrap();
+        let feature = dataflow.get_block_feature(block.id).unwrap();
         feature.forward(dataflow, block_key, delta_secs);
     }
 }
 
-fn forward_entity_chunk(dataflow: &mut dataflow::Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Some(chunk_key) = dataflow.entity_field.get_by_chunk_location(chunk_location) else {
+fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
+    let Some(chunk_key) = dataflow.get_entity_chunk_by_chunk_location(chunk_location) else {
         return;
     };
-    let chunk = dataflow.entity_field.get_chunk(chunk_key).unwrap();
+    let chunk = dataflow.get_entity_chunk(chunk_key).unwrap();
 
     let mut local_keys = vec![];
     for (local_key, _) in &chunk.entities {
         local_keys.push(local_key as u32);
     }
 
-    let features = dataflow.entity_features.clone();
     for local_key in local_keys {
         let entity_key = (chunk_key, local_key);
-        let Ok(entity) = dataflow.entity_field.get(entity_key) else {
+        let Ok(entity) = dataflow.get_entity(entity_key) else {
             continue;
         };
-        let feature = features.get(entity.id as usize).unwrap();
+        let feature = dataflow.get_entity_feature(entity.id).unwrap();
         feature.forward(dataflow, entity_key, delta_secs);
     }
 }

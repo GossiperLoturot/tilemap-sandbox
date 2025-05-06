@@ -312,26 +312,28 @@ impl BlockField {
         // remove/insert view chunk
 
         if Some(min_rect) != self.min_rect {
-            let mut chunk_keys = vec![];
-            for (chunk_key, _) in &self.up_chunks {
-                let is_out_of_range_x = chunk_key.x < min_rect[0].x || min_rect[1].x < chunk_key.x;
-                let is_out_of_range_y = chunk_key.y < min_rect[0].y || min_rect[1].y < chunk_key.y;
+            let mut chunk_locations = vec![];
+            for (chunk_location, _) in &self.up_chunks {
+                let is_out_of_range_x =
+                    chunk_location.x < min_rect[0].x || min_rect[1].x < chunk_location.x;
+                let is_out_of_range_y =
+                    chunk_location.y < min_rect[0].y || min_rect[1].y < chunk_location.y;
                 if is_out_of_range_x || is_out_of_range_y {
-                    chunk_keys.push(*chunk_key);
+                    chunk_locations.push(*chunk_location);
                 }
             }
 
-            for chunk_key in chunk_keys {
-                let up_chunk = self.up_chunks.remove(&chunk_key).unwrap();
+            for chunk_location in chunk_locations {
+                let up_chunk = self.up_chunks.remove(&chunk_location).unwrap();
 
                 self.down_chunks.push(up_chunk.down());
             }
 
             for y in min_rect[0].y..=min_rect[1].y {
                 for x in min_rect[0].x..=min_rect[1].x {
-                    let chunk_key = IVec2::new(x, y);
+                    let chunk_location = IVec2::new(x, y);
 
-                    if self.up_chunks.contains_key(&chunk_key) {
+                    if self.up_chunks.contains_key(&chunk_location) {
                         continue;
                     }
 
@@ -343,7 +345,7 @@ impl BlockField {
 
                     rendering_server.instance_set_visible(down_chunk.instance, true);
 
-                    self.up_chunks.insert(chunk_key, down_chunk.up());
+                    self.up_chunks.insert(chunk_location, down_chunk.up());
                 }
             }
 
@@ -352,10 +354,12 @@ impl BlockField {
 
         // update view chunk
 
-        for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = dataflow.get_block_chunk(*chunk_key) else {
+        for (chunk_location, up_chunk) in &mut self.up_chunks {
+            let Some(chunk_key) = dataflow.get_block_chunk_by_chunk_location(*chunk_location)
+            else {
                 continue;
             };
+            let chunk = dataflow.get_block_chunk(chunk_key).unwrap();
 
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(

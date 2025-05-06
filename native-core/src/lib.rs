@@ -213,7 +213,7 @@ impl ContextBuilder {
         for tile in self.tiles {
             let desc = tile(&self.registry, retriever);
 
-            tile_features.push(desc.feature);
+            tile_features.push(desc.feature.into());
 
             tiles.push(dataflow::TileDescriptor {
                 display_name: desc.display_name,
@@ -257,7 +257,7 @@ impl ContextBuilder {
         for block in self.blocks {
             let desc = block(&self.registry, retriever);
 
-            block_features.push(desc.feature);
+            block_features.push(desc.feature.into());
 
             blocks.push(dataflow::BlockDescriptor {
                 display_name: desc.display_name,
@@ -311,7 +311,7 @@ impl ContextBuilder {
         for entity in self.entities {
             let desc = entity(&self.registry, retriever);
 
-            entity_features.push(desc.feature);
+            entity_features.push(desc.feature.into());
 
             entities.push(dataflow::EntityDescriptor {
                 display_name: desc.display_name,
@@ -364,7 +364,7 @@ impl ContextBuilder {
         for item in self.items {
             let desc = item(&self.registry, retriever);
 
-            item_features.push(desc.feature);
+            item_features.push(desc.feature.into());
 
             items.push(dataflow::ItemDescriptor {
                 display_name: desc.display_name,
@@ -418,10 +418,10 @@ impl ContextBuilder {
             entity_field: entity_field_desc,
             item_storage: item_storage_desc,
 
-            tile_features: tile_features.into(),
-            block_features: block_features.into(),
-            entity_features: entity_features.into(),
-            item_features: item_features.into(),
+            tile_features,
+            block_features,
+            entity_features,
+            item_features,
         });
 
         Context {

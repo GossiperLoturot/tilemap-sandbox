@@ -1,26 +1,19 @@
-pub use animal::*;
+use glam::*;
+use std::rc::Rc;
+
+pub use data::*;
 pub use feature::*;
 pub use field::*;
-pub use forwarder::*;
-pub use generator::*;
 pub use item::*;
-pub use player::*;
 pub use resource::*;
 pub use time::*;
 
-use glam::*;
-
-mod animal;
+mod data;
 mod feature;
 mod field;
-mod forwarder;
-mod generator;
 mod item;
-mod player;
 mod resource;
 mod time;
-
-pub type RcVec<T> = std::rc::Rc<[T]>;
 
 #[derive(Debug)]
 pub struct DataflowDescriptor {
@@ -29,10 +22,10 @@ pub struct DataflowDescriptor {
     pub entity_field: EntityFieldDescriptor,
     pub item_storage: ItemStorageDescriptor,
 
-    pub tile_features: RcVec<Box<dyn TileFeature>>,
-    pub block_features: RcVec<Box<dyn BlockFeature>>,
-    pub entity_features: RcVec<Box<dyn EntityFeature>>,
-    pub item_features: RcVec<Box<dyn ItemFeature>>,
+    pub tile_features: Vec<Rc<dyn TileFeature>>,
+    pub block_features: Vec<Rc<dyn BlockFeature>>,
+    pub entity_features: Vec<Rc<dyn EntityFeature>>,
+    pub item_features: Vec<Rc<dyn ItemFeature>>,
 }
 
 #[derive(Debug)]
@@ -46,10 +39,10 @@ pub struct Dataflow {
     item_storage: ItemStorage,
 
     // readonly functional data storage
-    tile_features: RcVec<Box<dyn TileFeature>>,
-    block_features: RcVec<Box<dyn BlockFeature>>,
-    entity_features: RcVec<Box<dyn EntityFeature>>,
-    item_features: RcVec<Box<dyn ItemFeature>>,
+    tile_features: Vec<Rc<dyn TileFeature>>,
+    block_features: Vec<Rc<dyn BlockFeature>>,
+    entity_features: Vec<Rc<dyn EntityFeature>>,
+    item_features: Vec<Rc<dyn ItemFeature>>,
 
     // external data storage
     resource_storage: ResourceStorage,
@@ -90,6 +83,14 @@ impl Dataflow {
 
     // tile
 
+    pub fn get_tile_feature(&self, tile_id: u16) -> Result<Rc<dyn TileFeature>, DataflowError> {
+        let feature = self
+            .tile_features
+            .get(tile_id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        Ok(feature.clone())
+    }
+
     pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
         let features = self.tile_features.clone();
         let feature = features
@@ -128,15 +129,8 @@ impl Dataflow {
         self.tile_field.get_chunk_size()
     }
 
-    pub fn get_tile_chunk(
-        &self,
-        chunk_location: IVec2,
-    ) -> Result<&field::TileChunk, DataflowError> {
-        let chunk_key = self
-            .tile_field
-            .get_by_chunk_location(chunk_location)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.tile_field.get_chunk(chunk_key).unwrap();
+    pub fn get_tile_chunk(&self, chunk_key: u32) -> Result<&field::TileChunk, DataflowError> {
+        let chunk = self.tile_field.get_chunk(chunk_key)?;
         Ok(chunk)
     }
 
@@ -158,6 +152,10 @@ impl Dataflow {
 
     pub fn get_tile_by_point(&self, point: IVec2) -> Option<TileKey> {
         self.tile_field.get_by_point(point)
+    }
+
+    pub fn get_tile_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.tile_field.get_by_chunk_location(chunk_location)
     }
 
     // tile collision features
@@ -202,6 +200,14 @@ impl Dataflow {
 
     // block
 
+    pub fn get_block_feature(&self, block_id: u16) -> Result<Rc<dyn BlockFeature>, DataflowError> {
+        let feature = self
+            .block_features
+            .get(block_id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        Ok(feature.clone())
+    }
+
     pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
         let features = self.block_features.clone();
         let feature = features
@@ -240,15 +246,8 @@ impl Dataflow {
         self.block_field.get_chunk_size()
     }
 
-    pub fn get_block_chunk(
-        &self,
-        chunk_location: IVec2,
-    ) -> Result<&field::BlockChunk, DataflowError> {
-        let chunk_key = self
-            .tile_field
-            .get_by_chunk_location(chunk_location)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.block_field.get_chunk(chunk_key).unwrap();
+    pub fn get_block_chunk(&self, chunk_key: u32) -> Result<&field::BlockChunk, DataflowError> {
+        let chunk = self.block_field.get_chunk(chunk_key)?;
         Ok(chunk)
     }
 
@@ -288,6 +287,10 @@ impl Dataflow {
 
     pub fn get_block_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
         self.block_field.get_by_rect(rect)
+    }
+
+    pub fn get_block_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.block_field.get_by_chunk_location(chunk_location)
     }
 
     // block collision features
@@ -373,6 +376,17 @@ impl Dataflow {
 
     // entity
 
+    pub fn get_entity_feature(
+        &self,
+        entity_id: u16,
+    ) -> Result<Rc<dyn EntityFeature>, DataflowError> {
+        let feature = self
+            .entity_features
+            .get(entity_id as usize)
+            .ok_or(FieldError::InvalidId)?;
+        Ok(feature.clone())
+    }
+
     pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
         let features = self.entity_features.clone();
         let feature = features
@@ -412,12 +426,8 @@ impl Dataflow {
         self.entity_field.get_chunk_size()
     }
 
-    pub fn get_entity_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, DataflowError> {
-        let chunk_key = self
-            .entity_field
-            .get_by_chunk_location(chunk_key)
-            .ok_or(FieldError::NotFound)?;
-        let chunk = self.entity_field.get_chunk(chunk_key).unwrap();
+    pub fn get_entity_chunk(&self, chunk_key: u32) -> Result<&field::EntityChunk, DataflowError> {
+        let chunk = self.entity_field.get_chunk(chunk_key)?;
         Ok(chunk)
     }
 
@@ -429,6 +439,12 @@ impl Dataflow {
     pub fn get_entity_description(&self, entity_key: EntityKey) -> Result<&str, DataflowError> {
         let description = self.entity_field.get_description(entity_key)?;
         Ok(description)
+    }
+
+    // entity spatial features
+
+    pub fn get_entity_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
+        self.entity_field.get_by_chunk_location(chunk_location)
     }
 
     // entity collision features

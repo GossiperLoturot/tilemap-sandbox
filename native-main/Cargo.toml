@@ -7,6 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+ahash = "0.8"
 glam = "0.28"
 godot = "0.2"
 native-core = { path = "../native-core" }
+rand = "0.8"
