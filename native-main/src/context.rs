@@ -638,20 +638,20 @@ impl Context {
             let point = Vec2::new(location.x, location.y).floor().as_ivec2();
             let tiles = context
                 .dataflow
-                .get_tile_by_point(point)
+                .get_tile_key_by_point(point)
                 .into_iter()
                 .collect::<Vec<_>>();
 
             let point = Vec2::new(location.x, location.y);
             let blocks = context
                 .dataflow
-                .get_block_by_hint_point(point)
+                .get_block_keys_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             let point = Vec2::new(location.x, location.y);
             let entities = context
                 .dataflow
-                .get_entity_by_hint_point(point)
+                .get_entity_keys_by_hint_point(point)
                 .collect::<Vec<_>>();
 
             context

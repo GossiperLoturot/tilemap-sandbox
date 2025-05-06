@@ -131,7 +131,7 @@ fn intersection_guard(
     }
 
     let intersect = dataflow
-        .get_entity_by_collision_rect(rect)
+        .get_entity_keys_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key);
     Ok(intersect)
 }

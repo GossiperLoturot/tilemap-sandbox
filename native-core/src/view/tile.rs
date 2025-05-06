@@ -280,11 +280,9 @@ impl TileField {
     pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, min_rect: [Vec2; 2]) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
-        let chunk_size = dataflow.get_tile_chunk_size() as f32;
-        let chunk_size = Vec2::splat(chunk_size);
         let min_rect = [
-            min_rect[0].div_euclid(chunk_size).as_ivec2(),
-            min_rect[1].div_euclid(chunk_size).as_ivec2(),
+            dataflow.get_tile_chunk_location(min_rect[0]),
+            dataflow.get_tile_chunk_location(min_rect[1]),
         ];
 
         // remove/insert view chunk
@@ -300,7 +298,6 @@ impl TileField {
                     chunk_locations.push(*chunk_location);
                 }
             }
-
             for chunk_location in chunk_locations {
                 let up_chunk = self.up_chunks.remove(&chunk_location).unwrap();
 
@@ -335,10 +332,9 @@ impl TileField {
         // update view chunk
 
         for (chunk_location, up_chunk) in &mut self.up_chunks {
-            let Some(chunk_key) = dataflow.get_tile_chunk_by_chunk_location(*chunk_location) else {
+            let Ok(version) = dataflow.get_tile_version_by_chunk_location(*chunk_location) else {
                 continue;
             };
-            let chunk = dataflow.get_tile_chunk(chunk_key).unwrap();
 
             for material in &up_chunk.materials {
                 rendering_server.material_set_param(
@@ -348,14 +344,19 @@ impl TileField {
                 );
             }
 
-            if chunk.version <= up_chunk.version {
+            if version <= up_chunk.version {
                 continue;
             }
 
             let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
             let mut head_buffer = [0; Self::MAX_BUFFER_SIZE * 4];
 
-            for (i, (_, tile)) in chunk.tiles.iter().take(Self::MAX_BUFFER_SIZE).enumerate() {
+            let tile_keys = dataflow
+                .get_tile_keys_by_chunk_location(*chunk_location)
+                .unwrap();
+            for (i, tile_key) in tile_keys.take(Self::MAX_BUFFER_SIZE).enumerate() {
+                let tile = dataflow.get_tile(tile_key).unwrap();
+
                 instance_buffer[i * 12] = 2.0;
                 instance_buffer[i * 12 + 1] = 0.0;
                 instance_buffer[i * 12 + 2] = 0.0;
@@ -401,7 +402,7 @@ impl TileField {
                 );
             }
 
-            up_chunk.version = chunk.version;
+            up_chunk.version = version;
         }
     }
 }

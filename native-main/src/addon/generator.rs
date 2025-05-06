@@ -82,6 +82,7 @@ pub struct GeneratorResourceDescriptor {
 #[derive(Debug)]
 pub struct GeneratorResource {
     generators: Vec<Box<dyn Generator>>,
+    min_rect: Option<[IVec2; 2]>,
     visited: ahash::AHashSet<IVec2>,
 }
 
@@ -89,6 +90,7 @@ impl GeneratorResource {
     pub fn new(desc: GeneratorResourceDescriptor) -> Self {
         Self {
             generators: desc.generators,
+            min_rect: Default::default(),
             visited: ahash::AHashSet::new(),
         }
     }
@@ -113,23 +115,27 @@ impl GeneratorSystem {
             min_rect[1].div_euclid(chunk_size).as_ivec2(),
         ];
 
-        for y in min_rect[0].y..=min_rect[1].y {
-            for x in min_rect[0].x..=min_rect[1].x {
-                let chunk_location = IVec2::new(x, y);
+        if Some(min_rect) != resource.min_rect {
+            for y in min_rect[0].y..=min_rect[1].y {
+                for x in min_rect[0].x..=min_rect[1].x {
+                    let chunk_location = IVec2::new(x, y);
 
-                if resource.visited.contains(&chunk_location) {
-                    continue;
-                }
+                    if resource.visited.contains(&chunk_location) {
+                        continue;
+                    }
 
-                resource.visited.insert(chunk_location);
+                    let p0 = chunk_location * Self::CHUNK_SIZE as i32;
+                    let p1 = (chunk_location + IVec2::ONE) * Self::CHUNK_SIZE as i32;
+                    let rect = [p0, p1];
+                    for generator in &resource.generators {
+                        generator.generate_chunk(dataflow, rect);
+                    }
 
-                let p0 = chunk_location * Self::CHUNK_SIZE as i32;
-                let p1 = (chunk_location + IVec2::ONE) * Self::CHUNK_SIZE as i32;
-                let rect = [p0, p1];
-                for generator in &resource.generators {
-                    generator.generate_chunk(dataflow, rect);
+                    resource.visited.insert(chunk_location);
                 }
             }
+
+            resource.min_rect = Some(min_rect);
         }
 
         Ok(())

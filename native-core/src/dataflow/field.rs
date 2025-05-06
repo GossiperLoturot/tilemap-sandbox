@@ -48,9 +48,9 @@ pub struct Tile {
 }
 
 #[derive(Debug, Clone)]
-pub struct TileChunk {
-    pub version: u64,
-    pub tiles: slab::Slab<Tile>,
+struct TileChunk {
+    version: u64,
+    tiles: slab::Slab<Tile>,
 }
 
 #[derive(Debug, Clone)]
@@ -232,14 +232,31 @@ impl TileField {
 
     // transfer chunk data
 
-    pub fn get_chunk_size(&self) -> u32 {
-        Self::CHUNK_SIZE
+    pub fn get_version_by_chunk_location(&self, chunk_location: IVec2) -> Result<u64, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        Ok(chunk.version)
     }
 
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&TileChunk, FieldError> {
-        self.chunks
-            .get(chunk_key as usize)
-            .ok_or(FieldError::NotFound)
+    pub fn get_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        let keys = chunk
+            .tiles
+            .iter()
+            .map(move |(local_key, _)| (*chunk_key, local_key as u32));
+        Ok(keys)
     }
 
     // property
@@ -262,12 +279,13 @@ impl TileField {
         self.spatial_ref.contains_key(&point)
     }
 
-    pub fn get_by_point(&self, point: IVec2) -> Option<TileKey> {
+    pub fn get_key_by_point(&self, point: IVec2) -> Option<TileKey> {
         self.spatial_ref.get(&point).copied()
     }
 
-    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.chunk_ref.get(&chunk_location).copied()
+    pub fn get_chunk_location(&self, point: Vec2) -> IVec2 {
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        point.div_euclid(chunk_size).as_ivec2()
     }
 
     // collision features
@@ -283,7 +301,7 @@ impl TileField {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileKey> + '_ {
+    pub fn get_keys_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileKey> + '_ {
         let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
@@ -300,7 +318,10 @@ impl TileField {
             .is_some()
     }
 
-    pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileKey> + '_ {
+    pub fn get_keys_by_collision_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = TileKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -386,9 +407,9 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone)]
-pub struct BlockChunk {
-    pub version: u64,
-    pub blocks: slab::Slab<Block>,
+struct BlockChunk {
+    version: u64,
+    blocks: slab::Slab<Block>,
 }
 
 #[derive(Debug, Clone)]
@@ -583,7 +604,7 @@ impl BlockField {
             // check by spatial features
             let prop = self.props.get(block.id as usize).unwrap();
             if self
-                .get_by_rect(prop.rect(new_block.location))
+                .get_keys_by_rect(prop.rect(new_block.location))
                 .any(|other_key| other_key != key)
             {
                 return Err(FieldError::Conflict);
@@ -618,14 +639,31 @@ impl BlockField {
 
     // transfer chunk data
 
-    pub fn get_chunk_size(&self) -> u32 {
-        Self::CHUNK_SIZE
+    pub fn get_version_by_chunk_location(&self, chunk_location: IVec2) -> Result<u64, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        Ok(chunk.version)
     }
 
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&BlockChunk, FieldError> {
-        self.chunks
-            .get(chunk_key as usize)
-            .ok_or(FieldError::NotFound)
+    pub fn get_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        let keys = chunk
+            .blocks
+            .iter()
+            .map(move |(local_key, _)| (*chunk_key, local_key as u32));
+        Ok(keys)
     }
 
     // property
@@ -660,7 +698,7 @@ impl BlockField {
         self.spatial_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_point(&self, point: IVec2) -> Option<BlockKey> {
+    pub fn get_key_by_point(&self, point: IVec2) -> Option<BlockKey> {
         let point = [point.x, point.y];
         let node = self.spatial_ref.locate_at_point(&point)?;
         Some(node.data)
@@ -676,7 +714,7 @@ impl BlockField {
             .is_some()
     }
 
-    pub fn get_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
+    pub fn get_keys_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -685,8 +723,9 @@ impl BlockField {
             .map(|node| node.data)
     }
 
-    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.chunk_ref.get(&chunk_location).copied()
+    pub fn get_chunk_location(&self, point: Vec2) -> IVec2 {
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        point.div_euclid(chunk_size).as_ivec2()
     }
 
     // collision features
@@ -707,7 +746,7 @@ impl BlockField {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
+    pub fn get_keys_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
         let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
@@ -724,7 +763,10 @@ impl BlockField {
             .is_some()
     }
 
-    pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
+    pub fn get_keys_by_collision_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = BlockKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -756,7 +798,7 @@ impl BlockField {
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
+    pub fn get_keys_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
         let point = [point.x, point.y];
         self.hint_ref
             .locate_all_at_point(&point)
@@ -773,7 +815,7 @@ impl BlockField {
             .is_some()
     }
 
-    pub fn get_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
+    pub fn get_keys_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -849,9 +891,9 @@ pub struct Entity {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct EntityChunk {
-    pub version: u64,
-    pub entities: slab::Slab<Entity>,
+struct EntityChunk {
+    version: u64,
+    entities: slab::Slab<Entity>,
 }
 
 #[derive(Debug, Clone)]
@@ -1045,14 +1087,31 @@ impl EntityField {
 
     // transfer chunk data
 
-    pub fn get_chunk_size(&self) -> u32 {
-        Self::CHUNK_SIZE
+    pub fn get_version_by_chunk_location(&self, chunk_location: IVec2) -> Result<u64, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        Ok(chunk.version)
     }
 
-    pub fn get_chunk(&self, chunk_key: u32) -> Result<&EntityChunk, FieldError> {
-        self.chunks
-            .get(chunk_key as usize)
-            .ok_or(FieldError::NotFound)
+    pub fn get_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, FieldError> {
+        let chunk_key = self
+            .chunk_ref
+            .get(&chunk_location)
+            .ok_or(FieldError::NotFound)?;
+        let chunk = self.chunks.get(*chunk_key as usize).unwrap();
+
+        let keys = chunk
+            .entities
+            .iter()
+            .map(move |(local_key, _)| (*chunk_key, local_key as u32));
+        Ok(keys)
     }
 
     // property
@@ -1071,8 +1130,9 @@ impl EntityField {
 
     // spatial features
 
-    pub fn get_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.chunk_ref.get(&chunk_location).copied()
+    pub fn get_chunk_location(&self, point: Vec2) -> IVec2 {
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        point.div_euclid(chunk_size).as_ivec2()
     }
 
     // collision features
@@ -1093,7 +1153,7 @@ impl EntityField {
         self.collision_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn get_keys_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
         let point = [point.x, point.y];
         self.collision_ref
             .locate_all_at_point(&point)
@@ -1110,7 +1170,10 @@ impl EntityField {
             .is_some()
     }
 
-    pub fn get_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn get_keys_by_collision_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = EntityKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -1142,7 +1205,7 @@ impl EntityField {
         self.hint_ref.locate_at_point(&point).is_some()
     }
 
-    pub fn get_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn get_keys_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
         let point = [point.x, point.y];
         self.hint_ref
             .locate_all_at_point(&point)
@@ -1159,7 +1222,7 @@ impl EntityField {
             .is_some()
     }
 
-    pub fn get_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
+    pub fn get_keys_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
         let p1 = [rect[0].x, rect[0].y];
         let p2 = [rect[1].x, rect[1].y];
         let rect = rstar::AABB::from_corners(p1, p2);
@@ -1228,7 +1291,7 @@ mod tests {
         assert_eq!(tile.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key));
 
         let tile = field.remove(key).unwrap();
         assert_eq!(tile.id, 1);
@@ -1236,7 +1299,7 @@ mod tests {
 
         assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
     }
 
@@ -1267,7 +1330,7 @@ mod tests {
             Err(FieldError::InvalidId)
         );
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
 
         let key = field
             .insert(Tile {
@@ -1292,7 +1355,7 @@ mod tests {
         assert_eq!(tile.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key));
     }
 
     #[test]
@@ -1330,9 +1393,9 @@ mod tests {
         assert_eq!(tile.location, IVec2::new(-1, 4));
 
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert!(field.has_by_point(IVec2::new(-1, 4)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
             .modify(key, |tile| tile.render_param.variant = 1)
@@ -1400,13 +1463,13 @@ mod tests {
         assert_eq!(tile.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key_0));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key_0));
 
         field.remove(key_1).unwrap();
         assert_eq!(field.modify(key_1, |_| {}), Err(FieldError::NotFound));
         assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point(IVec2::new(-1, 4)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 4)), None);
     }
 
     #[test]
@@ -1444,9 +1507,9 @@ mod tests {
         assert_eq!(tile.location, IVec2::new(-1, 1000));
 
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert!(field.has_by_point(IVec2::new(-1, 1000)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 1000)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 1000)), Some(key));
     }
 
     #[test]
@@ -1498,13 +1561,13 @@ mod tests {
 
         let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
-        let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
         let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
-        let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
@@ -1528,7 +1591,6 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Tile {
@@ -1555,11 +1617,10 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
+        assert!(field.get_keys_by_chunk_location(IVec2::new(0, 0)).is_err());
 
-        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
-        let chunk = field.get_chunk(chunk_key).unwrap();
-        assert_eq!(chunk.tiles.len(), 3);
+        let keys = field.get_keys_by_chunk_location(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(keys.count(), 3);
     }
 
     #[test]
@@ -1658,7 +1719,7 @@ mod tests {
         assert_eq!(block.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key));
 
         let block = field.remove(key).unwrap();
         assert_eq!(block.id, 1);
@@ -1666,7 +1727,7 @@ mod tests {
 
         assert_eq!(field.get(key).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert_eq!(field.remove(key).unwrap_err(), FieldError::NotFound);
 
         assert_eq!(field.get_rect(key).unwrap_err(), FieldError::NotFound);
@@ -1709,7 +1770,7 @@ mod tests {
             Err(FieldError::InvalidId)
         );
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
 
         let key = field
             .insert(Block {
@@ -1734,7 +1795,7 @@ mod tests {
         assert_eq!(block.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key));
     }
 
     #[test]
@@ -1782,9 +1843,9 @@ mod tests {
         assert_eq!(block.location, IVec2::new(-1, 4));
 
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert!(field.has_by_point(IVec2::new(-1, 4)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 4)), Some(key));
 
         let key = field
             .modify(key, |block| block.render_param.variant = 1)
@@ -1862,7 +1923,7 @@ mod tests {
         assert_eq!(block.location, IVec2::new(-1, 3));
 
         assert!(field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), Some(key_0));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), Some(key_0));
 
         field.remove(key_1).unwrap();
 
@@ -1870,7 +1931,7 @@ mod tests {
 
         assert_eq!(field.get(key_1).unwrap_err(), FieldError::NotFound);
         assert!(!field.has_by_point(IVec2::new(-1, 4)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 4)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 4)), None);
     }
 
     #[test]
@@ -1918,9 +1979,9 @@ mod tests {
         assert_eq!(block.location, IVec2::new(-1, 1000));
 
         assert!(!field.has_by_point(IVec2::new(-1, 3)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 3)), None);
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 3)), None);
         assert!(field.has_by_point(IVec2::new(-1, 1000)));
-        assert_eq!(field.get_by_point(IVec2::new(-1, 1000)), Some(key));
+        assert_eq!(field.get_key_by_point(IVec2::new(-1, 1000)), Some(key));
     }
 
     #[test]
@@ -1982,13 +2043,13 @@ mod tests {
 
         let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
-        let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
         let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
-        let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
@@ -2055,13 +2116,13 @@ mod tests {
 
         let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_hint_point(point));
-        let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
+        let vec = field.get_keys_by_hint_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
         let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_hint_rect(rect));
-        let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
+        let vec = field.get_keys_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
@@ -2095,7 +2156,6 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Block {
@@ -2122,11 +2182,10 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
+        assert!(field.get_keys_by_chunk_location(IVec2::new(0, 0)).is_err());
 
-        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
-        let chunk = field.get_chunk(chunk_key).unwrap();
-        assert_eq!(chunk.blocks.len(), 3);
+        let keys = field.get_keys_by_chunk_location(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(keys.count(), 3);
     }
 
     #[test]
@@ -2446,13 +2505,13 @@ mod tests {
 
         let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_collision_point(point));
-        let vec = field.get_by_collision_point(point).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
         let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_collision_rect(rect));
-        let vec = field.get_by_collision_rect(rect).collect::<Vec<_>>();
+        let vec = field.get_keys_by_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
@@ -2517,13 +2576,13 @@ mod tests {
 
         let point = Vec2::new(-1.0, 4.0);
         assert!(field.has_by_hint_point(point));
-        let vec = field.get_by_hint_point(point).collect::<Vec<_>>();
+        let vec = field.get_keys_by_hint_point(point).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
         let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
         assert!(field.has_by_hint_rect(rect));
-        let vec = field.get_by_hint_rect(rect).collect::<Vec<_>>();
+        let vec = field.get_keys_by_hint_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&key_0));
         assert!(vec.contains(&key_1));
 
@@ -2555,7 +2614,6 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(field.get_chunk_size(), 32);
 
         let _key0 = field
             .insert(Entity {
@@ -2582,11 +2640,10 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_by_chunk_location(IVec2::new(0, 0)).is_none());
+        assert!(field.get_keys_by_chunk_location(IVec2::new(0, 0)).is_err());
 
-        let chunk_key = field.get_by_chunk_location(IVec2::new(-1, 0)).unwrap();
-        let chunk = field.get_chunk(chunk_key).unwrap();
-        assert_eq!(chunk.entities.len(), 3);
+        let keys = field.get_keys_by_chunk_location(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(keys.count(), 3);
     }
 
     #[test]

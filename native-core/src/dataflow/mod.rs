@@ -125,12 +125,21 @@ impl Dataflow {
         Ok(tile_key)
     }
 
-    pub fn get_tile_chunk_size(&self) -> u32 {
-        self.tile_field.get_chunk_size()
+    pub fn get_tile_version_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<u64, DataflowError> {
+        let chunk = self
+            .tile_field
+            .get_version_by_chunk_location(chunk_location)?;
+        Ok(chunk)
     }
 
-    pub fn get_tile_chunk(&self, chunk_key: u32) -> Result<&field::TileChunk, DataflowError> {
-        let chunk = self.tile_field.get_chunk(chunk_key)?;
+    pub fn get_tile_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, DataflowError> {
+        let chunk = self.tile_field.get_keys_by_chunk_location(chunk_location)?;
         Ok(chunk)
     }
 
@@ -150,12 +159,12 @@ impl Dataflow {
         self.tile_field.has_by_point(point)
     }
 
-    pub fn get_tile_by_point(&self, point: IVec2) -> Option<TileKey> {
-        self.tile_field.get_by_point(point)
+    pub fn get_tile_key_by_point(&self, point: IVec2) -> Option<TileKey> {
+        self.tile_field.get_key_by_point(point)
     }
 
-    pub fn get_tile_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.tile_field.get_by_chunk_location(chunk_location)
+    pub fn get_tile_chunk_location(&self, point: Vec2) -> IVec2 {
+        self.tile_field.get_chunk_location(point)
     }
 
     // tile collision features
@@ -169,19 +178,22 @@ impl Dataflow {
         self.tile_field.has_by_collision_rect(rect)
     }
 
-    pub fn get_tile_by_collision_rect(
+    pub fn get_tile_keys_by_collision_rect(
         &self,
         rect: [Vec2; 2],
     ) -> impl Iterator<Item = TileKey> + '_ {
-        self.tile_field.get_by_collision_rect(rect)
+        self.tile_field.get_keys_by_collision_rect(rect)
     }
 
     pub fn has_tile_by_collision_point(&self, point: Vec2) -> bool {
         self.tile_field.has_by_collision_point(point)
     }
 
-    pub fn get_tile_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileKey> + '_ {
-        self.tile_field.get_by_collision_point(point)
+    pub fn get_tile_keys_by_collision_point(
+        &self,
+        point: Vec2,
+    ) -> impl Iterator<Item = TileKey> + '_ {
+        self.tile_field.get_keys_by_collision_point(point)
     }
 
     // tile inventory
@@ -242,12 +254,23 @@ impl Dataflow {
         Ok(block)
     }
 
-    pub fn get_block_chunk_size(&self) -> u32 {
-        self.block_field.get_chunk_size()
+    pub fn get_block_version_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<u64, DataflowError> {
+        let chunk = self
+            .block_field
+            .get_version_by_chunk_location(chunk_location)?;
+        Ok(chunk)
     }
 
-    pub fn get_block_chunk(&self, chunk_key: u32) -> Result<&field::BlockChunk, DataflowError> {
-        let chunk = self.block_field.get_chunk(chunk_key)?;
+    pub fn get_block_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, DataflowError> {
+        let chunk = self
+            .block_field
+            .get_keys_by_chunk_location(chunk_location)?;
         Ok(chunk)
     }
 
@@ -277,20 +300,20 @@ impl Dataflow {
         self.block_field.has_by_point(point)
     }
 
-    pub fn get_block_by_point(&self, point: IVec2) -> Option<BlockKey> {
-        self.block_field.get_by_point(point)
+    pub fn get_block_key_by_point(&self, point: IVec2) -> Option<BlockKey> {
+        self.block_field.get_key_by_point(point)
     }
 
     pub fn has_block_by_rect(&self, rect: [IVec2; 2]) -> bool {
         self.block_field.has_by_rect(rect)
     }
 
-    pub fn get_block_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
-        self.block_field.get_by_rect(rect)
+    pub fn get_block_keys_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
+        self.block_field.get_keys_by_rect(rect)
     }
 
-    pub fn get_block_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.block_field.get_by_chunk_location(chunk_location)
+    pub fn get_block_chunk_location(&self, point: Vec2) -> IVec2 {
+        self.block_field.get_chunk_location(point)
     }
 
     // block collision features
@@ -312,19 +335,22 @@ impl Dataflow {
         self.block_field.has_by_collision_point(point)
     }
 
-    pub fn get_block_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
-        self.block_field.get_by_collision_point(point)
+    pub fn get_block_keys_by_collision_point(
+        &self,
+        point: Vec2,
+    ) -> impl Iterator<Item = BlockKey> + '_ {
+        self.block_field.get_keys_by_collision_point(point)
     }
 
     pub fn has_block_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
         self.block_field.has_by_collision_rect(rect)
     }
 
-    pub fn get_block_by_collision_rect(
+    pub fn get_block_keys_by_collision_rect(
         &self,
         rect: [Vec2; 2],
     ) -> impl Iterator<Item = BlockKey> + '_ {
-        self.block_field.get_by_collision_rect(rect)
+        self.block_field.get_keys_by_collision_rect(rect)
     }
 
     // block hint features
@@ -348,16 +374,19 @@ impl Dataflow {
         self.block_field.has_by_hint_point(point)
     }
 
-    pub fn get_block_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
-        self.block_field.get_by_hint_point(point)
+    pub fn get_block_keys_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockKey> + '_ {
+        self.block_field.get_keys_by_hint_point(point)
     }
 
     pub fn has_block_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
         self.block_field.has_by_hint_rect(rect)
     }
 
-    pub fn get_block_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockKey> + '_ {
-        self.block_field.get_by_hint_rect(rect)
+    pub fn get_block_keys_by_hint_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = BlockKey> + '_ {
+        self.block_field.get_keys_by_hint_rect(rect)
     }
 
     // block inventory
@@ -422,12 +451,23 @@ impl Dataflow {
         Ok(entity)
     }
 
-    pub fn get_entity_chunk_size(&self) -> u32 {
-        self.entity_field.get_chunk_size()
+    pub fn get_entity_version_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<u64, DataflowError> {
+        let chunk = self
+            .entity_field
+            .get_version_by_chunk_location(chunk_location)?;
+        Ok(chunk)
     }
 
-    pub fn get_entity_chunk(&self, chunk_key: u32) -> Result<&field::EntityChunk, DataflowError> {
-        let chunk = self.entity_field.get_chunk(chunk_key)?;
+    pub fn get_entity_keys_by_chunk_location(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<impl Iterator<Item = BlockKey>, DataflowError> {
+        let chunk = self
+            .entity_field
+            .get_keys_by_chunk_location(chunk_location)?;
         Ok(chunk)
     }
 
@@ -443,8 +483,8 @@ impl Dataflow {
 
     // entity spatial features
 
-    pub fn get_entity_chunk_by_chunk_location(&self, chunk_location: IVec2) -> Option<u32> {
-        self.entity_field.get_by_chunk_location(chunk_location)
+    pub fn get_entity_chunk_location(&self, point: Vec2) -> IVec2 {
+        self.entity_field.get_chunk_location(point)
     }
 
     // entity collision features
@@ -466,22 +506,22 @@ impl Dataflow {
         self.entity_field.has_by_collision_point(point)
     }
 
-    pub fn get_entity_by_collision_point(
+    pub fn get_entity_keys_by_collision_point(
         &self,
         point: Vec2,
     ) -> impl Iterator<Item = EntityKey> + '_ {
-        self.entity_field.get_by_collision_point(point)
+        self.entity_field.get_keys_by_collision_point(point)
     }
 
     pub fn has_entity_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
         self.entity_field.has_by_collision_rect(rect)
     }
 
-    pub fn get_entity_by_collision_rect(
+    pub fn get_entity_keys_by_collision_rect(
         &self,
         rect: [Vec2; 2],
     ) -> impl Iterator<Item = EntityKey> + '_ {
-        self.entity_field.get_by_collision_rect(rect)
+        self.entity_field.get_keys_by_collision_rect(rect)
     }
 
     // entity hint features
@@ -505,16 +545,22 @@ impl Dataflow {
         self.entity_field.has_by_hint_point(point)
     }
 
-    pub fn get_entity_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityKey> + '_ {
-        self.entity_field.get_by_hint_point(point)
+    pub fn get_entity_keys_by_hint_point(
+        &self,
+        point: Vec2,
+    ) -> impl Iterator<Item = EntityKey> + '_ {
+        self.entity_field.get_keys_by_hint_point(point)
     }
 
     pub fn has_entity_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
         self.entity_field.has_by_hint_rect(rect)
     }
 
-    pub fn get_entity_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityKey> + '_ {
-        self.entity_field.get_by_hint_rect(rect)
+    pub fn get_entity_keys_by_hint_rect(
+        &self,
+        rect: [Vec2; 2],
+    ) -> impl Iterator<Item = EntityKey> + '_ {
+        self.entity_field.get_keys_by_hint_rect(rect)
     }
 
     // entity inventory
