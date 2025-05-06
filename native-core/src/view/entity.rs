@@ -1,22 +1,22 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::inner;
+use crate::dataflow;
 
-pub(crate) struct EntityImageDescriptor {
+pub struct EntityImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
 
-pub(crate) struct EntityDescriptor {
+pub struct EntityDescriptor {
     pub images: Vec<EntityImageDescriptor>,
     pub z_along_y: bool,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
 }
 
-pub(crate) struct EntityFieldDescriptor {
+pub struct EntityFieldDescriptor {
     pub entities: Vec<EntityDescriptor>,
     pub shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
@@ -69,7 +69,7 @@ impl EntityChunkUp {
     }
 }
 
-pub(crate) struct EntityField {
+pub struct EntityField {
     props: Vec<EntityProperty>,
     image_heads: Vec<Vec<ImageHead>>,
     down_chunks: Vec<EntityChunkDown>,
@@ -297,10 +297,10 @@ impl EntityField {
         }
     }
 
-    pub fn update_view(&mut self, root: &inner::Root, min_rect: [Vec2; 2]) {
+    pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, min_rect: [Vec2; 2]) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
-        let chunk_size = root.get_entity_chunk_size() as f32;
+        let chunk_size = dataflow.get_entity_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -352,7 +352,7 @@ impl EntityField {
         // update view chunk
 
         for (chunk_key, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = root.get_entity_chunk(*chunk_key) else {
+            let Ok(chunk) = dataflow.get_entity_chunk(*chunk_key) else {
                 continue;
             };
 
@@ -360,7 +360,7 @@ impl EntityField {
                 rendering_server.material_set_param(
                     *material,
                     "tick",
-                    &(root.get_tick() as i32).to_variant(),
+                    &(dataflow.get_tick() as i32).to_variant(),
                 );
             }
 

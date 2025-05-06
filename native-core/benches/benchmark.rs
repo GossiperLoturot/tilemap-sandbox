@@ -1,6 +1,6 @@
 use criterion::*;
 use glam::*;
-use tilemap_sandbox::inner::*;
+use native_core::dataflow::*;
 
 fn benchmark(c: &mut Criterion) {
     c.bench_function("tile add", |b| {

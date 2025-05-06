@@ -1,7 +1,8 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::*;
+pub mod dataflow;
+pub mod view;
 
 // retriever for loading resources
 
@@ -51,6 +52,10 @@ pub struct Registry {
 }
 
 impl Registry {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn set(&mut self, name: String, value: u16) {
         if self.storage.contains_key(&name) {
             panic!("Name {} already exists", name);
@@ -85,7 +90,7 @@ pub struct TileDescriptor {
     pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
-    pub feature: Box<dyn inner::TileFeature>,
+    pub feature: Box<dyn dataflow::TileFeature>,
 }
 
 pub struct BlockDescriptor {
@@ -98,7 +103,7 @@ pub struct BlockDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn inner::BlockFeature>,
+    pub feature: Box<dyn dataflow::BlockFeature>,
 }
 
 pub struct EntityDescriptor {
@@ -110,14 +115,14 @@ pub struct EntityDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn inner::EntityFeature>,
+    pub feature: Box<dyn dataflow::EntityFeature>,
 }
 
 pub struct ItemDescriptor {
     pub display_name: String,
     pub description: String,
     pub images: Vec<ImageDescriptor>,
-    pub feature: Box<dyn inner::ItemFeature>,
+    pub feature: Box<dyn dataflow::ItemFeature>,
 }
 
 pub struct InventoryDescriptor {
@@ -134,6 +139,8 @@ pub struct BuildDescriptor {
 }
 
 type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry, &'a Retriever) -> T>;
+
+#[derive(Default)]
 pub struct ContextBuilder {
     tiles: Vec<RegisterFn<TileDescriptor>>,
     blocks: Vec<RegisterFn<BlockDescriptor>>,
@@ -145,14 +152,7 @@ pub struct ContextBuilder {
 
 impl ContextBuilder {
     pub fn new() -> Self {
-        Self {
-            tiles: Default::default(),
-            blocks: Default::default(),
-            entities: Default::default(),
-            items: Default::default(),
-            inventories: Default::default(),
-            registry: Default::default(),
-        }
+        Default::default()
     }
 
     pub fn add_tile<F>(&mut self, name: String, desc_fn: F)
@@ -215,7 +215,7 @@ impl ContextBuilder {
 
             tile_features.push(desc.feature);
 
-            tiles.push(inner::TileDescriptor {
+            tiles.push(dataflow::TileDescriptor {
                 display_name: desc.display_name,
                 description: desc.description,
                 collision: desc.collision,
@@ -228,23 +228,23 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(tile::TileImageDescriptor {
+                images.push(view::TileImageDescriptor {
                     frames,
                     step_tick: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            tiles_view.push(tile::TileDescriptor { images });
+            tiles_view.push(view::TileDescriptor { images });
         }
 
-        let tile_field_desc = inner::TileFieldDescriptor { tiles };
+        let tile_field_desc = dataflow::TileFieldDescriptor { tiles };
 
         let mut tile_shaders = vec![];
         for shader in desc.tile_shaders {
             tile_shaders.push(shader);
         }
-        let tile_field_view = tile::TileField::new(tile::TileFieldDescriptor {
+        let tile_field_view = view::TileField::new(view::TileFieldDescriptor {
             tiles: tiles_view,
             shaders: tile_shaders,
             world: world.clone(),
@@ -259,7 +259,7 @@ impl ContextBuilder {
 
             block_features.push(desc.feature);
 
-            blocks.push(inner::BlockDescriptor {
+            blocks.push(dataflow::BlockDescriptor {
                 display_name: desc.display_name,
                 description: desc.description,
                 size: desc.size,
@@ -277,14 +277,14 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(block::BlockImageDescriptor {
+                images.push(view::BlockImageDescriptor {
                     frames,
                     step_tick: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            blocks_view.push(block::BlockDescriptor {
+            blocks_view.push(view::BlockDescriptor {
                 images,
                 z_along_y: desc.z_along_y,
                 rendering_size: desc.rendering_size,
@@ -292,13 +292,13 @@ impl ContextBuilder {
             });
         }
 
-        let block_field_desc = inner::BlockFieldDescriptor { blocks };
+        let block_field_desc = dataflow::BlockFieldDescriptor { blocks };
 
         let mut block_shaders = vec![];
         for shader in desc.block_shaders {
             block_shaders.push(shader);
         }
-        let block_field_view = block::BlockField::new(block::BlockFieldDescriptor {
+        let block_field_view = view::BlockField::new(view::BlockFieldDescriptor {
             blocks: blocks_view,
             shaders: block_shaders,
             world: world.clone(),
@@ -313,7 +313,7 @@ impl ContextBuilder {
 
             entity_features.push(desc.feature);
 
-            entities.push(inner::EntityDescriptor {
+            entities.push(dataflow::EntityDescriptor {
                 display_name: desc.display_name,
                 description: desc.description,
                 collision_size: desc.collision_size,
@@ -330,14 +330,14 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(entity::EntityImageDescriptor {
+                images.push(view::EntityImageDescriptor {
                     frames,
                     step_tick: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            entities_view.push(entity::EntityDescriptor {
+            entities_view.push(view::EntityDescriptor {
                 images,
                 z_along_y: desc.z_along_y,
                 rendering_size: desc.rendering_size,
@@ -345,13 +345,13 @@ impl ContextBuilder {
             });
         }
 
-        let entity_field_desc = inner::EntityFieldDescriptor { entities };
+        let entity_field_desc = dataflow::EntityFieldDescriptor { entities };
 
         let mut entity_shaders = vec![];
         for shader in desc.entity_shaders {
             entity_shaders.push(shader);
         }
-        let entity_field_view = entity::EntityField::new(entity::EntityFieldDescriptor {
+        let entity_field_view = view::EntityField::new(view::EntityFieldDescriptor {
             entities: entities_view,
             shaders: entity_shaders,
             world: world.clone(),
@@ -366,7 +366,7 @@ impl ContextBuilder {
 
             item_features.push(desc.feature);
 
-            items.push(inner::ItemDescriptor {
+            items.push(dataflow::ItemDescriptor {
                 display_name: desc.display_name,
                 description: desc.description,
             });
@@ -378,14 +378,14 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(item::ItemImageDescriptor {
+                images.push(view::ItemImageDescriptor {
                     frames,
                     step_tick: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            items_view.push(item::ItemDescriptor { images });
+            items_view.push(view::ItemDescriptor { images });
         }
 
         let mut inventories = vec![];
@@ -393,26 +393,26 @@ impl ContextBuilder {
         for inventory in self.inventories {
             let desc = inventory(&self.registry, retriever);
 
-            inventories.push(inner::InventoryDescriptor { size: desc.size });
+            inventories.push(dataflow::InventoryDescriptor { size: desc.size });
 
-            inventories_view.push(item::InventoryDescriptor {
+            inventories_view.push(view::InventoryDescriptor {
                 callback: desc.callback,
             });
         }
 
-        let item_storage_desc = inner::ItemStorageDescriptor { items, inventories };
+        let item_storage_desc = dataflow::ItemStorageDescriptor { items, inventories };
 
-        let item_storage_view = item::ItemStorage::new(item::ItemStorageDescriptor {
+        let item_storage_view = view::ItemStorage::new(view::ItemStorageDescriptor {
             items: items_view,
             inventories: inventories_view,
         });
 
-        let selection_view = selection::Selection::new(selection::SelectionDescriptor {
+        let selection_view = view::Selection::new(view::SelectionDescriptor {
             shader: desc.selection_shader,
             world: world.clone(),
         });
 
-        let root = inner::Root::new(inner::RootDescriptor {
+        let dataflow = dataflow::Dataflow::new(dataflow::DataflowDescriptor {
             tile_field: tile_field_desc,
             block_field: block_field_desc,
             entity_field: entity_field_desc,
@@ -425,23 +425,23 @@ impl ContextBuilder {
         });
 
         Context {
-            root,
-            tile_field: tile_field_view,
-            block_field: block_field_view,
-            entity_field: entity_field_view,
-            item_storage: item_storage_view,
-            selection: selection_view,
             registry: self.registry,
+            dataflow,
+            tile_field_view,
+            block_field_view,
+            entity_field_view,
+            item_storage_view,
+            selection_view,
         }
     }
 }
 
 pub struct Context {
-    pub root: inner::Root,
-    pub tile_field: tile::TileField,
-    pub block_field: block::BlockField,
-    pub entity_field: entity::EntityField,
-    pub item_storage: item::ItemStorage,
-    pub selection: selection::Selection,
     pub registry: Registry,
+    pub dataflow: dataflow::Dataflow,
+    pub tile_field_view: view::TileField,
+    pub block_field_view: view::BlockField,
+    pub entity_field_view: view::EntityField,
+    pub item_storage_view: view::ItemStorage,
+    pub selection_view: view::Selection,
 }

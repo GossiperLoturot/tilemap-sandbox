@@ -1,14 +1,14 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::inner;
+use crate::dataflow;
 
-pub(crate) struct SelectionDescriptor {
+pub struct SelectionDescriptor {
     pub shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
 }
 
-pub(crate) struct Selection {
+pub struct Selection {
     multimesh: Rid,
     free_handles: Vec<Rid>,
 }
@@ -84,10 +84,10 @@ impl Selection {
 
     pub fn update_view(
         &mut self,
-        root: &inner::Root,
-        tile_keys: &[inner::TileKey],
-        block_keys: &[inner::BlockKey],
-        entity_keys: &[inner::EntityKey],
+        dataflow: &dataflow::Dataflow,
+        tile_keys: &[dataflow::TileKey],
+        block_keys: &[dataflow::BlockKey],
+        entity_keys: &[dataflow::EntityKey],
     ) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
@@ -95,7 +95,7 @@ impl Selection {
         let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
 
         for tile_key in tile_keys {
-            let tile = root.get_tile(*tile_key).unwrap();
+            let tile = dataflow.get_tile(*tile_key).unwrap();
 
             instance_buffer[i * 12] = 1.0;
             instance_buffer[i * 12 + 1] = 0.0;
@@ -116,9 +116,9 @@ impl Selection {
         }
 
         for block_key in block_keys {
-            let block = root.get_block(*block_key).unwrap();
-            let hint_rect = root.get_block_base_hint_rect(block.id).unwrap();
-            let z_along_y = root.get_block_base_z_along_y(block.id).unwrap();
+            let block = dataflow.get_block(*block_key).unwrap();
+            let hint_rect = dataflow.get_block_base_hint_rect(block.id).unwrap();
+            let z_along_y = dataflow.get_block_base_z_along_y(block.id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];
@@ -143,9 +143,9 @@ impl Selection {
         }
 
         for entity_key in entity_keys {
-            let entity = root.get_entity(*entity_key).unwrap();
-            let hint_rect = root.get_entity_base_hint_rect(entity.id).unwrap();
-            let z_along_y = root.get_entity_base_z_along_y(entity.id).unwrap();
+            let entity = dataflow.get_entity(*entity_key).unwrap();
+            let hint_rect = dataflow.get_entity_base_hint_rect(entity.id).unwrap();
+            let z_along_y = dataflow.get_entity_base_z_along_y(entity.id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];

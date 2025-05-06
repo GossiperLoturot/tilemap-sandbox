@@ -1,17 +1,5 @@
 use super::*;
 
-// item entity
-
-#[derive(Debug, Clone)]
-pub struct ItemEntityData {
-    pub item: Item,
-}
-
-#[derive(Debug, Clone)]
-pub struct ItemEntityFeature;
-
-impl EntityFeature for ItemEntityFeature {}
-
 // item storage
 
 pub type InventoryKey = u32;

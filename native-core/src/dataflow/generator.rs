@@ -1,16 +1,14 @@
-use crate::inner;
+use crate::dataflow;
 
 use super::*;
 
-const CHUNK_SIZE: u32 = 32;
-
-pub type PlaceFn<T> = Box<dyn Fn(&mut Root, T)>;
-
 pub trait Generator: std::fmt::Debug {
-    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2);
+    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]);
 }
 
 // method for generating chunk
+
+pub type PlaceFn<T> = Box<dyn Fn(&mut Dataflow, T)>;
 
 pub struct MarchGenerator {
     pub prob: f32,
@@ -18,22 +16,19 @@ pub struct MarchGenerator {
 }
 
 impl Generator for MarchGenerator {
-    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
+    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]) {
         let rng = &mut rand::thread_rng();
 
-        for y in 0..CHUNK_SIZE as i32 {
-            for x in 0..CHUNK_SIZE as i32 {
-                let location = IVec2::new(
-                    chunk_location.x * CHUNK_SIZE as i32 + x,
-                    chunk_location.y * CHUNK_SIZE as i32 + y,
-                );
+        for y in rect[0].y..rect[1].y {
+            for x in rect[0].x..rect[1].y {
+                let location = IVec2::new(x, y);
 
                 let value = rand::Rng::gen_range(rng, 0.0..1.0);
                 if self.prob < value {
                     continue;
                 }
 
-                (*self.place_fn)(root, location);
+                (*self.place_fn)(dataflow, location);
             }
         }
     }
@@ -54,20 +49,17 @@ pub struct SpawnGenerator {
 }
 
 impl Generator for SpawnGenerator {
-    fn generate_chunk(&self, root: &mut inner::Root, chunk_location: IVec2) {
+    fn generate_chunk(&self, dataflow: &mut dataflow::Dataflow, rect: [IVec2; 2]) {
         let rng = &mut rand::thread_rng();
 
-        let size = (self.prob * (CHUNK_SIZE * CHUNK_SIZE) as f32) as i32;
-        for _ in 0..size {
-            let u = rand::Rng::gen_range(rng, 0.0..CHUNK_SIZE as f32);
-            let v = rand::Rng::gen_range(rng, 0.0..CHUNK_SIZE as f32);
+        let area = (rect[1] - rect[0]).element_product();
+        let generate_count = (area as f32 * self.prob) as i32;
+        for _ in 0..generate_count {
+            let x = rand::Rng::gen_range(rng, rect[0].x as f32..rect[1].x as f32);
+            let y = rand::Rng::gen_range(rng, rect[0].y as f32..rect[1].y as f32);
+            let location = Vec2::new(x, y);
 
-            let location = Vec2::new(
-                (chunk_location.x * CHUNK_SIZE as i32) as f32 + u,
-                (chunk_location.y * CHUNK_SIZE as i32) as f32 + v,
-            );
-
-            (*self.place_fn)(root, location)
+            (*self.place_fn)(dataflow, location)
         }
     }
 }
@@ -110,11 +102,16 @@ impl Resource for GeneratorResource {}
 pub struct GeneratorSystem;
 
 impl GeneratorSystem {
-    pub fn generate(root: &mut inner::Root, min_rect: [Vec2; 2]) -> Result<(), RootError> {
-        let resource = root.find_resources::<GeneratorResource>()?;
+    const CHUNK_SIZE: u32 = 32;
+
+    pub fn generate(
+        dataflow: &mut dataflow::Dataflow,
+        min_rect: [Vec2; 2],
+    ) -> Result<(), DataflowError> {
+        let resource = dataflow.find_resources::<GeneratorResource>()?;
         let mut resource = resource.borrow_mut()?;
 
-        let chunk_size = Vec2::splat(CHUNK_SIZE as f32);
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
             min_rect[1].div_euclid(chunk_size).as_ivec2(),
@@ -130,8 +127,11 @@ impl GeneratorSystem {
 
                 resource.visited.insert(chunk_location);
 
+                let p0 = chunk_location * Self::CHUNK_SIZE as i32;
+                let p1 = (chunk_location + IVec2::ONE) * Self::CHUNK_SIZE as i32;
+                let rect = [p0, p1];
                 for generator in &resource.generators {
-                    generator.generate_chunk(root, chunk_location);
+                    generator.generate_chunk(dataflow, rect);
                 }
             }
         }

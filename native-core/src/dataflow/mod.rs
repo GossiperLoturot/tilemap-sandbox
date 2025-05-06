@@ -20,10 +20,10 @@ mod player;
 mod resource;
 mod time;
 
-type RcVec<T> = std::rc::Rc<[T]>;
+pub type RcVec<T> = std::rc::Rc<[T]>;
 
 #[derive(Debug)]
-pub struct RootDescriptor {
+pub struct DataflowDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
@@ -36,7 +36,7 @@ pub struct RootDescriptor {
 }
 
 #[derive(Debug)]
-pub struct Root {
+pub struct Dataflow {
     time_storage: TimeStorage,
 
     // structured data storage
@@ -55,8 +55,8 @@ pub struct Root {
     resource_storage: ResourceStorage,
 }
 
-impl Root {
-    pub fn new(desc: RootDescriptor) -> Self {
+impl Dataflow {
+    pub fn new(desc: DataflowDescriptor) -> Self {
         Self {
             time_storage: TimeStorage::new(),
 
@@ -90,7 +90,7 @@ impl Root {
 
     // tile
 
-    pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, RootError> {
+    pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
         let features = self.tile_features.clone();
         let feature = features
             .get(tile.id as usize)
@@ -100,7 +100,7 @@ impl Root {
         Ok(tile_key)
     }
 
-    pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, RootError> {
+    pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, DataflowError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
@@ -119,7 +119,7 @@ impl Root {
         self.tile_field.modify(tile_key, f)
     }
 
-    pub fn get_tile(&self, tile_key: TileKey) -> Result<&field::Tile, RootError> {
+    pub fn get_tile(&self, tile_key: TileKey) -> Result<&field::Tile, DataflowError> {
         let tile_key = self.tile_field.get(tile_key)?;
         Ok(tile_key)
     }
@@ -128,7 +128,10 @@ impl Root {
         self.tile_field.get_chunk_size()
     }
 
-    pub fn get_tile_chunk(&self, chunk_location: IVec2) -> Result<&field::TileChunk, RootError> {
+    pub fn get_tile_chunk(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<&field::TileChunk, DataflowError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -137,12 +140,12 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_tile_display_name(&self, tile_key: TileKey) -> Result<&str, RootError> {
+    pub fn get_tile_display_name(&self, tile_key: TileKey) -> Result<&str, DataflowError> {
         let display_name = self.tile_field.get_display_name(tile_key)?;
         Ok(display_name)
     }
 
-    pub fn get_tile_description(&self, tile_key: TileKey) -> Result<&str, RootError> {
+    pub fn get_tile_description(&self, tile_key: TileKey) -> Result<&str, DataflowError> {
         let description = self.tile_field.get_description(tile_key)?;
         Ok(description)
     }
@@ -159,7 +162,7 @@ impl Root {
 
     // tile collision features
 
-    pub fn get_tile_collision_rect(&self, tile_key: TileKey) -> Result<[Vec2; 2], RootError> {
+    pub fn get_tile_collision_rect(&self, tile_key: TileKey) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.tile_field.get_collision_rect(tile_key)?;
         Ok(rect)
     }
@@ -185,7 +188,10 @@ impl Root {
 
     // tile inventory
 
-    pub fn get_tile_inventory(&self, tile_key: TileKey) -> Result<Option<InventoryKey>, RootError> {
+    pub fn get_tile_inventory(
+        &self,
+        tile_key: TileKey,
+    ) -> Result<Option<InventoryKey>, DataflowError> {
         let features = self.tile_features.clone();
         let tile = self.tile_field.get(tile_key)?;
         let feature = features
@@ -196,7 +202,7 @@ impl Root {
 
     // block
 
-    pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, RootError> {
+    pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
         let features = self.block_features.clone();
         let feature = features
             .get(block.id as usize)
@@ -206,7 +212,7 @@ impl Root {
         Ok(block_key)
     }
 
-    pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, RootError> {
+    pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, DataflowError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
@@ -225,7 +231,7 @@ impl Root {
         self.block_field.modify(block_key, f)
     }
 
-    pub fn get_block(&self, block_key: BlockKey) -> Result<&field::Block, RootError> {
+    pub fn get_block(&self, block_key: BlockKey) -> Result<&field::Block, DataflowError> {
         let block = self.block_field.get(block_key)?;
         Ok(block)
     }
@@ -234,7 +240,10 @@ impl Root {
         self.block_field.get_chunk_size()
     }
 
-    pub fn get_block_chunk(&self, chunk_location: IVec2) -> Result<&field::BlockChunk, RootError> {
+    pub fn get_block_chunk(
+        &self,
+        chunk_location: IVec2,
+    ) -> Result<&field::BlockChunk, DataflowError> {
         let chunk_key = self
             .tile_field
             .get_by_chunk_location(chunk_location)
@@ -243,24 +252,24 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_block_display_name(&self, block_key: BlockKey) -> Result<&str, RootError> {
+    pub fn get_block_display_name(&self, block_key: BlockKey) -> Result<&str, DataflowError> {
         let display_name = self.block_field.get_display_name(block_key)?;
         Ok(display_name)
     }
 
-    pub fn get_block_description(&self, block_key: BlockKey) -> Result<&str, RootError> {
+    pub fn get_block_description(&self, block_key: BlockKey) -> Result<&str, DataflowError> {
         let description = self.block_field.get_description(block_key)?;
         Ok(description)
     }
 
     // block spatial features
 
-    pub fn get_block_base_rect(&self, id: u16) -> Result<[IVec2; 2], RootError> {
+    pub fn get_block_base_rect(&self, id: u16) -> Result<[IVec2; 2], DataflowError> {
         let rect = self.block_field.get_base_rect(id)?;
         Ok(rect)
     }
 
-    pub fn get_block_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], RootError> {
+    pub fn get_block_rect(&self, block_key: BlockKey) -> Result<[IVec2; 2], DataflowError> {
         let rect = self.block_field.get_rect(block_key)?;
         Ok(rect)
     }
@@ -283,12 +292,15 @@ impl Root {
 
     // block collision features
 
-    pub fn get_block_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+    pub fn get_block_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.block_field.get_base_collision_rect(id)?;
         Ok(rect)
     }
 
-    pub fn get_block_collision_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
+    pub fn get_block_collision_rect(
+        &self,
+        block_key: BlockKey,
+    ) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.block_field.get_collision_rect(block_key)?;
         Ok(rect)
     }
@@ -314,17 +326,17 @@ impl Root {
 
     // block hint features
 
-    pub fn get_block_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
+    pub fn get_block_base_z_along_y(&self, id: u16) -> Result<bool, DataflowError> {
         let z_along_y = self.block_field.get_base_z_along_y(id)?;
         Ok(z_along_y)
     }
 
-    pub fn get_block_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+    pub fn get_block_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], DataflowError> {
         let block = self.block_field.get_base_hint_rect(id)?;
         Ok(block)
     }
 
-    pub fn get_block_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], RootError> {
+    pub fn get_block_hint_rect(&self, block_key: BlockKey) -> Result<[Vec2; 2], DataflowError> {
         let block = self.block_field.get_hint_rect(block_key)?;
         Ok(block)
     }
@@ -350,7 +362,7 @@ impl Root {
     pub fn get_block_inventory(
         &self,
         block_key: BlockKey,
-    ) -> Result<Option<InventoryKey>, RootError> {
+    ) -> Result<Option<InventoryKey>, DataflowError> {
         let features = self.block_features.clone();
         let block = self.block_field.get(block_key)?;
         let feature = features
@@ -361,7 +373,7 @@ impl Root {
 
     // entity
 
-    pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, RootError> {
+    pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
         let features = self.entity_features.clone();
         let feature = features
             .get(entity.id as usize)
@@ -371,7 +383,7 @@ impl Root {
         Ok(entity_key)
     }
 
-    pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, RootError> {
+    pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, DataflowError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
@@ -386,12 +398,12 @@ impl Root {
         &mut self,
         entity_key: EntityKey,
         f: impl FnOnce(&mut field::Entity),
-    ) -> Result<field::EntityKey, RootError> {
+    ) -> Result<field::EntityKey, DataflowError> {
         let entity_key = self.entity_field.modify(entity_key, f)?;
         Ok(entity_key)
     }
 
-    pub fn get_entity(&self, entity_key: EntityKey) -> Result<&field::Entity, RootError> {
+    pub fn get_entity(&self, entity_key: EntityKey) -> Result<&field::Entity, DataflowError> {
         let entity = self.entity_field.get(entity_key)?;
         Ok(entity)
     }
@@ -400,7 +412,7 @@ impl Root {
         self.entity_field.get_chunk_size()
     }
 
-    pub fn get_entity_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, RootError> {
+    pub fn get_entity_chunk(&self, chunk_key: IVec2) -> Result<&field::EntityChunk, DataflowError> {
         let chunk_key = self
             .entity_field
             .get_by_chunk_location(chunk_key)
@@ -409,24 +421,27 @@ impl Root {
         Ok(chunk)
     }
 
-    pub fn get_entity_display_name(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+    pub fn get_entity_display_name(&self, entity_key: EntityKey) -> Result<&str, DataflowError> {
         let display_name = self.entity_field.get_display_name(entity_key)?;
         Ok(display_name)
     }
 
-    pub fn get_entity_description(&self, entity_key: EntityKey) -> Result<&str, RootError> {
+    pub fn get_entity_description(&self, entity_key: EntityKey) -> Result<&str, DataflowError> {
         let description = self.entity_field.get_description(entity_key)?;
         Ok(description)
     }
 
     // entity collision features
 
-    pub fn get_entity_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+    pub fn get_entity_base_collision_rect(&self, id: u16) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.entity_field.get_base_collision_rect(id)?;
         Ok(rect)
     }
 
-    pub fn get_entity_collision_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
+    pub fn get_entity_collision_rect(
+        &self,
+        entity_key: EntityKey,
+    ) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.entity_field.get_collision_rect(entity_key)?;
         Ok(rect)
     }
@@ -455,17 +470,17 @@ impl Root {
 
     // entity hint features
 
-    pub fn get_entity_base_z_along_y(&self, id: u16) -> Result<bool, RootError> {
+    pub fn get_entity_base_z_along_y(&self, id: u16) -> Result<bool, DataflowError> {
         let z_along_y = self.entity_field.get_base_z_along_y(id)?;
         Ok(z_along_y)
     }
 
-    pub fn get_entity_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], RootError> {
+    pub fn get_entity_base_hint_rect(&self, id: u16) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.entity_field.get_base_hint_rect(id)?;
         Ok(rect)
     }
 
-    pub fn get_entity_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], RootError> {
+    pub fn get_entity_hint_rect(&self, entity_key: EntityKey) -> Result<[Vec2; 2], DataflowError> {
         let rect = self.entity_field.get_hint_rect(entity_key)?;
         Ok(rect)
     }
@@ -491,7 +506,7 @@ impl Root {
     pub fn get_inventory_by_entity(
         &self,
         entity_key: EntityKey,
-    ) -> Result<Option<InventoryKey>, RootError> {
+    ) -> Result<Option<InventoryKey>, DataflowError> {
         let features = self.entity_features.clone();
         let entity = self.entity_field.get(entity_key)?;
         let feature = features
@@ -502,17 +517,17 @@ impl Root {
 
     // item
 
-    pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, RootError> {
+    pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, DataflowError> {
         let inventory_key = self.item_storage.insert_inventory(id)?;
         Ok(inventory_key)
     }
 
-    pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, RootError> {
+    pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, DataflowError> {
         let id = self.item_storage.remove_inventory(inventory_key)?;
         Ok(id)
     }
 
-    pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, RootError> {
+    pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, DataflowError> {
         let inventory = self.item_storage.get_inventory(inventory_key)?;
         Ok(inventory)
     }
@@ -521,7 +536,7 @@ impl Root {
         &mut self,
         inventory_key: InventoryKey,
         item: Item,
-    ) -> Result<(), RootError> {
+    ) -> Result<(), DataflowError> {
         self.item_storage
             .push_item_to_inventory(inventory_key, item)?;
         Ok(())
@@ -530,7 +545,7 @@ impl Root {
     pub fn pop_item_from_inventory(
         &mut self,
         inventory_key: InventoryKey,
-    ) -> Result<Item, RootError> {
+    ) -> Result<Item, DataflowError> {
         let item = self.item_storage.pop_item_from_inventory(inventory_key)?;
         Ok(item)
     }
@@ -539,19 +554,19 @@ impl Root {
         &self,
         inventory_key: InventoryKey,
         text: &str,
-    ) -> Result<Vec<SlotKey>, RootError> {
+    ) -> Result<Vec<SlotKey>, DataflowError> {
         let item_key = self
             .item_storage
             .search_item_in_inventory(inventory_key, text)?;
         Ok(item_key)
     }
 
-    pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), RootError> {
+    pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), DataflowError> {
         self.item_storage.insert_item(slot_key, item)?;
         Ok(())
     }
 
-    pub fn remove_item(&mut self, slot_key: SlotKey) -> Result<Item, RootError> {
+    pub fn remove_item(&mut self, slot_key: SlotKey) -> Result<Item, DataflowError> {
         let item = self.item_storage.remove_item(slot_key)?;
         Ok(item)
     }
@@ -560,34 +575,38 @@ impl Root {
         &mut self,
         slot_key: SlotKey,
         f: impl FnOnce(&mut Item),
-    ) -> Result<(), RootError> {
+    ) -> Result<(), DataflowError> {
         self.item_storage.modify_item(slot_key, f)?;
         Ok(())
     }
 
-    pub fn swap_item(&mut self, slot_key_a: SlotKey, slot_key_b: SlotKey) -> Result<(), RootError> {
+    pub fn swap_item(
+        &mut self,
+        slot_key_a: SlotKey,
+        slot_key_b: SlotKey,
+    ) -> Result<(), DataflowError> {
         self.item_storage.swap_item(slot_key_a, slot_key_b)?;
         Ok(())
     }
 
-    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, RootError> {
+    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, DataflowError> {
         let item = self.item_storage.get_item(slot_key)?;
         Ok(item)
     }
 
-    pub fn get_item_display_name(&self, slot_key: SlotKey) -> Result<&str, RootError> {
+    pub fn get_item_display_name(&self, slot_key: SlotKey) -> Result<&str, DataflowError> {
         let display_name = self.item_storage.get_item_display_name(slot_key)?;
         Ok(display_name)
     }
 
-    pub fn get_item_description(&self, slot_key: SlotKey) -> Result<&str, RootError> {
+    pub fn get_item_description(&self, slot_key: SlotKey) -> Result<&str, DataflowError> {
         let description = self.item_storage.get_item_description(slot_key)?;
         Ok(description)
     }
 
     // item feature
 
-    pub fn use_item(&mut self, slot_key: SlotKey) -> Result<(), RootError> {
+    pub fn use_item(&mut self, slot_key: SlotKey) -> Result<(), DataflowError> {
         let features = self.item_features.clone();
         let item = self.item_storage.get_item(slot_key)?;
         let feature = features
@@ -599,7 +618,7 @@ impl Root {
 
     // resources
 
-    pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), RootError>
+    pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), DataflowError>
     where
         T: Resource + 'static,
     {
@@ -607,7 +626,7 @@ impl Root {
         Ok(())
     }
 
-    pub fn remove_resources<T>(&mut self) -> Result<T, RootError>
+    pub fn remove_resources<T>(&mut self) -> Result<T, DataflowError>
     where
         T: Resource + 'static,
     {
@@ -615,7 +634,7 @@ impl Root {
         Ok(resource)
     }
 
-    pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, RootError>
+    pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, DataflowError>
     where
         T: Resource + 'static,
     {
@@ -627,13 +646,13 @@ impl Root {
 // error handling
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RootError {
+pub enum DataflowError {
     FieldError(FieldError),
     ItemError(ItemError),
     ResourceError(ResourceError),
 }
 
-impl std::fmt::Display for RootError {
+impl std::fmt::Display for DataflowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FieldError(e) => e.fmt(f),
@@ -643,7 +662,7 @@ impl std::fmt::Display for RootError {
     }
 }
 
-impl std::error::Error for RootError {
+impl std::error::Error for DataflowError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::FieldError(e) => Some(e),
@@ -653,19 +672,19 @@ impl std::error::Error for RootError {
     }
 }
 
-impl From<FieldError> for RootError {
+impl From<FieldError> for DataflowError {
     fn from(e: FieldError) -> Self {
         Self::FieldError(e)
     }
 }
 
-impl From<ItemError> for RootError {
+impl From<ItemError> for DataflowError {
     fn from(e: ItemError) -> Self {
         Self::ItemError(e)
     }
 }
 
-impl From<ResourceError> for RootError {
+impl From<ResourceError> for DataflowError {
     fn from(e: ResourceError) -> Self {
         Self::ResourceError(e)
     }

@@ -1,0 +1,12 @@
+[package]
+name = "native-main"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+glam = "0.28"
+godot = "0.2"
+native-core = { path = "../native-core" }

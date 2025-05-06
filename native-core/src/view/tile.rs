@@ -1,19 +1,19 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::inner;
+use crate::dataflow;
 
-pub(crate) struct TileImageDescriptor {
+pub struct TileImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
 
-pub(crate) struct TileDescriptor {
+pub struct TileDescriptor {
     pub images: Vec<TileImageDescriptor>,
 }
 
-pub(crate) struct TileFieldDescriptor {
+pub struct TileFieldDescriptor {
     pub tiles: Vec<TileDescriptor>,
     pub shaders: Vec<Gd<godot::classes::Shader>>,
     pub world: Gd<godot::classes::World3D>,
@@ -60,7 +60,7 @@ impl TileChunkUp {
     }
 }
 
-pub(crate) struct TileField {
+pub struct TileField {
     image_heads: Vec<Vec<ImageHead>>,
     down_chunks: Vec<TileChunkDown>,
     up_chunks: ahash::AHashMap<IVec2, TileChunkUp>,
@@ -277,10 +277,10 @@ impl TileField {
         }
     }
 
-    pub fn update_view(&mut self, root: &inner::Root, min_rect: [Vec2; 2]) {
+    pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, min_rect: [Vec2; 2]) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
-        let chunk_size = root.get_tile_chunk_size() as f32;
+        let chunk_size = dataflow.get_tile_chunk_size() as f32;
         let chunk_size = Vec2::splat(chunk_size);
         let min_rect = [
             min_rect[0].div_euclid(chunk_size).as_ivec2(),
@@ -335,7 +335,7 @@ impl TileField {
         // update view chunk
 
         for (chunk_location, up_chunk) in &mut self.up_chunks {
-            let Ok(chunk) = root.get_tile_chunk(*chunk_location) else {
+            let Ok(chunk) = dataflow.get_tile_chunk(*chunk_location) else {
                 continue;
             };
 
@@ -343,7 +343,7 @@ impl TileField {
                 rendering_server.material_set_param(
                     *material,
                     "tick",
-                    &(root.get_tick() as i32).to_variant(),
+                    &(dataflow.get_tick() as i32).to_variant(),
                 );
             }
 

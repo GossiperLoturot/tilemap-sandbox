@@ -1,12 +1,5 @@
 # Godot 4+ specific ignores
-godot/.godot/
+/.godot/
 
 # Cargo
-rust/target/
-
-# Godot build
-build/
-
-# Shell scripts
-*.sh
-
+/target/

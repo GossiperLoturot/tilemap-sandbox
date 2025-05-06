@@ -483,6 +483,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e943b2c21337b7e3ec6678500687cdc741b7639ad457f234693352075c082204"
 
 [[package]]
+name = "native-core"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "criterion",
+ "downcast-rs",
+ "dyn-clone",
+ "glam",
+ "godot",
+ "image",
+ "image-atlas",
+ "rand",
+ "rstar",
+ "slab",
+]
+
+[[package]]
+name = "native-main"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "godot",
+ "native-core",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -744,23 +770,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tilemap-sandbox"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "criterion",
- "downcast-rs",
- "dyn-clone",
- "glam",
- "godot",
- "image",
- "image-atlas",
- "rand",
- "rstar",
- "slab",
 ]
 
 [[package]]

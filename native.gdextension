@@ -4,5 +4,5 @@ compatibility_minimum = 4.2
 reloadable = true
 
 [libraries]
-windows.debug.x86_64 = "res://tilemap_sandbox.dll"
-windows.release.x86_64 = "res://tilemap_sandbox.dll"
+windows.debug.x86_64 = "res://native_main.dll"
+windows.release.x86_64 = "res://native_main.dll"

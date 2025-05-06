@@ -1,6 +1,6 @@
 use super::*;
 
-// tile data/feature
+// tile render param
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TileRenderParam {
@@ -8,6 +8,8 @@ pub struct TileRenderParam {
     pub tick: u32,
     pub override_color: u32,
 }
+
+// tile data
 
 pub trait TileData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
 
@@ -24,6 +26,8 @@ impl Default for Box<dyn TileData> {
     }
 }
 
+// tile feature
+
 pub trait TileFeature: std::fmt::Debug {
     /// Invoked after place tile with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
@@ -31,7 +35,7 @@ pub trait TileFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// Panic if tile is not found or mismatch id.
-    fn after_place(&self, _root: &mut Root, _key: TileKey) {}
+    fn after_place(&self, _dataflow: &mut Dataflow, _key: TileKey) {}
 
     /// Invoked before break tile with no extra args.
     /// If you want to invoke with extra args, you can modify data before break.
@@ -39,21 +43,21 @@ pub trait TileFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if tile is not found or mismatch id.
-    fn before_break(&self, _root: &mut Root, _key: TileKey) {}
+    fn before_break(&self, _dataflow: &mut Dataflow, _key: TileKey) {}
 
     /// Invoked every frame.
     ///
     /// # Panic
     ///
     /// panic if tile is not found or mismatch id.
-    fn forward(&self, _root: &mut Root, _key: TileKey, _delta_secs: f32) {}
+    fn forward(&self, _dataflow: &mut Dataflow, _key: TileKey, _delta_secs: f32) {}
 
     /// Check if tile has inventory.
     ///
     /// # Panic
     ///
     /// panic if tile is not found or mismatch id.
-    fn has_inventory(&self, _root: &Root, _key: TileKey) -> bool {
+    fn has_inventory(&self, _dataflow: &Dataflow, _key: TileKey) -> bool {
         false
     }
 
@@ -62,7 +66,7 @@ pub trait TileFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if tile is not found or mismatch id.
-    fn get_inventory(&self, _root: &Root, _key: TileKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _dataflow: &Dataflow, _key: TileKey) -> Option<InventoryKey> {
         None
     }
 }
@@ -76,7 +80,7 @@ impl Default for Box<dyn TileFeature> {
     }
 }
 
-// block data/feature
+// block render param
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BlockRenderParam {
@@ -84,6 +88,8 @@ pub struct BlockRenderParam {
     pub tick: u32,
     pub override_color: u32,
 }
+
+// block data
 
 pub trait BlockData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
 
@@ -100,6 +106,8 @@ impl Default for Box<dyn BlockData> {
     }
 }
 
+// block feature
+
 pub trait BlockFeature: std::fmt::Debug {
     /// Invoked after place block with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
@@ -107,7 +115,7 @@ pub trait BlockFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// Panic if block is not found or mismatch id.
-    fn after_place(&self, _root: &mut Root, _key: BlockKey) {}
+    fn after_place(&self, _dataflow: &mut Dataflow, _key: BlockKey) {}
 
     /// Invoked before break block with no extra args.
     /// If you want to invoke with extra args, you can modify data before break.
@@ -115,21 +123,21 @@ pub trait BlockFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if block is not found or mismatch id.
-    fn before_break(&self, _root: &mut Root, _key: BlockKey) {}
+    fn before_break(&self, _dataflow: &mut Dataflow, _key: BlockKey) {}
 
     /// Invoked every frame.
     ///
     /// # Panic
     ///
     /// panic if block is not found or mismatch id.
-    fn forward(&self, _root: &mut Root, _key: BlockKey, _delta_secs: f32) {}
+    fn forward(&self, _dataflow: &mut Dataflow, _key: BlockKey, _delta_secs: f32) {}
 
     /// Check if block has inventory.
     ///
     /// # Panic
     ///
     /// panic if block is not found or mismatch id.
-    fn has_inventory(&self, _root: &Root, _key: BlockKey) -> bool {
+    fn has_inventory(&self, _dataflow: &Dataflow, _key: BlockKey) -> bool {
         false
     }
 
@@ -138,7 +146,7 @@ pub trait BlockFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if block is not found or mismatch id.
-    fn get_inventory(&self, _root: &Root, _key: BlockKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _dataflow: &Dataflow, _key: BlockKey) -> Option<InventoryKey> {
         None
     }
 }
@@ -152,7 +160,7 @@ impl Default for Box<dyn BlockFeature> {
     }
 }
 
-// entity data/feature
+// entity render param
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntityRenderParam {
@@ -160,6 +168,8 @@ pub struct EntityRenderParam {
     pub tick: u32,
     pub override_color: u32,
 }
+
+// entity data
 
 pub trait EntityData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
 
@@ -176,6 +186,8 @@ impl Default for Box<dyn EntityData> {
     }
 }
 
+// entity feature
+
 pub trait EntityFeature: std::fmt::Debug {
     /// Invoked after place entity with no extra args.
     /// If you want to invoke with extra args, you can modify data after place.
@@ -183,7 +195,7 @@ pub trait EntityFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// Panic if entity is not found or mismatch id.
-    fn after_place(&self, _root: &mut Root, _key: EntityKey) {}
+    fn after_place(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
 
     /// Invoked before break entity with no extra args.
     /// If you want to invoke with extra args, you can modify data before break.
@@ -191,21 +203,21 @@ pub trait EntityFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn before_break(&self, _root: &mut Root, _key: EntityKey) {}
+    fn before_break(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
 
     /// Invoked every frame.
     ///
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn forward(&self, _root: &mut Root, _key: EntityKey, _delta_secs: f32) {}
+    fn forward(&self, _dataflow: &mut Dataflow, _key: EntityKey, _delta_secs: f32) {}
 
     /// Check if entity has inventory.
     ///
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn has_inventory(&self, _root: &Root, _key: EntityKey) -> bool {
+    fn has_inventory(&self, _dataflow: &Dataflow, _key: EntityKey) -> bool {
         false
     }
 
@@ -214,7 +226,7 @@ pub trait EntityFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn get_inventory(&self, _root: &Root, _key: EntityKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, _dataflow: &Dataflow, _key: EntityKey) -> Option<InventoryKey> {
         None
     }
 
@@ -223,7 +235,12 @@ pub trait EntityFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn can_pick_up(&self, _root: &Root, _key: EntityKey, _inventory_key: InventoryKey) -> bool {
+    fn can_pick_up(
+        &self,
+        _dataflow: &Dataflow,
+        _key: EntityKey,
+        _inventory_key: InventoryKey,
+    ) -> bool {
         false
     }
 
@@ -232,7 +249,7 @@ pub trait EntityFeature: std::fmt::Debug {
     /// # Panic
     ///
     /// panic if entity is not found or mismatch id.
-    fn pick_up(&self, _root: &mut Root, _key: EntityKey, _inventory_key: InventoryKey) {}
+    fn pick_up(&self, _dataflow: &mut Dataflow, _key: EntityKey, _inventory_key: InventoryKey) {}
 }
 
 impl EntityFeature for () {}
@@ -244,13 +261,15 @@ impl Default for Box<dyn EntityFeature> {
     }
 }
 
-// item data/feature
+// item render param
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ItemRenderParam {
     pub variant: u8,
     pub tick: u32,
 }
+
+// item data
 
 pub trait ItemData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
 
@@ -267,14 +286,16 @@ impl Default for Box<dyn ItemData> {
     }
 }
 
+// item feature
+
 pub trait ItemFeature: std::fmt::Debug {
-    fn after_pick(&self, _root: &mut Root, _key: SlotKey) {}
+    fn after_pick(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
 
-    fn before_drop(&self, _root: &mut Root, _key: SlotKey) {}
+    fn before_drop(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
 
-    fn forward(&self, _root: &mut Root, _key: SlotKey) {}
+    fn forward(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
 
-    fn r#use(&self, _root: &mut Root, _key: SlotKey) {}
+    fn r#use(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
 }
 
 impl ItemFeature for () {}

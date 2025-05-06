@@ -1,23 +1,23 @@
 use glam::*;
 use godot::prelude::*;
 
-use crate::inner;
+use crate::dataflow;
 
-pub(crate) struct ItemImageDescriptor {
+pub struct ItemImageDescriptor {
     pub frames: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
 
-pub(crate) struct ItemDescriptor {
+pub struct ItemDescriptor {
     pub images: Vec<ItemImageDescriptor>,
 }
 
-pub(crate) struct InventoryDescriptor {
+pub struct InventoryDescriptor {
     pub callback: Callable,
 }
 
-pub(crate) struct ItemStorageDescriptor {
+pub struct ItemStorageDescriptor {
     pub items: Vec<ItemDescriptor>,
     pub inventories: Vec<InventoryDescriptor>,
 }
@@ -35,8 +35,7 @@ struct InventoryProperty {
     pub callback: Callable,
 }
 
-pub(crate) struct ItemStorage {
-    item_props: Vec<ItemProperty>,
+pub struct ItemStorage {
     inventory_props: Vec<InventoryProperty>,
     image_heads: Vec<Vec<ImageHead>>,
     textures: Vec<Rid>,
@@ -88,7 +87,6 @@ impl ItemStorage {
         }
 
         Self {
-            item_props,
             inventory_props,
             image_heads,
             textures,
@@ -98,50 +96,50 @@ impl ItemStorage {
 
     pub fn open_inventory_by_tile(
         &mut self,
-        root: &inner::Root,
-        tile_key: inner::TileKey,
-    ) -> Result<(), inner::RootError> {
-        let inventory_key = root
+        dataflow: &dataflow::Dataflow,
+        tile_key: dataflow::TileKey,
+    ) -> Result<(), dataflow::DataflowError> {
+        let inventory_key = dataflow
             .get_tile_inventory(tile_key)?
-            .ok_or(inner::ItemError::InventoryNotFound)?;
-        self.open_inventory(root, inventory_key)?;
+            .ok_or(dataflow::ItemError::InventoryNotFound)?;
+        self.open_inventory(dataflow, inventory_key)?;
         Ok(())
     }
 
     pub fn open_inventory_by_block(
         &mut self,
-        root: &inner::Root,
-        block_key: inner::BlockKey,
-    ) -> Result<(), inner::RootError> {
-        let inventory_key = root
+        dataflow: &dataflow::Dataflow,
+        block_key: dataflow::BlockKey,
+    ) -> Result<(), dataflow::DataflowError> {
+        let inventory_key = dataflow
             .get_block_inventory(block_key)?
-            .ok_or(inner::ItemError::InventoryNotFound)?;
-        self.open_inventory(root, inventory_key)?;
+            .ok_or(dataflow::ItemError::InventoryNotFound)?;
+        self.open_inventory(dataflow, inventory_key)?;
         Ok(())
     }
 
     pub fn open_inventory_by_entity(
         &mut self,
-        root: &inner::Root,
-        tile_key: inner::TileKey,
-    ) -> Result<(), inner::RootError> {
-        let inventory_key = root
+        dataflow: &dataflow::Dataflow,
+        tile_key: dataflow::TileKey,
+    ) -> Result<(), dataflow::DataflowError> {
+        let inventory_key = dataflow
             .get_inventory_by_entity(tile_key)?
-            .ok_or(inner::ItemError::InventoryNotFound)?;
-        self.open_inventory(root, inventory_key)?;
+            .ok_or(dataflow::ItemError::InventoryNotFound)?;
+        self.open_inventory(dataflow, inventory_key)?;
         Ok(())
     }
 
     pub fn open_inventory(
         &mut self,
-        root: &inner::Root,
-        inventory_key: inner::InventoryKey,
-    ) -> Result<(), inner::RootError> {
-        let inventory = root.get_inventory(inventory_key)?;
+        dataflow: &dataflow::Dataflow,
+        inventory_key: dataflow::InventoryKey,
+    ) -> Result<(), dataflow::DataflowError> {
+        let inventory = dataflow.get_inventory(inventory_key)?;
         let prop = self
             .inventory_props
             .get(inventory.id as usize)
-            .ok_or(inner::ItemError::InventoryInvalidId)?;
+            .ok_or(dataflow::ItemError::InventoryInvalidId)?;
 
         prop.callback.call(&[inventory_key.to_variant()]);
 
@@ -150,16 +148,16 @@ impl ItemStorage {
 
     pub fn draw_item(
         &self,
-        root: &inner::Root,
-        slot_key: inner::SlotKey,
+        dataflow: &dataflow::Dataflow,
+        slot_key: dataflow::SlotKey,
         control_item: Gd<godot::classes::Control>,
-    ) -> Result<(), inner::RootError> {
+    ) -> Result<(), dataflow::DataflowError> {
         let (inventory_key, local_key) = slot_key;
-        let inventory = root.get_inventory(inventory_key)?;
+        let inventory = dataflow.get_inventory(inventory_key)?;
         let slot = inventory
             .slots
             .get(local_key as usize)
-            .ok_or(inner::ItemError::ItemNotFound)?;
+            .ok_or(dataflow::ItemError::ItemNotFound)?;
 
         // rendering
 
@@ -176,8 +174,8 @@ impl ItemStorage {
             let texcoord_id = if image_head.step_tick == 0 {
                 image_head.start_texcoord_id
             } else {
-                let step_id =
-                    (root.get_tick() as u32 - item.render_param.tick) / image_head.step_tick as u32;
+                let step_id = (dataflow.get_tick() as u32 - item.render_param.tick)
+                    / image_head.step_tick as u32;
                 let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
                 if image_head.is_loop {
                     image_head.start_texcoord_id + (step_id % step_size)
