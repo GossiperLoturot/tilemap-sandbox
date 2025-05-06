@@ -10,7 +10,7 @@ var _brightness2: float
 
 
 func _process(_delta: float) -> void:
-	Root.draw_item(_inventory_key, _local_key, placeholder_node)
+	Context.draw_item(_inventory_key, _local_key, placeholder_node)
 
 
 # invoked dynamicaly

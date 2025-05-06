@@ -14,14 +14,14 @@ signal view_rect_changed(rect: Rect2)
 
 # spawn player
 func _enter_tree() -> void:
-	Root.spawn_player(Vector2())
+	Context.spawn_player(Vector2())
 
 
 func _process(delta) -> void:
 	var move = Input.get_vector("left", "right", "down", "up")
-	Root.push_player_input(move)
+	Context.push_player_input(move)
 
-	var location = Root.get_player_location()
+	var location = Context.get_player_location()
 
 	if Input.is_action_just_released("scroll_up"):
 		_scroll = clamp(_scroll - 0.25, log(16.0), log(512.0))
@@ -62,4 +62,4 @@ func _process(delta) -> void:
 
 # kill player
 func _exit_tree() -> void:
-	pass # Root.player_kill()
+	pass # Context.player_kill()

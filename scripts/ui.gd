@@ -22,18 +22,18 @@ func _process(_delta: float) -> void:
 		var world_position = Vector2(projection.x, projection.y)
 		change_select_field(world_position, mouse_position)
 	else:
-		Root.clear_selection()
+		Context.clear_selection()
 
 	if Input.is_action_just_pressed("inventory"):
-		Root.open_player_inventory()
+		Context.open_player_inventory()
 
 
 func change_select_field(world_position: Vector2, mouse_position: Vector2) -> void:
-	Root.set_selection(world_position)
+	Context.set_selection(world_position)
 
 	var texts: Array[String]
-	for i in Root.get_selection_size():
-		var text = Root.get_selection_display_name()
+	for i in Context.get_selection_size():
+		var text = Context.get_selection_display_name()
 		texts.append(text)
 	selection.call("change_selection", texts, mouse_position)
 
@@ -49,8 +49,8 @@ func confirm_select_field(world_position: Vector2, mouse_position: Vector2) -> v
 # invoked dynamically
 func change_select_item(inventory_key: int, local_key: int, mouse_position: Vector2) -> void:
 	var texts: Array[String]
-	if Root.has_item(inventory_key, local_key):
-		var text = Root.get_item_display_name(inventory_key, local_key)
+	if Context.has_item(inventory_key, local_key):
+		var text = Context.get_item_display_name(inventory_key, local_key)
 		texts.append(text)
 	selection.call("change_selection", texts, mouse_position)
 
@@ -58,7 +58,7 @@ func change_select_item(inventory_key: int, local_key: int, mouse_position: Vect
 # invoked dynamically
 func confirm_select_item(inventory_key: int, local_key: int) -> void:
 	if _hold == HOLD_ITEM:
-		Root.swap_item(_inventory_key, _local_key, inventory_key, local_key)
+		Context.swap_item(_inventory_key, _local_key, inventory_key, local_key)
 		item_unselected.emit(_inventory_key, _local_key)
 
 		_hold = HOLD_NONE

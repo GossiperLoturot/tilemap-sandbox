@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://coecugulc3ahm"
+path="res://.godot/imported/player_idle0.webp-0b8fe04be8a1796ea4bc5fa255d7354f.image"
+
+[deps]
+
+source_file="res://images/player_idle0.webp"
+dest_files=["res://.godot/imported/player_idle0.webp-0b8fe04be8a1796ea4bc5fa255d7354f.image"]
+
+[params]
+
