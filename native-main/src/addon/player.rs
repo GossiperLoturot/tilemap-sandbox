@@ -108,6 +108,7 @@ pub enum PlayerEntityDataState {
 #[derive(Debug, Clone)]
 pub struct PlayerEntityData {
     pub state: PlayerEntityDataState,
+    pub reverse: bool,
     pub inventory_key: InventoryKey,
 }
 
@@ -137,6 +138,7 @@ impl BaseFeatureCol for PlayerEntityFeature {
             .modify_entity(key, |entity| {
                 entity.data = Box::new(PlayerEntityData {
                     state: PlayerEntityDataState::Wait,
+                    reverse: false,
                     inventory_key,
                 });
             })
@@ -181,12 +183,18 @@ impl super::ForwardFeatureCol for PlayerEntityFeature {
                 if !intersection_guard(dataflow, key, location).unwrap() {
                     entity.location = location;
                 }
+
+                if input.x < 0.0 {
+                    data.reverse = true;
+                } else if input.x > 0.0 {
+                    data.reverse = false;
+                }
             }
 
             match data.state {
                 PlayerEntityDataState::Wait => {
                     if is_move {
-                        entity.render_param.variant = 1;
+                        entity.render_param.variant = 2;
                         entity.render_param.tick = dataflow.get_tick() as u32;
                         data.state = PlayerEntityDataState::Move;
                     }
@@ -199,6 +207,9 @@ impl super::ForwardFeatureCol for PlayerEntityFeature {
                     }
                 }
             }
+
+            entity.render_param.variant =
+                (entity.render_param.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
         }
 
         PlayerSystem::remove_entity(dataflow).unwrap();
