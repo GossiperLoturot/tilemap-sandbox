@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use glam::*;
 use native_core::dataflow::*;
 
@@ -35,21 +37,14 @@ pub struct AnimalEntityFeature {
 
 impl FeatureRow for AnimalEntityFeature {
     fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
-        let slf = self.clone();
-        builder.add_column(AfterPlaceCol(Box::new(move |dataflow, key| {
-            slf.after_place(dataflow, key)
-        })))?;
-
-        let slf = self.clone();
-        builder.add_column(super::ForwardFeatureCol(Box::new(
-            move |dataflow, key, delta_secs| slf.forward(dataflow, key, delta_secs),
-        )))?;
-
+        let slf = Rc::new(self.clone());
+        builder.add_column::<Rc<dyn BaseFeatureCol>>(slf.clone())?;
+        builder.add_column::<Rc<dyn super::ForwardFeatureCol>>(slf.clone())?;
         Ok(())
     }
 }
 
-impl AnimalEntityFeature {
+impl BaseFeatureCol for AnimalEntityFeature {
     fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
         dataflow
             .modify_entity(key, |entity| {
@@ -65,6 +60,10 @@ impl AnimalEntityFeature {
             .unwrap();
     }
 
+    fn before_break(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
+}
+
+impl super::ForwardFeatureCol for AnimalEntityFeature {
     fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 

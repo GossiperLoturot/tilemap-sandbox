@@ -206,8 +206,11 @@ impl ContextBuilder {
             .get_world_3d()
             .unwrap_or_else(|| panic!("Failed to get World3D from {}", desc.viewport));
 
-        // feature
-        let mut matrix_builder = dataflow::FeatureMatrixBuilder::default();
+        // feature matrix builder
+        let mut tile_feature_builder = dataflow::FeatureMatrixBuilder::default();
+        let mut block_feature_builder = dataflow::FeatureMatrixBuilder::default();
+        let mut entity_feature_builder = dataflow::FeatureMatrixBuilder::default();
+        let mut item_features_builder = dataflow::FeatureMatrixBuilder::default();
 
         // tile field
         let mut tiles = vec![];
@@ -215,7 +218,7 @@ impl ContextBuilder {
         for tile in self.tiles {
             let desc = tile(&self.registry, retriever);
 
-            let mut row = matrix_builder.insert_row();
+            let mut row = tile_feature_builder.insert_row();
             desc.feature.create_row(&mut row).unwrap();
 
             tiles.push(dataflow::TileDescriptor {
@@ -259,7 +262,7 @@ impl ContextBuilder {
         for block in self.blocks {
             let desc = block(&self.registry, retriever);
 
-            let mut row = matrix_builder.insert_row();
+            let mut row = block_feature_builder.insert_row();
             desc.feature.create_row(&mut row).unwrap();
 
             blocks.push(dataflow::BlockDescriptor {
@@ -313,7 +316,7 @@ impl ContextBuilder {
         for entity in self.entities {
             let desc = entity(&self.registry, retriever);
 
-            let mut row = matrix_builder.insert_row();
+            let mut row = entity_feature_builder.insert_row();
             desc.feature.create_row(&mut row).unwrap();
 
             entities.push(dataflow::EntityDescriptor {
@@ -366,7 +369,7 @@ impl ContextBuilder {
         for item in self.items {
             let desc = item(&self.registry, retriever);
 
-            let mut row = matrix_builder.insert_row();
+            let mut row = item_features_builder.insert_row();
             desc.feature.create_row(&mut row).unwrap();
 
             items.push(dataflow::ItemDescriptor {
@@ -420,7 +423,11 @@ impl ContextBuilder {
             block_field: block_field_desc,
             entity_field: entity_field_desc,
             item_storage: item_storage_desc,
-            matrix: matrix_builder,
+
+            tile_features: tile_feature_builder,
+            block_features: block_feature_builder,
+            entity_features: entity_feature_builder,
+            item_features: item_features_builder,
         });
 
         Context {

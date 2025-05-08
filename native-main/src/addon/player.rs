@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use glam::*;
 use native_core::dataflow::*;
 
@@ -119,31 +121,15 @@ pub struct PlayerEntityFeature {
 
 impl FeatureRow for PlayerEntityFeature {
     fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
-        let slf = self.clone();
-        builder.add_column(AfterPlaceCol(Box::new(move |dataflow, key| {
-            slf.after_place(dataflow, key)
-        })))?;
-
-        let slf = self.clone();
-        builder.add_column(BeforeBreakCol(Box::new(move |dataflow, key| {
-            slf.before_break(dataflow, key)
-        })))?;
-
-        let slf = self.clone();
-        builder.add_column(InventoryCol(Box::new(move |dataflow, key| {
-            slf.get_inventory(dataflow, key)
-        })))?;
-
-        let slf = self.clone();
-        builder.add_column(super::ForwardFeatureCol(Box::new(
-            move |dataflow, key, delta_secs| slf.forward(dataflow, key, delta_secs),
-        )))?;
-
+        let slf = Rc::new(self.clone());
+        builder.add_column::<Rc<dyn BaseFeatureCol>>(slf.clone())?;
+        builder.add_column::<Rc<dyn InventoryFeatureCol>>(slf.clone())?;
+        builder.add_column::<Rc<dyn super::ForwardFeatureCol>>(slf.clone())?;
         Ok(())
     }
 }
 
-impl PlayerEntityFeature {
+impl BaseFeatureCol for PlayerEntityFeature {
     fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
         let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
 
@@ -169,7 +155,17 @@ impl PlayerEntityFeature {
 
         PlayerSystem::remove_entity(dataflow).unwrap();
     }
+}
 
+impl InventoryFeatureCol for PlayerEntityFeature {
+    fn get_inventory(&self, dataflow: &Dataflow, key: EntityKey) -> InventoryKey {
+        let entity = dataflow.get_entity(key).unwrap();
+        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
+        data.inventory_key
+    }
+}
+
+impl super::ForwardFeatureCol for PlayerEntityFeature {
     fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 
@@ -208,12 +204,6 @@ impl PlayerEntityFeature {
         PlayerSystem::remove_entity(dataflow).unwrap();
         let key = dataflow.modify_entity(key, move |e| *e = entity).unwrap();
         PlayerSystem::insert_entity(dataflow, key).unwrap();
-    }
-
-    fn get_inventory(&self, dataflow: &Dataflow, key: EntityKey) -> InventoryKey {
-        let entity = dataflow.get_entity(key).unwrap();
-        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-        data.inventory_key
     }
 }
 

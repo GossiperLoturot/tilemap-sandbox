@@ -20,7 +20,11 @@ pub struct DataflowDescriptor {
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
     pub item_storage: ItemStorageDescriptor,
-    pub matrix: FeatureMatrixBuilder,
+
+    pub tile_features: FeatureMatrixBuilder,
+    pub block_features: FeatureMatrixBuilder,
+    pub entity_features: FeatureMatrixBuilder,
+    pub item_features: FeatureMatrixBuilder,
 }
 
 pub struct Dataflow {
@@ -33,7 +37,10 @@ pub struct Dataflow {
     item_storage: ItemStorage,
 
     // readonly functional data storage
-    matrix: Rc<FeatureMatrix>,
+    tile_features: FeatureMatrix,
+    block_features: FeatureMatrix,
+    entity_features: FeatureMatrix,
+    item_features: FeatureMatrix,
 
     // external data storage
     resource_storage: ResourceStorage,
@@ -49,7 +56,10 @@ impl Dataflow {
             entity_field: EntityField::new(desc.entity_field),
             item_storage: ItemStorage::new(desc.item_storage),
 
-            matrix: Rc::new(FeatureMatrix::new(desc.matrix)),
+            tile_features: FeatureMatrix::new(desc.tile_features),
+            block_features: FeatureMatrix::new(desc.block_features),
+            entity_features: FeatureMatrix::new(desc.entity_features),
+            item_features: FeatureMatrix::new(desc.item_features),
 
             resource_storage: ResourceStorage::new(),
         }
@@ -71,19 +81,26 @@ impl Dataflow {
 
     // tile
 
+    pub fn get_tile_feature<T: 'static>(&self, id: u16) -> Result<&T, DataflowError> {
+        let feature = self.tile_features.get::<T>(id)?;
+        Ok(feature)
+    }
+
     pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
-        let matrix = self.matrix.clone();
-        let feature = matrix.get::<AfterPlaceCol>(tile.id);
+        let feature = self
+            .get_tile_feature::<Rc<dyn BaseFeatureCol>>(tile.id)
+            .cloned();
         let tile_key = self.tile_field.insert(tile)?;
-        let _ = feature.map(|f| f.0(self, tile_key));
+        let _ = feature.map(|f| f.after_place(self, tile_key));
         Ok(tile_key)
     }
 
     pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, DataflowError> {
-        let matrix = self.matrix.clone();
         let tile = self.tile_field.get(tile_key)?;
-        let feature = matrix.get::<BeforeBreakCol>(tile.id);
-        let _ = feature.map(|f| f.0(self, tile_key));
+        let feature = self
+            .get_tile_feature::<Rc<dyn BaseFeatureCol>>(tile.id)
+            .cloned();
+        let _ = feature.map(|f| f.before_break(self, tile_key));
         let tile = self.tile_field.remove(tile_key)?;
         Ok(tile)
     }
@@ -178,28 +195,36 @@ impl Dataflow {
         &self,
         tile_key: TileKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let matrix = self.matrix.clone();
         let tile = self.tile_field.get(tile_key)?;
-        let feature = matrix.get::<InventoryCol>(tile.id);
-        let inventory = feature.map(|f| f.0(self, tile_key)).ok();
+        let feature = self
+            .get_tile_feature::<Rc<dyn InventoryFeatureCol>>(tile.id)
+            .cloned();
+        let inventory = feature.map(|f| f.get_inventory(self, tile_key)).ok();
         Ok(inventory)
     }
 
     // block
 
+    pub fn get_block_feature<T: 'static>(&self, id: u16) -> Result<&T, DataflowError> {
+        let feature = self.block_features.get::<T>(id)?;
+        Ok(feature)
+    }
+
     pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
-        let matrix = self.matrix.clone();
-        let feature = matrix.get::<AfterPlaceCol>(block.id);
+        let feature = self
+            .get_block_feature::<Rc<dyn BaseFeatureCol>>(block.id)
+            .cloned();
         let block_key = self.block_field.insert(block)?;
-        let _ = feature.map(|f| f.0(self, block_key));
+        let _ = feature.map(|f| f.after_place(self, block_key));
         Ok(block_key)
     }
 
     pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, DataflowError> {
-        let matrix = self.matrix.clone();
         let block = self.block_field.get(block_key)?;
-        let feature = matrix.get::<BeforeBreakCol>(block.id);
-        let _ = feature.map(|f| f.0(self, block_key));
+        let feature = self
+            .get_block_feature::<Rc<dyn BaseFeatureCol>>(block.id)
+            .cloned();
+        let _ = feature.map(|f| f.before_break(self, block_key));
         let block = self.block_field.remove(block_key)?;
         Ok(block)
     }
@@ -358,28 +383,36 @@ impl Dataflow {
         &self,
         block_key: BlockKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let matrix = self.matrix.clone();
         let block = self.block_field.get(block_key)?;
-        let feature = matrix.get::<InventoryCol>(block.id);
-        let inventory = feature.map(|f| f.0(self, block_key)).ok();
+        let feature = self
+            .get_block_feature::<Rc<dyn InventoryFeatureCol>>(block.id)
+            .cloned();
+        let inventory = feature.map(|f| f.get_inventory(self, block_key)).ok();
         Ok(inventory)
     }
 
     // entity
 
+    pub fn get_entity_feature<T: 'static>(&self, id: u16) -> Result<&T, DataflowError> {
+        let feature = self.entity_features.get::<T>(id)?;
+        Ok(feature)
+    }
+
     pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
-        let matrix = self.matrix.clone();
-        let feature = matrix.get::<AfterPlaceCol>(entity.id);
+        let feature = self
+            .get_entity_feature::<Rc<dyn BaseFeatureCol>>(entity.id)
+            .cloned();
         let entity_key = self.entity_field.insert(entity)?;
-        let _ = feature.map(|f| f.0(self, entity_key));
+        let _ = feature.map(|f| f.after_place(self, entity_key));
         Ok(entity_key)
     }
 
     pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, DataflowError> {
-        let matrix = self.matrix.clone();
         let entity = self.entity_field.get(entity_key)?;
-        let feature = matrix.get::<BeforeBreakCol>(entity.id);
-        let _ = feature.map(|f| f.0(self, entity_key));
+        let feature = self
+            .get_entity_feature::<Rc<dyn BaseFeatureCol>>(entity.id)
+            .cloned();
+        let _ = feature.map(|f| f.before_break(self, entity_key));
         let entity = self.entity_field.remove(entity_key)?;
         Ok(entity)
     }
@@ -516,14 +549,20 @@ impl Dataflow {
         &self,
         entity_key: EntityKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let matrix = self.matrix.clone();
         let entity = self.entity_field.get(entity_key)?;
-        let feature = matrix.get::<InventoryCol>(entity.id);
-        let inventory = feature.map(|f| f.0(self, entity_key)).ok();
+        let feature = self
+            .get_entity_feature::<Rc<dyn InventoryFeatureCol>>(entity.id)
+            .cloned();
+        let inventory = feature.map(|f| f.get_inventory(self, entity_key)).ok();
         Ok(inventory)
     }
 
     // item
+
+    pub fn get_item_feature<T: 'static>(&self, id: u16) -> Result<&T, DataflowError> {
+        let feature = self.item_features.get::<T>(id)?;
+        Ok(feature)
+    }
 
     pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, DataflowError> {
         let inventory_key = self.item_storage.insert_inventory(id)?;
@@ -612,12 +651,6 @@ impl Dataflow {
         Ok(description)
     }
 
-    // feature
-
-    pub fn get_matrix(&self) -> Rc<FeatureMatrix> {
-        self.matrix.clone()
-    }
-
     // resources
 
     pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), DataflowError>
@@ -647,19 +680,16 @@ impl Dataflow {
 
 // feature
 
-type UnifiedKey = (u32, u32);
+pub type UnifiedKey = (u32, u32);
 
-pub struct AfterPlaceCol(pub Box<dyn Fn(&mut Dataflow, UnifiedKey)>);
+pub trait BaseFeatureCol {
+    fn after_place(&self, dataflow: &mut Dataflow, key: UnifiedKey);
+    fn before_break(&self, dataflow: &mut Dataflow, key: UnifiedKey);
+}
 
-impl FeatureColumn for AfterPlaceCol {}
-
-pub struct BeforeBreakCol(pub Box<dyn Fn(&mut Dataflow, UnifiedKey)>);
-
-impl FeatureColumn for BeforeBreakCol {}
-
-pub struct InventoryCol(pub Box<dyn Fn(&Dataflow, UnifiedKey) -> InventoryKey>);
-
-impl FeatureColumn for InventoryCol {}
+pub trait InventoryFeatureCol {
+    fn get_inventory(&self, dataflow: &Dataflow, key: UnifiedKey) -> InventoryKey;
+}
 
 // error handling
 
