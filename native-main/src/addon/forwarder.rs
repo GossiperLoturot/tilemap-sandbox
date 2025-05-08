@@ -1,6 +1,14 @@
 use glam::*;
 use native_core::dataflow::*;
 
+// feature
+
+pub struct ForwardFeatureCol(pub Box<dyn Fn(&mut Dataflow, EntityKey, f32)>);
+
+impl FeatureColumn for ForwardFeatureCol {}
+
+// system
+
 pub struct ForwarderSystem;
 
 impl ForwarderSystem {
@@ -54,13 +62,21 @@ fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs
         return;
     };
 
+    let matrix = dataflow.get_matrix();
+    let Ok(column) = matrix.get_column::<ForwardFeatureCol>() else {
+        return;
+    };
+
     for tile_key in tile_keys.collect::<Vec<_>>() {
         let Ok(tile) = dataflow.get_tile(tile_key) else {
             continue;
         };
 
-        let feature = dataflow.get_tile_feature(tile.id).unwrap();
-        feature.forward(dataflow, tile_key, delta_secs);
+        let Ok(feature) = column.get(tile.id) else {
+            continue;
+        };
+
+        feature.0(dataflow, tile_key, delta_secs);
     }
 }
 
@@ -69,13 +85,21 @@ fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_sec
         return;
     };
 
+    let matrix = dataflow.get_matrix();
+    let Ok(column) = matrix.get_column::<ForwardFeatureCol>() else {
+        return;
+    };
+
     for block_key in block_keys.collect::<Vec<_>>() {
         let Ok(block) = dataflow.get_block(block_key) else {
             continue;
         };
 
-        let feature = dataflow.get_block_feature(block.id).unwrap();
-        feature.forward(dataflow, block_key, delta_secs);
+        let Ok(feature) = column.get(block.id) else {
+            continue;
+        };
+
+        feature.0(dataflow, block_key, delta_secs);
     }
 }
 
@@ -84,12 +108,20 @@ fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_se
         return;
     };
 
+    let matrix = dataflow.get_matrix();
+    let Ok(column) = matrix.get_column::<ForwardFeatureCol>() else {
+        return;
+    };
+
     for entity_key in entity_keys.collect::<Vec<_>>() {
         let Ok(entity) = dataflow.get_entity(entity_key) else {
             continue;
         };
 
-        let feature = dataflow.get_entity_feature(entity.id).unwrap();
-        feature.forward(dataflow, entity_key, delta_secs);
+        let Ok(feature) = column.get(entity.id) else {
+            continue;
+        };
+
+        feature.0(dataflow, entity_key, delta_secs);
     }
 }

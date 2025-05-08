@@ -15,20 +15,14 @@ mod item;
 mod resource;
 mod time;
 
-#[derive(Debug)]
 pub struct DataflowDescriptor {
     pub tile_field: TileFieldDescriptor,
     pub block_field: BlockFieldDescriptor,
     pub entity_field: EntityFieldDescriptor,
     pub item_storage: ItemStorageDescriptor,
-
-    pub tile_features: Vec<Rc<dyn TileFeature>>,
-    pub block_features: Vec<Rc<dyn BlockFeature>>,
-    pub entity_features: Vec<Rc<dyn EntityFeature>>,
-    pub item_features: Vec<Rc<dyn ItemFeature>>,
+    pub matrix: FeatureMatrixBuilder,
 }
 
-#[derive(Debug)]
 pub struct Dataflow {
     time_storage: TimeStorage,
 
@@ -39,10 +33,7 @@ pub struct Dataflow {
     item_storage: ItemStorage,
 
     // readonly functional data storage
-    tile_features: Vec<Rc<dyn TileFeature>>,
-    block_features: Vec<Rc<dyn BlockFeature>>,
-    entity_features: Vec<Rc<dyn EntityFeature>>,
-    item_features: Vec<Rc<dyn ItemFeature>>,
+    matrix: Rc<FeatureMatrix>,
 
     // external data storage
     resource_storage: ResourceStorage,
@@ -58,10 +49,7 @@ impl Dataflow {
             entity_field: EntityField::new(desc.entity_field),
             item_storage: ItemStorage::new(desc.item_storage),
 
-            tile_features: desc.tile_features,
-            block_features: desc.block_features,
-            entity_features: desc.entity_features,
-            item_features: desc.item_features,
+            matrix: Rc::new(FeatureMatrix::new(desc.matrix)),
 
             resource_storage: ResourceStorage::new(),
         }
@@ -83,31 +71,19 @@ impl Dataflow {
 
     // tile
 
-    pub fn get_tile_feature(&self, tile_id: u16) -> Result<Rc<dyn TileFeature>, DataflowError> {
-        let feature = self
-            .tile_features
-            .get(tile_id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.clone())
-    }
-
     pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
-        let features = self.tile_features.clone();
-        let feature = features
-            .get(tile.id as usize)
-            .ok_or(FieldError::InvalidId)?;
+        let matrix = self.matrix.clone();
+        let feature = matrix.get::<AfterPlaceCol>(tile.id);
         let tile_key = self.tile_field.insert(tile)?;
-        feature.after_place(self, tile_key);
+        let _ = feature.map(|f| f.0(self, tile_key));
         Ok(tile_key)
     }
 
     pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, DataflowError> {
-        let features = self.tile_features.clone();
+        let matrix = self.matrix.clone();
         let tile = self.tile_field.get(tile_key)?;
-        let feature = features
-            .get(tile.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, tile_key);
+        let feature = matrix.get::<BeforeBreakCol>(tile.id);
+        let _ = feature.map(|f| f.0(self, tile_key));
         let tile = self.tile_field.remove(tile_key)?;
         Ok(tile)
     }
@@ -202,41 +178,28 @@ impl Dataflow {
         &self,
         tile_key: TileKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let features = self.tile_features.clone();
+        let matrix = self.matrix.clone();
         let tile = self.tile_field.get(tile_key)?;
-        let feature = features
-            .get(tile.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.get_inventory(self, tile_key))
+        let feature = matrix.get::<InventoryCol>(tile.id);
+        let inventory = feature.map(|f| f.0(self, tile_key)).ok();
+        Ok(inventory)
     }
 
     // block
 
-    pub fn get_block_feature(&self, block_id: u16) -> Result<Rc<dyn BlockFeature>, DataflowError> {
-        let feature = self
-            .block_features
-            .get(block_id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.clone())
-    }
-
     pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
-        let features = self.block_features.clone();
-        let feature = features
-            .get(block.id as usize)
-            .ok_or(FieldError::InvalidId)?;
+        let matrix = self.matrix.clone();
+        let feature = matrix.get::<AfterPlaceCol>(block.id);
         let block_key = self.block_field.insert(block)?;
-        feature.after_place(self, block_key);
+        let _ = feature.map(|f| f.0(self, block_key));
         Ok(block_key)
     }
 
     pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, DataflowError> {
-        let features = self.block_features.clone();
+        let matrix = self.matrix.clone();
         let block = self.block_field.get(block_key)?;
-        let feature = features
-            .get(block.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, block_key);
+        let feature = matrix.get::<BeforeBreakCol>(block.id);
+        let _ = feature.map(|f| f.0(self, block_key));
         let block = self.block_field.remove(block_key)?;
         Ok(block)
     }
@@ -395,44 +358,28 @@ impl Dataflow {
         &self,
         block_key: BlockKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let features = self.block_features.clone();
+        let matrix = self.matrix.clone();
         let block = self.block_field.get(block_key)?;
-        let feature = features
-            .get(block.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.get_inventory(self, block_key))
+        let feature = matrix.get::<InventoryCol>(block.id);
+        let inventory = feature.map(|f| f.0(self, block_key)).ok();
+        Ok(inventory)
     }
 
     // entity
 
-    pub fn get_entity_feature(
-        &self,
-        entity_id: u16,
-    ) -> Result<Rc<dyn EntityFeature>, DataflowError> {
-        let feature = self
-            .entity_features
-            .get(entity_id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.clone())
-    }
-
     pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
-        let features = self.entity_features.clone();
-        let feature = features
-            .get(entity.id as usize)
-            .ok_or(FieldError::InvalidId)?;
+        let matrix = self.matrix.clone();
+        let feature = matrix.get::<AfterPlaceCol>(entity.id);
         let entity_key = self.entity_field.insert(entity)?;
-        feature.after_place(self, entity_key);
+        let _ = feature.map(|f| f.0(self, entity_key));
         Ok(entity_key)
     }
 
     pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, DataflowError> {
-        let features = self.entity_features.clone();
+        let matrix = self.matrix.clone();
         let entity = self.entity_field.get(entity_key)?;
-        let feature = features
-            .get(entity.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        feature.before_break(self, entity_key);
+        let feature = matrix.get::<BeforeBreakCol>(entity.id);
+        let _ = feature.map(|f| f.0(self, entity_key));
         let entity = self.entity_field.remove(entity_key)?;
         Ok(entity)
     }
@@ -569,12 +516,11 @@ impl Dataflow {
         &self,
         entity_key: EntityKey,
     ) -> Result<Option<InventoryKey>, DataflowError> {
-        let features = self.entity_features.clone();
+        let matrix = self.matrix.clone();
         let entity = self.entity_field.get(entity_key)?;
-        let feature = features
-            .get(entity.id as usize)
-            .ok_or(FieldError::InvalidId)?;
-        Ok(feature.get_inventory(self, entity_key))
+        let feature = matrix.get::<InventoryCol>(entity.id);
+        let inventory = feature.map(|f| f.0(self, entity_key)).ok();
+        Ok(inventory)
     }
 
     // item
@@ -666,16 +612,10 @@ impl Dataflow {
         Ok(description)
     }
 
-    // item feature
+    // feature
 
-    pub fn use_item(&mut self, slot_key: SlotKey) -> Result<(), DataflowError> {
-        let features = self.item_features.clone();
-        let item = self.item_storage.get_item(slot_key)?;
-        let feature = features
-            .get(item.id as usize)
-            .ok_or(ItemError::ItemInvalidId)?;
-        feature.r#use(self, slot_key);
-        Ok(())
+    pub fn get_matrix(&self) -> Rc<FeatureMatrix> {
+        self.matrix.clone()
     }
 
     // resources
@@ -705,6 +645,22 @@ impl Dataflow {
     }
 }
 
+// feature
+
+type UnifiedKey = (u32, u32);
+
+pub struct AfterPlaceCol(pub Box<dyn Fn(&mut Dataflow, UnifiedKey)>);
+
+impl FeatureColumn for AfterPlaceCol {}
+
+pub struct BeforeBreakCol(pub Box<dyn Fn(&mut Dataflow, UnifiedKey)>);
+
+impl FeatureColumn for BeforeBreakCol {}
+
+pub struct InventoryCol(pub Box<dyn Fn(&Dataflow, UnifiedKey) -> InventoryKey>);
+
+impl FeatureColumn for InventoryCol {}
+
 // error handling
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -712,6 +668,7 @@ pub enum DataflowError {
     FieldError(FieldError),
     ItemError(ItemError),
     ResourceError(ResourceError),
+    FeatureError(FeatureError),
 }
 
 impl std::fmt::Display for DataflowError {
@@ -720,6 +677,7 @@ impl std::fmt::Display for DataflowError {
             Self::FieldError(e) => e.fmt(f),
             Self::ItemError(e) => e.fmt(f),
             Self::ResourceError(e) => e.fmt(f),
+            Self::FeatureError(e) => e.fmt(f),
         }
     }
 }
@@ -730,6 +688,7 @@ impl std::error::Error for DataflowError {
             Self::FieldError(e) => Some(e),
             Self::ItemError(e) => Some(e),
             Self::ResourceError(e) => Some(e),
+            Self::FeatureError(e) => Some(e),
         }
     }
 }
@@ -749,5 +708,11 @@ impl From<ItemError> for DataflowError {
 impl From<ResourceError> for DataflowError {
     fn from(e: ResourceError) -> Self {
         Self::ResourceError(e)
+    }
+}
+
+impl From<FeatureError> for DataflowError {
+    fn from(e: FeatureError) -> Self {
+        Self::FeatureError(e)
     }
 }

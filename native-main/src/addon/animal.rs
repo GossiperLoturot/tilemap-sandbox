@@ -33,7 +33,23 @@ pub struct AnimalEntityFeature {
     pub walk_variant: u8,
 }
 
-impl EntityFeature for AnimalEntityFeature {
+impl FeatureRow for AnimalEntityFeature {
+    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+        let slf = self.clone();
+        builder.add_column(AfterPlaceCol(Box::new(move |dataflow, key| {
+            slf.after_place(dataflow, key)
+        })))?;
+
+        let slf = self.clone();
+        builder.add_column(super::ForwardFeatureCol(Box::new(
+            move |dataflow, key, delta_secs| slf.forward(dataflow, key, delta_secs),
+        )))?;
+
+        Ok(())
+    }
+}
+
+impl AnimalEntityFeature {
     fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
         dataflow
             .modify_entity(key, |entity| {

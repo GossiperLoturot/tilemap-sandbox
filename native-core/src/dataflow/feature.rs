@@ -1,205 +1,175 @@
-use super::*;
+/// FeatureColumn represents a category of functions that can be called.
+/// Each FeatureColumn has one function with a specific signature.
+/// Additionally, a single FeatureRow can implement multiple FeatureColumns,
+/// each with a different type, but only one of each type is allowed.
+pub trait FeatureColumn {}
 
-// tile feature
+/// FeatureRow has the implementation of the function to be called.
+/// FeatureRow can have one of each type of FeatureColumn with different types.
+/// create_row is called when registering a new row.
+pub trait FeatureRow {
+    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError>;
+}
 
-pub trait TileFeature: std::fmt::Debug {
-    /// Invoked after place tile with no extra args.
-    /// If you want to invoke with extra args, you can modify data after place.
-    ///
-    /// # Panic
-    ///
-    /// Panic if tile is not found or mismatch id.
-    fn after_place(&self, _dataflow: &mut Dataflow, _key: TileKey) {}
-
-    /// Invoked before break tile with no extra args.
-    /// If you want to invoke with extra args, you can modify data before break.
-    ///
-    /// # Panic
-    ///
-    /// panic if tile is not found or mismatch id.
-    fn before_break(&self, _dataflow: &mut Dataflow, _key: TileKey) {}
-
-    /// Invoked every frame.
-    ///
-    /// # Panic
-    ///
-    /// panic if tile is not found or mismatch id.
-    fn forward(&self, _dataflow: &mut Dataflow, _key: TileKey, _delta_secs: f32) {}
-
-    /// Check if tile has inventory.
-    ///
-    /// # Panic
-    ///
-    /// panic if tile is not found or mismatch id.
-    fn has_inventory(&self, _dataflow: &Dataflow, _key: TileKey) -> bool {
-        false
-    }
-
-    /// Get inventory key.
-    ///
-    /// # Panic
-    ///
-    /// panic if tile is not found or mismatch id.
-    fn get_inventory(&self, _dataflow: &Dataflow, _key: TileKey) -> Option<InventoryKey> {
-        None
+// empty implementation
+impl FeatureRow for () {
+    fn create_row(&self, _: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+        Ok(())
     }
 }
 
-impl TileFeature for () {}
+// internal data structure
 
-impl Default for Box<dyn TileFeature> {
-    fn default() -> Self {
-        // Dangling pointer
-        Box::new(())
+struct Column {
+    sparse: Vec<Option<u16>>,
+    dense: Box<dyn std::any::Any>,
+}
+
+impl Column {
+    fn new<T: 'static>(size: u16) -> Self {
+        Self {
+            sparse: vec![None; size as usize],
+            dense: Box::new(Vec::<T>::new()),
+        }
+    }
+
+    fn dense_ref<T: 'static>(&self) -> Option<&Vec<T>> {
+        self.dense.downcast_ref::<Vec<T>>()
+    }
+
+    fn dense_mut<T: 'static>(&mut self) -> Option<&mut Vec<T>> {
+        self.dense.downcast_mut::<Vec<T>>()
     }
 }
 
-// block feature
+// external data structure
 
-pub trait BlockFeature: std::fmt::Debug {
-    /// Invoked after place block with no extra args.
-    /// If you want to invoke with extra args, you can modify data after place.
-    ///
-    /// # Panic
-    ///
-    /// Panic if block is not found or mismatch id.
-    fn after_place(&self, _dataflow: &mut Dataflow, _key: BlockKey) {}
+pub struct ColumnRef<'a, T> {
+    sparse: &'a Vec<Option<u16>>,
+    dense: &'a Vec<T>,
+}
 
-    /// Invoked before break block with no extra args.
-    /// If you want to invoke with extra args, you can modify data before break.
-    ///
-    /// # Panic
-    ///
-    /// panic if block is not found or mismatch id.
-    fn before_break(&self, _dataflow: &mut Dataflow, _key: BlockKey) {}
-
-    /// Invoked every frame.
-    ///
-    /// # Panic
-    ///
-    /// panic if block is not found or mismatch id.
-    fn forward(&self, _dataflow: &mut Dataflow, _key: BlockKey, _delta_secs: f32) {}
-
-    /// Check if block has inventory.
-    ///
-    /// # Panic
-    ///
-    /// panic if block is not found or mismatch id.
-    fn has_inventory(&self, _dataflow: &Dataflow, _key: BlockKey) -> bool {
-        false
-    }
-
-    /// Get inventory key.
-    ///
-    /// # Panic
-    ///
-    /// panic if block is not found or mismatch id.
-    fn get_inventory(&self, _dataflow: &Dataflow, _key: BlockKey) -> Option<InventoryKey> {
-        None
+impl<'a, T: 'static> ColumnRef<'a, T> {
+    pub fn get(&self, id: u16) -> Result<&'a T, FeatureError> {
+        let sparse_index = self
+            .sparse
+            .get(id as usize)
+            .ok_or(FeatureError::RowNotFound)?;
+        let sparse_index = sparse_index.as_ref().ok_or(FeatureError::RowNotFound)?;
+        let val = self.dense.get(*sparse_index as usize).unwrap();
+        Ok(val)
     }
 }
 
-impl BlockFeature for () {}
+/// FeatureMatrixBuilder is used to build a FeatureMatrix.
+/// It is used to create a new row and add columns to it.
+#[derive(Default)]
+pub struct FeatureMatrixBuilder {
+    row_len: usize,
+    matrix: ahash::AHashMap<std::any::TypeId, Column>,
+}
 
-impl Default for Box<dyn BlockFeature> {
-    fn default() -> Self {
-        // Dangling pointer
-        Box::new(())
+impl FeatureMatrixBuilder {
+    pub fn insert_row(&mut self) -> FeatureRowBuilder {
+        FeatureRowBuilder {
+            row_len: &mut self.row_len,
+            matrix: &mut self.matrix,
+        }
+    }
+
+    pub fn build(self) -> FeatureMatrix {
+        for (_, column) in &self.matrix {
+            debug_assert_eq!(column.sparse.len(), self.row_len);
+        }
+
+        FeatureMatrix {
+            matrix: self.matrix,
+        }
     }
 }
 
-// entity feature
-
-pub trait EntityFeature: std::fmt::Debug {
-    /// Invoked after place entity with no extra args.
-    /// If you want to invoke with extra args, you can modify data after place.
-    ///
-    /// # Panic
-    ///
-    /// Panic if entity is not found or mismatch id.
-    fn after_place(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
-
-    /// Invoked before break entity with no extra args.
-    /// If you want to invoke with extra args, you can modify data before break.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn before_break(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
-
-    /// Invoked every frame.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn forward(&self, _dataflow: &mut Dataflow, _key: EntityKey, _delta_secs: f32) {}
-
-    /// Check if entity has inventory.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn has_inventory(&self, _dataflow: &Dataflow, _key: EntityKey) -> bool {
-        false
-    }
-
-    /// Get inventory key.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn get_inventory(&self, _dataflow: &Dataflow, _key: EntityKey) -> Option<InventoryKey> {
-        None
-    }
-
-    /// Check if can pick up entity.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn can_pick_up(
-        &self,
-        _dataflow: &Dataflow,
-        _key: EntityKey,
-        _inventory_key: InventoryKey,
-    ) -> bool {
-        false
-    }
-
-    /// Pick up entity.
-    ///
-    /// # Panic
-    ///
-    /// panic if entity is not found or mismatch id.
-    fn pick_up(&self, _dataflow: &mut Dataflow, _key: EntityKey, _inventory_key: InventoryKey) {}
+/// FeatureRowBuilder is used to build a new row.
+/// It is used to add columns to the row.
+pub struct FeatureRowBuilder<'a> {
+    row_len: &'a mut usize,
+    matrix: &'a mut ahash::HashMap<std::any::TypeId, Column>,
 }
 
-impl EntityFeature for () {}
+impl FeatureRowBuilder<'_> {
+    pub fn add_column<T: FeatureColumn + 'static>(&mut self, value: T) -> Result<(), FeatureError> {
+        let typ = std::any::TypeId::of::<T>();
+        let column = self
+            .matrix
+            .entry(typ)
+            .or_insert_with(|| Column::new::<T>(*self.row_len as u16));
 
-impl Default for Box<dyn EntityFeature> {
-    fn default() -> Self {
-        // Dangling pointer
-        Box::new(())
+        if column.sparse.len() != *self.row_len {
+            return Err(FeatureError::RowAlreadyExists);
+        }
+
+        let dense_column = column.dense_mut().unwrap();
+        dense_column.push(value);
+        let dense_row = (dense_column.len() - 1) as u16;
+
+        column.sparse.push(Some(dense_row));
+
+        Ok(())
     }
 }
 
-// item feature
+impl Drop for FeatureRowBuilder<'_> {
+    fn drop(&mut self) {
+        *self.row_len += 1;
 
-pub trait ItemFeature: std::fmt::Debug {
-    fn after_pick(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
+        for column in (*self.matrix).values_mut() {
+            if column.sparse.len() == *self.row_len - 1 {
+                column.sparse.push(None);
+            }
 
-    fn before_drop(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
-
-    fn forward(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
-
-    fn r#use(&self, _dataflow: &mut Dataflow, _key: SlotKey) {}
-}
-
-impl ItemFeature for () {}
-
-impl Default for Box<dyn ItemFeature> {
-    fn default() -> Self {
-        // Dangling pointer
-        Box::new(())
+            debug_assert_eq!(column.sparse.len(), *self.row_len);
+        }
     }
 }
+
+/// FeatureMatrix is a collection of FeatureColumns.
+/// It is used to store the data for each row.
+pub struct FeatureMatrix {
+    matrix: ahash::AHashMap<std::any::TypeId, Column>,
+}
+
+impl FeatureMatrix {
+    pub fn new(builder: FeatureMatrixBuilder) -> Self {
+        builder.build()
+    }
+
+    pub fn get_column<T: FeatureColumn + 'static>(&self) -> Result<ColumnRef<'_, T>, FeatureError> {
+        let typ = std::any::TypeId::of::<T>();
+        let column = self.matrix.get(&typ).ok_or(FeatureError::ColumnNotFound)?;
+        let sparse = &column.sparse;
+        let dense = column.dense_ref::<T>().unwrap();
+        Ok(ColumnRef { sparse, dense })
+    }
+
+    pub fn get<T: FeatureColumn + 'static>(&self, id: u16) -> Result<&T, FeatureError> {
+        self.get_column::<T>()?.get(id)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FeatureError {
+    ColumnNotFound,
+    RowNotFound,
+    RowAlreadyExists,
+}
+
+impl std::fmt::Display for FeatureError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FeatureError::ColumnNotFound => write!(f, "Column not found"),
+            FeatureError::RowNotFound => write!(f, "Row not found"),
+            FeatureError::RowAlreadyExists => write!(f, "Row already exists"),
+        }
+    }
+}
+
+impl std::error::Error for FeatureError {}

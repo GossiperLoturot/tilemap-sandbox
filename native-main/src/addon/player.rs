@@ -117,7 +117,33 @@ pub struct PlayerEntityFeature {
     pub inventory_id: u16,
 }
 
-impl EntityFeature for PlayerEntityFeature {
+impl FeatureRow for PlayerEntityFeature {
+    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+        let slf = self.clone();
+        builder.add_column(AfterPlaceCol(Box::new(move |dataflow, key| {
+            slf.after_place(dataflow, key)
+        })))?;
+
+        let slf = self.clone();
+        builder.add_column(BeforeBreakCol(Box::new(move |dataflow, key| {
+            slf.before_break(dataflow, key)
+        })))?;
+
+        let slf = self.clone();
+        builder.add_column(InventoryCol(Box::new(move |dataflow, key| {
+            slf.get_inventory(dataflow, key)
+        })))?;
+
+        let slf = self.clone();
+        builder.add_column(super::ForwardFeatureCol(Box::new(
+            move |dataflow, key, delta_secs| slf.forward(dataflow, key, delta_secs),
+        )))?;
+
+        Ok(())
+    }
+}
+
+impl PlayerEntityFeature {
     fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
         let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
 
@@ -184,16 +210,10 @@ impl EntityFeature for PlayerEntityFeature {
         PlayerSystem::insert_entity(dataflow, key).unwrap();
     }
 
-    fn has_inventory(&self, _dataflow: &Dataflow, _key: EntityKey) -> bool {
-        true
-    }
-
-    fn get_inventory(&self, dataflow: &Dataflow, key: EntityKey) -> Option<InventoryKey> {
+    fn get_inventory(&self, dataflow: &Dataflow, key: EntityKey) -> InventoryKey {
         let entity = dataflow.get_entity(key).unwrap();
-
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-
-        Some(data.inventory_key)
+        data.inventory_key
     }
 }
 

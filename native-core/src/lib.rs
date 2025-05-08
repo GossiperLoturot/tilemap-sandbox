@@ -90,7 +90,7 @@ pub struct TileDescriptor {
     pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
-    pub feature: Box<dyn dataflow::TileFeature>,
+    pub feature: Box<dyn dataflow::FeatureRow>,
 }
 
 pub struct BlockDescriptor {
@@ -103,7 +103,7 @@ pub struct BlockDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn dataflow::BlockFeature>,
+    pub feature: Box<dyn dataflow::FeatureRow>,
 }
 
 pub struct EntityDescriptor {
@@ -115,14 +115,14 @@ pub struct EntityDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn dataflow::EntityFeature>,
+    pub feature: Box<dyn dataflow::FeatureRow>,
 }
 
 pub struct ItemDescriptor {
     pub display_name: String,
     pub description: String,
     pub images: Vec<ImageDescriptor>,
-    pub feature: Box<dyn dataflow::ItemFeature>,
+    pub feature: Box<dyn dataflow::FeatureRow>,
 }
 
 pub struct InventoryDescriptor {
@@ -206,14 +206,17 @@ impl ContextBuilder {
             .get_world_3d()
             .unwrap_or_else(|| panic!("Failed to get World3D from {}", desc.viewport));
 
+        // feature
+        let mut matrix_builder = dataflow::FeatureMatrixBuilder::default();
+
         // tile field
-        let mut tile_features = vec![];
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
             let desc = tile(&self.registry, retriever);
 
-            tile_features.push(desc.feature.into());
+            let mut row = matrix_builder.insert_row();
+            desc.feature.create_row(&mut row).unwrap();
 
             tiles.push(dataflow::TileDescriptor {
                 display_name: desc.display_name,
@@ -251,13 +254,13 @@ impl ContextBuilder {
         });
 
         // block field
-        let mut block_features = vec![];
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
             let desc = block(&self.registry, retriever);
 
-            block_features.push(desc.feature.into());
+            let mut row = matrix_builder.insert_row();
+            desc.feature.create_row(&mut row).unwrap();
 
             blocks.push(dataflow::BlockDescriptor {
                 display_name: desc.display_name,
@@ -305,13 +308,13 @@ impl ContextBuilder {
         });
 
         // entity filed
-        let mut entity_features = vec![];
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
             let desc = entity(&self.registry, retriever);
 
-            entity_features.push(desc.feature.into());
+            let mut row = matrix_builder.insert_row();
+            desc.feature.create_row(&mut row).unwrap();
 
             entities.push(dataflow::EntityDescriptor {
                 display_name: desc.display_name,
@@ -358,13 +361,13 @@ impl ContextBuilder {
         });
 
         // item field
-        let mut item_features = vec![];
         let mut items = vec![];
         let mut items_view = vec![];
         for item in self.items {
             let desc = item(&self.registry, retriever);
 
-            item_features.push(desc.feature.into());
+            let mut row = matrix_builder.insert_row();
+            desc.feature.create_row(&mut row).unwrap();
 
             items.push(dataflow::ItemDescriptor {
                 display_name: desc.display_name,
@@ -417,11 +420,7 @@ impl ContextBuilder {
             block_field: block_field_desc,
             entity_field: entity_field_desc,
             item_storage: item_storage_desc,
-
-            tile_features,
-            block_features,
-            entity_features,
-            item_features,
+            matrix: matrix_builder,
         });
 
         Context {
