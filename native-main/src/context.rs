@@ -139,10 +139,28 @@ impl Context {
                     },
                     core::ImageDescriptor {
                         frames: vec![
+                            retriever.load("image_entity_player_idle0r"),
+                            retriever.load("image_entity_player_idle1r"),
+                        ],
+                        step_tick: 24,
+                        is_loop: true,
+                    },
+                    core::ImageDescriptor {
+                        frames: vec![
                             retriever.load("image_entity_player_walk0"),
                             retriever.load("image_entity_player_idle0"),
                             retriever.load("image_entity_player_walk1"),
                             retriever.load("image_entity_player_idle1"),
+                        ],
+                        step_tick: 6,
+                        is_loop: true,
+                    },
+                    core::ImageDescriptor {
+                        frames: vec![
+                            retriever.load("image_entity_player_walk0r"),
+                            retriever.load("image_entity_player_idle0r"),
+                            retriever.load("image_entity_player_walk1r"),
+                            retriever.load("image_entity_player_idle1r"),
                         ],
                         step_tick: 6,
                         is_loop: true,
