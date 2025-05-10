@@ -482,6 +482,10 @@ impl Context {
         let resource = addon::PlayerResource::new();
         context.dataflow.insert_resources(resource).unwrap();
 
+        // selection system (client)
+        let resource = addon::SelectionResource::new();
+        context.dataflow.insert_resources(resource).unwrap();
+
         CONTEXT.set(Some(context));
     }
 
@@ -649,47 +653,22 @@ impl Context {
     }
 
     #[constant]
-    const SELECTION_FLAG_NONE: i32 = 0;
+    const SELECTION_FLAG_NONE: i32 = addon::SelectionSystem::FLAG_NONE;
     #[constant]
-    const SELECTION_FLAG_TILE: i32 = 1;
+    const SELECTION_FLAG_TILE: i32 = addon::SelectionSystem::FLAG_TILE;
     #[constant]
-    const SELECTION_FLAG_BLOCK: i32 = 2;
+    const SELECTION_FLAG_BLOCK: i32 = addon::SelectionSystem::FLAG_BLOCK;
     #[constant]
-    const SELECTION_FLAG_ENTITY: i32 = 3;
+    const SELECTION_FLAG_ENTITY: i32 = addon::SelectionSystem::FLAG_ENTITY;
+
     #[func]
     fn set_selection(location: Vector2, scroll: i32, flag: i32) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let mut selection_keys = vec![];
-            match flag {
-                Self::SELECTION_FLAG_NONE => {}
-                Self::SELECTION_FLAG_TILE => {
-                    let point = Vec2::new(location.x, location.y).floor().as_ivec2();
-                    if let Some(selection_key) = context.dataflow.get_tile_key_by_point(point) {
-                        selection_keys.push(core::view::SelectionKey::Tile(selection_key));
-                    }
-                }
-                Self::SELECTION_FLAG_BLOCK => {
-                    let point = Vec2::new(location.x, location.y);
-                    for selection_key in context.dataflow.get_block_keys_by_hint_point(point) {
-                        selection_keys.push(core::view::SelectionKey::Block(selection_key));
-                    }
-                }
-                Self::SELECTION_FLAG_ENTITY => {
-                    let point = Vec2::new(location.x, location.y);
-                    for entities in context.dataflow.get_entity_keys_by_hint_point(point) {
-                        selection_keys.push(core::view::SelectionKey::Entity(entities));
-                    }
-                }
-                _ => panic!("Invalid selection flag"),
-            }
-            if !selection_keys.is_empty() {
-                let index = scroll.div_euclid(selection_keys.len() as i32) as usize;
-                context.selection_view.set_selection(selection_keys[index]);
-            } else {
-                context.selection_view.clear_selection();
-            }
+            let location = Vec2::new(location.x, location.y);
+            addon::SelectionSystem::set_selection(&mut context.dataflow, location, scroll, flag)
+                .unwrap();
         })
     }
 
@@ -698,7 +677,7 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            context.selection_view.clear_selection();
+            addon::SelectionSystem::clear_selection(&mut context.dataflow).unwrap();
         })
     }
 
@@ -707,10 +686,7 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            match context.selection_view.get_selection() {
-                core::view::SelectionKey::None => true,
-                _ => false,
-            }
+            addon::SelectionSystem::has_selection(&context.dataflow).unwrap()
         })
     }
 
@@ -719,22 +695,9 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let display_name = match context.selection_view.get_selection() {
-                core::view::SelectionKey::None => Default::default(),
-                core::view::SelectionKey::Tile(selection_key) => context
-                    .dataflow
-                    .get_tile_display_name(selection_key)
-                    .unwrap(),
-                core::view::SelectionKey::Block(selection_key) => context
-                    .dataflow
-                    .get_block_display_name(selection_key)
-                    .unwrap(),
-                core::view::SelectionKey::Entity(selection_key) => context
-                    .dataflow
-                    .get_entity_display_name(selection_key)
-                    .unwrap(),
-            };
-            display_name.into()
+            let display_name =
+                addon::SelectionSystem::get_selection_display_name(&context.dataflow).unwrap();
+            display_name.unwrap().into()
         })
     }
 
@@ -743,22 +706,9 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let description = match context.selection_view.get_selection() {
-                core::view::SelectionKey::None => Default::default(),
-                core::view::SelectionKey::Tile(selection_key) => context
-                    .dataflow
-                    .get_tile_description(selection_key)
-                    .unwrap(),
-                core::view::SelectionKey::Block(selection_key) => context
-                    .dataflow
-                    .get_block_description(selection_key)
-                    .unwrap(),
-                core::view::SelectionKey::Entity(selection_key) => context
-                    .dataflow
-                    .get_entity_description(selection_key)
-                    .unwrap(),
-            };
-            description.into()
+            let description =
+                addon::SelectionSystem::get_selection_description(&context.dataflow).unwrap();
+            description.unwrap().into()
         })
     }
 
@@ -767,6 +717,7 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
+            // update field
             let position = Vec2::new(min_rect.position.x, min_rect.position.y);
             let size = Vec2::new(min_rect.size.x, min_rect.size.y);
             let min_rect = [position, position + size];
@@ -780,7 +731,25 @@ impl Context {
                 .entity_field_view
                 .update_view(&context.dataflow, min_rect);
 
-            context.selection_view.update_view(&context.dataflow);
+            // update selection
+            let tile_keys = addon::SelectionSystem::get_selection_tile(&context.dataflow)
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let block_keys = addon::SelectionSystem::get_selection_block(&context.dataflow)
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let entity_keys = addon::SelectionSystem::get_selection_entity(&context.dataflow)
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            context.selection_view.update_view(
+                &context.dataflow,
+                &tile_keys,
+                &block_keys,
+                &entity_keys,
+            );
         })
     }
 }
