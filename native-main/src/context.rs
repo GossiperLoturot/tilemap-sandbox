@@ -648,33 +648,48 @@ impl Context {
         })
     }
 
+    #[constant]
+    const SELECTION_FLAG_NONE: i32 = 0;
+    #[constant]
+    const SELECTION_FLAG_TILE: i32 = 1;
+    #[constant]
+    const SELECTION_FLAG_BLOCK: i32 = 2;
+    #[constant]
+    const SELECTION_FLAG_ENTITY: i32 = 3;
     #[func]
-    fn set_selection(location: Vector2) {
+    fn set_selection(location: Vector2, scroll: i32, flag: i32) {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            let point = Vec2::new(location.x, location.y).floor().as_ivec2();
-            let tiles = context
-                .dataflow
-                .get_tile_key_by_point(point)
-                .into_iter()
-                .collect::<Vec<_>>();
-
-            let point = Vec2::new(location.x, location.y);
-            let blocks = context
-                .dataflow
-                .get_block_keys_by_hint_point(point)
-                .collect::<Vec<_>>();
-
-            let point = Vec2::new(location.x, location.y);
-            let entities = context
-                .dataflow
-                .get_entity_keys_by_hint_point(point)
-                .collect::<Vec<_>>();
-
-            context
-                .selection_view
-                .update_view(&context.dataflow, &tiles, &blocks, &entities);
+            let mut selection_keys = vec![];
+            match flag {
+                Self::SELECTION_FLAG_NONE => {}
+                Self::SELECTION_FLAG_TILE => {
+                    let point = Vec2::new(location.x, location.y).floor().as_ivec2();
+                    if let Some(selection_key) = context.dataflow.get_tile_key_by_point(point) {
+                        selection_keys.push(core::view::SelectionKey::Tile(selection_key));
+                    }
+                }
+                Self::SELECTION_FLAG_BLOCK => {
+                    let point = Vec2::new(location.x, location.y);
+                    for selection_key in context.dataflow.get_block_keys_by_hint_point(point) {
+                        selection_keys.push(core::view::SelectionKey::Block(selection_key));
+                    }
+                }
+                Self::SELECTION_FLAG_ENTITY => {
+                    let point = Vec2::new(location.x, location.y);
+                    for entities in context.dataflow.get_entity_keys_by_hint_point(point) {
+                        selection_keys.push(core::view::SelectionKey::Entity(entities));
+                    }
+                }
+                _ => panic!("Invalid selection flag"),
+            }
+            if !selection_keys.is_empty() {
+                let index = scroll.div_euclid(selection_keys.len() as i32) as usize;
+                context.selection_view.set_selection(selection_keys[index]);
+            } else {
+                context.selection_view.clear_selection();
+            }
         })
     }
 
@@ -683,25 +698,68 @@ impl Context {
         CONTEXT.with_borrow_mut(|context| {
             let context = context.as_mut().unwrap();
 
-            context
-                .selection_view
-                .update_view(&context.dataflow, &[], &[], &[]);
+            context.selection_view.clear_selection();
         })
     }
 
     #[func]
-    fn get_selection_size() -> u32 {
-        Default::default()
+    fn has_selection() -> bool {
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            match context.selection_view.get_selection() {
+                core::view::SelectionKey::None => true,
+                _ => false,
+            }
+        })
     }
 
     #[func]
     fn get_selection_display_name() -> GString {
-        Default::default()
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let display_name = match context.selection_view.get_selection() {
+                core::view::SelectionKey::None => Default::default(),
+                core::view::SelectionKey::Tile(selection_key) => context
+                    .dataflow
+                    .get_tile_display_name(selection_key)
+                    .unwrap(),
+                core::view::SelectionKey::Block(selection_key) => context
+                    .dataflow
+                    .get_block_display_name(selection_key)
+                    .unwrap(),
+                core::view::SelectionKey::Entity(selection_key) => context
+                    .dataflow
+                    .get_entity_display_name(selection_key)
+                    .unwrap(),
+            };
+            display_name.into()
+        })
     }
 
     #[func]
     fn get_selection_description() -> GString {
-        Default::default()
+        CONTEXT.with_borrow_mut(|context| {
+            let context = context.as_mut().unwrap();
+
+            let description = match context.selection_view.get_selection() {
+                core::view::SelectionKey::None => Default::default(),
+                core::view::SelectionKey::Tile(selection_key) => context
+                    .dataflow
+                    .get_tile_description(selection_key)
+                    .unwrap(),
+                core::view::SelectionKey::Block(selection_key) => context
+                    .dataflow
+                    .get_block_description(selection_key)
+                    .unwrap(),
+                core::view::SelectionKey::Entity(selection_key) => context
+                    .dataflow
+                    .get_entity_description(selection_key)
+                    .unwrap(),
+            };
+            description.into()
+        })
     }
 
     #[func]
@@ -721,6 +779,8 @@ impl Context {
             context
                 .entity_field_view
                 .update_view(&context.dataflow, min_rect);
+
+            context.selection_view.update_view(&context.dataflow);
         })
     }
 }

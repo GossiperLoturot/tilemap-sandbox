@@ -3,12 +3,21 @@ use godot::prelude::*;
 
 use crate::dataflow;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionKey {
+    None,
+    Tile(dataflow::TileKey),
+    Block(dataflow::BlockKey),
+    Entity(dataflow::EntityKey),
+}
+
 pub struct SelectionDescriptor {
     pub shader: Gd<godot::classes::Shader>,
     pub world: Gd<godot::classes::World3D>,
 }
 
 pub struct Selection {
+    selection_key: SelectionKey,
     multimesh: Rid,
     free_handles: Vec<Rid>,
 }
@@ -77,25 +86,42 @@ impl Selection {
         free_handles.push(instance);
 
         Self {
+            selection_key: SelectionKey::None,
             multimesh,
             free_handles,
         }
     }
 
-    pub fn update_view(
-        &mut self,
-        dataflow: &dataflow::Dataflow,
-        tile_keys: &[dataflow::TileKey],
-        block_keys: &[dataflow::BlockKey],
-        entity_keys: &[dataflow::EntityKey],
-    ) {
+    pub fn set_selection(&mut self, selection_key: SelectionKey) {
+        self.selection_key = selection_key;
+    }
+
+    pub fn get_selection(&self) -> SelectionKey {
+        self.selection_key
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection_key = SelectionKey::None;
+    }
+
+    pub fn update_view(&mut self, dataflow: &dataflow::Dataflow) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
+
+        let mut tile_keys = vec![];
+        let mut block_keys = vec![];
+        let mut entity_keys = vec![];
+        match self.selection_key {
+            SelectionKey::Tile(key) => tile_keys.push(key),
+            SelectionKey::Block(key) => block_keys.push(key),
+            SelectionKey::Entity(key) => entity_keys.push(key),
+            _ => {}
+        }
 
         let mut i = 0;
         let mut instance_buffer = [0.0; Self::MAX_BUFFER_SIZE * 12];
 
         for tile_key in tile_keys {
-            let tile = dataflow.get_tile(*tile_key).unwrap();
+            let tile = dataflow.get_tile(tile_key).unwrap();
 
             instance_buffer[i * 12] = 1.0;
             instance_buffer[i * 12 + 1] = 0.0;
@@ -116,7 +142,7 @@ impl Selection {
         }
 
         for block_key in block_keys {
-            let block = dataflow.get_block(*block_key).unwrap();
+            let block = dataflow.get_block(block_key).unwrap();
             let hint_rect = dataflow.get_block_base_hint_rect(block.id).unwrap();
             let z_along_y = dataflow.get_block_base_z_along_y(block.id).unwrap();
 
@@ -143,7 +169,7 @@ impl Selection {
         }
 
         for entity_key in entity_keys {
-            let entity = dataflow.get_entity(*entity_key).unwrap();
+            let entity = dataflow.get_entity(entity_key).unwrap();
             let hint_rect = dataflow.get_entity_base_hint_rect(entity.id).unwrap();
             let z_along_y = dataflow.get_entity_base_z_along_y(entity.id).unwrap();
 
