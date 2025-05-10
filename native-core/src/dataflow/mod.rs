@@ -16,15 +16,15 @@ mod resource;
 mod time;
 
 pub struct DataflowDescriptor {
-    pub tile_field: TileFieldDescriptor,
-    pub block_field: BlockFieldDescriptor,
-    pub entity_field: EntityFieldDescriptor,
-    pub item_storage: ItemStorageDescriptor,
+    pub tile_field_desc: TileFieldDescriptor,
+    pub block_field_desc: BlockFieldDescriptor,
+    pub entity_field_desc: EntityFieldDescriptor,
+    pub item_storage_desc: ItemStorageDescriptor,
 
-    pub tile_features: FeatureMatrixBuilder,
-    pub block_features: FeatureMatrixBuilder,
-    pub entity_features: FeatureMatrixBuilder,
-    pub item_features: FeatureMatrixBuilder,
+    pub tile_feature_builder: FeatureMatrixBuilder,
+    pub block_feature_builder: FeatureMatrixBuilder,
+    pub entity_feature_builder: FeatureMatrixBuilder,
+    pub item_feature_builder: FeatureMatrixBuilder,
 }
 
 pub struct Dataflow {
@@ -51,15 +51,15 @@ impl Dataflow {
         Self {
             time_storage: TimeStorage::new(),
 
-            tile_field: TileField::new(desc.tile_field),
-            block_field: BlockField::new(desc.block_field),
-            entity_field: EntityField::new(desc.entity_field),
-            item_storage: ItemStorage::new(desc.item_storage),
+            tile_field: TileField::new(desc.tile_field_desc),
+            block_field: BlockField::new(desc.block_field_desc),
+            entity_field: EntityField::new(desc.entity_field_desc),
+            item_storage: ItemStorage::new(desc.item_storage_desc),
 
-            tile_features: FeatureMatrix::new(desc.tile_features),
-            block_features: FeatureMatrix::new(desc.block_features),
-            entity_features: FeatureMatrix::new(desc.entity_features),
-            item_features: FeatureMatrix::new(desc.item_features),
+            tile_features: desc.tile_feature_builder.build(),
+            block_features: desc.block_feature_builder.build(),
+            entity_features: desc.entity_feature_builder.build(),
+            item_features: desc.item_feature_builder.build(),
 
             resource_storage: ResourceStorage::new(),
         }
@@ -88,7 +88,7 @@ impl Dataflow {
 
     pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
         let feature = self
-            .get_tile_feature::<Rc<dyn BaseFeatureCol>>(tile.id)
+            .get_tile_feature::<Rc<dyn FieldFeature<Key = TileKey>>>(tile.id)
             .cloned();
         let tile_key = self.tile_field.insert(tile)?;
         let _ = feature.map(|f| f.after_place(self, tile_key));
@@ -98,7 +98,7 @@ impl Dataflow {
     pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, DataflowError> {
         let tile = self.tile_field.get(tile_key)?;
         let feature = self
-            .get_tile_feature::<Rc<dyn BaseFeatureCol>>(tile.id)
+            .get_tile_feature::<Rc<dyn FieldFeature<Key = TileKey>>>(tile.id)
             .cloned();
         let _ = feature.map(|f| f.before_break(self, tile_key));
         let tile = self.tile_field.remove(tile_key)?;
@@ -197,7 +197,7 @@ impl Dataflow {
     ) -> Result<Option<InventoryKey>, DataflowError> {
         let tile = self.tile_field.get(tile_key)?;
         let feature = self
-            .get_tile_feature::<Rc<dyn InventoryFeatureCol>>(tile.id)
+            .get_tile_feature::<Rc<dyn InventoryFeature<Key = TileKey>>>(tile.id)
             .cloned();
         let inventory = feature.map(|f| f.get_inventory(self, tile_key)).ok();
         Ok(inventory)
@@ -212,7 +212,7 @@ impl Dataflow {
 
     pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
         let feature = self
-            .get_block_feature::<Rc<dyn BaseFeatureCol>>(block.id)
+            .get_block_feature::<Rc<dyn FieldFeature<Key = BlockKey>>>(block.id)
             .cloned();
         let block_key = self.block_field.insert(block)?;
         let _ = feature.map(|f| f.after_place(self, block_key));
@@ -222,7 +222,7 @@ impl Dataflow {
     pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, DataflowError> {
         let block = self.block_field.get(block_key)?;
         let feature = self
-            .get_block_feature::<Rc<dyn BaseFeatureCol>>(block.id)
+            .get_block_feature::<Rc<dyn FieldFeature<Key = BlockKey>>>(block.id)
             .cloned();
         let _ = feature.map(|f| f.before_break(self, block_key));
         let block = self.block_field.remove(block_key)?;
@@ -385,7 +385,7 @@ impl Dataflow {
     ) -> Result<Option<InventoryKey>, DataflowError> {
         let block = self.block_field.get(block_key)?;
         let feature = self
-            .get_block_feature::<Rc<dyn InventoryFeatureCol>>(block.id)
+            .get_block_feature::<Rc<dyn InventoryFeature<Key = BlockKey>>>(block.id)
             .cloned();
         let inventory = feature.map(|f| f.get_inventory(self, block_key)).ok();
         Ok(inventory)
@@ -400,7 +400,7 @@ impl Dataflow {
 
     pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
         let feature = self
-            .get_entity_feature::<Rc<dyn BaseFeatureCol>>(entity.id)
+            .get_entity_feature::<Rc<dyn FieldFeature<Key = EntityKey>>>(entity.id)
             .cloned();
         let entity_key = self.entity_field.insert(entity)?;
         let _ = feature.map(|f| f.after_place(self, entity_key));
@@ -410,7 +410,7 @@ impl Dataflow {
     pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, DataflowError> {
         let entity = self.entity_field.get(entity_key)?;
         let feature = self
-            .get_entity_feature::<Rc<dyn BaseFeatureCol>>(entity.id)
+            .get_entity_feature::<Rc<dyn FieldFeature<Key = EntityKey>>>(entity.id)
             .cloned();
         let _ = feature.map(|f| f.before_break(self, entity_key));
         let entity = self.entity_field.remove(entity_key)?;
@@ -551,7 +551,7 @@ impl Dataflow {
     ) -> Result<Option<InventoryKey>, DataflowError> {
         let entity = self.entity_field.get(entity_key)?;
         let feature = self
-            .get_entity_feature::<Rc<dyn InventoryFeatureCol>>(entity.id)
+            .get_entity_feature::<Rc<dyn InventoryFeature<Key = EntityKey>>>(entity.id)
             .cloned();
         let inventory = feature.map(|f| f.get_inventory(self, entity_key)).ok();
         Ok(inventory)
@@ -680,15 +680,15 @@ impl Dataflow {
 
 // feature
 
-pub type UnifiedKey = (u32, u32);
-
-pub trait BaseFeatureCol {
-    fn after_place(&self, dataflow: &mut Dataflow, key: UnifiedKey);
-    fn before_break(&self, dataflow: &mut Dataflow, key: UnifiedKey);
+pub trait FieldFeature {
+    type Key;
+    fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key);
+    fn before_break(&self, dataflow: &mut Dataflow, key: Self::Key);
 }
 
-pub trait InventoryFeatureCol {
-    fn get_inventory(&self, dataflow: &Dataflow, key: UnifiedKey) -> InventoryKey;
+pub trait InventoryFeature {
+    type Key;
+    fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey;
 }
 
 // error handling

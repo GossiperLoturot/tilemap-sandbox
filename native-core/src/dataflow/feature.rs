@@ -1,13 +1,13 @@
 /// FeatureRow has the implementation of the function to be called.
 /// FeatureRow can have one of each type of FeatureColumn with different types.
 /// create_row is called when registering a new row.
-pub trait FeatureRow {
-    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError>;
+pub trait FeatureSet {
+    fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError>;
 }
 
 // empty implementation
-impl FeatureRow for () {
-    fn create_row(&self, _builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+impl FeatureSet for () {
+    fn attach_set(&self, _b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         Ok(())
     }
 }
@@ -21,8 +21,8 @@ pub struct FeatureMatrixBuilder {
 }
 
 impl FeatureMatrixBuilder {
-    pub fn insert_row(&mut self) -> FeatureRowBuilder {
-        FeatureRowBuilder {
+    pub fn insert_row(&mut self) -> FeatureSetBuilder {
+        FeatureSetBuilder {
             row_len: &mut self.row_len,
             matrix: &mut self.matrix,
         }
@@ -37,13 +37,13 @@ impl FeatureMatrixBuilder {
 
 /// FeatureRowBuilder is used to build a new row.
 /// It is used to add columns to the row.
-pub struct FeatureRowBuilder<'a> {
+pub struct FeatureSetBuilder<'a> {
     row_len: &'a mut u16,
     matrix: &'a mut ahash::AHashMap<(std::any::TypeId, u16), Box<dyn std::any::Any>>,
 }
 
-impl FeatureRowBuilder<'_> {
-    pub fn add_column<T: 'static>(&mut self, value: T) -> Result<(), FeatureError> {
+impl FeatureSetBuilder<'_> {
+    pub fn insert<T: 'static>(&mut self, value: T) -> Result<(), FeatureError> {
         let key = (std::any::TypeId::of::<T>(), *self.row_len);
 
         if self.matrix.contains_key(&key) {
@@ -55,7 +55,7 @@ impl FeatureRowBuilder<'_> {
     }
 }
 
-impl Drop for FeatureRowBuilder<'_> {
+impl Drop for FeatureSetBuilder<'_> {
     fn drop(&mut self) {
         *self.row_len += 1;
     }
@@ -68,10 +68,6 @@ pub struct FeatureMatrix {
 }
 
 impl FeatureMatrix {
-    pub fn new(builder: FeatureMatrixBuilder) -> Self {
-        builder.build()
-    }
-
     pub fn get<T: 'static>(&self, id: u16) -> Result<&T, FeatureError> {
         let key = (std::any::TypeId::of::<T>(), id);
         let any = self.matrix.get(&key).ok_or(FeatureError::NotFound)?;

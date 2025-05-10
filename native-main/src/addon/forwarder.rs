@@ -5,8 +5,9 @@ use native_core::dataflow::*;
 
 // feature
 
-pub trait ForwardFeatureCol {
-    fn forward(&self, dataflow: &mut Dataflow, key: UnifiedKey, delta_secs: f32);
+pub trait ForwardFeature {
+    type Key;
+    fn forward(&self, dataflow: &mut Dataflow, key: Self::Key, delta_secs: f32);
 }
 
 // system
@@ -69,7 +70,9 @@ fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs
             continue;
         };
 
-        let Ok(feature) = dataflow.get_tile_feature::<Rc<dyn ForwardFeatureCol>>(tile.id) else {
+        let Ok(feature) =
+            dataflow.get_tile_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(tile.id)
+        else {
             continue;
         };
 
@@ -88,7 +91,9 @@ fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_sec
             continue;
         };
 
-        let Ok(feature) = dataflow.get_block_feature::<Rc<dyn ForwardFeatureCol>>(block.id) else {
+        let Ok(feature) =
+            dataflow.get_block_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(block.id)
+        else {
             continue;
         };
 
@@ -107,7 +112,8 @@ fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_se
             continue;
         };
 
-        let Ok(feature) = dataflow.get_entity_feature::<Rc<dyn ForwardFeatureCol>>(entity.id)
+        let Ok(feature) =
+            dataflow.get_entity_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(entity.id)
         else {
             continue;
         };

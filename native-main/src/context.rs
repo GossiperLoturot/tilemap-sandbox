@@ -27,7 +27,7 @@ impl Context {
                 is_loop: false,
             }],
             collision: false,
-            feature: Box::new(()),
+            feature_set: Box::new(()),
         });
 
         // grass tile
@@ -40,7 +40,7 @@ impl Context {
                 is_loop: false,
             }],
             collision: false,
-            feature: Box::new(()),
+            feature_set: Box::new(()),
         });
 
         // dandelion block
@@ -59,7 +59,7 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature: Box::new(()),
+                feature_set: Box::new(()),
             }
         });
 
@@ -79,7 +79,7 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature: Box::new(()),
+                feature_set: Box::new(()),
             }
         });
 
@@ -99,7 +99,7 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature: Box::new(()),
+                feature_set: Box::new(()),
             }
         });
 
@@ -119,7 +119,7 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature: Box::new(()),
+                feature_set: Box::new(()),
             }
         });
 
@@ -171,7 +171,7 @@ impl Context {
                 collision_offset: Vec2::new(-0.4, 0.1),
                 rendering_size: Vec2::new(1.5, 2.25),
                 rendering_offset: Vec2::new(-0.75, 0.0),
-                feature: Box::new(addon::PlayerEntityFeature {
+                feature_set: Box::new(addon::PlayerEntityFeatureSet {
                     move_speed: 3.0,
                     inventory_id: registry.get("inventory_player"),
                 }),
@@ -207,7 +207,7 @@ impl Context {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(2.0, 2.0),
             rendering_offset: Vec2::new(-1.0, 0.0),
-            feature: Box::new(addon::AnimalEntityFeature {
+            feature_set: Box::new(addon::AnimalEntityFeatureSet {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -247,7 +247,7 @@ impl Context {
             collision_offset: Vec2::new(-0.4, 0.1),
             rendering_size: Vec2::new(2.0, 2.0),
             rendering_offset: Vec2::new(-1.0, 0.0),
-            feature: Box::new(addon::AnimalEntityFeature {
+            feature_set: Box::new(addon::AnimalEntityFeatureSet {
                 min_rest_secs: 0.0,
                 max_rest_secs: 10.0,
                 min_distance: 0.0,
@@ -288,7 +288,7 @@ impl Context {
                 collision_offset: Vec2::new(-0.4, 0.1),
                 rendering_size: Vec2::new(2.0, 2.0),
                 rendering_offset: Vec2::new(-1.0, 0.0),
-                feature: Box::new(addon::AnimalEntityFeature {
+                feature_set: Box::new(addon::AnimalEntityFeatureSet {
                     min_rest_secs: 0.0,
                     max_rest_secs: 10.0,
                     min_distance: 0.0,
@@ -325,7 +325,7 @@ impl Context {
                 collision_offset: Vec2::new(-0.4, 0.1),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(-0.5, 0.0),
-                feature: Box::new(addon::AnimalEntityFeature {
+                feature_set: Box::new(addon::AnimalEntityFeatureSet {
                     min_rest_secs: 0.0,
                     max_rest_secs: 10.0,
                     min_distance: 0.0,
@@ -362,7 +362,7 @@ impl Context {
                 collision_offset: Vec2::new(-0.4, 0.1),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(-0.5, 0.0),
-                feature: Box::new(addon::AnimalEntityFeature {
+                feature_set: Box::new(addon::AnimalEntityFeatureSet {
                     min_rest_secs: 0.0,
                     max_rest_secs: 10.0,
                     min_distance: 0.0,
@@ -383,7 +383,7 @@ impl Context {
                 step_tick: 0,
                 is_loop: false,
             }],
-            feature: Box::new(()),
+            feature_set: Box::new(()),
         });
 
         // player inventory

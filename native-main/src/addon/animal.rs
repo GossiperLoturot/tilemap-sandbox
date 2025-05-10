@@ -3,6 +3,8 @@ use std::rc::Rc;
 use glam::*;
 use native_core::dataflow::*;
 
+use super::*;
+
 #[derive(Debug, Clone)]
 pub enum AnimalEntityDataState {
     Init,
@@ -25,7 +27,7 @@ pub struct AnimalEntityData {
 impl EntityData for AnimalEntityData {}
 
 #[derive(Debug, Clone)]
-pub struct AnimalEntityFeature {
+pub struct AnimalEntityFeatureSet {
     pub min_rest_secs: f32,
     pub max_rest_secs: f32,
     pub min_distance: f32,
@@ -35,17 +37,19 @@ pub struct AnimalEntityFeature {
     pub walk_variant: u8,
 }
 
-impl FeatureRow for AnimalEntityFeature {
-    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+impl FeatureSet for AnimalEntityFeatureSet {
+    fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         let slf = Rc::new(self.clone());
-        builder.add_column::<Rc<dyn BaseFeatureCol>>(slf.clone())?;
-        builder.add_column::<Rc<dyn super::ForwardFeatureCol>>(slf.clone())?;
+        b.insert::<Rc<dyn FieldFeature<Key = EntityKey>>>(slf.clone())?;
+        b.insert::<Rc<dyn ForwardFeature<Key = EntityKey>>>(slf.clone())?;
         Ok(())
     }
 }
 
-impl BaseFeatureCol for AnimalEntityFeature {
-    fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
+impl FieldFeature for AnimalEntityFeatureSet {
+    type Key = EntityKey;
+
+    fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
         dataflow
             .modify_entity(key, |entity| {
                 entity.data = Box::new(AnimalEntityData {
@@ -60,10 +64,12 @@ impl BaseFeatureCol for AnimalEntityFeature {
             .unwrap();
     }
 
-    fn before_break(&self, _dataflow: &mut Dataflow, _key: EntityKey) {}
+    fn before_break(&self, _dataflow: &mut Dataflow, _key: Self::Key) {}
 }
 
-impl super::ForwardFeatureCol for AnimalEntityFeature {
+impl ForwardFeature for AnimalEntityFeatureSet {
+    type Key = EntityKey;
+
     fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 

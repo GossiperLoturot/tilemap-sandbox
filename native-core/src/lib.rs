@@ -90,7 +90,7 @@ pub struct TileDescriptor {
     pub description: String,
     pub images: Vec<ImageDescriptor>,
     pub collision: bool,
-    pub feature: Box<dyn dataflow::FeatureRow>,
+    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct BlockDescriptor {
@@ -103,7 +103,7 @@ pub struct BlockDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn dataflow::FeatureRow>,
+    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct EntityDescriptor {
@@ -115,14 +115,14 @@ pub struct EntityDescriptor {
     pub collision_offset: Vec2,
     pub rendering_size: Vec2,
     pub rendering_offset: Vec2,
-    pub feature: Box<dyn dataflow::FeatureRow>,
+    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct ItemDescriptor {
     pub display_name: String,
     pub description: String,
     pub images: Vec<ImageDescriptor>,
-    pub feature: Box<dyn dataflow::FeatureRow>,
+    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct InventoryDescriptor {
@@ -210,7 +210,7 @@ impl ContextBuilder {
         let mut tile_feature_builder = dataflow::FeatureMatrixBuilder::default();
         let mut block_feature_builder = dataflow::FeatureMatrixBuilder::default();
         let mut entity_feature_builder = dataflow::FeatureMatrixBuilder::default();
-        let mut item_features_builder = dataflow::FeatureMatrixBuilder::default();
+        let mut item_feature_builder = dataflow::FeatureMatrixBuilder::default();
 
         // tile field
         let mut tiles = vec![];
@@ -218,8 +218,8 @@ impl ContextBuilder {
         for tile in self.tiles {
             let desc = tile(&self.registry, retriever);
 
-            let mut row = tile_feature_builder.insert_row();
-            desc.feature.create_row(&mut row).unwrap();
+            let mut set_builder = tile_feature_builder.insert_row();
+            desc.feature_set.attach_set(&mut set_builder).unwrap();
 
             tiles.push(dataflow::TileDescriptor {
                 display_name: desc.display_name,
@@ -262,8 +262,8 @@ impl ContextBuilder {
         for block in self.blocks {
             let desc = block(&self.registry, retriever);
 
-            let mut row = block_feature_builder.insert_row();
-            desc.feature.create_row(&mut row).unwrap();
+            let mut set_builder = block_feature_builder.insert_row();
+            desc.feature_set.attach_set(&mut set_builder).unwrap();
 
             blocks.push(dataflow::BlockDescriptor {
                 display_name: desc.display_name,
@@ -316,8 +316,8 @@ impl ContextBuilder {
         for entity in self.entities {
             let desc = entity(&self.registry, retriever);
 
-            let mut row = entity_feature_builder.insert_row();
-            desc.feature.create_row(&mut row).unwrap();
+            let mut set_builder = entity_feature_builder.insert_row();
+            desc.feature_set.attach_set(&mut set_builder).unwrap();
 
             entities.push(dataflow::EntityDescriptor {
                 display_name: desc.display_name,
@@ -369,8 +369,8 @@ impl ContextBuilder {
         for item in self.items {
             let desc = item(&self.registry, retriever);
 
-            let mut row = item_features_builder.insert_row();
-            desc.feature.create_row(&mut row).unwrap();
+            let mut set_builder = item_feature_builder.insert_row();
+            desc.feature_set.attach_set(&mut set_builder).unwrap();
 
             items.push(dataflow::ItemDescriptor {
                 display_name: desc.display_name,
@@ -419,15 +419,15 @@ impl ContextBuilder {
         });
 
         let dataflow = dataflow::Dataflow::new(dataflow::DataflowDescriptor {
-            tile_field: tile_field_desc,
-            block_field: block_field_desc,
-            entity_field: entity_field_desc,
-            item_storage: item_storage_desc,
+            tile_field_desc,
+            block_field_desc,
+            entity_field_desc,
+            item_storage_desc,
 
-            tile_features: tile_feature_builder,
-            block_features: block_feature_builder,
-            entity_features: entity_feature_builder,
-            item_features: item_features_builder,
+            tile_feature_builder,
+            block_feature_builder,
+            entity_feature_builder,
+            item_feature_builder,
         });
 
         Context {

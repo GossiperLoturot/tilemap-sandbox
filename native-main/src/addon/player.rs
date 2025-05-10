@@ -3,6 +3,8 @@ use std::rc::Rc;
 use glam::*;
 use native_core::dataflow::*;
 
+use super::*;
+
 // resource
 
 #[derive(Debug, Default)]
@@ -115,23 +117,25 @@ pub struct PlayerEntityData {
 impl EntityData for PlayerEntityData {}
 
 #[derive(Debug, Clone)]
-pub struct PlayerEntityFeature {
+pub struct PlayerEntityFeatureSet {
     pub move_speed: f32,
     pub inventory_id: u16,
 }
 
-impl FeatureRow for PlayerEntityFeature {
-    fn create_row(&self, builder: &mut FeatureRowBuilder) -> Result<(), FeatureError> {
+impl FeatureSet for PlayerEntityFeatureSet {
+    fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         let slf = Rc::new(self.clone());
-        builder.add_column::<Rc<dyn BaseFeatureCol>>(slf.clone())?;
-        builder.add_column::<Rc<dyn InventoryFeatureCol>>(slf.clone())?;
-        builder.add_column::<Rc<dyn super::ForwardFeatureCol>>(slf.clone())?;
+        b.insert::<Rc<dyn FieldFeature<Key = EntityKey>>>(slf.clone())?;
+        b.insert::<Rc<dyn InventoryFeature<Key = EntityKey>>>(slf.clone())?;
+        b.insert::<Rc<dyn ForwardFeature<Key = EntityKey>>>(slf.clone())?;
         Ok(())
     }
 }
 
-impl BaseFeatureCol for PlayerEntityFeature {
-    fn after_place(&self, dataflow: &mut Dataflow, key: EntityKey) {
+impl FieldFeature for PlayerEntityFeatureSet {
+    type Key = EntityKey;
+
+    fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
         let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
 
         dataflow
@@ -159,15 +163,19 @@ impl BaseFeatureCol for PlayerEntityFeature {
     }
 }
 
-impl InventoryFeatureCol for PlayerEntityFeature {
-    fn get_inventory(&self, dataflow: &Dataflow, key: EntityKey) -> InventoryKey {
+impl InventoryFeature for PlayerEntityFeatureSet {
+    type Key = EntityKey;
+
+    fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey {
         let entity = dataflow.get_entity(key).unwrap();
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
         data.inventory_key
     }
 }
 
-impl super::ForwardFeatureCol for PlayerEntityFeature {
+impl ForwardFeature for PlayerEntityFeatureSet {
+    type Key = EntityKey;
+
     fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 
