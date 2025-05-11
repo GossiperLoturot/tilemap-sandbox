@@ -4,17 +4,16 @@ use native_core as core;
 
 use crate::addon;
 
-type Wrap<T> = std::cell::RefCell<Option<T>>;
-thread_local! { static CONTEXT: Wrap<core::Context> = Default::default(); }
-
 #[derive(GodotClass)]
-#[class(no_init)]
-struct Context;
+#[class(init, base=Object)]
+pub struct Context {
+    context: Option<core::Context>,
+}
 
 #[godot_api]
 impl Context {
     #[func]
-    fn open(retrieve_callable: Callable) {
+    fn open(&mut self, retrieve_callable: Callable) {
         let mut builder = core::ContextBuilder::new();
 
         // dirt tile
@@ -482,274 +481,309 @@ impl Context {
         let resource = addon::PlayerResource::new();
         context.dataflow.insert_resources(resource).unwrap();
 
-        // selection system (client)
-        let resource = addon::SelectionResource::new();
-        context.dataflow.insert_resources(resource).unwrap();
-
-        CONTEXT.set(Some(context));
+        self.context = Some(context);
     }
 
     #[func]
-    fn close() {
-        CONTEXT.take();
+    fn close(&mut self) {
+        self.context = None;
+    }
+
+    // update system
+
+    #[func]
+    fn forward_time(&mut self, delta_secs: f64) {
+        let context = self.context.as_mut().unwrap();
+
+        let delta_secs = delta_secs as f32;
+        context.dataflow.forward_time(delta_secs);
     }
 
     #[func]
-    fn forward_time(delta_secs: f32) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn forwarde_rect(&mut self, min_rect: Rect2, delta_secs: f64) {
+        let context = self.context.as_mut().unwrap();
 
-            context.dataflow.forward_time(delta_secs);
-        })
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
+        let delta_secs = delta_secs as f32;
+        addon::ForwarderSystem::forward(&mut context.dataflow, min_rect, delta_secs).unwrap();
     }
 
     #[func]
-    fn forwarde_rect(min_rect: Rect2, delta_secs: f32) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn generate_rect(&mut self, min_rect: Rect2) {
+        let context = self.context.as_mut().unwrap();
 
-            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-            let min_rect = [position, position + size];
-            addon::ForwarderSystem::forward(&mut context.dataflow, min_rect, delta_secs).unwrap();
-        })
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
+        addon::GeneratorSystem::generate(&mut context.dataflow, min_rect).unwrap();
+    }
+
+    // player
+
+    #[func]
+    fn spawn_player(&mut self, location: Vector2) {
+        let context = self.context.as_mut().unwrap();
+
+        let location = Vec2::new(location.x, location.y);
+        let entity = core::dataflow::Entity {
+            id: context.registry.get("entity_player"),
+            location,
+            data: Default::default(),
+            render_param: Default::default(),
+        };
+        context.dataflow.insert_entity(entity).unwrap();
     }
 
     #[func]
-    fn generate_rect(min_rect: Rect2) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn push_player_input(&mut self, input: Vector2) {
+        let context = self.context.as_mut().unwrap();
 
-            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-            let min_rect = [position, position + size];
-            addon::GeneratorSystem::generate(&mut context.dataflow, min_rect).unwrap();
-        })
+        let input = Vec2::new(input.x, input.y);
+        addon::PlayerSystem::push_input(&mut context.dataflow, input).unwrap();
     }
 
     #[func]
-    fn spawn_player(location: Vector2) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_player_location(&self) -> Vector2 {
+        let context = self.context.as_ref().unwrap();
 
-            let location = Vec2::new(location.x, location.y);
-            let entity = core::dataflow::Entity {
-                id: context.registry.get("entity_player"),
-                location,
-                data: Default::default(),
-                render_param: Default::default(),
-            };
-            context.dataflow.insert_entity(entity).unwrap();
-        })
+        let location = addon::PlayerSystem::get_location(&context.dataflow).unwrap();
+        Vector2::new(location.x, location.y)
     }
 
     #[func]
-    fn push_player_input(input: Vector2) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn open_player_inventory(&mut self) {
+        let context = self.context.as_mut().unwrap();
 
-            let input = Vec2::new(input.x, input.y);
-            addon::PlayerSystem::push_input(&mut context.dataflow, input).unwrap();
-        })
-    }
-
-    #[func]
-    fn get_player_location() -> Vector2 {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let location = addon::PlayerSystem::get_location(&context.dataflow).unwrap();
-            Vector2::new(location.x, location.y)
-        })
-    }
-
-    #[func]
-    fn open_player_inventory() {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
-
-            if let Ok(inventory_key) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
-                let _ = context
-                    .item_storage_view
-                    .open_inventory(&context.dataflow, inventory_key);
-            }
-        })
-    }
-
-    #[func]
-    fn has_item(inventory_key: u32, local_key: u32) -> bool {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let slot_key = (inventory_key, local_key);
-            context.dataflow.get_item(slot_key).is_ok()
-        })
-    }
-
-    #[func]
-    fn get_item_amount(inventory_key: u32, local_key: u32) -> u32 {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let slot_key = (inventory_key, local_key);
-
-            let item = context.dataflow.get_item(slot_key).unwrap();
-            item.amount
-        })
-    }
-
-    #[func]
-    fn get_item_display_name(inventory_key: u32, local_key: u32) -> GString {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let slot_key = (inventory_key, local_key);
-            let text = context.dataflow.get_item_display_name(slot_key).unwrap();
-            text.into()
-        })
-    }
-
-    #[func]
-    fn get_item_description(inventory_key: u32, local_key: u32) -> GString {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let slot_key = (inventory_key, local_key);
-            let text = context.dataflow.get_item_description(slot_key).unwrap();
-            text.into()
-        })
-    }
-
-    #[func]
-    fn swap_item(
-        src_inventory_key: u32,
-        src_local_key: u32,
-        dst_inventory_key: u32,
-        dst_local_key: u32,
-    ) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
-
-            let src_slot_key = (src_inventory_key, src_local_key);
-            let dst_slot_key = (dst_inventory_key, dst_local_key);
-            context
-                .dataflow
-                .swap_item(src_slot_key, dst_slot_key)
-                .unwrap();
-        })
-    }
-
-    #[func]
-    fn draw_item(inventory_key: u32, local_key: u32, control_item: Gd<godot::classes::Control>) {
-        CONTEXT.with_borrow(|context| {
-            let context = context.as_ref().unwrap();
-
-            let slot_key = (inventory_key, local_key);
-            context
+        if let Ok(inventory_key) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
+            let _ = context
                 .item_storage_view
-                .draw_item(&context.dataflow, slot_key, control_item)
-                .unwrap();
-        })
+                .open_inventory(&context.dataflow, inventory_key);
+        }
     }
 
-    #[constant]
-    const SELECTION_FLAG_NONE: i32 = addon::SelectionSystem::FLAG_NONE;
-    #[constant]
-    const SELECTION_FLAG_TILE: i32 = addon::SelectionSystem::FLAG_TILE;
-    #[constant]
-    const SELECTION_FLAG_BLOCK: i32 = addon::SelectionSystem::FLAG_BLOCK;
-    #[constant]
-    const SELECTION_FLAG_ENTITY: i32 = addon::SelectionSystem::FLAG_ENTITY;
+    // inventory
 
     #[func]
-    fn set_selection(location: Vector2, scroll: i32, flag: i32) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_slot(&self, slot_key: Gd<SlotKey>) -> Option<Gd<SlotResult>> {
+        let context = self.context.as_ref().unwrap();
 
-            let location = Vec2::new(location.x, location.y);
-            addon::SelectionSystem::set_selection(&mut context.dataflow, location, scroll, flag)
-                .unwrap();
-        })
+        let slot_key = **slot_key.bind();
+        let item = context.dataflow.get_item(slot_key).ok()?;
+        let display_name = context.dataflow.get_item_display_name(slot_key).unwrap();
+        let description = context.dataflow.get_item_description(slot_key).unwrap();
+
+        Some(Gd::from_object(SlotResult {
+            amount: item.amount as i64,
+            display_name: display_name.into(),
+            description: description.into(),
+        }))
     }
 
     #[func]
-    fn clear_selection() {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn swap_slot(&mut self, src_slot_key: Gd<SlotKey>, dst_slot_key: Gd<SlotKey>) {
+        let context = self.context.as_mut().unwrap();
 
-            addon::SelectionSystem::clear_selection(&mut context.dataflow).unwrap();
-        })
+        let src_slot_key = **src_slot_key.bind();
+        let dst_slot_key = **dst_slot_key.bind();
+        context
+            .dataflow
+            .swap_item(src_slot_key, dst_slot_key)
+            .unwrap();
     }
 
     #[func]
-    fn has_selection() -> bool {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn draw_slot(&mut self, slot_key: Gd<SlotKey>, control_item: Gd<godot::classes::Control>) {
+        let context = self.context.as_ref().unwrap();
 
-            addon::SelectionSystem::has_selection(&context.dataflow).unwrap()
-        })
+        let slot_key = **slot_key.bind();
+        context
+            .item_storage_view
+            .draw_item(&context.dataflow, slot_key, control_item)
+            .unwrap();
+    }
+
+    // field
+
+    #[func]
+    fn find_field(&self, location: Vector2, scroll: i64, flag: FieldFlag) -> Option<Gd<FieldKey>> {
+        let context = self.context.as_ref().unwrap();
+
+        let point = Vec2::new(location.x, location.y);
+        match flag {
+            FieldFlag::Tile => {
+                let point = point.floor().as_ivec2();
+                if let Some(key) = context.dataflow.get_tile_key_by_point(point) {
+                    let inner = FieldKey_::Tile(key);
+                    return Some(Gd::from_object(FieldKey { inner }));
+                }
+            }
+            FieldFlag::Block => {
+                let keys = context
+                    .dataflow
+                    .get_block_keys_by_hint_point(point)
+                    .collect::<Vec<_>>();
+                if !keys.is_empty() {
+                    let index = (scroll as usize).div_euclid(keys.len());
+                    let inner = FieldKey_::Block(keys[index]);
+                    return Some(Gd::from_object(FieldKey { inner }));
+                }
+            }
+            FieldFlag::Entity => {
+                let keys = context
+                    .dataflow
+                    .get_entity_keys_by_hint_point(point)
+                    .collect::<Vec<_>>();
+                if !keys.is_empty() {
+                    let index = (scroll as usize).div_euclid(keys.len());
+                    let inner = FieldKey_::Entity(keys[index]);
+                    return Some(Gd::from_object(FieldKey { inner }));
+                }
+            }
+        }
+        None
     }
 
     #[func]
-    fn get_selection_display_name() -> GString {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn get_field(&self, field_key: Gd<FieldKey>) -> Gd<FieldResult> {
+        let context = self.context.as_ref().unwrap();
 
-            let display_name =
-                addon::SelectionSystem::get_selection_display_name(&context.dataflow).unwrap();
-            display_name.unwrap().into()
-        })
+        let result = match **field_key.bind() {
+            FieldKey_::Tile(key) => {
+                let display_name = context.dataflow.get_tile_display_name(key).unwrap();
+                let description = context.dataflow.get_tile_description(key).unwrap();
+                FieldResult {
+                    display_name: display_name.into(),
+                    description: description.into(),
+                }
+            }
+            FieldKey_::Block(key) => {
+                let display_name = context.dataflow.get_block_display_name(key).unwrap();
+                let description = context.dataflow.get_block_description(key).unwrap();
+                FieldResult {
+                    display_name: display_name.into(),
+                    description: description.into(),
+                }
+            }
+            FieldKey_::Entity(key) => {
+                let display_name = context.dataflow.get_entity_display_name(key).unwrap();
+                let description = context.dataflow.get_entity_description(key).unwrap();
+                FieldResult {
+                    display_name: display_name.into(),
+                    description: description.into(),
+                }
+            }
+        };
+        Gd::from_object(result)
     }
 
     #[func]
-    fn get_selection_description() -> GString {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn draw_field(&mut self, min_rect: Rect2) {
+        let context = self.context.as_mut().unwrap();
 
-            let description =
-                addon::SelectionSystem::get_selection_description(&context.dataflow).unwrap();
-            description.unwrap().into()
-        })
+        let position = Vec2::new(min_rect.position.x, min_rect.position.y);
+        let size = Vec2::new(min_rect.size.x, min_rect.size.y);
+        let min_rect = [position, position + size];
+        context
+            .tile_field_view
+            .update_view(&context.dataflow, min_rect);
+        context
+            .block_field_view
+            .update_view(&context.dataflow, min_rect);
+        context
+            .entity_field_view
+            .update_view(&context.dataflow, min_rect);
     }
 
     #[func]
-    fn update_view(min_rect: Rect2) {
-        CONTEXT.with_borrow_mut(|context| {
-            let context = context.as_mut().unwrap();
+    fn draw_selection(&mut self, field_key: Option<Gd<FieldKey>>) {
+        let context = self.context.as_mut().unwrap();
 
-            // update field
-            let position = Vec2::new(min_rect.position.x, min_rect.position.y);
-            let size = Vec2::new(min_rect.size.x, min_rect.size.y);
-            let min_rect = [position, position + size];
-            context
-                .tile_field_view
-                .update_view(&context.dataflow, min_rect);
-            context
-                .block_field_view
-                .update_view(&context.dataflow, min_rect);
-            context
-                .entity_field_view
-                .update_view(&context.dataflow, min_rect);
-
-            // update selection
-            let tile_keys = addon::SelectionSystem::get_selection_tile(&context.dataflow)
-                .unwrap()
-                .into_iter()
-                .collect::<Vec<_>>();
-            let block_keys = addon::SelectionSystem::get_selection_block(&context.dataflow)
-                .unwrap()
-                .into_iter()
-                .collect::<Vec<_>>();
-            let entity_keys = addon::SelectionSystem::get_selection_entity(&context.dataflow)
-                .unwrap()
-                .into_iter()
-                .collect::<Vec<_>>();
+        if let Some(field_key) = field_key {
+            let mut tile_keys = vec![];
+            let mut block_keys = vec![];
+            let mut entity_keys = vec![];
+            match **field_key.bind() {
+                FieldKey_::Tile(key) => tile_keys.push(key),
+                FieldKey_::Block(key) => block_keys.push(key),
+                FieldKey_::Entity(key) => entity_keys.push(key),
+            }
             context.selection_view.update_view(
                 &context.dataflow,
                 &tile_keys,
                 &block_keys,
                 &entity_keys,
             );
-        })
+        } else {
+            context
+                .selection_view
+                .update_view(&context.dataflow, &[], &[], &[]);
+        }
     }
+}
+
+// interface types
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct SlotKey {
+    inner: core::dataflow::SlotKey,
+}
+
+impl std::ops::Deref for SlotKey {
+    type Target = core::dataflow::SlotKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct SlotResult {
+    #[var]
+    amount: i64,
+    #[var]
+    display_name: GString,
+    #[var]
+    description: GString,
+}
+
+#[derive(GodotConvert, Var, Export, Debug)]
+#[godot(via = u8)]
+enum FieldFlag {
+    Tile,
+    Block,
+    Entity,
+}
+
+#[derive(Clone, Copy)]
+enum FieldKey_ {
+    Tile(core::dataflow::TileKey),
+    Block(core::dataflow::BlockKey),
+    Entity(core::dataflow::EntityKey),
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct FieldKey {
+    inner: FieldKey_,
+}
+
+impl std::ops::Deref for FieldKey {
+    type Target = FieldKey_;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct FieldResult {
+    #[var]
+    display_name: GString,
+    #[var]
+    description: GString,
 }
