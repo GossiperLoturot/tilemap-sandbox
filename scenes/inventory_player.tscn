@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3 uid="uid://bkinyq3ym20l8"]
+[gd_scene load_steps=2 format=3 uid="uid://bkinyq3ym20l8"]
 
 [ext_resource type="Script" uid="uid://c5ajqg4r7ukm0" path="res://scripts/inventory_player.gd" id="1_05u7a"]
-[ext_resource type="PackedScene" uid="uid://c2yxg41vkcoi5" path="res://scenes/inventory_item.tscn" id="2_vbacu"]
 
 [node name="InventoryPlayer" type="PanelContainer" node_paths=PackedStringArray("item_deploy")]
 anchors_preset = 8
@@ -16,7 +15,6 @@ offset_bottom = 26.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_05u7a")
-item_scene = ExtResource("2_vbacu")
 item_deploy = NodePath("Container/Body/Container")
 
 [node name="Container" type="VBoxContainer" parent="."]

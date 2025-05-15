@@ -17,7 +17,7 @@ func _process(delta: float) -> void:
 	Context.generate_rect(_gen_rect)
 	Context.forward_time(delta)
 	# rendering
-	Context.update_view(_view_rect)
+	Context.draw_field(_view_rect)
 
 
 func _exit_tree() -> void:
@@ -37,19 +37,20 @@ func _on_view_rect_changed(rect: Rect2) -> void:
 
 
 func retrieve_func(name: String):
-	print(name)
-
 	var retrieve_table = {
 		"shader_field": preload("res://shaders/field.gdshader"),
 		"shader_field_shadow": preload("res://shaders/field_shadow.gdshader"),
 		"shader_selection": preload("res://shaders/selector.gdshader"),
 		"viewport": self.get_viewport(),
+
 		"image_tile_dirt": preload("res://images/dirt.webp"),
 		"image_tile_grass": preload("res://images/grass.webp"),
+
 		"image_block_dandelion": preload("res://images/dandelion.webp"),
 		"image_block_fallenleaves": preload("res://images/fallenleaves.webp"),
 		"image_block_mixgrass": preload("res://images/mixgrass.webp"),
 		"image_block_mixpebbles": preload("res://images/mixpebbles.webp"),
+
 		"image_entity_player_idle0": preload("res://images/player_idle0.webp"),
 		"image_entity_player_idle1": preload("res://images/player_idle1.webp"),
 		"image_entity_player_idle0r": preload("res://images/player_idle0r.webp"),
@@ -75,12 +76,13 @@ func retrieve_func(name: String):
 		"image_entity_bird_idle": preload("res://images/bird_idle.webp"),
 		"image_entity_bird_walk": preload("res://images/bird_walk.webp"),
 		"image_item_package": preload("res://images/package.webp"),
-		"callable_inventory_player": open_inventory_player,
+
+		"callable_inventory_player": instantiate_inventory_player,
 	}
 	return retrieve_table[name]
 
 
-func open_inventory_player(inventory_key: int):
+func instantiate_inventory_player(slot_keys: Array[SlotKey]) -> void:
 	var instance = preload("res://scenes/inventory_player.tscn").instantiate()
-	self.add_child(instance)
-	instance.change_inventory(ui, inventory_key)
+	ui.add_child(instance)
+	instance.on_instantiate(slot_keys)

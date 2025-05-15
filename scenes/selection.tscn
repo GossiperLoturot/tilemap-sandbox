@@ -1,29 +1,21 @@
-[gd_scene load_steps=3 format=3 uid="uid://cyidwdky23fs5"]
+[gd_scene load_steps=2 format=3 uid="uid://cyidwdky23fs5"]
 
 [ext_resource type="Script" uid="uid://cny4u131cmbjm" path="res://scripts/selection.gd" id="1_37lji"]
-[ext_resource type="PackedScene" uid="uid://vi4qet71dd5h" path="res://scenes/selection_item.tscn" id="2_llkt3"]
 
-[node name="Selection" type="Control" node_paths=PackedStringArray("item_deploy")]
-layout_mode = 3
-anchors_preset = 0
+[node name="Selection" type="PanelContainer" node_paths=PackedStringArray("label")]
 offset_right = 128.0
-offset_bottom = 16.0
+offset_bottom = 39.0
 size_flags_vertical = 4
-mouse_filter = 2
 script = ExtResource("1_37lji")
-item_scene = ExtResource("2_llkt3")
-item_deploy = NodePath("Body/Container")
+label = NodePath("Body/Label")
 
 [node name="Body" type="MarginContainer" parent="."]
 layout_mode = 2
-offset_right = 128.0
-offset_bottom = 16.0
 size_flags_vertical = 4
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="Container" type="VBoxContainer" parent="Body"]
+[node name="Label" type="Label" parent="Body"]
 layout_mode = 2
-size_flags_vertical = 4
