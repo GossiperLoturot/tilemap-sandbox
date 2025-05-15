@@ -95,45 +95,49 @@ impl ItemStorage {
     }
 
     pub fn open_inventory_by_tile(
-        &mut self,
+        &self,
         dataflow: &dataflow::Dataflow,
         tile_key: dataflow::TileKey,
+        f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
             .get_tile_inventory(tile_key)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key)?;
+        self.open_inventory(dataflow, inventory_key, f)?;
         Ok(())
     }
 
     pub fn open_inventory_by_block(
-        &mut self,
+        &self,
         dataflow: &dataflow::Dataflow,
         block_key: dataflow::BlockKey,
+        f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
             .get_block_inventory(block_key)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key)?;
+        self.open_inventory(dataflow, inventory_key, f)?;
         Ok(())
     }
 
     pub fn open_inventory_by_entity(
-        &mut self,
+        &self,
         dataflow: &dataflow::Dataflow,
         tile_key: dataflow::TileKey,
+        f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
             .get_inventory_by_entity(tile_key)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key)?;
+        self.open_inventory(dataflow, inventory_key, f)?;
         Ok(())
     }
 
     pub fn open_inventory(
-        &mut self,
+        &self,
         dataflow: &dataflow::Dataflow,
         inventory_key: dataflow::InventoryKey,
+        f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory = dataflow.get_inventory(inventory_key)?;
         let prop = self
@@ -141,7 +145,7 @@ impl ItemStorage {
             .get(inventory.id as usize)
             .ok_or(dataflow::ItemError::InventoryInvalidId)?;
 
-        prop.callback.call(&[inventory_key.to_variant()]);
+        f(&prop.callback, inventory);
 
         Ok(())
     }

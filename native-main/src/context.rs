@@ -557,9 +557,18 @@ impl Context {
         let context = self.context.as_mut().unwrap();
 
         if let Ok(inventory_key) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
-            let _ = context
-                .item_storage_view
-                .open_inventory(&context.dataflow, inventory_key);
+            let _ = context.item_storage_view.open_inventory(
+                &context.dataflow,
+                inventory_key,
+                |callable, inventory| {
+                    let mut slot_keys = Array::<Gd<SlotKey>>::new();
+                    for (local_key, _) in inventory.slots.iter().enumerate() {
+                        let slot_key = (inventory_key, local_key as u32);
+                        slot_keys.push(&Gd::from_object(SlotKey { inner: slot_key }));
+                    }
+                    callable.call(&[slot_keys.to_variant()]);
+                },
+            );
         }
     }
 
@@ -607,75 +616,126 @@ impl Context {
     // field
 
     #[func]
-    fn find_field(&self, location: Vector2, scroll: i64, flag: FieldFlag) -> Option<Gd<FieldKey>> {
+    fn find_tile(&self, location: Vector2) -> Option<Gd<TileKey>> {
         let context = self.context.as_ref().unwrap();
 
-        let point = Vec2::new(location.x, location.y);
-        match flag {
-            FieldFlag::Tile => {
-                let point = point.floor().as_ivec2();
-                if let Some(key) = context.dataflow.get_tile_key_by_point(point) {
-                    let inner = FieldKey_::Tile(key);
-                    return Some(Gd::from_object(FieldKey { inner }));
-                }
-            }
-            FieldFlag::Block => {
-                let keys = context
-                    .dataflow
-                    .get_block_keys_by_hint_point(point)
-                    .collect::<Vec<_>>();
-                if !keys.is_empty() {
-                    let index = (scroll as usize).div_euclid(keys.len());
-                    let inner = FieldKey_::Block(keys[index]);
-                    return Some(Gd::from_object(FieldKey { inner }));
-                }
-            }
-            FieldFlag::Entity => {
-                let keys = context
-                    .dataflow
-                    .get_entity_keys_by_hint_point(point)
-                    .collect::<Vec<_>>();
-                if !keys.is_empty() {
-                    let index = (scroll as usize).div_euclid(keys.len());
-                    let inner = FieldKey_::Entity(keys[index]);
-                    return Some(Gd::from_object(FieldKey { inner }));
-                }
-            }
-        }
-        None
+        let point = Vec2::new(location.x, location.y).floor().as_ivec2();
+        context
+            .dataflow
+            .get_tile_key_by_point(point)
+            .map(|key| Gd::from_object(TileKey { inner: key }))
     }
 
     #[func]
-    fn get_field(&self, field_key: Gd<FieldKey>) -> Gd<FieldResult> {
+    fn get_tile(&self, tile_key: Gd<TileKey>) -> Gd<TileResult> {
         let context = self.context.as_ref().unwrap();
 
-        let result = match **field_key.bind() {
-            FieldKey_::Tile(key) => {
-                let display_name = context.dataflow.get_tile_display_name(key).unwrap();
-                let description = context.dataflow.get_tile_description(key).unwrap();
-                FieldResult {
-                    display_name: display_name.into(),
-                    description: description.into(),
-                }
-            }
-            FieldKey_::Block(key) => {
-                let display_name = context.dataflow.get_block_display_name(key).unwrap();
-                let description = context.dataflow.get_block_description(key).unwrap();
-                FieldResult {
-                    display_name: display_name.into(),
-                    description: description.into(),
-                }
-            }
-            FieldKey_::Entity(key) => {
-                let display_name = context.dataflow.get_entity_display_name(key).unwrap();
-                let description = context.dataflow.get_entity_description(key).unwrap();
-                FieldResult {
-                    display_name: display_name.into(),
-                    description: description.into(),
-                }
-            }
-        };
-        Gd::from_object(result)
+        let k = **tile_key.bind();
+        let display_name = context.dataflow.get_tile_display_name(k).unwrap();
+        let description = context.dataflow.get_tile_description(k).unwrap();
+        Gd::from_object(TileResult {
+            display_name: display_name.into(),
+            description: description.into(),
+        })
+    }
+
+    #[func]
+    fn find_block(&self, location: Vector2, offset: i64) -> Option<Gd<BlockKey>> {
+        let context = self.context.as_ref().unwrap();
+
+        let point = Vec2::new(location.x, location.y);
+        let keys = context
+            .dataflow
+            .get_block_keys_by_hint_point(point)
+            .collect::<Vec<_>>();
+        if !keys.is_empty() {
+            let index = (offset as usize).div_euclid(keys.len());
+            Some(Gd::from_object(BlockKey { inner: keys[index] }))
+        } else {
+            None
+        }
+    }
+
+    #[func]
+    fn get_block(&self, block_key: Gd<BlockKey>) -> Gd<BlockResult> {
+        let context = self.context.as_ref().unwrap();
+
+        let k = **block_key.bind();
+        let display_name = context.dataflow.get_block_display_name(k).unwrap();
+        let description = context.dataflow.get_block_description(k).unwrap();
+        Gd::from_object(BlockResult {
+            display_name: display_name.into(),
+            description: description.into(),
+        })
+    }
+
+    #[func]
+    fn find_entity(&self, location: Vector2, offset: i64) -> Option<Gd<EntityKey>> {
+        let context = self.context.as_ref().unwrap();
+
+        let point = Vec2::new(location.x, location.y);
+        let keys = context
+            .dataflow
+            .get_entity_keys_by_hint_point(point)
+            .collect::<Vec<_>>();
+        if !keys.is_empty() {
+            let index = (offset as usize).div_euclid(keys.len());
+            Some(Gd::from_object(EntityKey { inner: keys[index] }))
+        } else {
+            None
+        }
+    }
+
+    #[func]
+    fn get_entity(&self, entity_key: Gd<EntityKey>) -> Gd<EntityResult> {
+        let context = self.context.as_ref().unwrap();
+
+        let k = **entity_key.bind();
+        let display_name = context.dataflow.get_entity_display_name(k).unwrap();
+        let description = context.dataflow.get_entity_description(k).unwrap();
+        Gd::from_object(EntityResult {
+            display_name: display_name.into(),
+            description: description.into(),
+        })
+    }
+
+    #[func]
+    fn draw_selection_none(&mut self) {
+        let context = self.context.as_mut().unwrap();
+
+        context
+            .selection_view
+            .update_view(&context.dataflow, &[], &[], &[]);
+    }
+
+    #[func]
+    fn draw_selection_tile(&mut self, tile_key: Gd<TileKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **tile_key.bind();
+        context
+            .selection_view
+            .update_view(&context.dataflow, &[k], &[], &[]);
+    }
+
+    #[func]
+    fn draw_selection_block(&mut self, block_key: Gd<BlockKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **block_key.bind();
+        context
+            .selection_view
+            .update_view(&context.dataflow, &[], &[k], &[]);
+    }
+
+    #[func]
+    fn draw_selection_entity(&mut self, entity_key: Gd<EntityKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **entity_key.bind();
+        context
+            .selection_view
+            .update_view(&context.dataflow, &[], &[], &[k]);
     }
 
     #[func]
@@ -694,32 +754,6 @@ impl Context {
         context
             .entity_field_view
             .update_view(&context.dataflow, min_rect);
-    }
-
-    #[func]
-    fn draw_selection(&mut self, field_key: Option<Gd<FieldKey>>) {
-        let context = self.context.as_mut().unwrap();
-
-        if let Some(field_key) = field_key {
-            let mut tile_keys = vec![];
-            let mut block_keys = vec![];
-            let mut entity_keys = vec![];
-            match **field_key.bind() {
-                FieldKey_::Tile(key) => tile_keys.push(key),
-                FieldKey_::Block(key) => block_keys.push(key),
-                FieldKey_::Entity(key) => entity_keys.push(key),
-            }
-            context.selection_view.update_view(
-                &context.dataflow,
-                &tile_keys,
-                &block_keys,
-                &entity_keys,
-            );
-        } else {
-            context
-                .selection_view
-                .update_view(&context.dataflow, &[], &[], &[]);
-        }
     }
 }
 
@@ -750,29 +784,14 @@ struct SlotResult {
     description: GString,
 }
 
-#[derive(GodotConvert, Var, Export, Debug)]
-#[godot(via = u8)]
-enum FieldFlag {
-    Tile,
-    Block,
-    Entity,
-}
-
-#[derive(Clone, Copy)]
-enum FieldKey_ {
-    Tile(core::dataflow::TileKey),
-    Block(core::dataflow::BlockKey),
-    Entity(core::dataflow::EntityKey),
-}
-
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct FieldKey {
-    inner: FieldKey_,
+struct TileKey {
+    inner: core::dataflow::TileKey,
 }
 
-impl std::ops::Deref for FieldKey {
-    type Target = FieldKey_;
+impl std::ops::Deref for TileKey {
+    type Target = core::dataflow::TileKey;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -781,7 +800,53 @@ impl std::ops::Deref for FieldKey {
 
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
-struct FieldResult {
+struct TileResult {
+    #[var]
+    display_name: GString,
+    #[var]
+    description: GString,
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct BlockKey {
+    inner: core::dataflow::BlockKey,
+}
+
+impl std::ops::Deref for BlockKey {
+    type Target = core::dataflow::BlockKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct BlockResult {
+    #[var]
+    display_name: GString,
+    #[var]
+    description: GString,
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct EntityKey {
+    inner: core::dataflow::EntityKey,
+}
+
+impl std::ops::Deref for EntityKey {
+    type Target = core::dataflow::EntityKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+#[derive(GodotClass)]
+#[class(no_init, base=RefCounted)]
+struct EntityResult {
     #[var]
     display_name: GString,
     #[var]

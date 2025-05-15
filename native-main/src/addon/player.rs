@@ -137,6 +137,17 @@ impl FieldFeature for PlayerEntityFeatureSet {
 
     fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
         let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
+        dataflow
+            .push_item_to_inventory(
+                inventory_key,
+                Item {
+                    id: 0,
+                    amount: 1,
+                    data: Default::default(),
+                    render_param: Default::default(),
+                },
+            )
+            .unwrap();
 
         dataflow
             .modify_entity(key, |entity| {
