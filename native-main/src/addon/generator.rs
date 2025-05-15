@@ -1,7 +1,7 @@
 use glam::*;
 use native_core::dataflow::*;
 
-pub trait Generator: std::fmt::Debug {
+pub trait Generator {
     fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]);
 }
 
@@ -33,15 +33,6 @@ impl Generator for MarchGenerator {
     }
 }
 
-impl std::fmt::Debug for MarchGenerator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MarchGenerator")
-            .field("prob", &self.prob)
-            .field("place_fn", &"...")
-            .finish()
-    }
-}
-
 pub struct SpawnGenerator {
     pub prob: f32,
     pub place_fn: PlaceFn<Vec2>,
@@ -63,23 +54,12 @@ impl Generator for SpawnGenerator {
     }
 }
 
-impl std::fmt::Debug for SpawnGenerator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SpawnGenerator")
-            .field("prob", &self.prob)
-            .field("place_fn", &"...")
-            .finish()
-    }
-}
-
-#[derive(Debug)]
 pub struct GeneratorResourceDescriptor {
     pub generators: Vec<Box<dyn Generator>>,
 }
 
 // resource
 
-#[derive(Debug)]
 pub struct GeneratorResource {
     generators: Vec<Box<dyn Generator>>,
     min_rect: Option<[IVec2; 2]>,

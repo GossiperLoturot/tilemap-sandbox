@@ -1,35 +1,24 @@
 extends Control
 
 
-const ITEM_SIZE: int = 32;
-
-@export var item_scene: PackedScene
 @export var item_deploy: Node
 
 
-func _enter_tree() -> void:
-	for i in ITEM_SIZE:
-		var item_instance = item_scene.instantiate()
-		item_deploy.add_child(item_instance)
-
-
-# invoked dynamicaly from native library
-func change_inventory(ui: Control, inventory_key: int) -> void:
-	for i in ITEM_SIZE:
-		var child = item_deploy.get_child(i)
-		child.call("change_inventory_item", ui, inventory_key, i)
+func on_instantiate(slot_keys: Array[SlotKey]) -> void:
+	for slot_key in slot_keys:
+		var instance = preload("res://scenes/inventory_item.tscn").instantiate()
+		item_deploy.add_child(instance)
+		instance.on_instantiate(slot_key)
 
 
 func _on_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			self.get_parent().move_child(self, -1)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		self.get_parent().move_child(self, -1)
 
 
 func _on_header_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
-		var is_inside = self.get_viewport_rect().has_point(self.get_global_mouse_position())
-		if is_inside and event.button_mask == MOUSE_BUTTON_MASK_LEFT:
+	if event is InputEventMouseMotion and event.button_mask == MOUSE_BUTTON_MASK_LEFT:
+		if self.get_viewport_rect().has_point(self.get_global_mouse_position()):
 			self.position = self.position + event.relative
 
 

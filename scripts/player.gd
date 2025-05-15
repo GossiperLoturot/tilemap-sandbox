@@ -59,7 +59,11 @@ func _process(delta) -> void:
 		view_size * 2
 	))
 
+	if Input.is_action_just_pressed("inventory"):
+		Context.open_player_inventory()
+
 
 # kill player
 func _exit_tree() -> void:
-	pass # Context.player_kill()
+	# Context.player_kill()
+	pass

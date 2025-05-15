@@ -7,7 +7,6 @@
 [ext_resource type="AudioStream" uid="uid://d3h4pd2n5pl4q" path="res://audio/image.ogg" id="4_jkv2x"]
 [ext_resource type="Shader" uid="uid://lp00brq7ocmn" path="res://shaders/vignette.gdshader" id="5_h8o78"]
 [ext_resource type="AudioStream" uid="uid://c5nioe2rf6v21" path="res://audio/MEET UP.ogg" id="5_jbj1t"]
-[ext_resource type="Script" uid="uid://bcv1qv4wrveco" path="res://scripts/ui.gd" id="5_tbgi4"]
 [ext_resource type="AudioStream" uid="uid://bk16hklyvh7hf" path="res://audio/monoui.ogg" id="6_muem4"]
 [ext_resource type="AudioStream" uid="uid://bmnjaoout1aik" path="res://audio/Sept..ogg" id="7_dp3eg"]
 [ext_resource type="AudioStream" uid="uid://dkufs3i1x5fne" path="res://audio/Soranaka.ogg" id="8_0ld40"]
@@ -16,6 +15,7 @@
 [ext_resource type="AudioStream" uid="uid://6wq024pbdqnx" path="res://audio/冷夏.ogg" id="10_yc10j"]
 [ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
 [ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/selection.tscn" id="14_jkv2x"]
+[ext_resource type="Script" uid="uid://c76of51woo10b" path="res://scripts/field.gd" id="14_muem4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -34,16 +34,13 @@ script = ExtResource("10_jkv2x")
 names = Array[String](["Donut - もえるごみ", "image - もえるごみ", "MEET UP - もえるごみ", "monoui - もえるごみ", "Sept. - もえるごみ", "Soranaka - もえるごみ", "swim - もえるごみ", "冷夏 - もえるごみ"])
 streams = Array[AudioStream]([ExtResource("3_jkv2x"), ExtResource("4_jkv2x"), ExtResource("5_jbj1t"), ExtResource("6_muem4"), ExtResource("7_dp3eg"), ExtResource("8_0ld40"), ExtResource("9_gqmmt"), ExtResource("10_yc10j")])
 
-[node name="UI" type="Control" parent="." node_paths=PackedStringArray("camera", "selection")]
+[node name="UI" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("5_tbgi4")
-camera = NodePath("../World/Camera3D")
-selection = NodePath("Selection")
 
 [node name="VignetteFilter" type="ColorRect" parent="UI"]
 material = SubResource("ShaderMaterial_eft26")
@@ -56,6 +53,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="AudioStatus" parent="UI" instance=ExtResource("14_jbj1t")]
+visible = false
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -65,8 +63,19 @@ offset_bottom = 0.0
 grow_vertical = 0
 
 [node name="Selection" parent="UI" instance=ExtResource("14_jkv2x")]
+visible = false
 z_index = 1
 layout_mode = 0
+
+[node name="Field" type="Control" parent="UI" node_paths=PackedStringArray("camera")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("14_muem4")
+camera = NodePath("../../World/Camera3D")
 
 [node name="World" type="Node3D" parent="." node_paths=PackedStringArray("ui")]
 script = ExtResource("1_b2r8a")
@@ -84,10 +93,14 @@ camera = NodePath("../Camera3D")
 forward_size = 32.0
 view_size_over = 8.0
 
+[connection signal="finished" from="Audio" to="Audio" method="next_stream"]
+[connection signal="ready" from="Audio" to="Audio" method="next_stream"]
 [connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="_on_stream_changed"]
 [connection signal="gui_input" from="UI" to="UI" method="_on_gui_input"]
 [connection signal="mouse_entered" from="UI" to="UI" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="UI" to="UI" method="_on_mouse_exited"]
+[connection signal="mouse_entered" from="UI/Field" to="UI/Field" method="_on_mouse_entered"]
+[connection signal="mouse_exited" from="UI/Field" to="UI/Field" method="_on_mouse_exited"]
 [connection signal="forwarder_rect_changed" from="World/Player" to="World" method="_on_forwarder_rect_changed"]
 [connection signal="gen_rect_changed" from="World/Player" to="World" method="_on_gen_rect_changed"]
 [connection signal="view_rect_changed" from="World/Player" to="World" method="_on_view_rect_changed"]
