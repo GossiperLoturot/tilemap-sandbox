@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8k84jhc1augj"]
+
+[ext_resource type="Script" uid="uid://c5ajqg4r7ukm0" path="res://scripts/inventory_player.gd" id="1_pcaq3"]
+
+[node name="InventoryPlayer" type="PanelContainer" node_paths=PackedStringArray("item_deploy")]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -26.0
+offset_right = 160.0
+offset_bottom = 26.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pcaq3")
+item_deploy = NodePath("Container/Body/Container")
+
+[node name="Container" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="Container"]
+layout_mode = 2
+alignment = 2
+
+[node name="CloseButton" type="Button" parent="Container/Header"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+text = "x"
+
+[node name="Body" type="MarginContainer" parent="Container"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Container" type="GridContainer" parent="Container/Body"]
+layout_mode = 2
+columns = 8
+
+[connection signal="gui_input" from="." to="." method="_on_gui_input"]
+[connection signal="gui_input" from="Container/Header" to="." method="_on_header_gui_input"]
+[connection signal="pressed" from="Container/Header/CloseButton" to="." method="_on_close_button_pressed"]

@@ -78,11 +78,17 @@ func retrieve_func(name: String):
 		"image_item_package": preload("res://images/package.webp"),
 
 		"callable_inventory_player": instantiate_inventory_player,
+		"callable_inventory_global": instantiate_inventory_global,
 	}
 	return retrieve_table[name]
 
 
 func instantiate_inventory_player(slot_keys: Array[SlotKey]) -> void:
 	var instance = preload("res://scenes/inventory_player.tscn").instantiate()
+	ui.add_child(instance)
+	instance.on_instantiate(slot_keys)
+
+func instantiate_inventory_global(slot_keys: Array[SlotKey]) -> void:
+	var instance = preload("res://scenes/inventory_global.tscn").instantiate()
 	ui.add_child(instance)
 	instance.on_instantiate(slot_keys)

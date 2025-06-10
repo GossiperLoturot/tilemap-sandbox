@@ -62,6 +62,9 @@ func _process(delta) -> void:
 	if Input.is_action_just_pressed("inventory"):
 		Context.open_player_inventory()
 
+	if Input.is_action_just_pressed("global"):
+		Context.open_global_inventory()
+
 
 # kill player
 func _exit_tree() -> void:
