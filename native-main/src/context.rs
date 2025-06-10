@@ -393,6 +393,14 @@ impl Context {
             }
         });
 
+        // global inventory
+        builder.add_inventory("inventory_global".into(), |_, retriever| {
+            core::InventoryDescriptor {
+                size: 0,
+                callback: retriever.load("callable_inventory_global"),
+            }
+        });
+
         let retriever = core::Retriever::new(retrieve_callable);
         let desc = core::BuildDescriptor {
             tile_shaders: vec![retriever.load("shader_field")],
@@ -481,6 +489,15 @@ impl Context {
         let resource = addon::PlayerResource::new();
         context.dataflow.insert_resources(resource).unwrap();
 
+        // global inventory
+        let resource = addon::GlobalInventoryResource::new();
+        context.dataflow.insert_resources(resource).unwrap();
+        addon::GlobalInventorySystem::insert_inventory(
+            &mut context.dataflow,
+            context.registry.get("inventory_global"),
+        )
+        .unwrap();
+
         self.context = Some(context);
     }
 
@@ -557,6 +574,30 @@ impl Context {
         let context = self.context.as_mut().unwrap();
 
         if let Ok(inventory_key) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
+            let _ = context.item_storage_view.open_inventory(
+                &context.dataflow,
+                inventory_key,
+                |callable, inventory| {
+                    let mut slot_keys = Array::<Gd<SlotKey>>::new();
+                    for (local_key, _) in inventory.slots.iter().enumerate() {
+                        let slot_key = (inventory_key, local_key as u32);
+                        slot_keys.push(&Gd::from_object(SlotKey { inner: slot_key }));
+                    }
+                    callable.call(&[slot_keys.to_variant()]);
+                },
+            );
+        }
+    }
+
+    // global inventory
+
+    #[func]
+    fn open_global_inventory(&mut self) {
+        let context = self.context.as_mut().unwrap();
+
+        if let Ok(inventory_key) =
+            addon::GlobalInventorySystem::get_inventory_key(&context.dataflow)
+        {
             let _ = context.item_storage_view.open_inventory(
                 &context.dataflow,
                 inventory_key,
