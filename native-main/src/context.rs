@@ -2,7 +2,7 @@ use glam::*;
 use godot::prelude::*;
 use native_core as core;
 
-use crate::addon;
+use crate::addon::{self, BreakFeatureSet};
 
 #[derive(GodotClass)]
 #[class(init, base=Object)]
@@ -103,7 +103,7 @@ impl Context {
         });
 
         // mix pebbles block
-        builder.add_block("block_mixpebbles".into(), |_, retriever| {
+        builder.add_block("block_mixpebbles".into(), |registry, retriever| {
             core::BlockDescriptor {
                 display_name: "Pebbles".into(),
                 description: "".into(),
@@ -118,7 +118,10 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature_set: Box::new(()),
+                feature_set: Box::new(BreakFeatureSet {
+                    item_entity_id: registry.get("entity_package"),
+                    item_id: registry.get("item_package"),
+                }),
             }
         });
 
@@ -373,6 +376,44 @@ impl Context {
             }
         });
 
+        // package entity
+        builder.add_entity("entity_package".into(), |_, retriever| {
+            core::EntityDescriptor {
+                display_name: "Package".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![retriever.load("image_item_package")],
+                    step_tick: 0,
+                    is_loop: false,
+                }],
+                z_along_y: true,
+                collision_size: Vec2::new(0.0, 0.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                rendering_size: Vec2::new(1.0, 1.0),
+                rendering_offset: Vec2::new(-0.5, -0.5),
+                feature_set: Box::new(addon::ItemEntityFeatureSet {}),
+            }
+        });
+
+        // particle entity
+        builder.add_entity("entity_particle".into(), |_, retriever| {
+            core::EntityDescriptor {
+                display_name: "Particle".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![retriever.load("image_item_package")],
+                    step_tick: 0,
+                    is_loop: false,
+                }],
+                z_along_y: true,
+                collision_size: Vec2::new(0.0, 0.0),
+                collision_offset: Vec2::new(0.0, 0.0),
+                rendering_size: Vec2::new(1.5, 1.5),
+                rendering_offset: Vec2::new(-0.75, -0.75),
+                feature_set: Box::new(addon::ParticleEntityFeatureSet {}),
+            }
+        });
+
         // package item
         builder.add_item("item_package".into(), |_, retriever| core::ItemDescriptor {
             display_name: "Package".into(),
@@ -466,9 +507,39 @@ impl Context {
                     })
                 },
                 {
-                    let id = context.registry.get("entity_bird");
+                    let id = context.registry.get("block_fallenleaves");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.05,
+                        place_fn: Box::new(move |dataflow, location| {
+                            let block = core::dataflow::Block {
+                                id,
+                                location: location.as_ivec2(),
+                                data: Default::default(),
+                                render_param: Default::default(),
+                            };
+                            let _ = dataflow.insert_block(block);
+                        }),
+                    })
+                },
+                {
+                    let id = context.registry.get("block_mixpebbles");
+                    Box::new(addon::SpawnGenerator {
+                        prob: 0.05,
+                        place_fn: Box::new(move |dataflow, location| {
+                            let block = core::dataflow::Block {
+                                id,
+                                location: location.as_ivec2(),
+                                data: Default::default(),
+                                render_param: Default::default(),
+                            };
+                            let _ = dataflow.insert_block(block);
+                        }),
+                    })
+                },
+                {
+                    let id = context.registry.get("entity_bird");
+                    Box::new(addon::SpawnGenerator {
+                        prob: 0.01,
                         place_fn: Box::new(move |dataflow, location| {
                             let entity = core::dataflow::Entity {
                                 id,
@@ -497,6 +568,13 @@ impl Context {
             context.registry.get("inventory_global"),
         )
         .unwrap();
+
+        // breakable system
+        let resource = addon::BreakableResource {
+            default_tile_id: context.registry.get("tile_dirt"),
+            id: context.registry.get("entity_particle"),
+        };
+        context.dataflow.insert_resources(resource).unwrap();
 
         self.context = Some(context);
     }
@@ -777,6 +855,30 @@ impl Context {
         context
             .selection_view
             .update_view(&context.dataflow, &[], &[], &[k]);
+    }
+
+    #[func]
+    fn break_tile(&mut self, tile_key: Gd<TileKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **tile_key.bind();
+        addon::BreakableSystem::break_tile(&mut context.dataflow, k).unwrap();
+    }
+
+    #[func]
+    fn break_block(&mut self, block_key: Gd<BlockKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **block_key.bind();
+        addon::BreakableSystem::break_block(&mut context.dataflow, k).unwrap();
+    }
+
+    #[func]
+    fn break_entity(&mut self, entity_key: Gd<EntityKey>) {
+        let context = self.context.as_mut().unwrap();
+
+        let k = **entity_key.bind();
+        addon::BreakableSystem::break_entity(&mut context.dataflow, k).unwrap();
     }
 
     #[func]
