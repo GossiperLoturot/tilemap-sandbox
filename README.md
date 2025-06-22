@@ -1,31 +1,34 @@
 # tilemap-sandbox
 
+[Japanese](README_ja.md)
+
 ![image](https://github.com/user-attachments/assets/2bbd5937-ccb6-4263-9c7d-7d4177f581b5)
 
-## 概要
+## Overview
 
-**tilemap-sandbox** は、Rust と Godot ゲームエンジンを用いて構築された、タイルベースの2Dゲーム開発フレームワークです。本プロジェクトは、動的に編集可能なタイル、ブロック、エンティティを備えた2Dタイルベースのワールドを構築することを目的としています。
+**tilemap-sandbox** is a tile-based 2D game development framework built using Rust and the Godot game engine. This project aims to construct a 2D tile-based world featuring dynamically editable tiles, blocks, and entities.
 
-## 特徴
+## Features
 
-主な特徴は以下のようになります。
+The primary features are as follows:
 
-* **関心の分離** : 自由度が高く柔軟性を備えた Godot ゲームエンジン と 高い実行効率と型安全性を持つ Rust による効果的な設計
-* **効率的なデータ管理** : 空間インデクスを用いたタイル、ブロック、エンティティの効率的な管理が可能
-* **柔軟な拡張性** : 「プロシージャルなワールド生成」「プレイヤーの移動や動物の AI などの動作制御」などのイベントループを高い自由度で管理可能
+* **Separation of Concerns** : A well-structured design leveraging the high flexibility of the Godot game engine and the execution efficiency and type safety provided by Rust.
+* **Efficient Data Management** : Efficient handling of tiles, blocks, and entities through the use of spatial indexing.
+* **Flexible Extensibility** : Highly customizable event loop management for tasks such as procedural world generation, player movement, and animal AI behavior control.
 
-## 拡張
+## Extensibility
 
-拡張が可能な要素は以下のようになります。
+The following elements can be extended:
 
-* 新しいタイル、ブロック、エンティティ、アイテム
-* 新しいイベントループ
-* 新しい Godot と Rust の API エンドポイント
+* New tiles, blocks, entities, and items
+* New event loops
+* New API endpoints for both Godot and Rust
 
-## プロジェクト構成と拡張
+## Project Structure and Extensibility
 
-本プロジェクトは、1つの Godot プロジェクトと2つの Rust クレートから構成されています。
+This project is composed of a single Godot project and two Rust crates:
 
-* `/`：描画や入力イベントの処理を行い、アプリケーションのエントリポイントとなる Godot プロジェクト。
-* `/native-core`：データフローやビューなどのコアシステムを含む。
-* `/native-main`：ユーザー定義の派生機能の実装と、Godot エンジンに対する API の公開を担う。
+* `/` : The Godot project, responsible for rendering and handling input events, and serves as the entry point of the application.
+* `/native-core` : Contains core systems such as data flow and views.
+* `/native-main` : Implements user-defined features and exposes APIs to the Godot engine.
+
