@@ -73,8 +73,11 @@ impl BreakableSystem {
         dataflow.insert_entity(Entity {
             id: resource.id,
             location,
-            data: Box::new(ParticleEntityData { lifetime: 0.5 }),
-            render_param: Default::default(),
+            data: Box::new(ParticleEntityData { lifetime: 0.333 }),
+            render_param: EntityRenderParam {
+                tick: dataflow.get_tick() as u32,
+                ..Default::default()
+            },
         })?;
         let mut tile = dataflow.remove_til(tile_key)?;
 
@@ -93,20 +96,31 @@ impl BreakableSystem {
         dataflow: &mut Dataflow,
         block_key: BlockKey,
     ) -> Result<Block, DataflowError> {
+        let rng = &mut rand::thread_rng();
+
         let resource = dataflow.find_resources::<BreakableResource>().unwrap();
         let resource = resource.borrow().unwrap();
 
         let rect = dataflow.get_block_hint_rect(block_key)?;
-        let location = (rect[0] + rect[1]) * 0.5;
+        let area = (rect[1] - rect[0]).element_product();
+        for _ in 0..(area / 4.0).ceil() as usize {
+            let x = rand::Rng::gen_range(rng, rect[0].x..rect[1].x);
+            let y = rand::Rng::gen_range(rng, rect[0].y..rect[1].y);
+            let location = Vec2::new(x, y);
 
-        dataflow.insert_entity(Entity {
-            id: resource.id,
-            location,
-            data: Box::new(ParticleEntityData { lifetime: 0.5 }),
-            render_param: Default::default(),
-        })?;
+            dataflow.insert_entity(Entity {
+                id: resource.id,
+                location,
+                data: Box::new(ParticleEntityData { lifetime: 0.333 }),
+                render_param: EntityRenderParam {
+                    tick: dataflow.get_tick() as u32,
+                    ..Default::default()
+                },
+            })?;
+        }
         let block = dataflow.remove_block(block_key)?;
 
+        let location = (rect[0] + rect[1]) * 0.5;
         if let Ok(feature) = dataflow.get_block_feature::<Rc<dyn BreakFeature<Block>>>(block.id) {
             let feature = feature.clone();
             feature.r#break(dataflow, &block, location);
@@ -128,8 +142,11 @@ impl BreakableSystem {
         dataflow.insert_entity(Entity {
             id: resource.id,
             location,
-            data: Box::new(ParticleEntityData { lifetime: 0.5 }),
-            render_param: Default::default(),
+            data: Box::new(ParticleEntityData { lifetime: 0.333 }),
+            render_param: EntityRenderParam {
+                tick: dataflow.get_tick() as u32,
+                ..Default::default()
+            },
         })?;
         let entity = dataflow.remove_entity(entity_key)?;
 

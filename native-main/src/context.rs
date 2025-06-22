@@ -30,16 +30,21 @@ impl Context {
         });
 
         // grass tile
-        builder.add_tile("tile_grass".into(), |_, retriever| core::TileDescriptor {
-            display_name: "Grass".into(),
-            description: "".into(),
-            images: vec![core::ImageDescriptor {
-                frames: vec![retriever.load("image_tile_grass")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            collision: false,
-            feature_set: Box::new(()),
+        builder.add_tile("tile_grass".into(), |registry, retriever| {
+            core::TileDescriptor {
+                display_name: "Grass".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![retriever.load("image_tile_grass")],
+                    step_tick: 0,
+                    is_loop: false,
+                }],
+                collision: false,
+                feature_set: Box::new(BreakFeatureSet {
+                    item_entity_id: registry.get("entity_package"),
+                    item_id: registry.get("item_grass"),
+                }),
+            }
         });
 
         // dandelion block
@@ -63,7 +68,7 @@ impl Context {
         });
 
         // fallen leaves block
-        builder.add_block("block_fallenleaves".into(), |_, retriever| {
+        builder.add_block("block_fallenleaves".into(), |registry, retriever| {
             core::BlockDescriptor {
                 display_name: "Fallen Leaves".into(),
                 description: "".into(),
@@ -78,7 +83,10 @@ impl Context {
                 collision_offset: Vec2::new(0.0, 0.0),
                 rendering_size: Vec2::new(1.0, 1.0),
                 rendering_offset: Vec2::new(0.0, 0.0),
-                feature_set: Box::new(()),
+                feature_set: Box::new(BreakFeatureSet {
+                    item_entity_id: registry.get("entity_package"),
+                    item_id: registry.get("item_fallenleaves"),
+                }),
             }
         });
 
@@ -120,7 +128,33 @@ impl Context {
                 rendering_offset: Vec2::new(0.0, 0.0),
                 feature_set: Box::new(BreakFeatureSet {
                     item_entity_id: registry.get("entity_package"),
-                    item_id: registry.get("item_package"),
+                    item_id: registry.get("item_mixpebbles"),
+                }),
+            }
+        });
+
+        // oak tree block
+        builder.add_block("block_oaktree".into(), |registry, retriever| {
+            core::BlockDescriptor {
+                display_name: "Oak Tree".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![
+                        retriever.load("image_block_oaktree0"),
+                        retriever.load("image_block_oaktree1"),
+                    ],
+                    step_tick: 48,
+                    is_loop: true,
+                }],
+                z_along_y: true,
+                size: IVec2::new(4, 2),
+                collision_size: Vec2::new(1.0, 2.0),
+                collision_offset: Vec2::new(-0.5, 0.0),
+                rendering_size: Vec2::new(4.0, 6.0),
+                rendering_offset: Vec2::new(-2.0, 0.0),
+                feature_set: Box::new(BreakFeatureSet {
+                    item_entity_id: registry.get("entity_package"),
+                    item_id: registry.get("item_wood"),
                 }),
             }
         });
@@ -382,15 +416,15 @@ impl Context {
                 display_name: "Package".into(),
                 description: "".into(),
                 images: vec![core::ImageDescriptor {
-                    frames: vec![retriever.load("image_item_package")],
+                    frames: vec![retriever.load("image_entity_package")],
                     step_tick: 0,
                     is_loop: false,
                 }],
                 z_along_y: true,
                 collision_size: Vec2::new(0.0, 0.0),
                 collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.0, 1.0),
-                rendering_offset: Vec2::new(-0.5, -0.5),
+                rendering_size: Vec2::new(0.5, 0.5),
+                rendering_offset: Vec2::new(-0.25, -0.25),
                 feature_set: Box::new(addon::ItemEntityFeatureSet {}),
             }
         });
@@ -401,25 +435,68 @@ impl Context {
                 display_name: "Particle".into(),
                 description: "".into(),
                 images: vec![core::ImageDescriptor {
-                    frames: vec![retriever.load("image_item_package")],
-                    step_tick: 0,
+                    frames: vec![
+                        retriever.load("image_entity_particle0"),
+                        retriever.load("image_entity_particle1"),
+                    ],
+                    step_tick: 4,
                     is_loop: false,
                 }],
                 z_along_y: true,
                 collision_size: Vec2::new(0.0, 0.0),
                 collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.5, 1.5),
-                rendering_offset: Vec2::new(-0.75, -0.75),
+                rendering_size: Vec2::new(2.0, 2.0),
+                rendering_offset: Vec2::new(-1.0, -1.0),
                 feature_set: Box::new(addon::ParticleEntityFeatureSet {}),
             }
         });
 
-        // package item
-        builder.add_item("item_package".into(), |_, retriever| core::ItemDescriptor {
-            display_name: "Package".into(),
-            description: "A package of items.".into(),
+        // grass item
+        builder.add_item("item_grass".into(), |_, retriever| core::ItemDescriptor {
+            display_name: "Grass".into(),
+            description: "".into(),
             images: vec![core::ImageDescriptor {
-                frames: vec![retriever.load("image_item_package")],
+                frames: vec![retriever.load("image_item_grass")],
+                step_tick: 0,
+                is_loop: false,
+            }],
+            feature_set: Box::new(()),
+        });
+
+        // fallen leaves item
+        builder.add_item("item_fallenleaves".into(), |_, retriever| {
+            core::ItemDescriptor {
+                display_name: "Fallen Leaves".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![retriever.load("image_item_fallenleaves")],
+                    step_tick: 0,
+                    is_loop: false,
+                }],
+                feature_set: Box::new(()),
+            }
+        });
+
+        // mix pebbles item
+        builder.add_item("item_mixpebbles".into(), |_, retriever| {
+            core::ItemDescriptor {
+                display_name: "Pebbles".into(),
+                description: "".into(),
+                images: vec![core::ImageDescriptor {
+                    frames: vec![retriever.load("image_item_mixpebbles")],
+                    step_tick: 0,
+                    is_loop: false,
+                }],
+                feature_set: Box::new(()),
+            }
+        });
+
+        // wood item
+        builder.add_item("item_wood".into(), |_, retriever| core::ItemDescriptor {
+            display_name: "Wood".into(),
+            description: "".into(),
+            images: vec![core::ImageDescriptor {
+                frames: vec![retriever.load("image_item_wood")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -488,6 +565,25 @@ impl Context {
                                 render_param: Default::default(),
                             };
                             let _ = dataflow.insert_tile(tile);
+                        }),
+                    })
+                },
+                {
+                    let id = context.registry.get("block_oaktree");
+                    Box::new(addon::SpawnGenerator {
+                        prob: 0.01,
+                        place_fn: Box::new(move |dataflow, location| {
+                            let block = core::dataflow::Block {
+                                id,
+                                location: location.as_ivec2(),
+                                data: Default::default(),
+                                render_param: native_core::dataflow::BlockRenderParam {
+                                    tick: (location.x as i32 + location.y as i32).rem_euclid(48)
+                                        as u32,
+                                    ..Default::default()
+                                },
+                            };
+                            let _ = dataflow.insert_block(block);
                         }),
                     })
                 },
