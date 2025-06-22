@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=19 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" uid="uid://bsd7tx34x8nw" path="res://scripts/hook.gd" id="1_1bvp3"]
 [ext_resource type="Script" uid="uid://bpv4xw5yua7lf" path="res://scripts/world.gd" id="1_b2r8a"]
@@ -16,10 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
 [ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/selection.tscn" id="14_jkv2x"]
 [ext_resource type="Script" uid="uid://c76of51woo10b" path="res://scripts/field.gd" id="14_muem4"]
-[ext_resource type="Texture2D" uid="uid://6otrtkhsynda" path="res://icons/none.svg" id="15_gqmmt"]
-[ext_resource type="Texture2D" uid="uid://cksiain1f3jux" path="res://icons/tile.svg" id="16_yc10j"]
-[ext_resource type="Texture2D" uid="uid://dmwp5nsywi6qu" path="res://icons/block.svg" id="17_jscy8"]
-[ext_resource type="Texture2D" uid="uid://c0aewr8va64oc" path="res://icons/entity.svg" id="18_pm3ni"]
+[ext_resource type="PackedScene" uid="uid://b1k0slci3f1xj" path="res://scenes/selection_mode_picker.tscn" id="15_muem4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -81,37 +78,8 @@ grow_vertical = 2
 script = ExtResource("14_muem4")
 camera = NodePath("../../World/Camera3D")
 
-[node name="SelectionModePicker" type="MarginContainer" parent="UI"]
+[node name="SelectionModePicker" parent="UI" instance=ExtResource("15_muem4")]
 layout_mode = 0
-offset_right = 97.0
-offset_bottom = 148.0
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="UI/SelectionModePicker"]
-layout_mode = 2
-
-[node name="NoneButton" type="Button" parent="UI/SelectionModePicker/VBoxContainer"]
-layout_mode = 2
-text = "None"
-icon = ExtResource("15_gqmmt")
-
-[node name="TileButton" type="Button" parent="UI/SelectionModePicker/VBoxContainer"]
-layout_mode = 2
-text = "Tile"
-icon = ExtResource("16_yc10j")
-
-[node name="BlockButton" type="Button" parent="UI/SelectionModePicker/VBoxContainer"]
-layout_mode = 2
-text = "Block"
-icon = ExtResource("17_jscy8")
-
-[node name="EntityButton" type="Button" parent="UI/SelectionModePicker/VBoxContainer"]
-layout_mode = 2
-text = "Entity"
-icon = ExtResource("18_pm3ni")
 
 [node name="World" type="Node3D" parent="." node_paths=PackedStringArray("ui")]
 script = ExtResource("1_b2r8a")
@@ -137,10 +105,6 @@ view_size_over = 8.0
 [connection signal="mouse_exited" from="UI" to="UI" method="_on_mouse_exited"]
 [connection signal="mouse_entered" from="UI/Field" to="UI/Field" method="_on_mouse_entered"]
 [connection signal="mouse_exited" from="UI/Field" to="UI/Field" method="_on_mouse_exited"]
-[connection signal="pressed" from="UI/SelectionModePicker/VBoxContainer/NoneButton" to="UI/Field" method="set_mode" binds= [0]]
-[connection signal="pressed" from="UI/SelectionModePicker/VBoxContainer/TileButton" to="UI/Field" method="set_mode" binds= [1]]
-[connection signal="pressed" from="UI/SelectionModePicker/VBoxContainer/BlockButton" to="UI/Field" method="set_mode" binds= [2]]
-[connection signal="pressed" from="UI/SelectionModePicker/VBoxContainer/EntityButton" to="UI/Field" method="set_mode" binds= [3]]
 [connection signal="forwarder_rect_changed" from="World/Player" to="World" method="_on_forwarder_rect_changed"]
 [connection signal="gen_rect_changed" from="World/Player" to="World" method="_on_gen_rect_changed"]
 [connection signal="view_rect_changed" from="World/Player" to="World" method="_on_view_rect_changed"]

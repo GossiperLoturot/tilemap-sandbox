@@ -1,0 +1,44 @@
+[gd_scene load_steps=6 format=3 uid="uid://b1k0slci3f1xj"]
+
+[ext_resource type="Script" uid="uid://ciid3jncwrqsh" path="res://scripts/selection_mode_picker.gd" id="1_e5spv"]
+[ext_resource type="Texture2D" uid="uid://6otrtkhsynda" path="res://icons/none.svg" id="2_q7jss"]
+[ext_resource type="Texture2D" uid="uid://cksiain1f3jux" path="res://icons/tile.svg" id="3_laxs4"]
+[ext_resource type="Texture2D" uid="uid://dmwp5nsywi6qu" path="res://icons/block.svg" id="4_v2x5s"]
+[ext_resource type="Texture2D" uid="uid://c0aewr8va64oc" path="res://icons/entity.svg" id="5_1her4"]
+
+[node name="SelectionModePicker" type="MarginContainer"]
+offset_right = 97.0
+offset_bottom = 148.0
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 0
+script = ExtResource("1_e5spv")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="NoneButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "None"
+icon = ExtResource("2_q7jss")
+
+[node name="TileButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Tile"
+icon = ExtResource("3_laxs4")
+
+[node name="BlockButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Block"
+icon = ExtResource("4_v2x5s")
+
+[node name="EntityButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Entity"
+icon = ExtResource("5_1her4")
+
+[connection signal="pressed" from="VBoxContainer/NoneButton" to="." method="set_mode" binds= [0]]
+[connection signal="pressed" from="VBoxContainer/TileButton" to="." method="set_mode" binds= [1]]
+[connection signal="pressed" from="VBoxContainer/BlockButton" to="." method="set_mode" binds= [2]]
+[connection signal="pressed" from="VBoxContainer/EntityButton" to="." method="set_mode" binds= [3]]
