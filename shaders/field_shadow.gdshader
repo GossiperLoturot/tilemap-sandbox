@@ -6,7 +6,7 @@ render_mode skip_vertex_transform, unshaded;
 
 #define SHADOW_DIR vec3(0.5, 0.0, 0.0)
 #define SHADOW_BASE vec3(0.0, 0.0, -0.03125)
-#define SHADOW vec4(0.0, 0.0, 0.0, 0.25)
+#define SHADOW vec4(0.0, 0.0, 0.0, 0.4)
 
 uniform sampler2D screen_texture: hint_screen_texture, repeat_disable, filter_nearest;
 

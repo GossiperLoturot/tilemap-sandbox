@@ -8,7 +8,7 @@ const MODE_NONE: int = 0
 const MODE_TILE: int = 1
 const MODE_BLOCK: int = 2
 const MODE_ENTITY: int = 3
-var mode: int = MODE_ENTITY
+var mode: int = MODE_NONE
 var offset: int
 
 
@@ -48,3 +48,7 @@ func _on_mouse_entered() -> void:
 func _on_mouse_exited() -> void:
 	_is_mouse_entered = false
 	Selection.context.hide_selection()
+
+
+func set_mode(mode: int):
+	self.mode = mode

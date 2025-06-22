@@ -46,6 +46,8 @@ func retrieve_func(name: String):
 		"image_tile_dirt": preload("res://images/dirt.webp"),
 		"image_tile_grass": preload("res://images/grass.webp"),
 
+		"image_block_oaktree0": preload("res://images/oaktree_0.webp"),
+		"image_block_oaktree1": preload("res://images/oaktree_1.webp"),
 		"image_block_dandelion": preload("res://images/dandelion.webp"),
 		"image_block_fallenleaves": preload("res://images/fallenleaves.webp"),
 		"image_block_mixgrass": preload("res://images/mixgrass.webp"),
@@ -75,7 +77,14 @@ func retrieve_func(name: String):
 		"image_entity_chicken_walk": preload("res://images/chicken_walk.webp"),
 		"image_entity_bird_idle": preload("res://images/bird_idle.webp"),
 		"image_entity_bird_walk": preload("res://images/bird_walk.webp"),
-		"image_item_package": preload("res://images/package.webp"),
+		"image_entity_package": preload("res://images/package.webp"),
+		"image_entity_particle0": preload("res://images/break_0.webp"),
+		"image_entity_particle1": preload("res://images/break_1.webp"),
+
+		"image_item_grass": preload("res://images/mixgrass.webp"),
+		"image_item_fallenleaves": preload("res://images/fallenleaves.webp"),
+		"image_item_mixpebbles": preload("res://images/mixpebbles.webp"),
+		"image_item_wood": preload("res://images/wood.webp"),
 
 		"callable_inventory_player": instantiate_inventory_player,
 		"callable_inventory_global": instantiate_inventory_global,

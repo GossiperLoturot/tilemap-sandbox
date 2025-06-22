@@ -55,19 +55,23 @@ func select_item(slot_key: SlotKey) -> void:
 
 
 func confirm_tile(tile_key: TileKey) -> void:
-	print(tile_key)
+	if tile_key:
+		Context.break_tile(tile_key)
 
 
 func confirm_block(block_key: BlockKey) -> void:
-	print(block_key)
+	if block_key:
+		Context.break_block(block_key)
 
 
 func confirm_entity(entity_key: EntityKey) -> void:
-	print(entity_key)
+	if entity_key:
+		Context.break_entity(entity_key)
 
 
 func confirm_item(slot_key: SlotKey) -> void:
-	print(slot_key)
+	if slot_key:
+		print(slot_key)
 
 
 func show_selection() -> void:
