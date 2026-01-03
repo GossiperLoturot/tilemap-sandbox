@@ -11,8 +11,18 @@ config_version=5
 [application]
 
 config/name="tilemap-sandbox"
-run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.4", "GL Compatibility")
+run/main_scene="uid://bqcmmom1iet7q"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[gui]
+
+theme/custom="uid://go2l1a4o654y"
+theme/custom_font="uid://dkle2yef3vmkm"
 
 [input]
 
