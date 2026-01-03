@@ -28,7 +28,7 @@ float fbm(vec2 st) {
     float amplitude = 0.5;
     float frequency = 1.0;
     for (int i = 0; i < octaves; i++) {
-        value += amplitude * noise(st * frequency);
+        value += amplitude * noise(st * frequency + TIME * timescale);
         frequency *= 2.0;
         amplitude *= 0.5;
     }
@@ -62,17 +62,17 @@ float sample_caustic(vec2 p, vec3 l, float H, vec3 N, float h, vec3 n, float i) 
 
 void fragment() {
 	vec3 l = normalize(light_ray);
-	vec2 p = SCREEN_UV.xy / SCREEN_PIXEL_SIZE.xy + TIME * timescale;
+	vec2 p = SCREEN_UV.xy / SCREEN_PIXEL_SIZE.xy;
 
 	float H = depth;
 	vec3 N = vec3(0.0, 1.0, 0.0);
 
-	vec4 sample = sample_noise(p * scale, amplify);
+	vec4 sample = sample_noise(p / scale, amplify);
 	float h = depth + sample.w;
 	vec3 n = sample.xyz;
 
 	float caustics_x = sample_caustic(p, l, H, N, h, n, ior.x);
 	float caustics_y = sample_caustic(p, l, H, N, h, n, ior.y);
 	float caustics_z = sample_caustic(p, l, H, N, h, n, ior.z);
-	COLOR.rgb = mix(vec3(0.16), vec3(caustics_x, caustics_y, caustics_z), 0.2);
+	COLOR.rgb = vec3(caustics_x, caustics_y, caustics_z);
 }

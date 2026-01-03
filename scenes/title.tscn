@@ -1,0 +1,55 @@
+[gd_scene load_steps=6 format=3 uid="uid://bqcmmom1iet7q"]
+
+[ext_resource type="Script" uid="uid://cu6r4o63rqnx1" path="res://scripts/audio.gd" id="1_81wt4"]
+[ext_resource type="AudioStream" uid="uid://d1yurks6ouqt" path="res://audio/Chopin-Nocturn-20.ogg" id="2_pyl7j"]
+[ext_resource type="Shader" uid="uid://cgaeh65ixyvbg" path="res://shaders/caustic.gdshader" id="3_pyl7j"]
+[ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="12_t8o15"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_b3w7a"]
+shader = ExtResource("3_pyl7j")
+shader_parameter/light_ray = Vector3(0.3, 0.6, 0.3)
+shader_parameter/depth = 512.0
+shader_parameter/scale = 2500.0
+shader_parameter/amplify = 1.0
+shader_parameter/octaves = 5
+shader_parameter/ior = Vector3(0.8, 0.75, 0.7)
+shader_parameter/timescale = 0.1
+
+[node name="Title" type="Node"]
+
+[node name="Audio" type="AudioStreamPlayer" parent="."]
+volume_db = -18.0
+script = ExtResource("1_81wt4")
+names = Array[String](["Nocturn 20 - Chopin"])
+streams = Array[AudioStream]([ExtResource("2_pyl7j")])
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CausticsFilter" type="ColorRect" parent="UI"]
+material = SubResource("ShaderMaterial_b3w7a")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AudioStatus" parent="UI" instance=ExtResource("12_t8o15")]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -39.0
+offset_bottom = 0.0
+grow_vertical = 0
+
+[connection signal="finished" from="Audio" to="Audio" method="next_stream"]
+[connection signal="ready" from="Audio" to="Audio" method="next_stream"]
+[connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="_on_stream_changed"]
