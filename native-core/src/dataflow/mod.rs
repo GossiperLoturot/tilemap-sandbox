@@ -3,17 +3,21 @@ use std::rc::Rc;
 
 pub use data::*;
 pub use feature::*;
-pub use field::*;
 pub use item::*;
 pub use resource::*;
 pub use time::*;
+pub use tile::*;
+pub use block::*;
+pub use entity::*;
 
 mod data;
 mod feature;
-mod field;
 mod item;
 mod resource;
 mod time;
+mod tile;
+mod block;
+mod entity;
 
 pub struct DataflowDescriptor {
     pub tile_field_desc: TileFieldDescriptor,
@@ -86,7 +90,7 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_tile(&mut self, tile: field::Tile) -> Result<TileKey, DataflowError> {
+    pub fn insert_tile(&mut self, tile: tile::Tile) -> Result<TileKey, DataflowError> {
         let feature = self
             .get_tile_feature::<Rc<dyn FieldFeature<Key = TileKey>>>(tile.id)
             .cloned();
@@ -95,7 +99,7 @@ impl Dataflow {
         Ok(tile_key)
     }
 
-    pub fn remove_til(&mut self, tile_key: TileKey) -> Result<field::Tile, DataflowError> {
+    pub fn remove_til(&mut self, tile_key: TileKey) -> Result<tile::Tile, DataflowError> {
         let tile = self.tile_field.get(tile_key)?;
         let feature = self
             .get_tile_feature::<Rc<dyn FieldFeature<Key = TileKey>>>(tile.id)
@@ -108,12 +112,13 @@ impl Dataflow {
     pub fn modify_tile(
         &mut self,
         tile_key: TileKey,
-        f: impl FnOnce(&mut field::Tile),
-    ) -> Result<field::TileKey, FieldError> {
-        self.tile_field.modify(tile_key, f)
+        f: impl FnOnce(&mut tile::Tile),
+    ) -> Result<tile::TileKey, DataflowError> {
+        let tile_key = self.tile_field.modify(tile_key, f)?;
+        Ok(tile_key)
     }
 
-    pub fn get_tile(&self, tile_key: TileKey) -> Result<&field::Tile, DataflowError> {
+    pub fn get_tile(&self, tile_key: TileKey) -> Result<&tile::Tile, DataflowError> {
         let tile_key = self.tile_field.get(tile_key)?;
         Ok(tile_key)
     }
@@ -210,7 +215,7 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_block(&mut self, block: field::Block) -> Result<BlockKey, DataflowError> {
+    pub fn insert_block(&mut self, block: block::Block) -> Result<BlockKey, DataflowError> {
         let feature = self
             .get_block_feature::<Rc<dyn FieldFeature<Key = BlockKey>>>(block.id)
             .cloned();
@@ -219,7 +224,7 @@ impl Dataflow {
         Ok(block_key)
     }
 
-    pub fn remove_block(&mut self, block_key: BlockKey) -> Result<field::Block, DataflowError> {
+    pub fn remove_block(&mut self, block_key: BlockKey) -> Result<block::Block, DataflowError> {
         let block = self.block_field.get(block_key)?;
         let feature = self
             .get_block_feature::<Rc<dyn FieldFeature<Key = BlockKey>>>(block.id)
@@ -232,12 +237,13 @@ impl Dataflow {
     pub fn modify_block(
         &mut self,
         block_key: BlockKey,
-        f: impl FnOnce(&mut field::Block),
-    ) -> Result<field::BlockKey, FieldError> {
-        self.block_field.modify(block_key, f)
+        f: impl FnOnce(&mut block::Block),
+    ) -> Result<block::BlockKey, DataflowError> {
+        let block_key = self.block_field.modify(block_key, f)?;
+        Ok(block_key)
     }
 
-    pub fn get_block(&self, block_key: BlockKey) -> Result<&field::Block, DataflowError> {
+    pub fn get_block(&self, block_key: BlockKey) -> Result<&block::Block, DataflowError> {
         let block = self.block_field.get(block_key)?;
         Ok(block)
     }
@@ -398,7 +404,7 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_entity(&mut self, entity: field::Entity) -> Result<EntityKey, DataflowError> {
+    pub fn insert_entity(&mut self, entity: entity::Entity) -> Result<EntityKey, DataflowError> {
         let feature = self
             .get_entity_feature::<Rc<dyn FieldFeature<Key = EntityKey>>>(entity.id)
             .cloned();
@@ -407,7 +413,7 @@ impl Dataflow {
         Ok(entity_key)
     }
 
-    pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<field::Entity, DataflowError> {
+    pub fn remove_entity(&mut self, entity_key: EntityKey) -> Result<entity::Entity, DataflowError> {
         let entity = self.entity_field.get(entity_key)?;
         let feature = self
             .get_entity_feature::<Rc<dyn FieldFeature<Key = EntityKey>>>(entity.id)
@@ -420,13 +426,13 @@ impl Dataflow {
     pub fn modify_entity(
         &mut self,
         entity_key: EntityKey,
-        f: impl FnOnce(&mut field::Entity),
-    ) -> Result<field::EntityKey, DataflowError> {
+        f: impl FnOnce(&mut entity::Entity),
+    ) -> Result<entity::EntityKey, DataflowError> {
         let entity_key = self.entity_field.modify(entity_key, f)?;
         Ok(entity_key)
     }
 
-    pub fn get_entity(&self, entity_key: EntityKey) -> Result<&field::Entity, DataflowError> {
+    pub fn get_entity(&self, entity_key: EntityKey) -> Result<&entity::Entity, DataflowError> {
         let entity = self.entity_field.get(entity_key)?;
         Ok(entity)
     }
@@ -695,7 +701,9 @@ pub trait InventoryFeature {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataflowError {
-    FieldError(FieldError),
+    TileError(TileError),
+    BlockError(BlockError),
+    EntityError(EntityError),
     ItemError(ItemError),
     ResourceError(ResourceError),
     FeatureError(FeatureError),
@@ -704,7 +712,9 @@ pub enum DataflowError {
 impl std::fmt::Display for DataflowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FieldError(e) => e.fmt(f),
+            Self::TileError(e) => e.fmt(f),
+            Self::BlockError(e) => e.fmt(f),
+            Self::EntityError(e) => e.fmt(f),
             Self::ItemError(e) => e.fmt(f),
             Self::ResourceError(e) => e.fmt(f),
             Self::FeatureError(e) => e.fmt(f),
@@ -715,7 +725,9 @@ impl std::fmt::Display for DataflowError {
 impl std::error::Error for DataflowError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::FieldError(e) => Some(e),
+            Self::TileError(e) => Some(e),
+            Self::BlockError(e) => Some(e),
+            Self::EntityError(e) => Some(e),
             Self::ItemError(e) => Some(e),
             Self::ResourceError(e) => Some(e),
             Self::FeatureError(e) => Some(e),
@@ -723,9 +735,21 @@ impl std::error::Error for DataflowError {
     }
 }
 
-impl From<FieldError> for DataflowError {
-    fn from(e: FieldError) -> Self {
-        Self::FieldError(e)
+impl From<TileError> for DataflowError {
+    fn from(e: TileError) -> Self {
+        Self::TileError(e)
+    }
+}
+
+impl From<BlockError> for DataflowError {
+    fn from(e: BlockError) -> Self {
+        Self::BlockError(e)
+    }
+}
+
+impl From<EntityError> for DataflowError {
+    fn from(e: EntityError) -> Self {
+        Self::EntityError(e)
     }
 }
 
