@@ -276,8 +276,8 @@ impl EntityField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_entity_chunk_location(min_rect[0]),
-            dataflow.get_entity_chunk_location(min_rect[1]),
+            dataflow.get_entity_chunk_coord(min_rect[0]),
+            dataflow.get_entity_chunk_coord(min_rect[1]),
         ];
 
         // remove/insert view chunk
@@ -324,7 +324,7 @@ impl EntityField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_entity_version_by_chunk_location(*chunk_coord) else {
+            let Ok(version) = dataflow.get_entity_version_by_chunk_coord(*chunk_coord) else {
                 continue;
             };
 
@@ -338,20 +338,20 @@ impl EntityField {
             }
 
             let mut count = 0;
-            let entity_keys = dataflow .get_entity_keys_by_chunk_location(*chunk_coord).unwrap();
-            for (i, entity_key) in entity_keys.take(Self::BUFFER_LEN).enumerate() {
-                let entity = dataflow.get_entity(entity_key).unwrap();
-                let layout = &self.layouts[entity.id as usize];
+            let entity_ids = dataflow.get_entity_ids_by_chunk_coord(*chunk_coord).unwrap();
+            for (i, entity_id) in entity_ids.take(Self::BUFFER_LEN).enumerate() {
+                let entity = dataflow.get_entity(entity_id).unwrap();
+                let layout = &self.layouts[entity.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;
                 self.instance_buffer[i * 12 + 1] = 0.0;
                 self.instance_buffer[i * 12 + 2] = 0.0;
-                self.instance_buffer[i * 12 + 3] = entity.location.x + layout.rendering_offset.x;
+                self.instance_buffer[i * 12 + 3] = entity.coord.x + layout.rendering_offset.x;
 
                 self.instance_buffer[i * 12 + 4] = 0.0;
                 self.instance_buffer[i * 12 + 5] = layout.rendering_size.y;
                 self.instance_buffer[i * 12 + 6] = 0.0;
-                self.instance_buffer[i * 12 + 7] = entity.location.y + layout.rendering_offset.y;
+                self.instance_buffer[i * 12 + 7] = entity.coord.y + layout.rendering_offset.y;
 
                 let z_scale = if layout.y_sorting { layout.rendering_size.y } else { 0.0 };
                 self.instance_buffer[i * 12 + 8] = 0.0;
@@ -359,11 +359,11 @@ impl EntityField {
                 self.instance_buffer[i * 12 + 10] = z_scale;
                 self.instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_addr = &self.sprite_addrs[entity.id as usize][entity.render_param.variant as usize];
+                let image_addr = &self.sprite_addrs[entity.archetype_id as usize][entity.render_state.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.ticks_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = entity.render_param.tick;
+                self.address_buffer[i * 4 + 3] = entity.render_state.tick;
 
                 count += 1;
             }

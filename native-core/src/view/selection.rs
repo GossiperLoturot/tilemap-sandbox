@@ -68,26 +68,26 @@ impl Selection {
     pub fn update_view(
         &mut self,
         dataflow: &dataflow::Dataflow,
-        tile_keys: &[dataflow::TileKey],
-        block_keys: &[dataflow::BlockKey],
-        entity_keys: &[dataflow::EntityKey],
+        tile_ids: &[dataflow::TileId],
+        block_keys: &[dataflow::BlockId],
+        entity_ids: &[dataflow::EntityId],
     ) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut count = 0;
 
-        for tile_key in tile_keys {
-            let tile = dataflow.get_tile(*tile_key).unwrap();
+        for tile_id in tile_ids {
+            let tile = dataflow.get_tile(*tile_id).unwrap();
 
             self.instance_buffer[count * 12] = 1.0;
             self.instance_buffer[count * 12 + 1] = 0.0;
             self.instance_buffer[count * 12 + 2] = 0.0;
-            self.instance_buffer[count * 12 + 3] = tile.location.x as f32;
+            self.instance_buffer[count * 12 + 3] = tile.coord.x as f32;
 
             self.instance_buffer[count * 12 + 4] = 0.0;
             self.instance_buffer[count * 12 + 5] = 1.0;
             self.instance_buffer[count * 12 + 6] = 0.0;
-            self.instance_buffer[count * 12 + 7] = tile.location.y as f32;
+            self.instance_buffer[count * 12 + 7] = tile.coord.y as f32;
 
             self.instance_buffer[count * 12 + 8] = 0.0;
             self.instance_buffer[count * 12 + 9] = 0.0;
@@ -99,8 +99,8 @@ impl Selection {
 
         for block_key in block_keys {
             let block = dataflow.get_block(*block_key).unwrap();
-            let hint_rect = dataflow.get_block_base_hint_rect(block.id).unwrap();
-            let y_sorting = dataflow.get_block_base_z_along_y(block.id).unwrap();
+            let hint_rect = dataflow.get_block_base_hint_rect(block.archetype_id).unwrap();
+            let y_sorting = dataflow.get_block_base_y_sorting(block.archetype_id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];
@@ -108,12 +108,12 @@ impl Selection {
             self.instance_buffer[count * 12] = hint_size.x;
             self.instance_buffer[count * 12 + 1] = 0.0;
             self.instance_buffer[count * 12 + 2] = 0.0;
-            self.instance_buffer[count * 12 + 3] = block.location.x as f32 + hint_offset.x;
+            self.instance_buffer[count * 12 + 3] = block.coord.x as f32 + hint_offset.x;
 
             self.instance_buffer[count * 12 + 4] = 0.0;
             self.instance_buffer[count * 12 + 5] = hint_size.y;
             self.instance_buffer[count * 12 + 6] = 0.0;
-            self.instance_buffer[count * 12 + 7] = block.location.y as f32 + hint_offset.y;
+            self.instance_buffer[count * 12 + 7] = block.coord.y as f32 + hint_offset.y;
 
             let z_scale = if y_sorting { hint_size.y } else { 0.0 };
             self.instance_buffer[count * 12 + 8] = 0.0;
@@ -124,10 +124,10 @@ impl Selection {
             count += 1;
         }
 
-        for entity_key in entity_keys {
-            let entity = dataflow.get_entity(*entity_key).unwrap();
-            let hint_rect = dataflow.get_entity_base_hint_rect(entity.id).unwrap();
-            let y_sorting = dataflow.get_entity_base_z_along_y(entity.id).unwrap();
+        for entity_id in entity_ids {
+            let entity = dataflow.get_entity(*entity_id).unwrap();
+            let hint_rect = dataflow.get_entity_base_hint_rect(entity.archetype_id).unwrap();
+            let y_sorting = dataflow.get_entity_base_y_sorting(entity.archetype_id).unwrap();
 
             let hint_offset = hint_rect[0];
             let hint_size = hint_rect[1] - hint_rect[0];
@@ -135,12 +135,12 @@ impl Selection {
             self.instance_buffer[count * 12] = hint_size.x;
             self.instance_buffer[count * 12 + 1] = 0.0;
             self.instance_buffer[count * 12 + 2] = 0.0;
-            self.instance_buffer[count * 12 + 3] = entity.location.x + hint_offset.x;
+            self.instance_buffer[count * 12 + 3] = entity.coord.x + hint_offset.x;
 
             self.instance_buffer[count * 12 + 4] = 0.0;
             self.instance_buffer[count * 12 + 5] = hint_size.y;
             self.instance_buffer[count * 12 + 6] = 0.0;
-            self.instance_buffer[count * 12 + 7] = entity.location.y + hint_offset.y;
+            self.instance_buffer[count * 12 + 7] = entity.coord.y + hint_offset.y;
 
             let z_scale = if y_sorting { hint_size.y } else { 0.0 };
             self.instance_buffer[count * 12 + 8] = 0.0;

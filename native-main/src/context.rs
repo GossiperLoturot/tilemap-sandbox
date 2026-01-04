@@ -539,46 +539,46 @@ impl Context {
         let desc = addon::GeneratorResourceDescriptor {
             generators: vec![
                 {
-                    let id = context.registry.get("tile_grass");
+                    let archetype_id = context.registry.get("tile_grass");
                     Box::new(addon::MarchGenerator {
                         prob: 0.5,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let tile = core::dataflow::Tile {
-                                id,
-                                location,
+                                archetype_id,
+                                coord,
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_tile(tile);
                         }),
                     })
                 },
                 {
-                    let id = context.registry.get("tile_dirt");
+                    let archetype_id = context.registry.get("tile_dirt");
                     Box::new(addon::MarchGenerator {
                         prob: 1.0,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let tile = core::dataflow::Tile {
-                                id,
-                                location,
+                                archetype_id,
+                                coord,
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_tile(tile);
                         }),
                     })
                 },
                 {
-                    let id = context.registry.get("block_oaktree");
+                    let archetype_id = context.registry.get("block_oaktree");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.01,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let block = core::dataflow::Block {
-                                id,
-                                location: location.as_ivec2(),
+                                archetype_id,
+                                coord: coord.as_ivec2(),
                                 data: Default::default(),
-                                render_param: native_core::dataflow::BlockRenderParam {
-                                    tick: (location.x as i32 + location.y as i32).rem_euclid(48)
+                                render_state: native_core::dataflow::BlockRenderState {
+                                    tick: (coord.x as i32 + coord.y as i32).rem_euclid(48)
                                         as u32,
                                     ..Default::default()
                                 },
@@ -588,60 +588,60 @@ impl Context {
                     })
                 },
                 {
-                    let id = context.registry.get("block_dandelion");
+                    let archetype_id = context.registry.get("block_dandelion");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.05,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let block = core::dataflow::Block {
-                                id,
-                                location: location.as_ivec2(),
+                                archetype_id,
+                                coord: coord.as_ivec2(),
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_block(block);
                         }),
                     })
                 },
                 {
-                    let id = context.registry.get("block_fallenleaves");
+                    let archetype_id = context.registry.get("block_fallenleaves");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.05,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let block = core::dataflow::Block {
-                                id,
-                                location: location.as_ivec2(),
+                                archetype_id,
+                                coord: coord.as_ivec2(),
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_block(block);
                         }),
                     })
                 },
                 {
-                    let id = context.registry.get("block_mixpebbles");
+                    let archetype_id = context.registry.get("block_mixpebbles");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.05,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let block = core::dataflow::Block {
-                                id,
-                                location: location.as_ivec2(),
+                                archetype_id,
+                                coord: coord.as_ivec2(),
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_block(block);
                         }),
                     })
                 },
                 {
-                    let id = context.registry.get("entity_bird");
+                    let archetype_id = context.registry.get("entity_bird");
                     Box::new(addon::SpawnGenerator {
                         prob: 0.01,
-                        place_fn: Box::new(move |dataflow, location| {
+                        place_fn: Box::new(move |dataflow, coord| {
                             let entity = core::dataflow::Entity {
-                                id,
-                                location,
+                                archetype_id,
+                                coord,
                                 data: Default::default(),
-                                render_param: Default::default(),
+                                render_state: Default::default(),
                             };
                             let _ = dataflow.insert_entity(entity);
                         }),
@@ -714,15 +714,15 @@ impl Context {
     // player
 
     #[func]
-    fn spawn_player(&mut self, location: Vector2) {
+    fn spawn_player(&mut self, coord: Vector2) {
         let context = self.context.as_mut().unwrap();
 
-        let location = Vec2::new(location.x, location.y);
+        let coord = Vec2::new(coord.x, coord.y);
         let entity = core::dataflow::Entity {
-            id: context.registry.get("entity_player"),
-            location,
+            archetype_id: context.registry.get("entity_player"),
+            coord,
             data: Default::default(),
-            render_param: Default::default(),
+            render_state: Default::default(),
         };
         context.dataflow.insert_entity(entity).unwrap();
     }
@@ -837,7 +837,7 @@ impl Context {
         let point = Vec2::new(location.x, location.y).floor().as_ivec2();
         context
             .dataflow
-            .get_tile_key_by_point(point)
+            .get_tile_id_by_point(point)
             .map(|key| Gd::from_object(TileKey { inner: key }))
     }
 
@@ -861,7 +861,7 @@ impl Context {
         let point = Vec2::new(location.x, location.y);
         let keys = context
             .dataflow
-            .get_block_keys_by_hint_point(point)
+            .get_block_ids_by_hint_point(point)
             .collect::<Vec<_>>();
         if !keys.is_empty() {
             let index = (offset as usize).div_euclid(keys.len());
@@ -891,7 +891,7 @@ impl Context {
         let point = Vec2::new(location.x, location.y);
         let keys = context
             .dataflow
-            .get_entity_keys_by_hint_point(point)
+            .get_entity_ids_by_hint_point(point)
             .collect::<Vec<_>>();
         if !keys.is_empty() {
             let index = (offset as usize).div_euclid(keys.len());
@@ -1026,11 +1026,11 @@ struct SlotResult {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 struct TileKey {
-    inner: core::dataflow::TileKey,
+    inner: core::dataflow::TileId,
 }
 
 impl std::ops::Deref for TileKey {
-    type Target = core::dataflow::TileKey;
+    type Target = core::dataflow::TileId;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -1049,11 +1049,11 @@ struct TileResult {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 struct BlockKey {
-    inner: core::dataflow::BlockKey,
+    inner: core::dataflow::BlockId,
 }
 
 impl std::ops::Deref for BlockKey {
-    type Target = core::dataflow::BlockKey;
+    type Target = core::dataflow::BlockId;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -1072,11 +1072,11 @@ struct BlockResult {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 struct EntityKey {
-    inner: core::dataflow::EntityKey,
+    inner: core::dataflow::EntityId,
 }
 
 impl std::ops::Deref for EntityKey {
-    type Target = core::dataflow::EntityKey;
+    type Target = core::dataflow::EntityId;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

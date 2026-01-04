@@ -1,14 +1,5 @@
 use super::*;
 
-// tile render param
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TileRenderParam {
-    pub variant: u8,
-    pub tick: u32,
-    pub override_color: u32,
-}
-
 // tile data
 
 pub trait TileData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
@@ -24,15 +15,6 @@ impl Default for Box<dyn TileData> {
         // Dangling pointer
         Box::new(())
     }
-}
-
-// block render param
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct BlockRenderParam {
-    pub variant: u8,
-    pub tick: u32,
-    pub override_color: u32,
 }
 
 // block data
@@ -52,15 +34,6 @@ impl Default for Box<dyn BlockData> {
     }
 }
 
-// entity render param
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct EntityRenderParam {
-    pub variant: u8,
-    pub tick: u32,
-    pub override_color: u32,
-}
-
 // entity data
 
 pub trait EntityData: dyn_clone::DynClone + downcast_rs::Downcast + std::fmt::Debug {}
@@ -76,14 +49,6 @@ impl Default for Box<dyn EntityData> {
         // Dangling pointer
         Box::new(())
     }
-}
-
-// item render param
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ItemRenderParam {
-    pub variant: u8,
-    pub tick: u32,
 }
 
 // item data

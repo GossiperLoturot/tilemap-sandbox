@@ -260,8 +260,8 @@ impl TileField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_tile_chunk_location(min_rect[0]),
-            dataflow.get_tile_chunk_location(min_rect[1]),
+            dataflow.get_tile_chunk_coord(min_rect[0]),
+            dataflow.get_tile_chunk_coord(min_rect[1]),
         ];
 
         // remove/insert view chunk
@@ -309,7 +309,7 @@ impl TileField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_tile_version_by_chunk_location(*chunk_coord) else {
+            let Ok(version) = dataflow.get_tile_version_by_chunk_coord(*chunk_coord) else {
                 continue;
             };
 
@@ -323,21 +323,21 @@ impl TileField {
             }
 
             let mut count = 0;
-            let tile_keys = dataflow.get_tile_keys_by_chunk_location(*chunk_coord).unwrap();
-            for (i, tile_key) in tile_keys.take(Self::BUFFER_LEN).enumerate() {
-                let tile = dataflow.get_tile(tile_key).unwrap();
+            let tile_ids = dataflow.get_tile_ids_by_chunk_coord(*chunk_coord).unwrap();
+            for (i, tile_id) in tile_ids.take(Self::BUFFER_LEN).enumerate() {
+                let tile = dataflow.get_tile(tile_id).unwrap();
 
                 self.instance_buffer[i * 12] = 2.0;
                 self.instance_buffer[i * 12 + 1] = 0.0;
                 self.instance_buffer[i * 12 + 2] = 0.0;
-                self.instance_buffer[i * 12 + 3] = tile.location.x as f32 - 0.5;
+                self.instance_buffer[i * 12 + 3] = tile.coord.x as f32 - 0.5;
 
                 self.instance_buffer[i * 12 + 4] = 0.0;
                 self.instance_buffer[i * 12 + 5] = 2.0;
                 self.instance_buffer[i * 12 + 6] = 0.0;
-                self.instance_buffer[i * 12 + 7] = tile.location.y as f32 - 0.5;
+                self.instance_buffer[i * 12 + 7] = tile.coord.y as f32 - 0.5;
 
-                let hash = coord_hash(tile.location.x, tile.location.y);
+                let hash = coord_hash(tile.coord.x, tile.coord.y);
                 let z_t = hash as f32 * Self::INV_U16 * -0.0625 - 0.0625; // -2^{-3} <= z <= -2^{-4}
 
                 self.instance_buffer[i * 12 + 8] = 0.0;
@@ -345,11 +345,11 @@ impl TileField {
                 self.instance_buffer[i * 12 + 10] = 1.0;
                 self.instance_buffer[i * 12 + 11] = z_t;
 
-                let image_addr = &self.sprite_addrs[tile.id as usize][tile.render_param.variant as usize];
+                let image_addr = &self.sprite_addrs[tile.archetype_id as usize][tile.render_state.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.tick_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = tile.render_param.tick;
+                self.address_buffer[i * 4 + 3] = tile.render_state.tick;
 
                 count += 1;
             }

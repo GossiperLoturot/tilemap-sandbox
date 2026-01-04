@@ -94,7 +94,7 @@ impl ItemStorage {
     pub fn open_inventory_by_tile(
         &self,
         dataflow: &dataflow::Dataflow,
-        tile_key: dataflow::TileKey,
+        tile_key: dataflow::TileId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
@@ -107,7 +107,7 @@ impl ItemStorage {
     pub fn open_inventory_by_block(
         &self,
         dataflow: &dataflow::Dataflow,
-        block_key: dataflow::BlockKey,
+        block_key: dataflow::BlockId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
@@ -120,7 +120,7 @@ impl ItemStorage {
     pub fn open_inventory_by_entity(
         &self,
         dataflow: &dataflow::Dataflow,
-        tile_key: dataflow::TileKey,
+        tile_key: dataflow::TileId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow

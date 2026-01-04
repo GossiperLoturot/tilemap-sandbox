@@ -22,8 +22,8 @@ impl ForwarderSystem {
     ) -> Result<(), std::convert::Infallible> {
         // tile
         let rect = [
-            dataflow.get_tile_chunk_location(min_rect[0]),
-            dataflow.get_tile_chunk_location(min_rect[1]),
+            dataflow.get_tile_chunk_coord(min_rect[0]),
+            dataflow.get_tile_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -34,8 +34,8 @@ impl ForwarderSystem {
 
         // block
         let rect = [
-            dataflow.get_block_chunk_location(min_rect[0]),
-            dataflow.get_block_chunk_location(min_rect[1]),
+            dataflow.get_block_chunk_coord(min_rect[0]),
+            dataflow.get_block_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -46,8 +46,8 @@ impl ForwarderSystem {
 
         // entity
         let rect = [
-            dataflow.get_entity_chunk_location(min_rect[0]),
-            dataflow.get_entity_chunk_location(min_rect[1]),
+            dataflow.get_entity_chunk_coord(min_rect[0]),
+            dataflow.get_entity_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -61,7 +61,7 @@ impl ForwarderSystem {
 }
 
 fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(tile_keys) = dataflow.get_tile_keys_by_chunk_location(chunk_location) else {
+    let Ok(tile_keys) = dataflow.get_tile_ids_by_chunk_coord(chunk_location) else {
         return;
     };
 
@@ -71,7 +71,7 @@ fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs
         };
 
         let Ok(feature) =
-            dataflow.get_tile_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(tile.id)
+            dataflow.get_tile_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(tile.archetype_id)
         else {
             continue;
         };
@@ -82,7 +82,7 @@ fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs
 }
 
 fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(block_keys) = dataflow.get_block_keys_by_chunk_location(chunk_location) else {
+    let Ok(block_keys) = dataflow.get_block_ids_by_chunk_coord(chunk_location) else {
         return;
     };
 
@@ -92,7 +92,7 @@ fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_sec
         };
 
         let Ok(feature) =
-            dataflow.get_block_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(block.id)
+            dataflow.get_block_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(block.archetype_id)
         else {
             continue;
         };
@@ -103,7 +103,7 @@ fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_sec
 }
 
 fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(entity_keys) = dataflow.get_entity_keys_by_chunk_location(chunk_location) else {
+    let Ok(entity_keys) = dataflow.get_entity_ids_by_chunk_coord(chunk_location) else {
         return;
     };
 
@@ -113,7 +113,7 @@ fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_se
         };
 
         let Ok(feature) =
-            dataflow.get_entity_feature::<Rc<dyn ForwardFeature<Key = EntityKey>>>(entity.id)
+            dataflow.get_entity_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(entity.archetype_id)
         else {
             continue;
         };

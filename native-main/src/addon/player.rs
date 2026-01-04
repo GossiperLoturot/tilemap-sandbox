@@ -9,7 +9,7 @@ use super::*;
 
 #[derive(Debug, Default)]
 pub struct PlayerResource {
-    current: Option<EntityKey>,
+    current: Option<EntityId>,
     input: Option<Vec2>,
 }
 
@@ -29,7 +29,7 @@ pub struct PlayerSystem;
 impl PlayerSystem {
     pub fn insert_entity(
         dataflow: &mut Dataflow,
-        entity_key: EntityKey,
+        entity_key: EntityId,
     ) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
@@ -41,14 +41,14 @@ impl PlayerSystem {
         Ok(())
     }
 
-    pub fn remove_entity(dataflow: &mut Dataflow) -> Result<EntityKey, PlayerError> {
+    pub fn remove_entity(dataflow: &mut Dataflow) -> Result<EntityId, PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
 
         resource.current.take().ok_or(PlayerError::NotFound)
     }
 
-    pub fn get_entity(dataflow: &Dataflow) -> Result<EntityKey, PlayerError> {
+    pub fn get_entity(dataflow: &Dataflow) -> Result<EntityId, PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let resource = resource.borrow().map_err(DataflowError::from)?;
 
@@ -85,7 +85,7 @@ impl PlayerSystem {
         let resource = resource.borrow().map_err(DataflowError::from)?;
 
         let current = resource.current.ok_or(PlayerError::NotFound)?;
-        let location = dataflow.get_entity(current)?.location;
+        let location = dataflow.get_entity(current)?.coord;
         Ok(location)
     }
 
@@ -125,15 +125,15 @@ pub struct PlayerEntityFeatureSet {
 impl FeatureSet for PlayerEntityFeatureSet {
     fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         let slf = Rc::new(self.clone());
-        b.insert::<Rc<dyn FieldFeature<Key = EntityKey>>>(slf.clone())?;
-        b.insert::<Rc<dyn InventoryFeature<Key = EntityKey>>>(slf.clone())?;
-        b.insert::<Rc<dyn ForwardFeature<Key = EntityKey>>>(slf.clone())?;
+        b.insert::<Rc<dyn FieldFeature<Key = EntityId>>>(slf.clone())?;
+        b.insert::<Rc<dyn InventoryFeature<Key = EntityId>>>(slf.clone())?;
+        b.insert::<Rc<dyn ForwardFeature<Key = EntityId>>>(slf.clone())?;
         Ok(())
     }
 }
 
 impl FieldFeature for PlayerEntityFeatureSet {
-    type Key = EntityKey;
+    type Key = EntityId;
 
     fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
         let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
@@ -151,7 +151,7 @@ impl FieldFeature for PlayerEntityFeatureSet {
         PlayerSystem::insert_entity(dataflow, key).unwrap();
     }
 
-    fn before_break(&self, dataflow: &mut Dataflow, key: EntityKey) {
+    fn before_break(&self, dataflow: &mut Dataflow, key: EntityId) {
         let entity = dataflow.get_entity(key).unwrap();
 
         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
@@ -164,7 +164,7 @@ impl FieldFeature for PlayerEntityFeatureSet {
 }
 
 impl InventoryFeature for PlayerEntityFeatureSet {
-    type Key = EntityKey;
+    type Key = EntityId;
 
     fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey {
         let entity = dataflow.get_entity(key).unwrap();
@@ -174,9 +174,9 @@ impl InventoryFeature for PlayerEntityFeatureSet {
 }
 
 impl ForwardFeature for PlayerEntityFeatureSet {
-    type Key = EntityKey;
+    type Key = EntityId;
 
-    fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
+    fn forward(&self, dataflow: &mut Dataflow, key: EntityId, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 
         let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
@@ -186,10 +186,10 @@ impl ForwardFeature for PlayerEntityFeatureSet {
             let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
-                let location = entity.location + self.move_speed * input * delta_secs;
+                let location = entity.coord + self.move_speed * input * delta_secs;
 
                 if !intersection_guard(dataflow, key, location).unwrap() {
-                    entity.location = location;
+                    entity.coord = location;
                 }
 
                 if input.x < 0.0 {
@@ -202,22 +202,22 @@ impl ForwardFeature for PlayerEntityFeatureSet {
             match data.state {
                 PlayerEntityDataState::Wait => {
                     if is_move {
-                        entity.render_param.variant = 2;
-                        entity.render_param.tick = dataflow.get_tick() as u32;
+                        entity.render_state.variant = 2;
+                        entity.render_state.tick = dataflow.get_tick() as u32;
                         data.state = PlayerEntityDataState::Move;
                     }
                 }
                 PlayerEntityDataState::Move => {
                     if !is_move {
-                        entity.render_param.variant = 0;
-                        entity.render_param.tick = dataflow.get_tick() as u32;
+                        entity.render_state.variant = 0;
+                        entity.render_state.tick = dataflow.get_tick() as u32;
                         data.state = PlayerEntityDataState::Wait;
                     }
                 }
             }
 
-            entity.render_param.variant =
-                (entity.render_param.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
+            entity.render_state.variant =
+                (entity.render_state.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
         }
 
         PlayerSystem::remove_entity(dataflow).unwrap();
@@ -230,11 +230,11 @@ impl ForwardFeature for PlayerEntityFeatureSet {
 // DUPLICATE: src/inner/player.rs
 fn intersection_guard(
     dataflow: &mut Dataflow,
-    entity_key: EntityKey,
+    entity_key: EntityId,
     new_location: Vec2,
 ) -> Result<bool, DataflowError> {
     let entity = dataflow.get_entity(entity_key)?;
-    let base_rect = dataflow.get_entity_base_collision_rect(entity.id)?;
+    let base_rect = dataflow.get_entity_base_collision_rect(entity.archetype_id)?;
 
     #[rustfmt::skip]
     let rect = [
@@ -251,7 +251,7 @@ fn intersection_guard(
     }
 
     let intersect = dataflow
-        .get_entity_keys_by_collision_rect(rect)
+        .get_entity_ids_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key);
     Ok(intersect)
 }

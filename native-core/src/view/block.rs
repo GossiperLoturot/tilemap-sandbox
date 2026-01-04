@@ -277,8 +277,8 @@ impl BlockField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_block_chunk_location(min_rect[0]),
-            dataflow.get_block_chunk_location(min_rect[1]),
+            dataflow.get_block_chunk_coord(min_rect[0]),
+            dataflow.get_block_chunk_coord(min_rect[1]),
         ];
 
         // remove / insert view chunk
@@ -326,7 +326,7 @@ impl BlockField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_block_version_by_chunk_location(*chunk_coord) else {
+            let Ok(version) = dataflow.get_block_version_by_chunk_coord(*chunk_coord) else {
                 continue;
             };
 
@@ -340,20 +340,20 @@ impl BlockField {
             }
 
             let mut count = 0;
-            let block_keys = dataflow.get_block_keys_by_chunk_location(*chunk_coord).unwrap();
-            for (i, block_key) in block_keys.take(Self::BUFFER_LEN).enumerate() {
-                let block = dataflow.get_block(block_key).unwrap();
-                let layout = &self.layouts[block.id as usize];
+            let block_ids = dataflow.get_block_ids_by_chunk_coord(*chunk_coord).unwrap();
+            for (i, block_id) in block_ids.take(Self::BUFFER_LEN).enumerate() {
+                let block = dataflow.get_block(block_id).unwrap();
+                let layout = &self.layouts[block.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;
                 self.instance_buffer[i * 12 + 1] = 0.0;
                 self.instance_buffer[i * 12 + 2] = 0.0;
-                self.instance_buffer[i * 12 + 3] = block.location.x as f32 + layout.rendering_offset.x;
+                self.instance_buffer[i * 12 + 3] = block.coord.x as f32 + layout.rendering_offset.x;
 
                 self.instance_buffer[i * 12 + 4] = 0.0;
                 self.instance_buffer[i * 12 + 5] = layout.rendering_size.y;
                 self.instance_buffer[i * 12 + 6] = 0.0;
-                self.instance_buffer[i * 12 + 7] = block.location.y as f32 + layout.rendering_offset.y;
+                self.instance_buffer[i * 12 + 7] = block.coord.y as f32 + layout.rendering_offset.y;
 
                 let z_scale = if layout.y_sorting { layout.rendering_size.y } else { 0.0 };
                 self.instance_buffer[i * 12 + 8] = 0.0;
@@ -361,11 +361,11 @@ impl BlockField {
                 self.instance_buffer[i * 12 + 10] = z_scale;
                 self.instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_addr = &self.sprite_addrs[block.id as usize][block.render_param.variant as usize];
+                let image_addr = &self.sprite_addrs[block.archetype_id as usize][block.render_state.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.ticks_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = block.render_param.tick;
+                self.address_buffer[i * 4 + 3] = block.render_state.tick;
 
                 count += 1;
             }

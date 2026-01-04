@@ -221,7 +221,7 @@ impl ContextBuilder {
             let mut set_builder = tile_feature_builder.insert_row();
             desc.feature_set.attach_set(&mut set_builder).unwrap();
 
-            tiles.push(dataflow::TileDescriptor {
+            tiles.push(dataflow::TileInfo {
                 display_name: desc.display_name,
                 description: desc.description,
                 collision: desc.collision,
@@ -244,7 +244,7 @@ impl ContextBuilder {
             tiles_view.push(view::TileInfo { sprites: images });
         }
 
-        let tile_field_desc = dataflow::TileFieldDescriptor { tiles };
+        let tile_field_desc = dataflow::TileFieldInfo { tiles };
 
         let mut tile_shaders = vec![];
         for shader in desc.tile_shaders {
@@ -265,7 +265,7 @@ impl ContextBuilder {
             let mut set_builder = block_feature_builder.insert_row();
             desc.feature_set.attach_set(&mut set_builder).unwrap();
 
-            blocks.push(dataflow::BlockDescriptor {
+            blocks.push(dataflow::BlockInfo {
                 display_name: desc.display_name,
                 description: desc.description,
                 size: desc.size,
@@ -298,7 +298,7 @@ impl ContextBuilder {
             });
         }
 
-        let block_field_desc = dataflow::BlockFieldDescriptor { blocks };
+        let block_field_desc = dataflow::BlockFieldInfo { blocks };
 
         let mut block_shaders = vec![];
         for shader in desc.block_shaders {
@@ -319,14 +319,14 @@ impl ContextBuilder {
             let mut set_builder = entity_feature_builder.insert_row();
             desc.feature_set.attach_set(&mut set_builder).unwrap();
 
-            entities.push(dataflow::EntityDescriptor {
+            entities.push(dataflow::EntityInfo {
                 display_name: desc.display_name,
                 description: desc.description,
                 collision_size: desc.collision_size,
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,
                 hint_offset: desc.rendering_offset,
-                z_along_y: desc.z_along_y,
+                y_sorting: desc.z_along_y,
             });
 
             let mut images = vec![];
@@ -351,7 +351,7 @@ impl ContextBuilder {
             });
         }
 
-        let entity_field_desc = dataflow::EntityFieldDescriptor { entities };
+        let entity_field_desc = dataflow::EntityFieldInfo { entities };
 
         let mut entity_shaders = vec![];
         for shader in desc.entity_shaders {

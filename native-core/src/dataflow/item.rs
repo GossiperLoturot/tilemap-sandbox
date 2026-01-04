@@ -33,6 +33,12 @@ struct InventoryProperty {
     size: u32,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ItemRenderParam {
+    pub variant: u8,
+    pub tick: u32,
+}
+
 #[derive(Debug, Clone)]
 pub struct Item {
     pub id: u16,

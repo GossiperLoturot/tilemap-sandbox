@@ -33,8 +33,8 @@ impl<D> BreakFeature<D> for BreakFeatureSet {
     fn r#break(&self, dataflow: &mut Dataflow, _: &D, location: Vec2) {
         dataflow
             .insert_entity(Entity {
-                id: self.item_entity_id,
-                location,
+                archetype_id: self.item_entity_id,
+                coord: location,
                 data: Box::new(ItemEntityData {
                     item: Item {
                         id: self.item_id,
@@ -43,7 +43,7 @@ impl<D> BreakFeature<D> for BreakFeatureSet {
                         render_param: Default::default(),
                     },
                 }),
-                render_param: Default::default(),
+                render_state: Default::default(),
             })
             .unwrap();
     }
@@ -63,38 +63,38 @@ impl Resource for BreakableResource {}
 pub struct BreakableSystem;
 
 impl BreakableSystem {
-    pub fn break_tile(dataflow: &mut Dataflow, tile_key: TileKey) -> Result<Tile, DataflowError> {
+    pub fn break_tile(dataflow: &mut Dataflow, tile_key: TileId) -> Result<Tile, DataflowError> {
         let resource = dataflow.find_resources::<BreakableResource>().unwrap();
         let resource = resource.borrow().unwrap();
 
         let tile = dataflow.get_tile(tile_key)?;
 
-        let location = tile.location.as_vec2() + 0.5;
+        let coord = tile.coord.as_vec2() + 0.5;
         dataflow.insert_entity(Entity {
-            id: resource.id,
-            location,
+            archetype_id: resource.id,
+            coord,
             data: Box::new(ParticleEntityData { lifetime: 0.333 }),
-            render_param: EntityRenderParam {
+            render_state: EntityRenderState {
                 tick: dataflow.get_tick() as u32,
                 ..Default::default()
             },
         })?;
         let mut tile = dataflow.remove_til(tile_key)?;
 
-        if let Ok(feature) = dataflow.get_tile_feature::<Rc<dyn BreakFeature<Tile>>>(tile.id) {
+        if let Ok(feature) = dataflow.get_tile_feature::<Rc<dyn BreakFeature<Tile>>>(tile.archetype_id) {
             let feature = feature.clone();
-            feature.r#break(dataflow, &tile, location);
+            feature.r#break(dataflow, &tile, coord);
         }
 
         let ret = tile.clone();
-        tile.id = resource.default_tile_id;
+        tile.archetype_id = resource.default_tile_id;
         dataflow.insert_tile(tile)?;
         Ok(ret)
     }
 
     pub fn break_block(
         dataflow: &mut Dataflow,
-        block_key: BlockKey,
+        block_key: BlockId,
     ) -> Result<Block, DataflowError> {
         let rng = &mut rand::thread_rng();
 
@@ -109,10 +109,10 @@ impl BreakableSystem {
             let location = Vec2::new(x, y);
 
             dataflow.insert_entity(Entity {
-                id: resource.id,
-                location,
+                archetype_id: resource.id,
+                coord: location,
                 data: Box::new(ParticleEntityData { lifetime: 0.333 }),
-                render_param: EntityRenderParam {
+                render_state: EntityRenderState {
                     tick: dataflow.get_tick() as u32,
                     ..Default::default()
                 },
@@ -121,7 +121,7 @@ impl BreakableSystem {
         let block = dataflow.remove_block(block_key)?;
 
         let location = (rect[0] + rect[1]) * 0.5;
-        if let Ok(feature) = dataflow.get_block_feature::<Rc<dyn BreakFeature<Block>>>(block.id) {
+        if let Ok(feature) = dataflow.get_block_feature::<Rc<dyn BreakFeature<Block>>>(block.archetype_id) {
             let feature = feature.clone();
             feature.r#break(dataflow, &block, location);
         }
@@ -131,7 +131,7 @@ impl BreakableSystem {
 
     pub fn break_entity(
         dataflow: &mut Dataflow,
-        entity_key: EntityKey,
+        entity_key: EntityId,
     ) -> Result<Entity, DataflowError> {
         let resource = dataflow.find_resources::<BreakableResource>().unwrap();
         let resource = resource.borrow().unwrap();
@@ -140,17 +140,17 @@ impl BreakableSystem {
         let location = (rect[0] + rect[1]) * 0.5;
 
         dataflow.insert_entity(Entity {
-            id: resource.id,
-            location,
+            archetype_id: resource.id,
+            coord: location,
             data: Box::new(ParticleEntityData { lifetime: 0.333 }),
-            render_param: EntityRenderParam {
+            render_state: EntityRenderState {
                 tick: dataflow.get_tick() as u32,
                 ..Default::default()
             },
         })?;
         let entity = dataflow.remove_entity(entity_key)?;
 
-        if let Ok(feature) = dataflow.get_entity_feature::<Rc<dyn BreakFeature<Entity>>>(entity.id)
+        if let Ok(feature) = dataflow.get_entity_feature::<Rc<dyn BreakFeature<Entity>>>(entity.archetype_id)
         {
             let feature = feature.clone();
             feature.r#break(dataflow, &entity, location);

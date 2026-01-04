@@ -40,14 +40,14 @@ pub struct AnimalEntityFeatureSet {
 impl FeatureSet for AnimalEntityFeatureSet {
     fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         let slf = Rc::new(self.clone());
-        b.insert::<Rc<dyn FieldFeature<Key = EntityKey>>>(slf.clone())?;
-        b.insert::<Rc<dyn ForwardFeature<Key = EntityKey>>>(slf.clone())?;
+        b.insert::<Rc<dyn FieldFeature<Key = EntityId>>>(slf.clone())?;
+        b.insert::<Rc<dyn ForwardFeature<Key = EntityId>>>(slf.clone())?;
         Ok(())
     }
 }
 
 impl FieldFeature for AnimalEntityFeatureSet {
-    type Key = EntityKey;
+    type Key = EntityId;
 
     fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
         dataflow
@@ -68,9 +68,9 @@ impl FieldFeature for AnimalEntityFeatureSet {
 }
 
 impl ForwardFeature for AnimalEntityFeatureSet {
-    type Key = EntityKey;
+    type Key = EntityId;
 
-    fn forward(&self, dataflow: &mut Dataflow, key: EntityKey, delta_secs: f32) {
+    fn forward(&self, dataflow: &mut Dataflow, key: EntityId, delta_secs: f32) {
         let mut entity = dataflow.get_entity(key).unwrap().clone();
 
         let data = entity.data.downcast_mut::<AnimalEntityData>().unwrap();
@@ -81,8 +81,8 @@ impl ForwardFeature for AnimalEntityFeatureSet {
                 data.state = AnimalEntityDataState::WaitStart;
             }
             AnimalEntityDataState::WaitStart => {
-                entity.render_param.variant = self.idle_variant;
-                entity.render_param.tick = dataflow.get_tick() as u32;
+                entity.render_state.variant = self.idle_variant;
+                entity.render_state.tick = dataflow.get_tick() as u32;
 
                 let secs = rand::Rng::gen_range(&mut rng, data.min_rest_secs..data.max_rest_secs);
                 data.state = AnimalEntityDataState::Wait(secs);
@@ -96,26 +96,26 @@ impl ForwardFeature for AnimalEntityFeatureSet {
                 }
             }
             AnimalEntityDataState::TripStart => {
-                entity.render_param.variant = self.walk_variant;
-                entity.render_param.tick = dataflow.get_tick() as u32;
+                entity.render_state.variant = self.walk_variant;
+                entity.render_state.tick = dataflow.get_tick() as u32;
 
                 let angle = rand::Rng::gen_range(&mut rng, 0.0..std::f32::consts::PI * 2.0);
                 let distance = rand::Rng::gen_range(&mut rng, data.min_distance..data.max_distance);
-                let destination = entity.location + Vec2::from_angle(angle) * distance;
+                let destination = entity.coord + Vec2::from_angle(angle) * distance;
                 data.state = AnimalEntityDataState::Trip(destination);
             }
             AnimalEntityDataState::Trip(destination) => {
-                if entity.location != destination {
-                    let difference = destination - entity.location;
+                if entity.coord != destination {
+                    let difference = destination - entity.coord;
                     let distance = difference.length();
                     let direction = difference / distance;
                     let velocity = distance.min(data.speed * delta_secs);
-                    let location = entity.location + direction * velocity;
+                    let location = entity.coord + direction * velocity;
 
                     if intersection_guard(dataflow, key, location).unwrap() {
                         data.state = AnimalEntityDataState::WaitStart;
                     } else {
-                        entity.location = location;
+                        entity.coord = location;
                     }
                 } else {
                     data.state = AnimalEntityDataState::WaitStart;
@@ -131,11 +131,11 @@ impl ForwardFeature for AnimalEntityFeatureSet {
 // DUPLICATE: src/inner/player.rs
 fn intersection_guard(
     dataflow: &mut Dataflow,
-    entity_key: EntityKey,
+    entity_key: EntityId,
     new_location: Vec2,
 ) -> Result<bool, DataflowError> {
     let entity = dataflow.get_entity(entity_key)?;
-    let base_rect = dataflow.get_entity_base_collision_rect(entity.id)?;
+    let base_rect = dataflow.get_entity_base_collision_rect(entity.archetype_id)?;
 
     #[rustfmt::skip]
     let rect = [
@@ -152,7 +152,7 @@ fn intersection_guard(
     }
 
     let intersect = dataflow
-        .get_entity_keys_by_collision_rect(rect)
+        .get_entity_ids_by_collision_rect(rect)
         .any(|other_key| other_key != entity_key);
     Ok(intersect)
 }
