@@ -9,14 +9,15 @@ harness = false
 
 [dependencies]
 ahash = "0.8"
+bytemuck = "1"
 downcast-rs = "2"
 dyn-clone = "1"
-glam = "0.28"
-godot = "0.2"
+glam = "0.30"
+godot = "0.4"
 image = { version = "0.25", default-features = false }
 image-atlas = "0.4"
 rstar = "0.12"
 slab = "0.4"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.7", default-features = false, features = ["html_reports"] }

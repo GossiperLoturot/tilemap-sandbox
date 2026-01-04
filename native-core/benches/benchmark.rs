@@ -22,7 +22,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(
+                std::hint::black_box(
                     field
                         .insert(Tile {
                             id: 0,
@@ -70,7 +70,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.remove(key).unwrap());
+                std::hint::black_box(field.remove(key).unwrap());
             }
             instance.elapsed()
         });
@@ -109,7 +109,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.get(key).unwrap());
+                std::hint::black_box(field.get(key).unwrap());
             }
             instance.elapsed()
         });
@@ -148,7 +148,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.modify(key, |tile| tile.location[1] += 1).unwrap());
+                std::hint::black_box(field.modify(key, |tile| tile.location[1] += 1).unwrap());
             }
             instance.elapsed()
         });
@@ -183,7 +183,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(
+                std::hint::black_box(
                     field
                         .insert(Block {
                             id: 0,
@@ -241,7 +241,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.remove(key).unwrap());
+                std::hint::black_box(field.remove(key).unwrap());
             }
             instance.elapsed()
         });
@@ -290,7 +290,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.get(key).unwrap());
+                std::hint::black_box(field.get(key).unwrap());
             }
             instance.elapsed()
         });
@@ -339,7 +339,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.modify(key, |block| block.location[1] += 1).unwrap());
+                std::hint::black_box(field.modify(key, |block| block.location[1] += 1).unwrap());
             }
             instance.elapsed()
         });
@@ -372,7 +372,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                black_box(
+                std::hint::black_box(
                     field
                         .insert(Entity {
                             id: 0,
@@ -428,7 +428,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.remove(key).unwrap());
+                std::hint::black_box(field.remove(key).unwrap());
             }
             instance.elapsed()
         });
@@ -475,7 +475,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(field.get(key).unwrap());
+                std::hint::black_box(field.get(key).unwrap());
             }
             instance.elapsed()
         });
@@ -522,7 +522,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for key in keys {
-                black_box(
+                std::hint::black_box(
                     field
                         .modify(key, |entity| entity.location[1] += 1.0)
                         .unwrap(),

@@ -3,92 +3,89 @@ use godot::prelude::*;
 
 use crate::dataflow;
 
-pub struct ItemImageDescriptor {
-    pub frames: Vec<Gd<godot::classes::Image>>,
-    pub step_tick: u16,
+pub struct ItemImageInfo {
+    pub images: Vec<Gd<godot::classes::Image>>,
+    pub ticks_per_image: u16,
     pub is_loop: bool,
 }
 
-pub struct ItemDescriptor {
-    pub images: Vec<ItemImageDescriptor>,
+pub struct ItemInfo {
+    pub sprites: Vec<ItemImageInfo>,
 }
 
-pub struct InventoryDescriptor {
+pub struct InventoryInfo {
     pub callback: Callable,
 }
 
-pub struct ItemStorageDescriptor {
-    pub items: Vec<ItemDescriptor>,
-    pub inventories: Vec<InventoryDescriptor>,
+pub struct ItemStorageInfo {
+    pub items: Vec<ItemInfo>,
+    pub inventories: Vec<InventoryInfo>,
 }
 
-struct ImageHead {
-    start_texcoord_id: u32,
-    end_texcoord_id: u32,
-    step_tick: u16,
+struct ImageAddress {
+    start_index: u32,
+    end_index: u32,
+    ticks_per_images: u16,
     is_loop: bool,
 }
 
-struct ItemProperty {}
-
-struct InventoryProperty {
+struct InventoryRenderLayout {
     pub callback: Callable,
 }
 
 pub struct ItemStorage {
-    inventory_props: Vec<InventoryProperty>,
-    image_heads: Vec<Vec<ImageHead>>,
+    inventory_layouts: Vec<InventoryRenderLayout>,
+    sprite_addrs: Vec<Vec<ImageAddress>>,
     textures: Vec<Rid>,
     free_handles: Vec<Rid>,
 }
 
 impl ItemStorage {
-    pub fn new(desc: ItemStorageDescriptor) -> Self {
+    pub fn new(info: ItemStorageInfo) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut free_handles = vec![];
 
-        let mut item_props = vec![];
-        let mut image_heads = vec![];
-        let mut textures = vec![];
-        for desc in desc.items {
-            item_props.push(ItemProperty {});
+        let mut sprite_addrs = vec![];
+        let mut images = vec![];
+        for item in info.items {
+            let mut sprite_addr = vec![];
 
-            let mut sub_image_heads = vec![];
-
-            for image in desc.images {
-                if textures.len() + image.frames.len() >= i32::MAX as usize {
+            for sprite in item.sprites {
+                if images.len() + sprite.images.len() >= i32::MAX as usize {
                     panic!("number of frame must be less than i32::MAX");
                 }
 
-                sub_image_heads.push(ImageHead {
-                    start_texcoord_id: textures.len() as u32,
-                    end_texcoord_id: (textures.len() + image.frames.len()) as u32,
-                    step_tick: image.step_tick,
-                    is_loop: image.is_loop,
+                sprite_addr.push(ImageAddress {
+                    start_index: images.len() as u32,
+                    end_index: (images.len() + sprite.images.len()) as u32,
+                    ticks_per_images: sprite.ticks_per_image,
+                    is_loop: sprite.is_loop,
                 });
 
-                for frame in image.frames {
-                    let texture = rendering_server.texture_2d_create(&frame);
-                    free_handles.push(texture);
-
-                    textures.push(texture);
+                for image in sprite.images {
+                    images.push(image);
                 }
             }
 
-            image_heads.push(sub_image_heads);
+            sprite_addrs.push(sprite_addr);
         }
 
-        let mut inventory_props = vec![];
-        for desc in desc.inventories {
-            inventory_props.push(InventoryProperty {
-                callback: desc.callback,
-            });
+        let mut inventory_layouts = vec![];
+        for inventory in info.inventories {
+            inventory_layouts.push(InventoryRenderLayout { callback: inventory.callback });
+        }
+
+        let mut textures = vec![];
+        for image in images {
+            let texture = rendering_server.texture_2d_create(&image);
+            textures.push(texture);
+            free_handles.push(texture);
         }
 
         Self {
-            inventory_props,
-            image_heads,
+            inventory_layouts,
+            sprite_addrs,
             textures,
             free_handles,
         }
@@ -141,7 +138,7 @@ impl ItemStorage {
     ) -> Result<(), dataflow::DataflowError> {
         let inventory = dataflow.get_inventory(inventory_key)?;
         let prop = self
-            .inventory_props
+            .inventory_layouts
             .get(inventory.id as usize)
             .ok_or(dataflow::ItemError::InventoryInvalidId)?;
 
@@ -168,26 +165,24 @@ impl ItemStorage {
         let canvas_item = control_item.get_canvas_item();
 
         let mut rendering_server = godot::classes::RenderingServer::singleton();
+
         rendering_server.canvas_item_clear(canvas_item);
 
         if let Some(item) = &slot.item {
             let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
 
-            let image_head =
-                &self.image_heads[item.id as usize][item.render_param.variant as usize];
-            let texcoord_id = if image_head.step_tick == 0 {
-                image_head.start_texcoord_id
+            let image_addr = &self.sprite_addrs[item.id as usize][item.render_param.variant as usize];
+
+            let index = if image_addr.ticks_per_images == 0 {
+                image_addr.start_index
             } else {
-                let step_id = (dataflow.get_tick() as u32 - item.render_param.tick)
-                    / image_head.step_tick as u32;
-                let step_size = image_head.end_texcoord_id - image_head.start_texcoord_id;
-                if image_head.is_loop {
-                    image_head.start_texcoord_id + (step_id % step_size)
-                } else {
-                    image_head.start_texcoord_id + u32::min(step_id, step_size - 1)
-                }
+                let step_index = (dataflow.get_tick() as u32 - item.render_param.tick) / image_addr.ticks_per_images as u32;
+                let step_len = image_addr.end_index - image_addr.start_index;
+                let cycle = if image_addr.is_loop { step_index % step_len } else { u32::min(step_index, step_len - 1) };
+                image_addr.start_index + cycle
             };
-            let texture = self.textures[texcoord_id as usize];
+
+            let texture = self.textures[index as usize];
 
             rendering_server.canvas_item_add_texture_rect(canvas_item, rect, texture);
         }

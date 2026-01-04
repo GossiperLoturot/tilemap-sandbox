@@ -234,14 +234,14 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(view::TileImageDescriptor {
-                    frames,
-                    step_tick: image.step_tick,
+                images.push(view::TileSpriteInfo {
+                    images: frames,
+                    tick_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            tiles_view.push(view::TileDescriptor { images });
+            tiles_view.push(view::TileInfo { sprites: images });
         }
 
         let tile_field_desc = dataflow::TileFieldDescriptor { tiles };
@@ -250,7 +250,7 @@ impl ContextBuilder {
         for shader in desc.tile_shaders {
             tile_shaders.push(shader);
         }
-        let tile_field_view = view::TileField::new(view::TileFieldDescriptor {
+        let tile_field_view = view::TileField::new(view::TileFieldInfo {
             tiles: tiles_view,
             shaders: tile_shaders,
             world: world.clone(),
@@ -283,16 +283,16 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(view::BlockImageDescriptor {
-                    frames,
-                    step_tick: image.step_tick,
+                images.push(view::BlockSpriteInfo {
+                    images: frames,
+                    ticks_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            blocks_view.push(view::BlockDescriptor {
-                images,
-                z_along_y: desc.z_along_y,
+            blocks_view.push(view::BlockInfo {
+                sprites: images,
+                y_sorting: desc.z_along_y,
                 rendering_size: desc.rendering_size,
                 rendering_offset: desc.rendering_offset,
             });
@@ -304,7 +304,7 @@ impl ContextBuilder {
         for shader in desc.block_shaders {
             block_shaders.push(shader);
         }
-        let block_field_view = view::BlockField::new(view::BlockFieldDescriptor {
+        let block_field_view = view::BlockField::new(view::BlockFieldInfo {
             blocks: blocks_view,
             shaders: block_shaders,
             world: world.clone(),
@@ -336,16 +336,16 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(view::EntityImageDescriptor {
-                    frames,
-                    step_tick: image.step_tick,
+                images.push(view::EntitySpriteInfo {
+                    images: frames,
+                    ticks_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            entities_view.push(view::EntityDescriptor {
-                images,
-                z_along_y: desc.z_along_y,
+            entities_view.push(view::EntityInfo {
+                sprites: images,
+                y_sorting: desc.z_along_y,
                 rendering_size: desc.rendering_size,
                 rendering_offset: desc.rendering_offset,
             });
@@ -357,7 +357,7 @@ impl ContextBuilder {
         for shader in desc.entity_shaders {
             entity_shaders.push(shader);
         }
-        let entity_field_view = view::EntityField::new(view::EntityFieldDescriptor {
+        let entity_field_view = view::EntityField::new(view::EntityFieldInfo {
             entities: entities_view,
             shaders: entity_shaders,
             world: world.clone(),
@@ -384,14 +384,14 @@ impl ContextBuilder {
                     frames.push(image);
                 }
 
-                images.push(view::ItemImageDescriptor {
-                    frames,
-                    step_tick: image.step_tick,
+                images.push(view::ItemImageInfo {
+                    images: frames,
+                    ticks_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            items_view.push(view::ItemDescriptor { images });
+            items_view.push(view::ItemInfo { sprites: images });
         }
 
         let mut inventories = vec![];
@@ -401,19 +401,19 @@ impl ContextBuilder {
 
             inventories.push(dataflow::InventoryDescriptor { size: desc.size });
 
-            inventories_view.push(view::InventoryDescriptor {
+            inventories_view.push(view::InventoryInfo {
                 callback: desc.callback,
             });
         }
 
         let item_storage_desc = dataflow::ItemStorageDescriptor { items, inventories };
 
-        let item_storage_view = view::ItemStorage::new(view::ItemStorageDescriptor {
+        let item_storage_view = view::ItemStorage::new(view::ItemStorageInfo {
             items: items_view,
             inventories: inventories_view,
         });
 
-        let selection_view = view::Selection::new(view::SelectionDescriptor {
+        let selection_view = view::Selection::new(view::SelectionInfo {
             shader: desc.selection_shader,
             world: world.clone(),
         });

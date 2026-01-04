@@ -33,7 +33,7 @@ impl ForwardFeature for ItemEntityFeatureSet {
             return;
         };
 
-        let Ok(target_location) = PlayerSystem::get_location(&dataflow) else {
+        let Ok(target_location) = PlayerSystem::get_location(dataflow) else {
             return;
         };
 
@@ -44,7 +44,7 @@ impl ForwardFeature for ItemEntityFeatureSet {
         entity.location = entity.location + (target_location - entity.location) * delta_secs * 10.0;
         if Vec2::distance(entity.location, target_location) < 0.5 {
             dataflow.remove_entity(key).unwrap();
-            let inventory_key = PlayerSystem::get_inventory_key(&dataflow).unwrap();
+            let inventory_key = PlayerSystem::get_inventory_key(dataflow).unwrap();
             dataflow
                 .push_item_to_inventory(inventory_key, data.item.clone())
                 .unwrap();

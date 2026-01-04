@@ -21,7 +21,7 @@ pub struct FeatureMatrixBuilder {
 }
 
 impl FeatureMatrixBuilder {
-    pub fn insert_row(&mut self) -> FeatureSetBuilder {
+    pub fn insert_row(&mut self) -> FeatureSetBuilder<'_> {
         FeatureSetBuilder {
             row_len: &mut self.row_len,
             matrix: &mut self.matrix,

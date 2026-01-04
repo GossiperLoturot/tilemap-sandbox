@@ -137,7 +137,7 @@ impl ItemStorage {
             .find(|slot| slot.item.is_none())
             .ok_or(ItemError::ItemConflict)?;
 
-        let _ = std::mem::replace(&mut slot.item, Some(item));
+        let _ = slot.item.replace(item);
         slot.version += 1;
         inventory.version += 1;
         Ok(())
@@ -214,7 +214,7 @@ impl ItemStorage {
             return Err(ItemError::ItemNotFound);
         }
 
-        let _ = std::mem::replace(&mut slot.item, Some(item));
+        let _ = slot.item.replace(item);
         slot.version += 1;
         inventory.version += 1;
         Ok(())
