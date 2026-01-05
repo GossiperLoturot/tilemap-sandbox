@@ -1,7 +1,5 @@
 use super::*;
 
-type RectNode<T, U> = rstar::primitives::GeomWithData<rstar::primitives::Rectangle<T>, U>;
-
 pub type TileId = (u32, u32);
 
 #[derive(Debug, Clone)]
@@ -21,17 +19,6 @@ struct TileArchetype {
     display_name: String,
     description: String,
     collision: bool,
-}
-
-impl TileArchetype {
-    #[rustfmt::skip]
-    fn collision_rect(&self, coord: IVec2) -> Option<[Vec2; 2]> {
-        if !self.collision {
-            return None;
-        }
-
-        Some([coord.as_vec2(), coord.as_vec2() + 1.0])
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -59,12 +46,12 @@ pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     chunk_index: ahash::AHashMap<IVec2, u32>,
-    spatial_index: ahash::AHashMap<IVec2, TileId>,
-    collision_index: rstar::RTree<RectNode<[f32; 2], TileId>>,
+    spatial_index: ahash::AHashMap<IVec2, Vec<Option<TileId>>>,
 }
 
 impl TileField {
     const CHUNK_SIZE: u32 = 32;
+    const TILE_LEN: u32 = Self::CHUNK_SIZE * Self::CHUNK_SIZE;
 
     pub fn new(desc: TileFieldInfo) -> Self {
         let mut archetypes = vec![];
@@ -82,7 +69,6 @@ impl TileField {
             chunks: Default::default(),
             chunk_index: Default::default(),
             spatial_index: Default::default(),
-            collision_index: Default::default(),
         }
     }
 
@@ -93,7 +79,7 @@ impl TileField {
             .ok_or(TileError::InvalidId)?;
 
         // check by spatial features
-        if self.has_by_point(tile.coord) {
+        if self.get_id_by_point(tile.coord).is_some() {
             return Err(TileError::Conflict);
         }
 
@@ -114,6 +100,7 @@ impl TileField {
                 tiles: Default::default(),
             });
             self.chunk_index.insert(chunk_coord, chunk_id);
+            self.spatial_index.insert(chunk_coord, vec![None; Self::TILE_LEN as usize]);
             chunk_id
         };
 
@@ -126,16 +113,10 @@ impl TileField {
         let local_id = chunk.tiles.vacant_key() as u32;
 
         // spatial features
-        self.spatial_index.insert(tile.coord, (chunk_id, local_id));
-
-        // collision features
-        if let Some(rect) = archetype.collision_rect(tile.coord) {
-            let p1 = [rect[0].x, rect[0].y];
-            let p2 = [rect[1].x, rect[1].y];
-            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
-            let node = rstar::primitives::GeomWithData::new(rect, (chunk_id, local_id));
-            self.collision_index.insert(node);
-        }
+        let index = self.spatial_index.get_mut(&chunk_coord).unwrap();
+        let local_coord = tile.coord.rem_euclid(chunk_size);
+        let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
+        *index.get_mut(spatial_id as usize).unwrap() = Some((chunk_id, local_id));
 
         // key is guaranteed to be less than u32::MAX.
         chunk.tiles.insert(tile);
@@ -154,19 +135,14 @@ impl TileField {
             .ok_or(TileError::NotFound)?;
         chunk.version += 1;
 
-        let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_coord = tile.coord.div_euclid(chunk_size);
 
         // spatial features
-        self.spatial_index.remove(&tile.coord).unwrap();
-
-        // collision features
-        if let Some(rect) = archetype.collision_rect(tile.coord) {
-            let p1 = [rect[0].x, rect[0].y];
-            let p2 = [rect[1].x, rect[1].y];
-            let rect = rstar::primitives::Rectangle::from_corners(p1, p2);
-            let node = rstar::primitives::GeomWithData::new(rect, id);
-            self.collision_index.remove(&node).unwrap();
-        }
+        let index = self.spatial_index.get_mut(&chunk_coord).unwrap();
+        let local_coord = tile.coord.rem_euclid(chunk_size);
+        let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
+        *index.get_mut(spatial_id as usize).unwrap() = None;
 
         Ok(tile)
     }
@@ -199,7 +175,7 @@ impl TileField {
 
         if new_tile.coord != tile.coord {
             // check by spatial features
-            if self.has_by_point(new_tile.coord) {
+            if self.get_id_by_point(new_tile.coord).is_some() {
                 return Err(TileError::Conflict);
             }
 
@@ -231,6 +207,11 @@ impl TileField {
     }
 
     // transfer chunk data
+
+    pub fn get_chunk_coord(&self, point: Vec2) -> IVec2 {
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        point.div_euclid(chunk_size).as_ivec2()
+    }
 
     pub fn get_version_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<u64, TileError> {
         let chunk_id = self
@@ -272,59 +253,24 @@ impl TileField {
 
     // spatial features
 
-    pub fn has_by_point(&self, point: IVec2) -> bool {
-        self.spatial_index.contains_key(&point)
-    }
-
     pub fn get_id_by_point(&self, point: IVec2) -> Option<TileId> {
-        self.spatial_index.get(&point).copied()
-    }
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_coord = point.div_euclid(chunk_size);
 
-    pub fn get_chunk_coord(&self, point: Vec2) -> IVec2 {
-        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
-        point.div_euclid(chunk_size).as_ivec2()
+        let index = self.spatial_index.get(&chunk_coord)?;
+        let local_coord = point.rem_euclid(chunk_size);
+        let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
+        *index.get(spatial_id as usize)?
     }
 
     // collision features
 
-    pub fn get_collision_rect(&self, id: TileId) -> Result<[Vec2; 2], TileError> {
-        let tile = self.get(id)?;
-        let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
-        Ok(archetype.collision_rect(tile.coord).unwrap_or_default())
-    }
-
-    pub fn has_by_collision_point(&self, point: Vec2) -> bool {
-        let point = [point.x, point.y];
-        self.collision_index.locate_at_point(&point).is_some()
-    }
-
-    pub fn get_ids_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileId> + '_ {
-        let point = [point.x, point.y];
-        self.collision_index
-            .locate_all_at_point(&point)
-            .map(|node| node.data)
-    }
-
-    pub fn has_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        let p1 = [rect[0].x, rect[0].y];
-        let p2 = [rect[1].x, rect[1].y];
-        let rect = rstar::AABB::from_corners(p1, p2);
-        self.collision_index
-            .locate_in_envelope_intersecting(&rect)
-            .next()
-            .is_some()
-    }
-
-    pub fn get_ids_by_collision_rect(
-        &self,
-        rect: [Vec2; 2],
-    ) -> impl Iterator<Item = TileId> + '_ {
-        let p1 = [rect[0].x, rect[0].y];
-        let p2 = [rect[1].x, rect[1].y];
-        let rect = rstar::AABB::from_corners(p1, p2);
-        self.collision_index
-            .locate_in_envelope_intersecting(&rect)
-            .map(|node| node.data)
+    pub fn get_ids_by_collision_point(&self, point: Vec2) -> Option<TileId> {
+        self.get_id_by_point(point.as_ivec2()).filter(|id| {
+            let tile = self.get(*id).unwrap();
+            let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
+            archetype.collision
+        })
     }
 }
 
@@ -381,7 +327,6 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), Some(id));
 
         let tile = field.remove(id).unwrap();
@@ -389,7 +334,6 @@ mod tests {
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
         assert_eq!(field.get(id).unwrap_err(), TileError::NotFound);
-        assert!(!field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), None);
         assert_eq!(field.remove(id).unwrap_err(), TileError::NotFound);
     }
@@ -420,7 +364,6 @@ mod tests {
             }),
             Err(TileError::InvalidId)
         );
-        assert!(!field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), None);
 
         let id = field
@@ -445,7 +388,6 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), Some(id));
     }
 
@@ -483,9 +425,7 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 4));
 
-        assert!(!field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), None);
-        assert!(field.has_by_point(IVec2::new(-1, 4)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 4)), Some(id));
 
         let id = field
@@ -553,13 +493,11 @@ mod tests {
         assert_eq!(tile.archetype_id, 0);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        assert!(field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), Some(id0));
 
         field.remove(id1).unwrap();
         assert_eq!(field.modify(id1, |_| {}), Err(TileError::NotFound));
         assert_eq!(field.get(id1).unwrap_err(), TileError::NotFound);
-        assert!(!field.has_by_point(IVec2::new(-1, 4)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 4)), None);
     }
 
@@ -597,9 +535,7 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 1000));
 
-        assert!(!field.has_by_point(IVec2::new(-1, 3)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 3)), None);
-        assert!(field.has_by_point(IVec2::new(-1, 1000)));
         assert_eq!(field.get_id_by_point(IVec2::new(-1, 1000)), Some(id));
     }
 
@@ -620,7 +556,7 @@ mod tests {
             ],
         });
 
-        let id0 = field
+        let _ = field
             .insert(Tile {
                 archetype_id: 1,
                 coord: IVec2::new(-1, 3),
@@ -628,7 +564,7 @@ mod tests {
                 render_state: Default::default(),
             })
             .unwrap();
-        let id1 = field
+        let id = field
             .insert(Tile {
                 archetype_id: 1,
                 coord: IVec2::new(-1, 4),
@@ -645,25 +581,18 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(
-            field.get_collision_rect(id0),
-            Ok([Vec2::new(-1.0, 3.0), Vec2::new(0.0, 4.0)])
-        );
-
         let point = Vec2::new(-1.0, 4.0);
-        assert!(field.has_by_collision_point(point));
-        let vec = field.get_ids_by_collision_point(point).collect::<Vec<_>>();
-        assert!(vec.contains(&id0));
-        assert!(vec.contains(&id1));
+        assert_eq!(field.get_ids_by_collision_point(point), Some(id));
 
-        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
-        assert!(field.has_by_collision_rect(rect));
-        let vec = field.get_ids_by_collision_rect(rect).collect::<Vec<_>>();
-        assert!(vec.contains(&id0));
-        assert!(vec.contains(&id1));
-
-        field.remove(id0).unwrap();
-        assert_eq!(field.get_collision_rect(id0), Err(TileError::NotFound));
+        // TODO: implement collision rect query
+        // let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
+        // assert!(field.has_by_collision_rect(rect));
+        // let vec = field.get_ids_by_collision_rect(rect).collect::<Vec<_>>();
+        // assert!(vec.contains(&id0));
+        // assert!(vec.contains(&id1));
+        //
+        // field.remove(id0).unwrap();
+        // assert_eq!(field.get_collision_rect(id0), Err(TileError::NotFound));
     }
 
     #[test]

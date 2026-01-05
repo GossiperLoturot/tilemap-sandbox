@@ -242,9 +242,10 @@ fn intersection_guard(
         new_location + base_rect[1],
     ];
 
-    if dataflow.has_tile_by_collision_rect(rect) {
-        return Ok(true);
-    }
+    // TODO: enable tile collision check
+    // if dataflow.has_tile_by_collision_rect(rect) {
+    //     return Ok(true);
+    // }
 
     if dataflow.has_block_by_collision_rect(rect) {
         return Ok(true);

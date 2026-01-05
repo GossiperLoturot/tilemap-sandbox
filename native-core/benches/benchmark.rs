@@ -20,13 +20,27 @@ fn benchmark(c: &mut Criterion) {
                 ],
             });
 
-            let instance = std::time::Instant::now();
+            // warm up
             for i in 0..iters {
                 std::hint::black_box(
                     field
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
+                            data: Default::default(),
+                            render_state: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for i in 0..iters {
+                std::hint::black_box(
+                    field
+                        .insert(Tile {
+                            archetype_id: 0,
+                            coord: IVec2::new(i as i32, 1),
                             data: Default::default(),
                             render_state: Default::default(),
                         })

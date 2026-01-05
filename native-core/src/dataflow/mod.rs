@@ -119,6 +119,10 @@ impl Dataflow {
         Ok(tile_id)
     }
 
+    pub fn get_tile_chunk_coord(&self, point: Vec2) -> IVec2 {
+        self.tile_field.get_chunk_coord(point)
+    }
+
     pub fn get_tile_version_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<u64, DataflowError> {
         let chunk = self
             .tile_field
@@ -143,38 +147,13 @@ impl Dataflow {
 
     // tile spatial features
 
-    pub fn has_tile_by_point(&self, point: IVec2) -> bool {
-        self.tile_field.has_by_point(point)
-    }
-
     pub fn get_tile_id_by_point(&self, point: IVec2) -> Option<TileId> {
         self.tile_field.get_id_by_point(point)
     }
 
-    pub fn get_tile_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.tile_field.get_chunk_coord(point)
-    }
-
     // tile collision features
 
-    pub fn get_tile_collision_rect(&self, tile_id: TileId) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.tile_field.get_collision_rect(tile_id)?;
-        Ok(rect)
-    }
-
-    pub fn has_tile_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        self.tile_field.has_by_collision_rect(rect)
-    }
-
-    pub fn get_tile_ids_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileId> + '_ {
-        self.tile_field.get_ids_by_collision_rect(rect)
-    }
-
-    pub fn has_tile_by_collision_point(&self, point: Vec2) -> bool {
-        self.tile_field.has_by_collision_point(point)
-    }
-
-    pub fn get_tile_ids_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileId> + '_ {
+    pub fn get_tile_ids_by_collision_point(&self, point: Vec2) -> Option<TileId> {
         self.tile_field.get_ids_by_collision_point(point)
     }
 
