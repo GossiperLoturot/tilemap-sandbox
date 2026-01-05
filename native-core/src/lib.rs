@@ -273,7 +273,7 @@ impl ContextBuilder {
                 collision_offset: desc.collision_offset,
                 hint_size: desc.rendering_size,
                 hint_offset: desc.rendering_offset,
-                z_along_y: desc.z_along_y,
+                y_sorting: desc.z_along_y,
             });
 
             let mut images = vec![];

@@ -13,7 +13,7 @@ pub struct BlockInfo {
     pub collision_offset: Vec2,
     pub hint_size: Vec2,
     pub hint_offset: Vec2,
-    pub z_along_y: bool,
+    pub y_sorting: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -113,7 +113,7 @@ impl BlockField {
                 collision_offset: block.collision_offset,
                 hint_size: block.hint_size,
                 hint_offset: block.hint_offset,
-                y_sorting: block.z_along_y,
+                y_sorting: block.y_sorting,
             });
         }
 
@@ -497,7 +497,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
-                z_along_y: false,
+                y_sorting: false,
             }],
         });
     }
@@ -514,7 +514,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(1.0, 1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
-                z_along_y: false,
+                y_sorting: false,
             }],
         });
     }
@@ -531,7 +531,7 @@ mod tests {
                 collision_offset: Vec2::new(0.0, 0.0),
                 hint_size: Vec2::new(-1.0, -1.0),
                 hint_offset: Vec2::new(0.0, 0.0),
-                z_along_y: false,
+                y_sorting: false,
             }],
         });
     }
@@ -548,7 +548,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -558,7 +558,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -604,7 +604,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -614,7 +614,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -669,7 +669,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -679,7 +679,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -735,7 +735,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -745,7 +745,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -799,7 +799,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -809,7 +809,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -849,7 +849,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -859,7 +859,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -919,7 +919,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -929,7 +929,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
@@ -989,7 +989,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
                 BlockInfo {
                     display_name: "block_1".into(),
@@ -999,7 +999,7 @@ mod tests {
                     collision_offset: Vec2::new(0.0, 0.0),
                     hint_size: Vec2::new(1.0, 1.0),
                     hint_offset: Vec2::new(0.0, 0.0),
-                    z_along_y: false,
+                    y_sorting: false,
                 },
             ],
         });
