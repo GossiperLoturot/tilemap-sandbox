@@ -131,7 +131,7 @@ impl Dataflow {
     }
 
     pub fn get_tile_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, DataflowError> {
-        let chunk = self.tile_field.get_ids_by_chunk_coord(chunk_coord)?;
+        let chunk = self.tile_field.get_id_by_chunk_coord(chunk_coord)?;
         Ok(chunk)
     }
 
@@ -154,7 +154,7 @@ impl Dataflow {
     // tile collision features
 
     pub fn get_tile_ids_by_collision_point(&self, point: Vec2) -> Option<TileId> {
-        self.tile_field.get_ids_by_collision_point(point)
+        self.tile_field.get_id_by_collision_point(point)
     }
 
     // tile inventory

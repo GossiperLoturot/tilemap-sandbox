@@ -73,10 +73,7 @@ impl TileField {
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<TileId, TileError> {
-        let archetype = self
-            .archetypes
-            .get(tile.archetype_id as usize)
-            .ok_or(TileError::InvalidId)?;
+        let _ = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
 
         // check by spatial features
         if self.get_id_by_point(tile.coord).is_some() {
@@ -147,11 +144,7 @@ impl TileField {
         Ok(tile)
     }
 
-    pub fn modify(
-        &mut self,
-        id: TileId,
-        f: impl FnOnce(&mut Tile),
-    ) -> Result<TileId, TileError> {
+    pub fn modify(&mut self, id: TileId, f: impl FnOnce(&mut Tile)) -> Result<TileId, TileError> {
         let (chunk_id, local_id) = id;
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
@@ -223,7 +216,7 @@ impl TileField {
         Ok(chunk.version)
     }
 
-    pub fn get_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, TileError> {
+    pub fn get_id_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, TileError> {
         let chunk_id = self
             .chunk_index
             .get(&chunk_coord)
@@ -260,13 +253,49 @@ impl TileField {
         let index = self.spatial_index.get(&chunk_coord)?;
         let local_coord = point.rem_euclid(chunk_size);
         let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
-        *index.get(spatial_id as usize)?
+        index.get(spatial_id as usize).copied().unwrap()
+    }
+
+    pub fn get_id_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let minb = IVec2::ZERO;
+        let maxb = IVec2::splat(Self::CHUNK_SIZE as i32 - 1);
+
+        let chunk_min = rect[0].div_euclid(chunk_size);
+        let chunk_max = rect[1].div_euclid(chunk_size);
+        let query = (chunk_min.y..=chunk_max.y).flat_map(move |cy| {
+            (chunk_min.x..=chunk_max.x).filter_map(move |cx| {
+                let chunk_coord = IVec2::new(cx, cy);
+                let index = self.spatial_index.get(&chunk_coord)?;
+                Some((chunk_coord, index))
+            })
+        });
+        query.flat_map(move |(chunk_coord, index)| {
+            let local_min = (rect[0] - chunk_coord * chunk_size).clamp(minb, maxb);
+            let local_max = (rect[1] - chunk_coord * chunk_size).clamp(minb, maxb);
+            (local_min.y..=local_max.y).flat_map(move |ly| {
+                (local_min.x..=local_max.x).flat_map(move |lx| {
+                    let spatial_id = ly * Self::CHUNK_SIZE as i32 + lx;
+                    index.get(spatial_id as usize).copied().unwrap()
+                })
+            })
+        })
     }
 
     // collision features
 
-    pub fn get_ids_by_collision_point(&self, point: Vec2) -> Option<TileId> {
+    pub fn get_id_by_collision_point(&self, point: Vec2) -> Option<TileId> {
         self.get_id_by_point(point.as_ivec2()).filter(|id| {
+            let tile = self.get(*id).unwrap();
+            let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
+            archetype.collision
+        })
+    }
+
+    pub fn get_id_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+        let min = rect[0].floor().as_ivec2();
+        let max = rect[1].ceil().as_ivec2();
+        self.get_id_by_rect([min, max]).filter(move |id| {
             let tile = self.get(*id).unwrap();
             let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
             archetype.collision
@@ -556,7 +585,7 @@ mod tests {
             ],
         });
 
-        let _ = field
+        let id0 = field
             .insert(Tile {
                 archetype_id: 1,
                 coord: IVec2::new(-1, 3),
@@ -564,7 +593,7 @@ mod tests {
                 render_state: Default::default(),
             })
             .unwrap();
-        let id = field
+        let id1 = field
             .insert(Tile {
                 archetype_id: 1,
                 coord: IVec2::new(-1, 4),
@@ -582,17 +611,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        assert_eq!(field.get_ids_by_collision_point(point), Some(id));
+        assert_eq!(field.get_id_by_collision_point(point), Some(id1));
 
-        // TODO: implement collision rect query
-        // let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
-        // assert!(field.has_by_collision_rect(rect));
-        // let vec = field.get_ids_by_collision_rect(rect).collect::<Vec<_>>();
-        // assert!(vec.contains(&id0));
-        // assert!(vec.contains(&id1));
-        //
-        // field.remove(id0).unwrap();
-        // assert_eq!(field.get_collision_rect(id0), Err(TileError::NotFound));
+        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
+        let vec = field.get_id_by_collision_rect(rect).collect::<Vec<_>>();
+        assert!(vec.contains(&id0));
+        assert!(vec.contains(&id1));
     }
 
     #[test]
@@ -637,9 +661,9 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_ids_by_chunk_coord(IVec2::new(0, 0)).is_err());
+        assert!(field.get_id_by_chunk_coord(IVec2::new(0, 0)).is_err());
 
-        let ids = field.get_ids_by_chunk_coord(IVec2::new(-1, 0)).unwrap();
+        let ids = field.get_id_by_chunk_coord(IVec2::new(-1, 0)).unwrap();
         assert_eq!(ids.count(), 3);
     }
 }
