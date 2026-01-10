@@ -163,6 +163,44 @@ fn benchmark(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("tile collision", |b| {
+        b.iter_custom(|iters| {
+            let mut field: TileField = TileField::new(TileFieldInfo {
+                tiles: vec![
+                    TileInfo {
+                        display_name: "tile_0".into(),
+                        description: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                    TileInfo {
+                        display_name: "tile_0".into(),
+                        description: "tile_0_desc".into(),
+                        collision: true,
+                    },
+                ],
+            });
+
+            let mut ids = vec![];
+            for i in 0..iters {
+                ids.push(
+                    field
+                        .insert(Tile {
+                            archetype_id: 0,
+                            coord: IVec2::new(i as i32, 0),
+                            render_state: Default::default(),
+                        })
+                        .unwrap(),
+                );
+            }
+
+            let instance = std::time::Instant::now();
+            for i in 0..iters {
+                std::hint::black_box(field.find_with_collision_rect([Vec2::ZERO, Vec2::ONE * i as f32]).count());
+            }
+            instance.elapsed()
+        });
+    });
+
     c.bench_function("block add", |b| {
         b.iter_custom(|iters| {
             let mut field: BlockField = BlockField::new(BlockFieldInfo {

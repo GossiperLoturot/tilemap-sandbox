@@ -38,6 +38,7 @@ pub struct Tile {
 pub struct TileChunk {
     pub version: u64,
     pub tiles: slab::Slab<Tile>,
+    dense_space: Vec<Option<TileId>>,
 }
 
 #[derive(Debug, Clone)]
@@ -45,7 +46,6 @@ pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     chunk_index: ahash::AHashMap<IVec2, u32>,
-    spatial_index: ahash::AHashMap<IVec2, Vec<Option<TileId>>>,
 }
 
 impl TileField {
@@ -67,7 +67,6 @@ impl TileField {
             archetypes,
             chunks: Default::default(),
             chunk_index: Default::default(),
-            spatial_index: Default::default(),
         }
     }
 
@@ -94,9 +93,9 @@ impl TileField {
             self.chunks.push(TileChunk {
                 version: 0,
                 tiles: Default::default(),
+                dense_space: vec![None; Self::TILE_LEN as usize],
             });
             self.chunk_index.insert(chunk_coord, chunk_id);
-            self.spatial_index.insert(chunk_coord, vec![None; Self::TILE_LEN as usize]);
             chunk_id
         };
 
@@ -109,10 +108,9 @@ impl TileField {
         let local_id = chunk.tiles.vacant_key() as u32;
 
         // spatial features
-        let index = self.spatial_index.get_mut(&chunk_coord).unwrap();
         let local_coord = tile.coord.rem_euclid(chunk_size);
-        let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
-        *index.get_mut(spatial_id as usize).unwrap() = Some((chunk_id, local_id));
+        let dense_space = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
+        *chunk.dense_space.get_mut(dense_space as usize).unwrap() = Some((chunk_id, local_id));
 
         // key is guaranteed to be less than u32::MAX.
         chunk.tiles.insert(tile);
@@ -132,13 +130,11 @@ impl TileField {
         chunk.version += 1;
 
         let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-        let chunk_coord = tile.coord.div_euclid(chunk_size);
 
         // spatial features
-        let index = self.spatial_index.get_mut(&chunk_coord).unwrap();
         let local_coord = tile.coord.rem_euclid(chunk_size);
         let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
-        *index.get_mut(spatial_id as usize).unwrap() = None;
+        *chunk.dense_space.get_mut(spatial_id as usize).unwrap() = None;
 
         Ok(tile)
     }
@@ -178,10 +174,7 @@ impl TileField {
     }
 
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, TileError> {
-        let chunk_id = self
-            .chunk_index
-            .get(&chunk_coord)
-            .ok_or(TileError::NotFound)?;
+        let chunk_id = self.chunk_index.get(&chunk_coord).ok_or(TileError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
         Ok(chunk)
     }
@@ -191,34 +184,36 @@ impl TileField {
     pub fn find_with_point(&self, coord: IVec2) -> Option<TileId> {
         let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
         let chunk_coord = coord.div_euclid(chunk_size);
+        let chunk_id = self.chunk_index.get(&chunk_coord)?;
+        let chunk = self.chunks.get(*chunk_id as usize).unwrap();
 
-        let index = self.spatial_index.get(&chunk_coord)?;
         let local_coord = coord.rem_euclid(chunk_size);
-        let spatial_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
-        index.get(spatial_id as usize).copied().unwrap()
+        let dense_space_id = local_coord.y * Self::CHUNK_SIZE as i32 + local_coord.x;
+        *chunk.dense_space.get(dense_space_id as usize).unwrap()
     }
 
     pub fn find_with_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = TileId> + '_ {
         let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_coord = [rect[0].div_euclid(chunk_size), rect[1].div_euclid(chunk_size)];
+
         let dim_min = IVec2::ZERO;
         let dim_max = IVec2::splat(Self::CHUNK_SIZE as i32 - 1);
 
-        let chunk_min = rect[0].div_euclid(chunk_size);
-        let chunk_max = rect[1].div_euclid(chunk_size);
-        let query = (chunk_min.y..=chunk_max.y).flat_map(move |y| {
-            (chunk_min.x..=chunk_max.x).filter_map(move |x| {
+        let query = (chunk_coord[0].y..=chunk_coord[1].y).flat_map(move |y| {
+            (chunk_coord[0].x..=chunk_coord[1].x).filter_map(move |x| {
                 let chunk_coord = IVec2::new(x, y);
-                let index = self.spatial_index.get(&chunk_coord)?;
-                Some((chunk_coord, index))
+                let chunk_id = self.chunk_index.get(&chunk_coord)?;
+                let chunk = self.chunks.get(*chunk_id as usize).unwrap();
+                Some((chunk_coord, chunk))
             })
         });
-        query.flat_map(move |(chunk_coord, index)| {
+        query.flat_map(move |(chunk_coord, chunk)| {
             let local_min = (rect[0] - chunk_coord * chunk_size).clamp(dim_min, dim_max);
             let local_max = (rect[1] - chunk_coord * chunk_size).clamp(dim_min, dim_max);
             (local_min.y..=local_max.y).flat_map(move |y| {
                 (local_min.x..=local_max.x).filter_map(move |x| {
-                    let spatial_id = y * Self::CHUNK_SIZE as i32 + x;
-                    index.get(spatial_id as usize).copied().unwrap()
+                    let dense_space_id = y * Self::CHUNK_SIZE as i32 + x;
+                    *chunk.dense_space.get(dense_space_id as usize).unwrap()
                 })
             })
         })
