@@ -546,7 +546,7 @@ impl Context {
                             let tile = core::dataflow::Tile {
                                 archetype_id,
                                 coord,
-                                render_state: Default::default(),
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_tile(tile);
                         }),
@@ -560,7 +560,7 @@ impl Context {
                             let tile = core::dataflow::Tile {
                                 archetype_id,
                                 coord,
-                                render_state: Default::default(),
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_tile(tile);
                         }),

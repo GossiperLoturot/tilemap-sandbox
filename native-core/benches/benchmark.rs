@@ -27,7 +27,7 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            render_state: Default::default(),
+                            ..Default::default()
                         })
                         .unwrap(),
                 );
@@ -35,15 +35,13 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                std::hint::black_box(
-                    field
-                        .insert(Tile {
-                            archetype_id: 0,
-                            coord: IVec2::new(i as i32, 1),
-                            render_state: Default::default(),
-                        })
-                        .unwrap(),
-                );
+                let tile = std::hint::black_box(Tile {
+                    archetype_id: 0,
+                    coord: IVec2::new(i as i32, 1),
+                    ..Default::default()
+                });
+                let result = field.insert(tile).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
@@ -73,7 +71,7 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            render_state: Default::default(),
+                            ..Default::default()
                         })
                         .unwrap(),
                 );
@@ -81,7 +79,9 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                std::hint::black_box(field.remove(id).unwrap());
+                let id = std::hint::black_box(id);
+                let result = field.remove(id).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
@@ -111,7 +111,7 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            render_state: Default::default(),
+                            ..Default::default()
                         })
                         .unwrap(),
                 );
@@ -119,7 +119,9 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                std::hint::black_box(field.get(id).unwrap());
+                let id = std::hint::black_box(id);
+                let result = field.get(id).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
@@ -149,7 +151,7 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            render_state: Default::default(),
+                            ..Default::default()
                         })
                         .unwrap(),
                 );
@@ -157,49 +159,85 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                std::hint::black_box(field.modify(id, |render_state| render_state.variant += 1).unwrap());
+                let f = std::hint::black_box(|render_state: &mut TileRenderState| render_state.variant += 1);
+                let result = field.modify(id, f).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
     });
 
-    c.bench_function("tile collision", |b| {
-        b.iter_custom(|iters| {
-            let mut field: TileField = TileField::new(TileFieldInfo {
-                tiles: vec![
-                    TileInfo {
-                        display_name: "tile_0".into(),
-                        description: "tile_0_desc".into(),
-                        collision: true,
-                    },
-                    TileInfo {
-                        display_name: "tile_0".into(),
-                        description: "tile_0_desc".into(),
-                        collision: true,
-                    },
-                ],
+    let row: &[(&str, Box<dyn Fn(&TileField, usize)>)] = &[
+        ("tile find point", Box::new(|field, i| {
+            let query = std::hint::black_box(IVec2::new(i as i32, 0));
+            let result = field.find_with_point(query);
+            std::hint::black_box(result);
+        })),
+        ("tile find rect", Box::new(|field, i| {
+            let query = std::hint::black_box([IVec2::ZERO, IVec2::new(i as i32, 0)]);
+            let result = field.find_with_rect(query).count();
+            std::hint::black_box(result);
+        })),
+        ("tile find rect first", Box::new(|field, i| {
+            let query = std::hint::black_box([IVec2::ZERO, IVec2::new(i as i32, 0)]);
+            let result = field.find_with_rect(query).next();
+            std::hint::black_box(result);
+        })),
+        ("tile find collision point", Box::new(|field, i| {
+            let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
+            let result = field.find_with_collision_point(query);
+            std::hint::black_box(result);
+        })),
+        ("tile find collision rect", Box::new(|field, i| {
+            let query = std::hint::black_box([Vec2::ZERO, Vec2::new(i as f32, 0.0)]);
+            let result = field.find_with_collision_rect(query).count();
+            std::hint::black_box(result);
+        })),
+        ("tile find collision rect first", Box::new(|field, i| {
+            let query = std::hint::black_box([Vec2::ZERO, Vec2::new(i as f32, 0.0)]);
+            let result = field.find_with_collision_rect(query).next();
+            std::hint::black_box(result);
+        })),
+    ];
+    for (name, f) in row {
+        c.bench_function(name, |b| {
+            b.iter_custom(|iters| {
+                let mut field: TileField = TileField::new(TileFieldInfo {
+                    tiles: vec![
+                        TileInfo {
+                            display_name: "tile_0".into(),
+                            description: "tile_0_desc".into(),
+                            collision: true,
+                        },
+                        TileInfo {
+                            display_name: "tile_0".into(),
+                            description: "tile_0_desc".into(),
+                            collision: true,
+                        },
+                    ],
+                });
+
+                let mut ids = vec![];
+                for i in 0..iters {
+                    ids.push(
+                        field
+                            .insert(Tile {
+                                archetype_id: 0,
+                                coord: IVec2::new(i as i32, 0),
+                                ..Default::default()
+                            })
+                            .unwrap(),
+                    );
+                }
+
+                let instance = std::time::Instant::now();
+                for i in 0..iters {
+                    f(&field, i as usize);
+                }
+                instance.elapsed()
             });
-
-            let mut ids = vec![];
-            for i in 0..iters {
-                ids.push(
-                    field
-                        .insert(Tile {
-                            archetype_id: 0,
-                            coord: IVec2::new(i as i32, 0),
-                            render_state: Default::default(),
-                        })
-                        .unwrap(),
-                );
-            }
-
-            let instance = std::time::Instant::now();
-            for i in 0..iters {
-                std::hint::black_box(field.find_with_collision_rect([Vec2::ZERO, Vec2::ONE * i as f32]).count());
-            }
-            instance.elapsed()
         });
-    });
+    }
 
     c.bench_function("block add", |b| {
         b.iter_custom(|iters| {

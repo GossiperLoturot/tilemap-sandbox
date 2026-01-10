@@ -120,11 +120,11 @@ impl ItemStorage {
     pub fn open_inventory_by_entity(
         &self,
         dataflow: &dataflow::Dataflow,
-        tile_key: dataflow::TileId,
+        entity_key: dataflow::EntityId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory_key = dataflow
-            .get_inventory_by_entity(tile_key)?
+            .get_inventory_by_entity(entity_key)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
         self.open_inventory(dataflow, inventory_key, f)?;
         Ok(())

@@ -343,11 +343,11 @@ impl TileField {
                 self.instance_buffer[i * 12 + 10] = 1.0;
                 self.instance_buffer[i * 12 + 11] = z_t;
 
-                let image_addr = &self.sprite_addrs[tile.archetype_id as usize][tile.render_state.variant as usize];
+                let image_addr = &self.sprite_addrs[tile.archetype_id as usize][tile.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.tick_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = tile.render_state.tick;
+                self.address_buffer[i * 4 + 3] = tile.tick;
 
                 count += 1;
             }
