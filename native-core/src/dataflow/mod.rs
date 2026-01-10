@@ -109,7 +109,7 @@ impl Dataflow {
         Ok(tile)
     }
 
-    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut tile::Tile)) -> Result<tile::TileId, DataflowError> {
+    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut tile::TileRenderState)) -> Result<tile::TileId, DataflowError> {
         let tile_id = self.tile_field.modify(tile_id, f)?;
         Ok(tile_id)
     }
@@ -119,42 +119,38 @@ impl Dataflow {
         Ok(tile_id)
     }
 
-    pub fn get_tile_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.tile_field.get_chunk_coord(point)
+    pub fn find_tile_chunk_coord(&self, point: Vec2) -> IVec2 {
+        self.tile_field.find_chunk_coord(point)
     }
 
-    pub fn get_tile_version_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<u64, DataflowError> {
-        let chunk = self
-            .tile_field
-            .get_version_by_chunk_coord(chunk_coord)?;
+    pub fn get_tile_chunk(&self, chunk_coord: IVec2) -> Result<&tile::TileChunk, DataflowError> {
+        let chunk = self.tile_field.get_chunk(chunk_coord)?;
         Ok(chunk)
     }
 
-    pub fn get_tile_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, DataflowError> {
-        let chunk = self.tile_field.get_id_by_chunk_coord(chunk_coord)?;
-        Ok(chunk)
-    }
-
-    pub fn get_tile_display_name(&self, tile_id: TileId) -> Result<&str, DataflowError> {
-        let display_name = self.tile_field.get_display_name(tile_id)?;
-        Ok(display_name)
-    }
-
-    pub fn get_tile_description(&self, tile_id: TileId) -> Result<&str, DataflowError> {
-        let description = self.tile_field.get_description(tile_id)?;
-        Ok(description)
+    pub fn get_tile_archetype(&self, archetype_id: u16) -> Result<&tile::TileArchetype, DataflowError> {
+        let archetype = self.tile_field.get_archetype(archetype_id)?;
+        Ok(archetype)
     }
 
     // tile spatial features
 
-    pub fn get_tile_id_by_point(&self, point: IVec2) -> Option<TileId> {
-        self.tile_field.get_id_by_point(point)
+    pub fn find_tile_with_point(&self, point: IVec2) -> Option<TileId> {
+        self.tile_field.find_with_point(point)
+    }
+
+    pub fn find_tile_with_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+        self.tile_field.find_with_rect(rect)
     }
 
     // tile collision features
 
-    pub fn get_tile_ids_by_collision_point(&self, point: Vec2) -> Option<TileId> {
-        self.tile_field.get_id_by_collision_point(point)
+    pub fn find_tile_with_collision_point(&self, coord: Vec2) -> Option<TileId> {
+        self.tile_field.find_with_collision_point(coord)
+    }
+
+    pub fn find_tile_with_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+        self.tile_field.find_with_collision_rect(rect)
     }
 
     // tile inventory

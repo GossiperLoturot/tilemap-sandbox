@@ -546,7 +546,6 @@ impl Context {
                             let tile = core::dataflow::Tile {
                                 archetype_id,
                                 coord,
-                                data: Default::default(),
                                 render_state: Default::default(),
                             };
                             let _ = dataflow.insert_tile(tile);
@@ -561,7 +560,6 @@ impl Context {
                             let tile = core::dataflow::Tile {
                                 archetype_id,
                                 coord,
-                                data: Default::default(),
                                 render_state: Default::default(),
                             };
                             let _ = dataflow.insert_tile(tile);
@@ -837,7 +835,7 @@ impl Context {
         let point = Vec2::new(location.x, location.y).floor().as_ivec2();
         context
             .dataflow
-            .get_tile_id_by_point(point)
+            .find_tile_with_point(point)
             .map(|key| Gd::from_object(TileKey { inner: key }))
     }
 
@@ -846,11 +844,11 @@ impl Context {
         let context = self.context.as_ref().unwrap();
 
         let k = **tile_key.bind();
-        let display_name = context.dataflow.get_tile_display_name(k).unwrap();
-        let description = context.dataflow.get_tile_description(k).unwrap();
+        let tile = context.dataflow.get_tile(k).unwrap();
+        let archetype = context.dataflow.get_tile_archetype(tile.archetype_id).unwrap();
         Gd::from_object(TileResult {
-            display_name: display_name.into(),
-            description: description.into(),
+            display_name: GString::from(&archetype.display_name),
+            description: GString::from(&archetype.description),
         })
     }
 

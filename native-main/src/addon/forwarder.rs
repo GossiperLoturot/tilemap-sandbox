@@ -22,8 +22,8 @@ impl ForwarderSystem {
     ) -> Result<(), std::convert::Infallible> {
         // tile
         let rect = [
-            dataflow.get_tile_chunk_coord(min_rect[0]),
-            dataflow.get_tile_chunk_coord(min_rect[1]),
+            dataflow.find_tile_chunk_coord(min_rect[0]),
+            dataflow.find_tile_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -60,25 +60,26 @@ impl ForwarderSystem {
     }
 }
 
-fn forward_tile_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(tile_keys) = dataflow.get_tile_ids_by_chunk_coord(chunk_location) else {
-        return;
-    };
-
-    for tile_key in tile_keys.collect::<Vec<_>>() {
-        let Ok(tile) = dataflow.get_tile(tile_key) else {
-            continue;
-        };
-
-        let Ok(feature) =
-            dataflow.get_tile_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(tile.archetype_id)
-        else {
-            continue;
-        };
-
-        let feature = feature.clone();
-        feature.forward(dataflow, tile_key, delta_secs);
-    }
+fn forward_tile_chunk(_dataflow: &mut Dataflow, _chunk_location: IVec2, _delta_secs: f32) {
+    // // TODO: implement tile forwarding
+    // let Ok(tile_keys) = dataflow.get_tile_chunk_tiles(chunk_location) else {
+    //     return;
+    // };
+    //
+    // for tile_key in tile_keys.collect::<Vec<_>>() {
+    //     let Ok(tile) = dataflow.get_tile(tile_key) else {
+    //         continue;
+    //     };
+    //
+    //     let Ok(feature) =
+    //         dataflow.get_tile_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(tile.archetype_id)
+    //     else {
+    //         continue;
+    //     };
+    //
+    //     let feature = feature.clone();
+    //     feature.forward(dataflow, tile_key, delta_secs);
+    // }
 }
 
 fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {

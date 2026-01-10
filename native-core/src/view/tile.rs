@@ -260,8 +260,8 @@ impl TileField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_tile_chunk_coord(min_rect[0]),
-            dataflow.get_tile_chunk_coord(min_rect[1]),
+            dataflow.find_tile_chunk_coord(min_rect[0]),
+            dataflow.find_tile_chunk_coord(min_rect[1]),
         ];
 
         // remove/insert view chunk
@@ -309,7 +309,7 @@ impl TileField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_tile_version_by_chunk_coord(*chunk_coord) else {
+            let Ok(chunk) = dataflow.get_tile_chunk(*chunk_coord) else {
                 continue;
             };
 
@@ -318,15 +318,13 @@ impl TileField {
                 rendering_server.material_set_param(*material, "tick", &tick.to_variant());
             }
 
-            if version <= live_chunk.version {
+            if chunk.version <= live_chunk.version {
                 continue;
             }
 
             let mut count = 0;
-            let tile_ids = dataflow.get_tile_ids_by_chunk_coord(*chunk_coord).unwrap();
-            for (i, tile_id) in tile_ids.take(Self::BUFFER_LEN).enumerate() {
-                let tile = dataflow.get_tile(tile_id).unwrap();
-
+            let tiles = chunk.tiles.iter().map(|(_, tile)| tile);
+            for (i, tile) in tiles.take(Self::BUFFER_LEN).enumerate() {
                 self.instance_buffer[i * 12] = 2.0;
                 self.instance_buffer[i * 12 + 1] = 0.0;
                 self.instance_buffer[i * 12 + 2] = 0.0;
@@ -364,7 +362,7 @@ impl TileField {
                 rendering_server.material_set_param(*material, "head_buffer", &address_buffer.to_variant());
             }
 
-            live_chunk.version = version;
+            live_chunk.version = chunk.version;
         }
     }
 }

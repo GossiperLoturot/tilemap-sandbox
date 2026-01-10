@@ -27,7 +27,6 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            data: Default::default(),
                             render_state: Default::default(),
                         })
                         .unwrap(),
@@ -41,7 +40,6 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 1),
-                            data: Default::default(),
                             render_state: Default::default(),
                         })
                         .unwrap(),
@@ -75,7 +73,6 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            data: Default::default(),
                             render_state: Default::default(),
                         })
                         .unwrap(),
@@ -114,7 +111,6 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            data: Default::default(),
                             render_state: Default::default(),
                         })
                         .unwrap(),
@@ -153,7 +149,6 @@ fn benchmark(c: &mut Criterion) {
                         .insert(Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
-                            data: Default::default(),
                             render_state: Default::default(),
                         })
                         .unwrap(),
@@ -162,7 +157,7 @@ fn benchmark(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                std::hint::black_box(field.modify(id, |tile| tile.coord[1] += 1).unwrap());
+                std::hint::black_box(field.modify(id, |render_state| render_state.variant += 1).unwrap());
             }
             instance.elapsed()
         });
