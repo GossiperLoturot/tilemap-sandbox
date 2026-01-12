@@ -90,7 +90,6 @@ impl TileField {
             if self.chunks.len() >= u32::MAX as usize {
                 panic!("capacity overflow");
             }
-
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(TileChunk {
                 version: 0,
@@ -101,13 +100,11 @@ impl TileField {
             self.coord_index.insert(chunk_coord, chunk_id);
             chunk_id
         };
-
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
 
-        if chunk.tiles.vacant_key() >= u32::MAX as usize {
+        if chunk.tiles.vacant_key() >= u16::MAX as usize {
             panic!("capacity overflow");
         }
-
         let local_id = chunk.tiles.vacant_key() as u16;
 
         // spatial features (dense)
@@ -161,7 +158,6 @@ impl TileField {
 
     pub fn get(&self, id: TileId) -> Result<&Tile, TileError> {
         let (chunk_id, local_id) = id;
-
         let chunk = self.chunks.get(chunk_id as usize).unwrap();
         let tile = chunk.tiles.get(local_id as usize).ok_or(TileError::NotFound)?;
         Ok(tile)
@@ -170,8 +166,7 @@ impl TileField {
     // archetype
 
     pub fn get_archetype(&self, archetype_id: u16) -> Result<&TileArchetype, TileError> {
-        let archetype = self.archetypes.get(archetype_id as usize).unwrap();
-        Ok(archetype)
+        self.archetypes.get(archetype_id as usize).ok_or(TileError::InvalidId)
     }
 
     // transfer chunk data
@@ -190,9 +185,7 @@ impl TileField {
     // common spatial features
 
     #[inline]
-    fn broad_find_with_point(&self, coord: Vec2) -> Option<(TileId, &Tile)> {
-        let coord = coord.floor().as_ivec2();
-
+    fn broad_find_with_point(&self, coord: IVec2) -> Option<(TileId, &Tile)> {
         let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
         let chunk_coord = coord.div_euclid(chunk_size);
         let chunk_id = self.coord_index.get(&chunk_coord)?;
@@ -207,59 +200,47 @@ impl TileField {
     }
 
     #[inline]
-    fn broad_find_with_rect(&self, [rect_min, rect_max]: [Vec2; 2]) -> impl Iterator<Item = (TileId, &Tile)> + '_ {
-        let rect_min = rect_min.floor().as_ivec2();
-        let rect_max = rect_max.ceil().as_ivec2();
-
-        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-        let chunk_coord_min = rect_min.div_euclid(chunk_size);
-        let chunk_coord_max = rect_max.div_euclid(chunk_size);
-        let query = (chunk_coord_min.y..=chunk_coord_max.y).flat_map(move |y| {
-            (chunk_coord_min.x..=chunk_coord_max.x).filter_map(move |x| {
-                let chunk_coord = IVec2::new(x, y);
+    fn broad_find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = (TileId, &Tile)> + '_ {
+        let chunk_rect = rect.div_euclid_i32(Self::CHUNK_SIZE as i32);
+        let query = chunk_rect
+            .into_iter_ivec2()
+            .filter_map(move |chunk_coord| {
                 let chunk_id = self.coord_index.get(&chunk_coord)?;
                 let chunk = self.chunks.get(*chunk_id as usize).unwrap();
                 Some((chunk_coord, chunk))
-            })
-        });
-
-        let local_coord_min = IVec2::ZERO;
-        let local_coord_max = IVec2::splat(Self::CHUNK_SIZE as i32) - IVec2::ONE;
+            });
+        let clamp = IRect2::new(IVec2::ZERO, IVec2::ONE) * (Self::CHUNK_SIZE - 1) as i32;
         query.flat_map(move |(chunk_coord, chunk)| {
-            let bin_coord_min = (rect_min - chunk_coord * chunk_size).clamp(local_coord_min, local_coord_max).as_u16vec2();
-            let bin_coord_max = (rect_max - chunk_coord * chunk_size).clamp(local_coord_min, local_coord_max).as_u16vec2();
-            (bin_coord_min.y >> 3..=bin_coord_max.y >> 3).flat_map(move |y| {
-                (bin_coord_min.x >> 3..=bin_coord_max.x >> 3).flat_map(move |x| {
-                    let space_bin_id = (y << 2) | x;
+            let bin_rect = (rect - chunk_coord * Self::CHUNK_SIZE as i32).minimum(clamp) >> 3;
+            bin_rect
+                .into_iter_ivec2()
+                .flat_map(move |bin_coord| {
+                    let space_bin_id = (bin_coord.y << 2) | bin_coord.x;
                     let space_bin = chunk.space_bins.get(space_bin_id as usize).unwrap();
                     space_bin.iter().map(move |&(chunk_id, local_id)| {
                         let tile = chunk.tiles.get(local_id as usize).unwrap();
                         ((chunk_id, local_id), tile)
                     })
                 })
-            })
         })
     }
 
     // spatial features
 
     pub fn find_with_point(&self, coord: IVec2) -> Option<TileId> {
-        self.broad_find_with_point(coord.as_vec2()).map(|(id, _)| id)
+        self.broad_find_with_point(coord).map(|(id, _)| id)
     }
 
-    pub fn find_with_rect(&self, [rect_min, rect_max]: [IVec2; 2]) -> impl Iterator<Item = TileId> + '_ {
-        self.broad_find_with_rect([rect_min.as_vec2(), rect_max.as_vec2()])
-            .filter(move |(_, tile)| {
-                let coord = tile.coord;
-                let outside = coord.x < rect_min.x || coord.x > rect_max.x || coord.y < rect_min.y || coord.y > rect_max.y;
-                !outside
-            })
+    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
+        self.broad_find_with_rect(rect)
+            .filter(move |(_, tile)| rect.contains_ivec2(tile.coord))
             .map(|(id, _)| id)
     }
 
     // collision features
 
     pub fn find_with_collision_point(&self, coord: Vec2) -> Option<TileId> {
+        let coord = coord.as_ivec2();
         self.broad_find_with_point(coord)
             .filter(|(_, tile)| {
                 let archetype = &self.archetypes[tile.archetype_id as usize];
@@ -268,13 +249,10 @@ impl TileField {
             .map(|(id, _)| id)
     }
 
-    pub fn find_with_collision_rect(&self, [rect_min, rect_max]: [Vec2; 2]) -> impl Iterator<Item = TileId> + '_ {
-        self.broad_find_with_rect([rect_min, rect_max])
-            .filter(move |(_, tile)| {
-                let coord = tile.coord.as_vec2();
-                let outside = coord.x < rect_min.x || coord.x > rect_max.x || coord.y < rect_min.y || coord.y > rect_max.y;
-                !outside
-            })
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
+        let rect = rect.as_iaabb2();
+        self.broad_find_with_rect(rect)
+            .filter(move |(_, tile)| rect.contains_ivec2(tile.coord))
             .filter(move |(_, tile)| {
                 let archetype = &self.archetypes[tile.archetype_id as usize];
                 archetype.collision
@@ -306,9 +284,8 @@ impl std::error::Error for TileError {}
 mod tests {
     use super::*;
 
-    #[test]
-    fn crud_tile() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
+    fn make_tile_field() -> TileField {
+        TileField::new(TileFieldInfo {
             tiles: vec![
                 TileInfo {
                     display_name: "tile_0".into(),
@@ -321,7 +298,12 @@ mod tests {
                     collision: true,
                 },
             ],
-        });
+        })
+    }
+
+    #[test]
+    fn crud_tile() {
+        let mut field = make_tile_field();
 
         let id = field
             .insert(Tile {
@@ -348,20 +330,7 @@ mod tests {
 
     #[test]
     fn insert_tile_with_invalid() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         assert_eq!(
             field.insert(Tile {
@@ -398,20 +367,7 @@ mod tests {
 
     #[test]
     fn modify_tile() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         let id = field
             .insert(Tile {
@@ -447,20 +403,7 @@ mod tests {
 
     #[test]
     fn modify_tile_with_invalid() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         let id0 = field
             .insert(Tile {
@@ -491,20 +434,7 @@ mod tests {
 
     #[test]
     fn move_tile() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         let id = field
             .insert(Tile {
@@ -533,20 +463,7 @@ mod tests {
 
     #[test]
     fn collision_tile() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         let id0 = field
             .insert(Tile {
@@ -573,7 +490,7 @@ mod tests {
         let coord = Vec2::new(-1.0, 4.0);
         assert_eq!(field.find_with_collision_point(coord), Some(id1));
 
-        let rect = [Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0)];
+        let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
         let vec = field.find_with_collision_rect(rect).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
@@ -581,20 +498,7 @@ mod tests {
 
     #[test]
     fn tile_chunk() {
-        let mut field: TileField = TileField::new(TileFieldInfo {
-            tiles: vec![
-                TileInfo {
-                    display_name: "tile_0".into(),
-                    description: "tile_0_desc".into(),
-                    collision: true,
-                },
-                TileInfo {
-                    display_name: "tile_1".into(),
-                    description: "tile_1_desc".into(),
-                    collision: true,
-                },
-            ],
-        });
+        let mut field = make_tile_field();
 
         let _ = field
             .insert(Tile {
@@ -620,7 +524,7 @@ mod tests {
 
         assert!(field.get_chunk(IVec2::new(0, 0)).is_err());
 
-        let ids = field.get_chunk(IVec2::new(-1, 0)).unwrap();
-        assert_eq!(ids.tiles.len(), 3);
+        let chunk = field.get_chunk(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(chunk.tiles.len(), 3);
     }
 }

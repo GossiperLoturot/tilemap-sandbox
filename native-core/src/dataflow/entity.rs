@@ -272,7 +272,7 @@ impl EntityField {
         Ok(chunk.version)
     }
 
-    pub fn get_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, EntityError> {
+    pub fn get_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = EntityId>, EntityError> {
         let chunk_id = self
             .chunk_index
             .get(&chunk_coord)

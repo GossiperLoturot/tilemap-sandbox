@@ -3,6 +3,7 @@ use godot::prelude::*;
 
 pub mod dataflow;
 pub mod view;
+pub mod rect;
 
 // retriever for loading resources
 
@@ -97,12 +98,10 @@ pub struct BlockDescriptor {
     pub display_name: String,
     pub description: String,
     pub images: Vec<ImageDescriptor>,
-    pub z_along_y: bool,
+    pub y_sorting: bool,
     pub size: IVec2,
-    pub collision_size: Vec2,
-    pub collision_offset: Vec2,
-    pub rendering_size: Vec2,
-    pub rendering_offset: Vec2,
+    pub collision_rect: rect::Rect2,
+    pub rendering_rect: rect::Rect2,
     pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
@@ -269,11 +268,9 @@ impl ContextBuilder {
                 display_name: desc.display_name,
                 description: desc.description,
                 size: desc.size,
-                collision_size: desc.collision_size,
-                collision_offset: desc.collision_offset,
-                hint_size: desc.rendering_size,
-                hint_offset: desc.rendering_offset,
-                y_sorting: desc.z_along_y,
+                collision_rect: desc.collision_rect,
+                hint_rect: desc.rendering_rect,
+                y_sorting: desc.y_sorting,
             });
 
             let mut images = vec![];
@@ -292,9 +289,8 @@ impl ContextBuilder {
 
             blocks_view.push(view::BlockInfo {
                 sprites: images,
-                y_sorting: desc.z_along_y,
-                rendering_size: desc.rendering_size,
-                rendering_offset: desc.rendering_offset,
+                y_sorting: desc.y_sorting,
+                rendering_rect: desc.rendering_rect,
             });
         }
 

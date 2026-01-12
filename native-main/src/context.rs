@@ -57,12 +57,10 @@ impl Context {
                     step_tick: 0,
                     is_loop: false,
                 }],
-                z_along_y: false,
+                y_sorting: false,
                 size: IVec2::new(1, 1),
-                collision_size: Vec2::new(0.0, 0.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.0, 1.0),
-                rendering_offset: Vec2::new(0.0, 0.0),
+                collision_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+                rendering_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 feature_set: Box::new(()),
             }
         });
@@ -77,12 +75,10 @@ impl Context {
                     step_tick: 0,
                     is_loop: false,
                 }],
-                z_along_y: false,
+                y_sorting: false,
                 size: IVec2::new(1, 1),
-                collision_size: Vec2::new(0.0, 0.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.0, 1.0),
-                rendering_offset: Vec2::new(0.0, 0.0),
+                collision_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+                rendering_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 feature_set: Box::new(BreakFeatureSet {
                     item_entity_id: registry.get("entity_package"),
                     item_id: registry.get("item_fallenleaves"),
@@ -100,12 +96,10 @@ impl Context {
                     step_tick: 0,
                     is_loop: false,
                 }],
-                z_along_y: false,
+                y_sorting: false,
                 size: IVec2::new(1, 1),
-                collision_size: Vec2::new(0.0, 0.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.0, 1.0),
-                rendering_offset: Vec2::new(0.0, 0.0),
+                collision_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+                rendering_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 feature_set: Box::new(()),
             }
         });
@@ -120,12 +114,10 @@ impl Context {
                     step_tick: 0,
                     is_loop: false,
                 }],
-                z_along_y: false,
+                y_sorting: false,
                 size: IVec2::new(1, 1),
-                collision_size: Vec2::new(0.0, 0.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                rendering_size: Vec2::new(1.0, 1.0),
-                rendering_offset: Vec2::new(0.0, 0.0),
+                collision_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+                rendering_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 feature_set: Box::new(BreakFeatureSet {
                     item_entity_id: registry.get("entity_package"),
                     item_id: registry.get("item_mixpebbles"),
@@ -146,12 +138,10 @@ impl Context {
                     step_tick: 48,
                     is_loop: true,
                 }],
-                z_along_y: true,
+                y_sorting: true,
                 size: IVec2::new(4, 2),
-                collision_size: Vec2::new(1.0, 2.0),
-                collision_offset: Vec2::new(-0.5, 0.0),
-                rendering_size: Vec2::new(4.0, 6.0),
-                rendering_offset: Vec2::new(-2.0, 0.0),
+                collision_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+                rendering_rect: core::rect::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 feature_set: Box::new(BreakFeatureSet {
                     item_entity_id: registry.get("entity_package"),
                     item_id: registry.get("item_wood"),
@@ -574,12 +564,7 @@ impl Context {
                             let block = core::dataflow::Block {
                                 archetype_id,
                                 coord: coord.as_ivec2(),
-                                data: Default::default(),
-                                render_state: native_core::dataflow::BlockRenderState {
-                                    tick: (coord.x as i32 + coord.y as i32).rem_euclid(48)
-                                        as u32,
-                                    ..Default::default()
-                                },
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_block(block);
                         }),
@@ -593,8 +578,7 @@ impl Context {
                             let block = core::dataflow::Block {
                                 archetype_id,
                                 coord: coord.as_ivec2(),
-                                data: Default::default(),
-                                render_state: Default::default(),
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_block(block);
                         }),
@@ -608,8 +592,7 @@ impl Context {
                             let block = core::dataflow::Block {
                                 archetype_id,
                                 coord: coord.as_ivec2(),
-                                data: Default::default(),
-                                render_state: Default::default(),
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_block(block);
                         }),
@@ -623,8 +606,7 @@ impl Context {
                             let block = core::dataflow::Block {
                                 archetype_id,
                                 coord: coord.as_ivec2(),
-                                data: Default::default(),
-                                render_state: Default::default(),
+                                ..Default::default()
                             };
                             let _ = dataflow.insert_block(block);
                         }),
@@ -859,7 +841,7 @@ impl Context {
         let point = Vec2::new(location.x, location.y);
         let keys = context
             .dataflow
-            .get_block_ids_by_hint_point(point)
+            .find_block_with_hint_point(point)
             .collect::<Vec<_>>();
         if !keys.is_empty() {
             let index = (offset as usize).div_euclid(keys.len());
@@ -874,11 +856,11 @@ impl Context {
         let context = self.context.as_ref().unwrap();
 
         let k = **block_key.bind();
-        let display_name = context.dataflow.get_block_display_name(k).unwrap();
-        let description = context.dataflow.get_block_description(k).unwrap();
+        let block = context.dataflow.get_block(k).unwrap();
+        let archetype = context.dataflow.get_tile_archetype(block.archetype_id).unwrap();
         Gd::from_object(BlockResult {
-            display_name: display_name.into(),
-            description: description.into(),
+            display_name: GString::from(&archetype.display_name),
+            description: GString::from(&archetype.description),
         })
     }
 

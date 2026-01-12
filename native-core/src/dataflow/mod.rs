@@ -1,6 +1,8 @@
 use glam::*;
 use std::rc::Rc;
 
+use crate::rect::*;
+
 pub use data::*;
 pub use feature::*;
 pub use item::*;
@@ -90,7 +92,7 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_tile(&mut self, tile: tile::Tile) -> Result<TileId, DataflowError> {
+    pub fn insert_tile(&mut self, tile: Tile) -> Result<TileId, DataflowError> {
         let feature = self
             .get_tile_feature::<Rc<dyn FieldFeature<Key = TileId>>>(tile.archetype_id)
             .cloned();
@@ -109,12 +111,12 @@ impl Dataflow {
         Ok(tile)
     }
 
-    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut tile::TileRenderState)) -> Result<tile::TileId, DataflowError> {
+    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut TileRenderState)) -> Result<TileId, DataflowError> {
         let tile_id = self.tile_field.modify(tile_id, f)?;
         Ok(tile_id)
     }
 
-    pub fn get_tile(&self, tile_key: TileId) -> Result<&tile::Tile, DataflowError> {
+    pub fn get_tile(&self, tile_key: TileId) -> Result<&Tile, DataflowError> {
         let tile_id = self.tile_field.get(tile_key)?;
         Ok(tile_id)
     }
@@ -123,12 +125,12 @@ impl Dataflow {
         self.tile_field.find_chunk_coord(point)
     }
 
-    pub fn get_tile_chunk(&self, chunk_coord: IVec2) -> Result<&tile::TileChunk, DataflowError> {
+    pub fn get_tile_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, DataflowError> {
         let chunk = self.tile_field.get_chunk(chunk_coord)?;
         Ok(chunk)
     }
 
-    pub fn get_tile_archetype(&self, archetype_id: u16) -> Result<&tile::TileArchetype, DataflowError> {
+    pub fn get_tile_archetype(&self, archetype_id: u16) -> Result<&TileArchetype, DataflowError> {
         let archetype = self.tile_field.get_archetype(archetype_id)?;
         Ok(archetype)
     }
@@ -139,7 +141,7 @@ impl Dataflow {
         self.tile_field.find_with_point(point)
     }
 
-    pub fn find_tile_with_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+    pub fn find_tile_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
         self.tile_field.find_with_rect(rect)
     }
 
@@ -149,7 +151,7 @@ impl Dataflow {
         self.tile_field.find_with_collision_point(coord)
     }
 
-    pub fn find_tile_with_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = TileId> + '_ {
+    pub fn find_tile_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
         self.tile_field.find_with_collision_rect(rect)
     }
 
@@ -171,7 +173,7 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_block(&mut self, block: block::Block) -> Result<BlockId, DataflowError> {
+    pub fn insert_block(&mut self, block: Block) -> Result<BlockId, DataflowError> {
         let feature = self
             .get_block_feature::<Rc<dyn FieldFeature<Key = BlockId>>>(block.archetype_id)
             .cloned();
@@ -180,7 +182,7 @@ impl Dataflow {
         Ok(block_id)
     }
 
-    pub fn remove_block(&mut self, block_id: BlockId) -> Result<block::Block, DataflowError> {
+    pub fn remove_block(&mut self, block_id: BlockId) -> Result<Block, DataflowError> {
         let block = self.block_field.get(block_id)?;
         let feature = self
             .get_block_feature::<Rc<dyn FieldFeature<Key = BlockId>>>(block.archetype_id)
@@ -190,127 +192,58 @@ impl Dataflow {
         Ok(block)
     }
 
-    pub fn modify_block(&mut self, block_id: BlockId, f: impl FnOnce(&mut block::Block)) -> Result<block::BlockId, DataflowError> {
+    pub fn modify_block(&mut self, block_id: BlockId, f: impl FnOnce(&mut BlockRenderState)) -> Result<BlockId, DataflowError> {
         let block_id = self.block_field.modify(block_id, f)?;
         Ok(block_id)
     }
 
-    pub fn get_block(&self, block_id: BlockId) -> Result<&block::Block, DataflowError> {
+    pub fn get_block(&self, block_id: BlockId) -> Result<&Block, DataflowError> {
         let block = self.block_field.get(block_id)?;
         Ok(block)
     }
 
-    pub fn get_block_version_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<u64, DataflowError> {
-        let chunk = self.block_field.get_version_by_chunk_coord(chunk_coord)?;
+    pub fn find_block_chunk_coord(&self, point: Vec2) -> IVec2 {
+        self.block_field.find_chunk_coord(point)
+    }
+
+    pub fn get_block_chunk(&self, chunk_coord: IVec2) -> Result<&BlockChunk, DataflowError> {
+        let chunk = self.block_field.get_chunk(chunk_coord)?;
         Ok(chunk)
     }
 
-    pub fn get_block_ids_by_chunk_coord(&self, chunk_coord: IVec2) -> Result<impl Iterator<Item = BlockId>, DataflowError> {
-        let chunk = self.block_field.get_ids_by_chunk_coord(chunk_coord)?;
-        Ok(chunk)
-    }
-
-    pub fn get_block_display_name(&self, block_id: BlockId) -> Result<&str, DataflowError> {
-        let display_name = self.block_field.get_display_name(block_id)?;
-        Ok(display_name)
-    }
-
-    pub fn get_block_description(&self, block_id: BlockId) -> Result<&str, DataflowError> {
-        let description = self.block_field.get_description(block_id)?;
-        Ok(description)
+    pub fn get_block_archetype(&self, archetype_id: u16) -> Result<&BlockArchetype, DataflowError> {
+        let archetype = self.block_field.get_archetype(archetype_id)?;
+        Ok(archetype)
     }
 
     // block spatial features
 
-    pub fn get_block_base_rect(&self, archetype_id: u16) -> Result<[IVec2; 2], DataflowError> {
-        let rect = self.block_field.get_base_rect(archetype_id)?;
-        Ok(rect)
+    pub fn find_block_with_point(&self, point: IVec2) -> Option<BlockId> {
+        self.block_field.find_with_point(point)
     }
 
-    pub fn get_block_rect(&self, block_id: BlockId) -> Result<[IVec2; 2], DataflowError> {
-        let rect = self.block_field.get_rect(block_id)?;
-        Ok(rect)
-    }
-
-    pub fn has_block_by_point(&self, point: IVec2) -> bool {
-        self.block_field.has_by_point(point)
-    }
-
-    pub fn get_block_id_by_point(&self, point: IVec2) -> Option<BlockId> {
-        self.block_field.get_id_by_point(point)
-    }
-
-    pub fn has_block_by_rect(&self, rect: [IVec2; 2]) -> bool {
-        self.block_field.has_by_rect(rect)
-    }
-
-    pub fn get_block_ids_by_rect(&self, rect: [IVec2; 2]) -> impl Iterator<Item = BlockId> + '_ {
-        self.block_field.get_ids_by_rect(rect)
-    }
-
-    pub fn get_block_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.block_field.get_chunk_coord(point)
+    pub fn find_block_with_rect(&self, rect: IRect2) -> impl Iterator<Item = BlockId> + '_ {
+        self.block_field.find_with_rect(rect)
     }
 
     // block collision features
 
-    pub fn get_block_base_collision_rect(&self, archetype_id: u16) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.block_field.get_base_collision_rect(archetype_id)?;
-        Ok(rect)
+    pub fn find_block_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+        self.block_field.find_with_collision_point(point)
     }
 
-    pub fn get_block_collision_rect(&self, block_id: BlockId) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.block_field.get_collision_rect(block_id)?;
-        Ok(rect)
-    }
-
-    pub fn has_block_by_collision_point(&self, point: Vec2) -> bool {
-        self.block_field.has_by_collision_point(point)
-    }
-
-    pub fn get_block_ids_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
-        self.block_field.get_ids_by_collision_point(point)
-    }
-
-    pub fn has_block_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        self.block_field.has_by_collision_rect(rect)
-    }
-
-    pub fn get_block_ids_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockId> + '_ {
-        self.block_field.get_ids_by_collision_rect(rect)
+    pub fn find_block_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+        self.block_field.find_with_collision_rect(rect)
     }
 
     // block hint features
 
-    pub fn get_block_base_y_sorting(&self, archetype_id: u16) -> Result<bool, DataflowError> {
-        let y_sorting = self.block_field.get_base_y_sorting(archetype_id)?;
-        Ok(y_sorting)
+    pub fn find_block_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+        self.block_field.find_with_hint_point(point)
     }
 
-    pub fn get_block_base_hint_rect(&self, archetype_id: u16) -> Result<[Vec2; 2], DataflowError> {
-        let block = self.block_field.get_base_hint_rect(archetype_id)?;
-        Ok(block)
-    }
-
-    pub fn get_block_hint_rect(&self, block_id: BlockId) -> Result<[Vec2; 2], DataflowError> {
-        let block = self.block_field.get_hint_rect(block_id)?;
-        Ok(block)
-    }
-
-    pub fn has_block_by_hint_point(&self, point: Vec2) -> bool {
-        self.block_field.has_by_hint_point(point)
-    }
-
-    pub fn get_block_ids_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
-        self.block_field.get_ids_by_hint_point(point)
-    }
-
-    pub fn has_block_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
-        self.block_field.has_by_hint_rect(rect)
-    }
-
-    pub fn get_block_ids_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = BlockId> + '_ {
-        self.block_field.get_ids_by_hint_rect(rect)
+    pub fn find_block_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+        self.block_field.find_with_hint_rect(rect)
     }
 
     // block inventory
@@ -365,7 +298,7 @@ impl Dataflow {
         Ok(chunk)
     }
 
-    pub fn get_entity_ids_by_chunk_coord(&self, chunk_location: IVec2) -> Result<impl Iterator<Item = BlockId>, DataflowError> {
+    pub fn get_entity_ids_by_chunk_coord(&self, chunk_location: IVec2) -> Result<impl Iterator<Item = EntityId>, DataflowError> {
         let chunk = self.entity_field.get_ids_by_chunk_coord(chunk_location)?;
         Ok(chunk)
     }

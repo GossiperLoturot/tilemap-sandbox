@@ -34,8 +34,8 @@ impl ForwarderSystem {
 
         // block
         let rect = [
-            dataflow.get_block_chunk_coord(min_rect[0]),
-            dataflow.get_block_chunk_coord(min_rect[1]),
+            dataflow.find_block_chunk_coord(min_rect[0]),
+            dataflow.find_block_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -82,25 +82,26 @@ fn forward_tile_chunk(_dataflow: &mut Dataflow, _chunk_location: IVec2, _delta_s
     // }
 }
 
-fn forward_block_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(block_keys) = dataflow.get_block_ids_by_chunk_coord(chunk_location) else {
-        return;
-    };
-
-    for block_key in block_keys.collect::<Vec<_>>() {
-        let Ok(block) = dataflow.get_block(block_key) else {
-            continue;
-        };
-
-        let Ok(feature) =
-            dataflow.get_block_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(block.archetype_id)
-        else {
-            continue;
-        };
-
-        let feature = feature.clone();
-        feature.forward(dataflow, block_key, delta_secs);
-    }
+fn forward_block_chunk(_dataflow: &mut Dataflow, _chunk_location: IVec2, _delta_secs: f32) {
+    // // TODO: implement block forwarding
+    // let Ok(block_keys) = dataflow.get_block_ids_by_chunk_coord(chunk_location) else {
+    //     return;
+    // };
+    //
+    // for block_key in block_keys.collect::<Vec<_>>() {
+    //     let Ok(block) = dataflow.get_block(block_key) else {
+    //         continue;
+    //     };
+    //
+    //     let Ok(feature) =
+    //         dataflow.get_block_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(block.archetype_id)
+    //     else {
+    //         continue;
+    //     };
+    //
+    //     let feature = feature.clone();
+    //     feature.forward(dataflow, block_key, delta_secs);
+    // }
 }
 
 fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {

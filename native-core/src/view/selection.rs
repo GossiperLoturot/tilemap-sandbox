@@ -99,11 +99,10 @@ impl Selection {
 
         for block_key in block_keys {
             let block = dataflow.get_block(*block_key).unwrap();
-            let hint_rect = dataflow.get_block_base_hint_rect(block.archetype_id).unwrap();
-            let y_sorting = dataflow.get_block_base_y_sorting(block.archetype_id).unwrap();
+            let archetype = dataflow.get_block_archetype(block.archetype_id).unwrap();
 
-            let hint_offset = hint_rect[0];
-            let hint_size = hint_rect[1] - hint_rect[0];
+            let hint_offset = archetype.hint_rect[0];
+            let hint_size = archetype.hint_rect[1] - archetype.hint_rect[0];
 
             self.instance_buffer[count * 12] = hint_size.x;
             self.instance_buffer[count * 12 + 1] = 0.0;
@@ -115,7 +114,7 @@ impl Selection {
             self.instance_buffer[count * 12 + 6] = 0.0;
             self.instance_buffer[count * 12 + 7] = block.coord.y as f32 + hint_offset.y;
 
-            let z_scale = if y_sorting { hint_size.y } else { 0.0 };
+            let z_scale = if archetype.y_sorting { hint_size.y } else { 0.0 };
             self.instance_buffer[count * 12 + 8] = 0.0;
             self.instance_buffer[count * 12 + 9] = 0.0;
             self.instance_buffer[count * 12 + 10] = z_scale;

@@ -148,9 +148,10 @@ fn intersection_guard(
     //     return Ok(true);
     // }
 
-    if dataflow.has_block_by_collision_rect(rect) {
-        return Ok(true);
-    }
+    // TODO: enable block collision check
+    // if dataflow.has_block_by_collision_rect(rect) {
+    //     return Ok(true);
+    // }
 
     let intersect = dataflow
         .get_entity_ids_by_collision_rect(rect)

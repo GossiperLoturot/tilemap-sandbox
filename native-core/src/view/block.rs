@@ -2,6 +2,7 @@ use glam::*;
 use godot::prelude::*;
 
 use crate::dataflow;
+use crate::rect;
 
 pub struct BlockSpriteInfo {
     pub images: Vec<Gd<godot::classes::Image>>,
@@ -12,8 +13,7 @@ pub struct BlockSpriteInfo {
 pub struct BlockInfo {
     pub sprites: Vec<BlockSpriteInfo>,
     pub y_sorting: bool,
-    pub rendering_size: Vec2,
-    pub rendering_offset: Vec2,
+    pub rendering_rect: rect::Rect2,
 }
 
 pub struct BlockFieldInfo {
@@ -96,8 +96,8 @@ impl BlockField {
         for block in &info.blocks {
             layouts.push(RenderLayout {
                 y_sorting: block.y_sorting,
-                rendering_size: block.rendering_size,
-                rendering_offset: block.rendering_offset,
+                rendering_size: block.rendering_rect.size(),
+                rendering_offset: block.rendering_rect.min,
             });
         }
 
@@ -277,8 +277,8 @@ impl BlockField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_block_chunk_coord(min_rect[0]),
-            dataflow.get_block_chunk_coord(min_rect[1]),
+            dataflow.find_block_chunk_coord(min_rect[0]),
+            dataflow.find_block_chunk_coord(min_rect[1]),
         ];
 
         // remove / insert view chunk
@@ -326,7 +326,7 @@ impl BlockField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_block_version_by_chunk_coord(*chunk_coord) else {
+            let Ok(chunk) = dataflow.get_block_chunk(*chunk_coord) else {
                 continue;
             };
 
@@ -335,14 +335,13 @@ impl BlockField {
                 rendering_server.material_set_param(*material, "tick", &tick.to_variant());
             }
 
-            if version <= live_chunk.version {
+            if chunk.version <= live_chunk.version {
                 continue;
             }
 
             let mut count = 0;
-            let block_ids = dataflow.get_block_ids_by_chunk_coord(*chunk_coord).unwrap();
-            for (i, block_id) in block_ids.take(Self::BUFFER_LEN).enumerate() {
-                let block = dataflow.get_block(block_id).unwrap();
+            let block_ids = chunk.blocks.iter().map(|(_, block)| block);
+            for (i, block) in block_ids.take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[block.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;
@@ -361,11 +360,11 @@ impl BlockField {
                 self.instance_buffer[i * 12 + 10] = z_scale;
                 self.instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_addr = &self.sprite_addrs[block.archetype_id as usize][block.render_state.variant as usize];
+                let image_addr = &self.sprite_addrs[block.archetype_id as usize][block.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.ticks_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = block.render_state.tick;
+                self.address_buffer[i * 4 + 3] = block.tick;
 
                 count += 1;
             }
@@ -380,7 +379,7 @@ impl BlockField {
                 rendering_server.material_set_param(*material, "head_buffer", &address_buffer.to_variant());
             }
 
-            live_chunk.version = version;
+            live_chunk.version = chunk.version;
         }
     }
 }
