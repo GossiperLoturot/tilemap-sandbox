@@ -1,17 +1,16 @@
-use core::{iter, mem, ops::*};
+use core::{iter, ops::*};
 
 use glam::*;
 
 use super::*;
 
-/// Creates a new AABB from two points.
+/// Creates a new IRect2 from two points.
 #[inline]
 pub const fn irect2(min: IVec2, max: IVec2) -> IRect2 {
     IRect2::new(min, max)
 }
 
 /// A 2-dimensional axis-aligned bounding box.
-#[repr(C, align(16))]
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct IRect2 {
     pub min: IVec2,
@@ -25,13 +24,13 @@ impl IRect2 {
         max: IVec2::ZERO,
     };
 
-    /// Creates a new AABB from two points.
+    /// Creates a new IRect2 from two points.
     #[inline]
     pub const fn new(min: IVec2, max: IVec2) -> Self {
         Self { min, max }
     }
 
-    /// Creates a new AABB from a center point and extents.
+    /// Creates a new IRect2 from a center point and extents.
     #[inline]
     pub fn from_center(center: IVec2, extents: IVec2) -> Self {
         Self {
@@ -40,32 +39,32 @@ impl IRect2 {
         }
     }
 
-    /// Returns the AABB size.
+    /// Returns the IRect2 size.
     #[inline]
     pub fn size(&self) -> IVec2 {
         self.max - self.min
     }
 
-    /// Returns the AABB center point.
+    /// Returns the IRect2 center point.
     #[inline]
     pub fn center(&self) -> IVec2 {
         (self.min + self.max) >> 1
     }
 
-    /// Returns the AABB extents.
+    /// Returns the IRect2 extents.
     #[inline]
     pub fn extents(&self) -> IVec2 {
         (self.max - self.min) >> 1
     }
 
-    /// Returns the AABB volume.
+    /// Returns the IRect2 volume.
     #[inline]
     pub fn volume(&self) -> i32 {
         let size = self.size();
         size.x * size.y
     }
 
-    /// Returns the AABB with extended size.
+    /// Returns the IRect2 with extended size.
     #[inline]
     pub fn extends(self, size: i32) -> Self {
         Self {
@@ -76,46 +75,10 @@ impl IRect2 {
 
     /// Calculates the Euclidean division.
     #[inline]
-    pub fn div_euclid_i32(self, rhs: i32) -> Self {
-        Self {
-            min: self.min.div_euclid(ivec2(rhs, rhs)),
-            max: self.max.div_euclid(ivec2(rhs, rhs)),
-        }
-    }
-
-    /// Calculates the Euclidean division.
-    #[inline]
-    pub fn div_euclid_ivec2(self, rhs: IVec2) -> Self {
-        Self {
-            min: self.min.div_euclid(rhs),
-            max: self.max.div_euclid(rhs),
-        }
-    }
-
-    /// Calculates the Euclidean division.
-    #[inline]
     pub fn div_euclid(self, rhs: IRect2) -> Self {
         Self {
             min: self.min.div_euclid(rhs.min),
             max: self.max.div_euclid(rhs.max),
-        }
-    }
-
-    /// Calculates the least nonnegative remainder of `self (mod rhs)`.
-    #[inline]
-    pub fn rem_euclid_i32(self, rhs: i32) -> Self {
-        Self {
-            min: self.min.rem_euclid(ivec2(rhs, rhs)),
-            max: self.max.rem_euclid(ivec2(rhs, rhs)),
-        }
-    }
-
-    /// Calculates the least nonnegative remainder of `self (mod rhs)`.
-    #[inline]
-    pub fn rem_euclid_ivec2(self, rhs: IVec2) -> Self {
-        Self {
-            min: self.min.rem_euclid(rhs),
-            max: self.max.rem_euclid(rhs),
         }
     }
 
@@ -146,42 +109,9 @@ impl IRect2 {
         }
     }
 
-    /// Returns whether if `self` contains `rhs`.
+    /// Casts into `Rect2`.
     #[inline]
-    pub fn contains_ivec2(&self, rhs: IVec2) -> bool {
-        self.min.x <= rhs.x && self.min.y <= rhs.y && rhs.x <= self.max.x && rhs.y <= self.max.y
-    }
-
-    /// Returns whether if `self` intersects `rhs`.
-    #[inline]
-    pub fn contains(&self, rhs: IRect2) -> bool {
-        self.min.x <= rhs.min.x
-            && self.min.y <= rhs.min.y
-            && rhs.max.x <= self.max.x
-            && rhs.max.y <= self.max.y
-    }
-
-    /// Returns whether if `self` intersects `rhs`.
-    #[inline]
-    pub fn intersects(&self, rhs: IRect2) -> bool {
-        self.min.x <= rhs.max.x
-            && self.min.y <= rhs.max.y
-            && rhs.min.x <= self.max.x
-            && rhs.min.y <= self.max.y
-    }
-
-    /// Returns an iterator visiting all points contained by `self` area.
-    #[inline]
-    pub fn into_iter_ivec2(self) -> IterPoint {
-        IterPoint {
-            rect: self,
-            point: self.min,
-        }
-    }
-
-    /// Casts into `Aabb2`.
-    #[inline]
-    pub fn as_aabb2(&self) -> Rect2 {
+    pub fn as_rect2(&self) -> Rect2 {
         Rect2 {
             min: self.min.as_vec2(),
             max: self.max.as_vec2(),
@@ -189,7 +119,7 @@ impl IRect2 {
     }
 }
 
-// - IAabb2
+// - IRect2
 impl Neg for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -201,7 +131,7 @@ impl Neg for IRect2 {
     }
 }
 
-// IAabb2 + IVec2
+// IRect2 + IVec2
 impl Add<IVec2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -213,7 +143,7 @@ impl Add<IVec2> for IRect2 {
     }
 }
 
-// IVec2 + IAabb2
+// IVec2 + IRect2
 impl Add<IRect2> for IVec2 {
     type Output = IRect2;
     #[inline]
@@ -225,7 +155,7 @@ impl Add<IRect2> for IVec2 {
     }
 }
 
-// IAabb2 + IAabb2
+// IRect2 + IRect2
 impl Add<IRect2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -237,7 +167,7 @@ impl Add<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 += IVec2
+// IRect2 += IVec2
 impl AddAssign<IVec2> for IRect2 {
     #[inline]
     fn add_assign(&mut self, rhs: IVec2) {
@@ -246,7 +176,7 @@ impl AddAssign<IVec2> for IRect2 {
     }
 }
 
-// IAabb2 += IAabb2
+// IRect2 += IRect2
 impl AddAssign<IRect2> for IRect2 {
     #[inline]
     fn add_assign(&mut self, rhs: IRect2) {
@@ -255,7 +185,7 @@ impl AddAssign<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 - IVec2
+// IRect2 - IVec2
 impl Sub<IVec2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -267,7 +197,7 @@ impl Sub<IVec2> for IRect2 {
     }
 }
 
-// IVec2 - IAabb2
+// IVec2 - IRect2
 impl Sub<IRect2> for IVec2 {
     type Output = IRect2;
     #[inline]
@@ -279,7 +209,7 @@ impl Sub<IRect2> for IVec2 {
     }
 }
 
-// IAabb2 - IAabb2
+// IRect2 - IRect2
 impl Sub<IRect2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -291,7 +221,7 @@ impl Sub<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 -= IVec2
+// IRect2 -= IVec2
 impl SubAssign<IVec2> for IRect2 {
     #[inline]
     fn sub_assign(&mut self, rhs: IVec2) {
@@ -300,7 +230,7 @@ impl SubAssign<IVec2> for IRect2 {
     }
 }
 
-// IAabb2 -= IAabb2
+// IRect2 -= IRect2
 impl SubAssign<IRect2> for IRect2 {
     #[inline]
     fn sub_assign(&mut self, rhs: IRect2) {
@@ -309,7 +239,7 @@ impl SubAssign<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 * i32
+// IRect2 * i32
 impl Mul<i32> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -321,7 +251,7 @@ impl Mul<i32> for IRect2 {
     }
 }
 
-// i32 * IAabb2
+// i32 * IRect2
 impl Mul<IRect2> for i32 {
     type Output = IRect2;
     #[inline]
@@ -333,7 +263,7 @@ impl Mul<IRect2> for i32 {
     }
 }
 
-// IAabb2 * IVec2
+// IRect2 * IVec2
 impl Mul<IVec2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -345,7 +275,7 @@ impl Mul<IVec2> for IRect2 {
     }
 }
 
-// IVec2 * IAabb2
+// IVec2 * IRect2
 impl Mul<IRect2> for IVec2 {
     type Output = IRect2;
     #[inline]
@@ -357,7 +287,7 @@ impl Mul<IRect2> for IVec2 {
     }
 }
 
-// IAabb2 * IAabb2
+// IRect2 * IRect2
 impl Mul<IRect2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -369,7 +299,7 @@ impl Mul<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 *= i32
+// IRect2 *= i32
 impl MulAssign<i32> for IRect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: i32) {
@@ -378,7 +308,7 @@ impl MulAssign<i32> for IRect2 {
     }
 }
 
-// IAabb2 *= IVec2
+// IRect2 *= IVec2
 impl MulAssign<IVec2> for IRect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: IVec2) {
@@ -387,7 +317,7 @@ impl MulAssign<IVec2> for IRect2 {
     }
 }
 
-// IAabb2 *= IAabb2
+// IRect2 *= IRect2
 impl MulAssign<IRect2> for IRect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: IRect2) {
@@ -396,7 +326,7 @@ impl MulAssign<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 / i32
+// IRect2 / i32
 impl Div<i32> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -408,7 +338,7 @@ impl Div<i32> for IRect2 {
     }
 }
 
-// i32 / IAabb2
+// i32 / IRect2
 impl Div<IRect2> for i32 {
     type Output = IRect2;
     #[inline]
@@ -420,7 +350,7 @@ impl Div<IRect2> for i32 {
     }
 }
 
-// IAabb2 / IVec2
+// IRect2 / IVec2
 impl Div<IVec2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -432,7 +362,7 @@ impl Div<IVec2> for IRect2 {
     }
 }
 
-// IVec2 / IAabb2
+// IVec2 / IRect2
 impl Div<IRect2> for IVec2 {
     type Output = IRect2;
     #[inline]
@@ -444,7 +374,7 @@ impl Div<IRect2> for IVec2 {
     }
 }
 
-// IAabb2 / IAabb2
+// IRect2 / IRect2
 impl Div<IRect2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -456,7 +386,7 @@ impl Div<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 /= i32
+// IRect2 /= i32
 impl DivAssign<i32> for IRect2 {
     #[inline]
     fn div_assign(&mut self, rhs: i32) {
@@ -465,7 +395,7 @@ impl DivAssign<i32> for IRect2 {
     }
 }
 
-// IAabb2 /= IVec2
+// IRect2 /= IVec2
 impl DivAssign<IVec2> for IRect2 {
     #[inline]
     fn div_assign(&mut self, rhs: IVec2) {
@@ -474,7 +404,7 @@ impl DivAssign<IVec2> for IRect2 {
     }
 }
 
-// IAabb2 /= IAabb2
+// IRect2 /= IRect2
 impl DivAssign<IRect2> for IRect2 {
     #[inline]
     fn div_assign(&mut self, rhs: IRect2) {
@@ -483,7 +413,7 @@ impl DivAssign<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 % i32
+// IRect2 % i32
 impl Rem<i32> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -495,7 +425,7 @@ impl Rem<i32> for IRect2 {
     }
 }
 
-// i32 % IAabb2
+// i32 % IRect2
 impl Rem<IRect2> for i32 {
     type Output = IRect2;
     #[inline]
@@ -507,7 +437,7 @@ impl Rem<IRect2> for i32 {
     }
 }
 
-// IAabb2 % IVec2
+// IRect2 % IVec2
 impl Rem<IVec2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -519,7 +449,7 @@ impl Rem<IVec2> for IRect2 {
     }
 }
 
-// IVec2 % IAabb2
+// IVec2 % IRect2
 impl Rem<IRect2> for IVec2 {
     type Output = IRect2;
     #[inline]
@@ -531,7 +461,7 @@ impl Rem<IRect2> for IVec2 {
     }
 }
 
-// IAabb2 % IAabb2
+// IRect2 % IRect2
 impl Rem<IRect2> for IRect2 {
     type Output = IRect2;
     #[inline]
@@ -543,7 +473,7 @@ impl Rem<IRect2> for IRect2 {
     }
 }
 
-// IAabb2 %= i32
+// IRect2 %= i32
 impl RemAssign<i32> for IRect2 {
     fn rem_assign(&mut self, rhs: i32) {
         self.min.rem_assign(rhs);
@@ -551,7 +481,7 @@ impl RemAssign<i32> for IRect2 {
     }
 }
 
-// IAabb2 %= IVec2
+// IRect2 %= IVec2
 impl RemAssign<IVec2> for IRect2 {
     fn rem_assign(&mut self, rhs: IVec2) {
         self.min.rem_assign(rhs);
@@ -559,84 +489,12 @@ impl RemAssign<IVec2> for IRect2 {
     }
 }
 
-// IAabb2 %= IAabb2
+// IRect2 %= IRect2
 impl RemAssign<IRect2> for IRect2 {
     #[inline]
     fn rem_assign(&mut self, rhs: IRect2) {
         self.min.rem_assign(rhs.min);
         self.max.rem_assign(rhs.max);
-    }
-}
-
-// IAabb2 << i32
-impl Shl<i32> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shl(self, rhs: i32) -> IRect2 {
-        IRect2 {
-            min: self.min.shl(rhs),
-            max: self.max.shl(rhs),
-        }
-    }
-}
-
-// IAabb2 << IVec2
-impl Shl<IVec2> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shl(self, rhs: IVec2) -> IRect2 {
-        IRect2 {
-            min: self.min.shl(rhs),
-            max: self.max.shl(rhs),
-        }
-    }
-}
-
-// IAabb2 << IAabb2
-impl Shl<IRect2> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shl(self, rhs: IRect2) -> IRect2 {
-        IRect2 {
-            min: self.min.shl(rhs.min),
-            max: self.max.shl(rhs.max),
-        }
-    }
-}
-
-// IAabb2 >> i32
-impl Shr<i32> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shr(self, rhs: i32) -> IRect2 {
-        IRect2 {
-            min: self.min.shr(rhs),
-            max: self.max.shr(rhs),
-        }
-    }
-}
-
-// IAabb2 >> IVec2
-impl Shr<IVec2> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shr(self, rhs: IVec2) -> IRect2 {
-        IRect2 {
-            min: self.min.shr(rhs),
-            max: self.max.shr(rhs),
-        }
-    }
-}
-
-// IAabb2 >> IAabb2
-impl Shr<IRect2> for IRect2 {
-    type Output = IRect2;
-    #[inline]
-    fn shr(self, rhs: IRect2) -> IRect2 {
-        IRect2 {
-            min: self.min.shr(rhs.min),
-            max: self.max.shr(rhs.max),
-        }
     }
 }
 
@@ -738,39 +596,3 @@ impl From<IRect2> for (IVec2, IVec2) {
         (value.min, value.max)
     }
 }
-
-#[derive(Clone, Debug)]
-pub struct IterPoint {
-    rect: IRect2,
-    point: IVec2,
-}
-
-impl Iterator for IterPoint {
-    type Item = IVec2;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.point.y <= self.rect.max.y {
-            if self.point.x + 1 <= self.rect.max.x {
-                let n = ivec2(self.point.x + 1, self.point.y);
-                Some(mem::replace(&mut self.point, n))
-            } else {
-                let n = ivec2(self.rect.min.x, self.point.y + 1);
-                Some(mem::replace(&mut self.point, n))
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl ExactSizeIterator for IterPoint {
-    #[inline]
-    fn len(&self) -> usize {
-        (self.rect.max.x - 1 - self.point.x
-            + (self.rect.max.y - 1 - self.point.y) * (self.rect.max.y - self.rect.min.y)
-            + 1) as usize
-    }
-}
-
-impl iter::FusedIterator for IterPoint {}

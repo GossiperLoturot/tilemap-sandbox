@@ -1,7 +1,7 @@
 use criterion::*;
 use glam::*;
 use native_core::dataflow::*;
-use native_core::rect::*;
+use native_core::geom::*;
 
 fn make_tile_field() -> TileField {
     TileField::new(TileFieldInfo {
@@ -141,7 +141,7 @@ fn benchmark_tile(c: &mut Criterion) {
         })),
         ("tile find collision point", Box::new(|field, i| {
             let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
-            let result = field.find_with_collision_point(query);
+            let result = field.find_with_collision_point(query).count();
             std::hint::black_box(result);
         })),
         ("tile find collision rect", Box::new(|field, i| {
@@ -363,19 +363,15 @@ fn make_entity_field() -> EntityField {
             EntityInfo {
                 display_name: "entity_0".into(),
                 description: "entity_0_desc".into(),
-                collision_size: Vec2::new(1.0, 1.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                hint_size: Vec2::new(1.0, 1.0),
-                hint_offset: Vec2::new(0.0, 0.0),
+                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
             EntityInfo {
                 display_name: "entity_1".into(),
                 description: "entity_1_desc".into(),
-                collision_size: Vec2::new(1.0, 1.0),
-                collision_offset: Vec2::new(0.0, 0.0),
-                hint_size: Vec2::new(1.0, 1.0),
-                hint_offset: Vec2::new(0.0, 0.0),
+                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
         ],
@@ -394,8 +390,7 @@ fn benchmark_entity(c: &mut Criterion) {
                         .insert(Entity {
                             archetype_id: 0,
                             coord: Vec2::new(i as f32, 0.0),
-                            data: Default::default(),
-                            render_state: Default::default(),
+                            ..Default::default()
                         })
                         .unwrap(),
                 );
@@ -408,23 +403,23 @@ fn benchmark_entity(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field = make_entity_field();
 
-            let mut keys = vec![];
+            let mut ids = vec![];
             for i in 0..iters {
-                keys.push(
-                    field
-                        .insert(Entity {
-                            archetype_id: 0,
-                            coord: Vec2::new(i as f32, 0.0),
-                            data: Default::default(),
-                            render_state: Default::default(),
-                        })
-                        .unwrap(),
-                );
+                let id = field
+                    .insert(Entity {
+                        archetype_id: 0,
+                        coord: Vec2::new(i as f32, 0.0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
             }
 
             let instance = std::time::Instant::now();
-            for key in keys {
-                std::hint::black_box(field.remove(key).unwrap());
+            for id in ids {
+                let id = std::hint::black_box(id);
+                let result = field.remove(id).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
@@ -434,23 +429,23 @@ fn benchmark_entity(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field = make_entity_field();
 
-            let mut keys = vec![];
+            let mut ids = vec![];
             for i in 0..iters {
-                keys.push(
-                    field
-                        .insert(Entity {
-                            archetype_id: 0,
-                            coord: Vec2::new(i as f32, 0.0),
-                            data: Default::default(),
-                            render_state: Default::default(),
-                        })
-                        .unwrap(),
-                );
+                let id = field
+                    .insert(Entity {
+                        archetype_id: 0,
+                        coord: Vec2::new(i as f32, 0.0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
             }
 
             let instance = std::time::Instant::now();
-            for key in keys {
-                std::hint::black_box(field.get(key).unwrap());
+            for id in ids {
+                let id = std::hint::black_box(id);
+                let result = field.get(id).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
@@ -460,31 +455,65 @@ fn benchmark_entity(c: &mut Criterion) {
         b.iter_custom(|iters| {
             let mut field = make_entity_field();
 
-            let mut keys = vec![];
+            let mut ids = vec![];
             for i in 0..iters {
-                keys.push(
-                    field
-                        .insert(Entity {
-                            archetype_id: 0,
-                            coord: Vec2::new(i as f32, 0.0),
-                            data: Default::default(),
-                            render_state: Default::default(),
-                        })
-                        .unwrap(),
-                );
+                let id = field
+                    .insert(Entity {
+                        archetype_id: 0,
+                        coord: Vec2::new(i as f32, 0.0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
             }
 
             let instance = std::time::Instant::now();
-            for key in keys {
-                std::hint::black_box(
-                    field
-                        .modify(key, |entity| entity.coord[1] += 1.0)
-                        .unwrap(),
-                );
+            for id in ids {
+                let f = std::hint::black_box(|render_state: &mut EntityRenderState| render_state.variant += 1);
+                let result = field.modify(id, f).unwrap();
+                std::hint::black_box(result);
             }
             instance.elapsed()
         });
     });
+
+    let row: &[(&str, Box<dyn Fn(&EntityField, usize)>)] = &[
+        ("entity find collision point", Box::new(|field, i| {
+            let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
+            let result = field.find_with_collision_point(query).count();
+            std::hint::black_box(result);
+        })),
+        ("entity find collision rect", Box::new(|field, i| {
+            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let result = field.find_with_collision_rect(query).count();
+            std::hint::black_box(result);
+        })),
+    ];
+    for (name, f) in row {
+        c.bench_function(name, |b| {
+            b.iter_custom(|iters| {
+                let mut field = make_entity_field();
+
+                let mut ids = vec![];
+                for i in 0..iters {
+                    let id = field
+                        .insert(Entity {
+                            archetype_id: 0,
+                            coord: Vec2::new(i as f32, 0.0),
+                            ..Default::default()
+                        })
+                        .unwrap();
+                    ids.push(id);
+                }
+
+                let instance = std::time::Instant::now();
+                for i in 0..iters {
+                    f(&field, i as usize);
+                }
+                instance.elapsed()
+            });
+        });
+    }
 }
 
 criterion_group!(benches, benchmark_tile, benchmark_block, benchmark_entity);

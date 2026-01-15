@@ -2,7 +2,7 @@ use glam::*;
 use godot::prelude::*;
 
 use crate::dataflow;
-use crate::rect;
+use crate::geom;
 
 pub struct BlockSpriteInfo {
     pub images: Vec<Gd<godot::classes::Image>>,
@@ -13,7 +13,7 @@ pub struct BlockSpriteInfo {
 pub struct BlockInfo {
     pub sprites: Vec<BlockSpriteInfo>,
     pub y_sorting: bool,
-    pub rendering_rect: rect::Rect2,
+    pub rendering_rect: geom::Rect2,
 }
 
 pub struct BlockFieldInfo {
@@ -340,8 +340,8 @@ impl BlockField {
             }
 
             let mut count = 0;
-            let block_ids = chunk.blocks.iter().map(|(_, block)| block);
-            for (i, block) in block_ids.take(Self::BUFFER_LEN).enumerate() {
+            let blocks = chunk.blocks.iter().map(|(_, block)| block);
+            for (i, block) in blocks.take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[block.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;

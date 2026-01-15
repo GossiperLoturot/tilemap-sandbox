@@ -4,7 +4,7 @@ use native_core::dataflow::*;
 
 #[derive(Debug, Default)]
 pub struct GlobalInventoryResource {
-    inventory_key: Option<InventoryKey>,
+    inventory_key: Option<InventoryId>,
 }
 
 impl GlobalInventoryResource {
@@ -30,7 +30,7 @@ impl GlobalInventorySystem {
         Ok(())
     }
 
-    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryKey, DataflowError> {
+    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryId, DataflowError> {
         let resource = dataflow.find_resources::<GlobalInventoryResource>()?;
         let resource = resource.borrow().map_err(DataflowError::from)?;
 

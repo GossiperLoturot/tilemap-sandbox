@@ -3,7 +3,7 @@ use godot::prelude::*;
 
 pub mod dataflow;
 pub mod view;
-pub mod rect;
+pub mod geom;
 
 // retriever for loading resources
 
@@ -80,56 +80,54 @@ impl Registry {
 
 // descriptor for building the context
 
-pub struct ImageDescriptor {
-    pub frames: Vec<Gd<godot::classes::Image>>,
+pub struct SpriteInfo {
+    pub images: Vec<Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
 
-pub struct TileDescriptor {
+pub struct TileInfo {
     pub display_name: String,
     pub description: String,
-    pub images: Vec<ImageDescriptor>,
+    pub sprites: Vec<SpriteInfo>,
     pub collision: bool,
     pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
-pub struct BlockDescriptor {
+pub struct BlockInfo {
     pub display_name: String,
     pub description: String,
-    pub images: Vec<ImageDescriptor>,
+    pub sprites: Vec<SpriteInfo>,
     pub y_sorting: bool,
     pub size: IVec2,
-    pub collision_rect: rect::Rect2,
-    pub rendering_rect: rect::Rect2,
+    pub collision_rect: geom::Rect2,
+    pub rendering_rect: geom::Rect2,
     pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
-pub struct EntityDescriptor {
+pub struct EntityInfo {
     pub display_name: String,
     pub description: String,
-    pub images: Vec<ImageDescriptor>,
-    pub z_along_y: bool,
-    pub collision_size: Vec2,
-    pub collision_offset: Vec2,
-    pub rendering_size: Vec2,
-    pub rendering_offset: Vec2,
+    pub sprites: Vec<SpriteInfo>,
+    pub y_sorting: bool,
+    pub collision_rect: geom::Rect2,
+    pub rendering_rect: geom::Rect2,
     pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
-pub struct ItemDescriptor {
+pub struct ItemInfo {
     pub display_name: String,
     pub description: String,
-    pub images: Vec<ImageDescriptor>,
+    pub sprites: Vec<SpriteInfo>,
     pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
-pub struct InventoryDescriptor {
+pub struct InventoryInfo {
     pub size: u32,
     pub callback: Callable,
 }
 
-pub struct BuildDescriptor {
+pub struct BuildInfo {
     pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<Gd<godot::classes::Shader>>,
     pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
@@ -141,11 +139,11 @@ type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry, &'a Retriever) -> T>;
 
 #[derive(Default)]
 pub struct ContextBuilder {
-    tiles: Vec<RegisterFn<TileDescriptor>>,
-    blocks: Vec<RegisterFn<BlockDescriptor>>,
-    entities: Vec<RegisterFn<EntityDescriptor>>,
-    items: Vec<RegisterFn<ItemDescriptor>>,
-    inventories: Vec<RegisterFn<InventoryDescriptor>>,
+    tiles: Vec<RegisterFn<TileInfo>>,
+    blocks: Vec<RegisterFn<BlockInfo>>,
+    entities: Vec<RegisterFn<EntityInfo>>,
+    items: Vec<RegisterFn<ItemInfo>>,
+    inventories: Vec<RegisterFn<InventoryInfo>>,
     registry: Registry,
 }
 
@@ -156,7 +154,7 @@ impl ContextBuilder {
 
     pub fn add_tile<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&Registry, &Retriever) -> TileDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> TileInfo + 'static,
     {
         self.tiles.push(Box::new(desc_fn));
         let id = (self.tiles.len() - 1) as u16;
@@ -165,7 +163,7 @@ impl ContextBuilder {
 
     pub fn add_block<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&Registry, &Retriever) -> BlockDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> BlockInfo + 'static,
     {
         self.blocks.push(Box::new(desc_fn));
         let id = (self.blocks.len() - 1) as u16;
@@ -174,7 +172,7 @@ impl ContextBuilder {
 
     pub fn add_entity<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&Registry, &Retriever) -> EntityDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> EntityInfo + 'static,
     {
         self.entities.push(Box::new(desc_fn));
         let id = (self.entities.len() - 1) as u16;
@@ -183,7 +181,7 @@ impl ContextBuilder {
 
     pub fn add_item<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&Registry, &Retriever) -> ItemDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> ItemInfo + 'static,
     {
         self.items.push(Box::new(desc_fn));
         let id = (self.items.len() - 1) as u16;
@@ -192,18 +190,18 @@ impl ContextBuilder {
 
     pub fn add_inventory<F>(&mut self, name: String, desc_fn: F)
     where
-        F: FnOnce(&Registry, &Retriever) -> InventoryDescriptor + 'static,
+        F: FnOnce(&Registry, &Retriever) -> InventoryInfo + 'static,
     {
         self.inventories.push(Box::new(desc_fn));
         let id = (self.inventories.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn build(self, retriever: &Retriever, desc: BuildDescriptor) -> Context {
-        let world = desc
+    pub fn build(self, retriever: &Retriever, info: BuildInfo) -> Context {
+        let world = info
             .viewport
             .get_world_3d()
-            .unwrap_or_else(|| panic!("Failed to get World3D from {}", desc.viewport));
+            .unwrap_or_else(|| panic!("Failed to get World3D from {}", info.viewport));
 
         // feature matrix builder
         let mut tile_feature_builder = dataflow::FeatureMatrixBuilder::default();
@@ -215,38 +213,38 @@ impl ContextBuilder {
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
-            let desc = tile(&self.registry, retriever);
+            let tile_info = tile(&self.registry, retriever);
 
             let mut set_builder = tile_feature_builder.insert_row();
-            desc.feature_set.attach_set(&mut set_builder).unwrap();
+            tile_info.feature_set.attach_set(&mut set_builder).unwrap();
 
             tiles.push(dataflow::TileInfo {
-                display_name: desc.display_name,
-                description: desc.description,
-                collision: desc.collision,
+                display_name: tile_info.display_name,
+                description: tile_info.description,
+                collision: tile_info.collision,
             });
 
-            let mut images = vec![];
-            for image in desc.images {
-                let mut frames = vec![];
-                for image in image.frames {
-                    frames.push(image);
+            let mut sprites = vec![];
+            for sprite in tile_info.sprites {
+                let mut images = vec![];
+                for image in sprite.images {
+                    images.push(image);
                 }
 
-                images.push(view::TileSpriteInfo {
-                    images: frames,
-                    tick_per_image: image.step_tick,
-                    is_loop: image.is_loop,
+                sprites.push(view::TileSpriteInfo {
+                    images,
+                    tick_per_image: sprite.step_tick,
+                    is_loop: sprite.is_loop,
                 });
             }
 
-            tiles_view.push(view::TileInfo { sprites: images });
+            tiles_view.push(view::TileInfo { sprites });
         }
 
-        let tile_field_desc = dataflow::TileFieldInfo { tiles };
+        let tile_field_info = dataflow::TileFieldInfo { tiles };
 
         let mut tile_shaders = vec![];
-        for shader in desc.tile_shaders {
+        for shader in info.tile_shaders {
             tile_shaders.push(shader);
         }
         let tile_field_view = view::TileField::new(view::TileFieldInfo {
@@ -259,45 +257,45 @@ impl ContextBuilder {
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
-            let desc = block(&self.registry, retriever);
+            let block_info = block(&self.registry, retriever);
 
             let mut set_builder = block_feature_builder.insert_row();
-            desc.feature_set.attach_set(&mut set_builder).unwrap();
+            block_info.feature_set.attach_set(&mut set_builder).unwrap();
 
             blocks.push(dataflow::BlockInfo {
-                display_name: desc.display_name,
-                description: desc.description,
-                size: desc.size,
-                collision_rect: desc.collision_rect,
-                hint_rect: desc.rendering_rect,
-                y_sorting: desc.y_sorting,
+                display_name: block_info.display_name,
+                description: block_info.description,
+                size: block_info.size,
+                collision_rect: block_info.collision_rect,
+                hint_rect: block_info.rendering_rect,
+                y_sorting: block_info.y_sorting,
             });
 
-            let mut images = vec![];
-            for image in desc.images {
-                let mut frames = vec![];
-                for image in image.frames {
-                    frames.push(image);
+            let mut sprites = vec![];
+            for sprite in block_info.sprites {
+                let mut images = vec![];
+                for image in sprite.images {
+                    images.push(image);
                 }
 
-                images.push(view::BlockSpriteInfo {
-                    images: frames,
-                    ticks_per_image: image.step_tick,
-                    is_loop: image.is_loop,
+                sprites.push(view::BlockSpriteInfo {
+                    images,
+                    ticks_per_image: sprite.step_tick,
+                    is_loop: sprite.is_loop,
                 });
             }
 
             blocks_view.push(view::BlockInfo {
-                sprites: images,
-                y_sorting: desc.y_sorting,
-                rendering_rect: desc.rendering_rect,
+                sprites,
+                y_sorting: block_info.y_sorting,
+                rendering_rect: block_info.rendering_rect,
             });
         }
 
-        let block_field_desc = dataflow::BlockFieldInfo { blocks };
+        let block_field_info = dataflow::BlockFieldInfo { blocks };
 
         let mut block_shaders = vec![];
-        for shader in desc.block_shaders {
+        for shader in info.block_shaders {
             block_shaders.push(shader);
         }
         let block_field_view = view::BlockField::new(view::BlockFieldInfo {
@@ -310,47 +308,44 @@ impl ContextBuilder {
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
-            let desc = entity(&self.registry, retriever);
+            let entity_info = entity(&self.registry, retriever);
 
             let mut set_builder = entity_feature_builder.insert_row();
-            desc.feature_set.attach_set(&mut set_builder).unwrap();
+            entity_info.feature_set.attach_set(&mut set_builder).unwrap();
 
             entities.push(dataflow::EntityInfo {
-                display_name: desc.display_name,
-                description: desc.description,
-                collision_size: desc.collision_size,
-                collision_offset: desc.collision_offset,
-                hint_size: desc.rendering_size,
-                hint_offset: desc.rendering_offset,
-                y_sorting: desc.z_along_y,
+                display_name: entity_info.display_name,
+                description: entity_info.description,
+                collision_rect: entity_info.collision_rect,
+                hint_rect: entity_info.rendering_rect,
+                y_sorting: entity_info.y_sorting,
             });
 
-            let mut images = vec![];
-            for image in desc.images {
-                let mut frames = vec![];
-                for image in image.frames {
-                    frames.push(image);
+            let mut sprites = vec![];
+            for image in entity_info.sprites {
+                let mut images = vec![];
+                for image in image.images {
+                    images.push(image);
                 }
 
-                images.push(view::EntitySpriteInfo {
-                    images: frames,
+                sprites.push(view::EntitySpriteInfo {
+                    images,
                     ticks_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
             entities_view.push(view::EntityInfo {
-                sprites: images,
-                y_sorting: desc.z_along_y,
-                rendering_size: desc.rendering_size,
-                rendering_offset: desc.rendering_offset,
+                sprites,
+                y_sorting: entity_info.y_sorting,
+                rendering_rect: entity_info.rendering_rect,
             });
         }
 
-        let entity_field_desc = dataflow::EntityFieldInfo { entities };
+        let entity_field_info = dataflow::EntityFieldInfo { entities };
 
         let mut entity_shaders = vec![];
-        for shader in desc.entity_shaders {
+        for shader in info.entity_shaders {
             entity_shaders.push(shader);
         }
         let entity_field_view = view::EntityField::new(view::EntityFieldInfo {
@@ -363,46 +358,46 @@ impl ContextBuilder {
         let mut items = vec![];
         let mut items_view = vec![];
         for item in self.items {
-            let desc = item(&self.registry, retriever);
+            let item_info = item(&self.registry, retriever);
 
             let mut set_builder = item_feature_builder.insert_row();
-            desc.feature_set.attach_set(&mut set_builder).unwrap();
+            item_info.feature_set.attach_set(&mut set_builder).unwrap();
 
-            items.push(dataflow::ItemDescriptor {
-                display_name: desc.display_name,
-                description: desc.description,
+            items.push(dataflow::ItemInfo {
+                display_name: item_info.display_name,
+                description: item_info.description,
             });
 
-            let mut images = vec![];
-            for image in desc.images {
-                let mut frames = vec![];
-                for image in image.frames {
-                    frames.push(image);
+            let mut sprites = vec![];
+            for image in item_info.sprites {
+                let mut images = vec![];
+                for image in image.images {
+                    images.push(image);
                 }
 
-                images.push(view::ItemImageInfo {
-                    images: frames,
+                sprites.push(view::ItemSpriteInfo {
+                    images,
                     ticks_per_image: image.step_tick,
                     is_loop: image.is_loop,
                 });
             }
 
-            items_view.push(view::ItemInfo { sprites: images });
+            items_view.push(view::ItemInfo { sprites });
         }
 
         let mut inventories = vec![];
         let mut inventories_view = vec![];
         for inventory in self.inventories {
-            let desc = inventory(&self.registry, retriever);
+            let inventory_info = inventory(&self.registry, retriever);
 
-            inventories.push(dataflow::InventoryDescriptor { size: desc.size });
+            inventories.push(dataflow::InventoryInfo { size: inventory_info.size });
 
             inventories_view.push(view::InventoryInfo {
-                callback: desc.callback,
+                callback: inventory_info.callback,
             });
         }
 
-        let item_storage_desc = dataflow::ItemStorageDescriptor { items, inventories };
+        let item_storage_info = dataflow::ItemStorageInfo { items, inventories };
 
         let item_storage_view = view::ItemStorage::new(view::ItemStorageInfo {
             items: items_view,
@@ -410,15 +405,15 @@ impl ContextBuilder {
         });
 
         let selection_view = view::Selection::new(view::SelectionInfo {
-            shader: desc.selection_shader,
+            shader: info.selection_shader,
             world: world.clone(),
         });
 
-        let dataflow = dataflow::Dataflow::new(dataflow::DataflowDescriptor {
-            tile_field_desc,
-            block_field_desc,
-            entity_field_desc,
-            item_storage_desc,
+        let dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
+            tile_field: tile_field_info,
+            block_field: block_field_info,
+            entity_field: entity_field_info,
+            item_storage: item_storage_info,
 
             tile_feature_builder,
             block_feature_builder,

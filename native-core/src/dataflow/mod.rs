@@ -1,7 +1,7 @@
 use glam::*;
 use std::rc::Rc;
 
-use crate::rect::*;
+use crate::geom::*;
 
 pub use data::*;
 pub use feature::*;
@@ -21,11 +21,11 @@ mod tile;
 mod block;
 mod entity;
 
-pub struct DataflowDescriptor {
-    pub tile_field_desc: TileFieldInfo,
-    pub block_field_desc: BlockFieldInfo,
-    pub entity_field_desc: EntityFieldInfo,
-    pub item_storage_desc: ItemStorageDescriptor,
+pub struct DataflowInfo {
+    pub tile_field: TileFieldInfo,
+    pub block_field: BlockFieldInfo,
+    pub entity_field: EntityFieldInfo,
+    pub item_storage: ItemStorageInfo,
 
     pub tile_feature_builder: FeatureMatrixBuilder,
     pub block_feature_builder: FeatureMatrixBuilder,
@@ -53,19 +53,19 @@ pub struct Dataflow {
 }
 
 impl Dataflow {
-    pub fn new(desc: DataflowDescriptor) -> Self {
+    pub fn new(info: DataflowInfo) -> Self {
         Self {
             time_storage: TimeStorage::new(),
 
-            tile_field: TileField::new(desc.tile_field_desc),
-            block_field: BlockField::new(desc.block_field_desc),
-            entity_field: EntityField::new(desc.entity_field_desc),
-            item_storage: ItemStorage::new(desc.item_storage_desc),
+            tile_field: TileField::new(info.tile_field),
+            block_field: BlockField::new(info.block_field),
+            entity_field: EntityField::new(info.entity_field),
+            item_storage: ItemStorage::new(info.item_storage),
 
-            tile_features: desc.tile_feature_builder.build(),
-            block_features: desc.block_feature_builder.build(),
-            entity_features: desc.entity_feature_builder.build(),
-            item_features: desc.item_feature_builder.build(),
+            tile_features: info.tile_feature_builder.build(),
+            block_features: info.block_feature_builder.build(),
+            entity_features: info.entity_feature_builder.build(),
+            item_features: info.item_feature_builder.build(),
 
             resource_storage: ResourceStorage::new(),
         }
@@ -147,7 +147,7 @@ impl Dataflow {
 
     // tile collision features
 
-    pub fn find_tile_with_collision_point(&self, coord: Vec2) -> Option<TileId> {
+    pub fn find_tile_with_collision_point(&self, coord: Vec2) -> impl Iterator<Item = TileId> + '_ {
         self.tile_field.find_with_collision_point(coord)
     }
 
@@ -157,7 +157,7 @@ impl Dataflow {
 
     // tile inventory
 
-    pub fn get_tile_inventory(&self, tile_id: TileId) -> Result<Option<InventoryKey>, DataflowError> {
+    pub fn get_tile_inventory(&self, tile_id: TileId) -> Result<Option<InventoryId>, DataflowError> {
         let tile = self.tile_field.get(tile_id)?;
         let feature = self
             .get_tile_feature::<Rc<dyn InventoryFeature<Key = TileId>>>(tile.archetype_id)
@@ -248,7 +248,7 @@ impl Dataflow {
 
     // block inventory
 
-    pub fn get_block_inventory(&self, block_id: BlockId) -> Result<Option<InventoryKey>, DataflowError> {
+    pub fn get_block_inventory(&self, block_id: BlockId) -> Result<Option<InventoryId>, DataflowError> {
         let block = self.block_field.get(block_id)?;
         let feature = self
             .get_block_feature::<Rc<dyn InventoryFeature<Key = BlockId>>>(block.archetype_id)
@@ -273,7 +273,7 @@ impl Dataflow {
         Ok(entity_id)
     }
 
-    pub fn remove_entity(&mut self, entity_id: EntityId) -> Result<entity::Entity, DataflowError> {
+    pub fn remove_entity(&mut self, entity_id: EntityId) -> Result<Entity, DataflowError> {
         let entity = self.entity_field.get(entity_id)?;
         let feature = self
             .get_entity_feature::<Rc<dyn FieldFeature<Key = EntityId>>>(entity.archetype_id)
@@ -283,106 +283,53 @@ impl Dataflow {
         Ok(entity)
     }
 
-    pub fn modify_entity(&mut self, entity_id: EntityId, f: impl FnOnce(&mut entity::Entity)) -> Result<entity::EntityId, DataflowError> {
+    pub fn modify_entity(&mut self, entity_id: EntityId, f: impl FnOnce(&mut EntityRenderState)) -> Result<EntityId, DataflowError> {
         let entity_id = self.entity_field.modify(entity_id, f)?;
         Ok(entity_id)
     }
 
-    pub fn get_entity(&self, entity_id: EntityId) -> Result<&entity::Entity, DataflowError> {
+    pub fn get_entity(&self, entity_id: EntityId) -> Result<&Entity, DataflowError> {
         let entity = self.entity_field.get(entity_id)?;
         Ok(entity)
     }
 
-    pub fn get_entity_version_by_chunk_coord(&self, chunk_location: IVec2) -> Result<u64, DataflowError> {
-        let chunk = self.entity_field.get_version_by_chunk_coord(chunk_location)?;
+    pub fn find_entity_chunk_coord(&self, point: Vec2) -> IVec2 {
+        self.entity_field.find_chunk_coord(point)
+    }
+
+    pub fn get_entity_chunk(&self, chunk_coord: IVec2) -> Result<&EntityChunk, DataflowError> {
+        let chunk = self.entity_field.get_chunk(chunk_coord)?;
         Ok(chunk)
     }
 
-    pub fn get_entity_ids_by_chunk_coord(&self, chunk_location: IVec2) -> Result<impl Iterator<Item = EntityId>, DataflowError> {
-        let chunk = self.entity_field.get_ids_by_chunk_coord(chunk_location)?;
-        Ok(chunk)
-    }
-
-    pub fn get_entity_display_name(&self, entity_id: EntityId) -> Result<&str, DataflowError> {
-        let display_name = self.entity_field.get_display_name(entity_id)?;
-        Ok(display_name)
-    }
-
-    pub fn get_entity_description(&self, entity_id: EntityId) -> Result<&str, DataflowError> {
-        let description = self.entity_field.get_description(entity_id)?;
-        Ok(description)
-    }
-
-    // entity spatial features
-
-    pub fn get_entity_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.entity_field.get_chunk_coord(point)
+    pub fn get_entity_archetype(&self, archetype_id: u16) -> Result<&EntityArchetype, DataflowError> {
+        let archetype = self.entity_field.get_archetype(archetype_id)?;
+        Ok(archetype)
     }
 
     // entity collision features
 
-    pub fn get_entity_base_collision_rect(&self, archetype_id: u16) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.entity_field.get_base_collision_rect(archetype_id)?;
-        Ok(rect)
+    pub fn find_entity_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+        self.entity_field.find_with_collision_point(point)
     }
 
-    pub fn get_entity_collision_rect(&self, entity_id: EntityId) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.entity_field.get_collision_rect(entity_id)?;
-        Ok(rect)
-    }
-
-    pub fn has_entity_by_collision_point(&self, point: Vec2) -> bool {
-        self.entity_field.has_by_collision_point(point)
-    }
-
-    pub fn get_entity_ids_by_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
-        self.entity_field.get_ids_by_collision_point(point)
-    }
-
-    pub fn has_entity_by_collision_rect(&self, rect: [Vec2; 2]) -> bool {
-        self.entity_field.has_by_collision_rect(rect)
-    }
-
-    pub fn get_entity_ids_by_collision_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityId> + '_ {
-        self.entity_field.get_ids_by_collision_rect(rect)
+    pub fn find_entity_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+        self.entity_field.find_with_collision_rect(rect)
     }
 
     // entity hint features
 
-    pub fn get_entity_base_y_sorting(&self, archetype_id: u16) -> Result<bool, DataflowError> {
-        let y_sorting = self.entity_field.get_base_y_sorting(archetype_id)?;
-        Ok(y_sorting)
+    pub fn find_entity_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+        self.entity_field.find_with_hint_point(point)
     }
 
-    pub fn get_entity_base_hint_rect(&self, archetype_id: u16) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.entity_field.get_base_hint_rect(archetype_id)?;
-        Ok(rect)
-    }
-
-    pub fn get_entity_hint_rect(&self, entity_id: EntityId) -> Result<[Vec2; 2], DataflowError> {
-        let rect = self.entity_field.get_hint_rect(entity_id)?;
-        Ok(rect)
-    }
-
-    pub fn has_entity_by_hint_point(&self, point: Vec2) -> bool {
-        self.entity_field.has_by_hint_point(point)
-    }
-
-    pub fn get_entity_ids_by_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
-        self.entity_field.get_ids_by_hint_point(point)
-    }
-
-    pub fn has_entity_by_hint_rect(&self, rect: [Vec2; 2]) -> bool {
-        self.entity_field.has_by_hint_rect(rect)
-    }
-
-    pub fn get_entity_ids_by_hint_rect(&self, rect: [Vec2; 2]) -> impl Iterator<Item = EntityId> + '_ {
-        self.entity_field.get_ids_by_hint_rect(rect)
+    pub fn find_entity_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+        self.entity_field.find_with_hint_rect(rect)
     }
 
     // entity inventory
 
-    pub fn get_inventory_by_entity(&self, entity_id: EntityId) -> Result<Option<InventoryKey>, DataflowError> {
+    pub fn get_inventory_by_entity(&self, entity_id: EntityId) -> Result<Option<InventoryId>, DataflowError> {
         let entity = self.entity_field.get(entity_id)?;
         let feature = self
             .get_entity_feature::<Rc<dyn InventoryFeature<Key = EntityId>>>(entity.archetype_id)
@@ -398,114 +345,76 @@ impl Dataflow {
         Ok(feature)
     }
 
-    pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, DataflowError> {
-        let inventory_key = self.item_storage.insert_inventory(id)?;
+    pub fn insert_inventory(&mut self, archetype_id: u16) -> Result<InventoryId, DataflowError> {
+        let inventory_key = self.item_storage.insert_inventory(archetype_id)?;
         Ok(inventory_key)
     }
 
-    pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, DataflowError> {
-        let id = self.item_storage.remove_inventory(inventory_key)?;
+    pub fn remove_inventory(&mut self, inventory_id: InventoryId) -> Result<u16, DataflowError> {
+        let id = self.item_storage.remove_inventory(inventory_id)?;
         Ok(id)
     }
 
-    pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, DataflowError> {
-        let inventory = self.item_storage.get_inventory(inventory_key)?;
+    pub fn get_inventory(&self, inventory_id: InventoryId) -> Result<&Inventory, DataflowError> {
+        let inventory = self.item_storage.get_inventory(inventory_id)?;
         Ok(inventory)
     }
 
-    pub fn push_item_to_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-        item: Item,
-    ) -> Result<(), DataflowError> {
-        self.item_storage
-            .push_item_to_inventory(inventory_key, item)?;
+    pub fn push_item_to_inventory(&mut self, inventory_id: InventoryId, item: Item) -> Result<(), DataflowError> {
+        self.item_storage.push_item_to_inventory(inventory_id, item)?;
         Ok(())
     }
 
-    pub fn pop_item_from_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-    ) -> Result<Item, DataflowError> {
-        let item = self.item_storage.pop_item_from_inventory(inventory_key)?;
+    pub fn pop_item_from_inventory(&mut self, inventory_id: InventoryId) -> Result<Item, DataflowError> {
+        let item = self.item_storage.pop_item_from_inventory(inventory_id)?;
         Ok(item)
     }
 
-    pub fn search_item_in_inventory(
-        &self,
-        inventory_key: InventoryKey,
-        text: &str,
-    ) -> Result<Vec<SlotKey>, DataflowError> {
-        let item_key = self
-            .item_storage
-            .search_item_in_inventory(inventory_key, text)?;
-        Ok(item_key)
-    }
-
-    pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), DataflowError> {
-        self.item_storage.insert_item(slot_key, item)?;
+    pub fn insert_item(&mut self, slot_id: SlotId, item: Item) -> Result<(), DataflowError> {
+        self.item_storage.insert_item(slot_id, item)?;
         Ok(())
     }
 
-    pub fn remove_item(&mut self, slot_key: SlotKey) -> Result<Item, DataflowError> {
-        let item = self.item_storage.remove_item(slot_key)?;
+    pub fn remove_item(&mut self, slot_id: SlotId) -> Result<Item, DataflowError> {
+        let item = self.item_storage.remove_item(slot_id)?;
         Ok(item)
     }
 
-    pub fn modify_item(
-        &mut self,
-        slot_key: SlotKey,
-        f: impl FnOnce(&mut Item),
-    ) -> Result<(), DataflowError> {
-        self.item_storage.modify_item(slot_key, f)?;
+    pub fn modify_item(&mut self, slot_id: SlotId, f: impl FnOnce(&mut Item)) -> Result<(), DataflowError> {
+        self.item_storage.modify_item(slot_id, f)?;
         Ok(())
     }
 
-    pub fn swap_item(
-        &mut self,
-        slot_key_a: SlotKey,
-        slot_key_b: SlotKey,
-    ) -> Result<(), DataflowError> {
-        self.item_storage.swap_item(slot_key_a, slot_key_b)?;
+    pub fn swap_item(&mut self, src_slot_id: SlotId, dst_slot_id: SlotId) -> Result<(), DataflowError> {
+        self.item_storage.swap_item(src_slot_id, dst_slot_id)?;
         Ok(())
     }
 
-    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, DataflowError> {
-        let item = self.item_storage.get_item(slot_key)?;
+    pub fn get_item(&self, slot_id: SlotId) -> Result<&Item, DataflowError> {
+        let item = self.item_storage.get_item(slot_id)?;
         Ok(item)
     }
 
-    pub fn get_item_display_name(&self, slot_key: SlotKey) -> Result<&str, DataflowError> {
-        let display_name = self.item_storage.get_item_display_name(slot_key)?;
-        Ok(display_name)
-    }
-
-    pub fn get_item_description(&self, slot_key: SlotKey) -> Result<&str, DataflowError> {
-        let description = self.item_storage.get_item_description(slot_key)?;
-        Ok(description)
+    pub fn get_item_archetype(&self, archetype_id: u16) -> Result<&ItemArchetype, DataflowError> {
+        let archetype = self.item_storage.get_item_archetype(archetype_id)?;
+        Ok(archetype)
     }
 
     // resources
 
-    pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), DataflowError>
-    where
-        T: Resource + 'static,
+    pub fn insert_resources<T>(&mut self, resource: T) -> Result<(), DataflowError> where T: Resource + 'static,
     {
         self.resource_storage.insert::<T>(resource)?;
         Ok(())
     }
 
-    pub fn remove_resources<T>(&mut self) -> Result<T, DataflowError>
-    where
-        T: Resource + 'static,
+    pub fn remove_resources<T>(&mut self) -> Result<T, DataflowError> where T: Resource + 'static,
     {
         let resource = self.resource_storage.remove::<T>()?;
         Ok(resource)
     }
 
-    pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, DataflowError>
-    where
-        T: Resource + 'static,
+    pub fn find_resources<T>(&self) -> Result<ResourceCell<T>, DataflowError> where T: Resource + 'static,
     {
         let resource = self.resource_storage.find::<T>()?;
         Ok(resource)
@@ -522,7 +431,7 @@ pub trait FieldFeature {
 
 pub trait InventoryFeature {
     type Key;
-    fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey;
+    fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryId;
 }
 
 // error handling

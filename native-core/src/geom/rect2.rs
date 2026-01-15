@@ -4,14 +4,13 @@ use glam::*;
 
 use super::*;
 
-/// Creates a new AABB from two points.
+/// Creates a new Rect2 from two points.
 #[inline]
 pub const fn rect2(min: Vec2, max: Vec2) -> Rect2 {
     Rect2::new(min, max)
 }
 
 /// A 2-dimensional axis-aligned bounding box.
-#[repr(C, align(16))]
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
 pub struct Rect2 {
     pub min: Vec2,
@@ -25,13 +24,13 @@ impl Rect2 {
         max: Vec2::ZERO,
     };
 
-    /// Creates a new AABB from two points.
+    /// Creates a new Rect2 from two points.
     #[inline]
     pub const fn new(min: Vec2, max: Vec2) -> Self {
         Self { min, max }
     }
 
-    /// Creates a new AABB from a center point and extents.
+    /// Creates a new Rect2 from a center point and extents.
     #[inline]
     pub fn from_center(center: Vec2, extents: Vec2) -> Self {
         Self {
@@ -40,32 +39,32 @@ impl Rect2 {
         }
     }
 
-    /// Returns the AABB size.
+    /// Returns the Rect2 size.
     #[inline]
     pub fn size(&self) -> Vec2 {
         self.max - self.min
     }
 
-    /// Returns the AABB center point.
+    /// Returns the Rect2 center point.
     #[inline]
     pub fn center(&self) -> Vec2 {
         (self.min + self.max) * 0.5
     }
 
-    /// Returns the AABB extents.
+    /// Returns the Rect2 extents.
     #[inline]
     pub fn extents(&self) -> Vec2 {
         (self.max - self.min) * 0.5
     }
 
-    /// Returns the AABB volume.
+    /// Returns the Rect2 volume.
     #[inline]
     pub fn volume(&self) -> f32 {
         let size = self.size();
         size.x * size.y
     }
 
-    /// Returns the AABB with extended size.
+    /// Returns the Rect2 with extended size.
     #[inline]
     pub fn extends(self, size: f32) -> Self {
         Self {
@@ -74,7 +73,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with the smallest integer greater than or equal to `self`'s
+    /// Returns a Rect2 with the smallest integer greater than or equal to `self`'s
     /// element as element.
     #[inline]
     pub fn ceil(self) -> Self {
@@ -84,7 +83,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with the nearest integer to `self`'s
+    /// Returns a Rect2 with the nearest integer to `self`'s
     /// element as element.
     #[inline]
     pub fn round(self) -> Self {
@@ -94,7 +93,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with the largest integer smaller than or equal to `self`'s
+    /// Returns a Rect2 with the largest integer smaller than or equal to `self`'s
     /// element as element.
     #[inline]
     pub fn floor(self) -> Self {
@@ -104,7 +103,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with `self`'s element integer part.
+    /// Returns a Rect2 with `self`'s element integer part.
     #[inline]
     pub fn trunc(self) -> Self {
         Self {
@@ -113,7 +112,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with `self`'s element fractional part.
+    /// Returns a Rect2 with `self`'s element fractional part.
     #[inline]
     pub fn fract(self) -> Self {
         Self {
@@ -122,7 +121,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns the smallest integer AABB that can covers `self` area.
+    /// Returns the smallest integer Rect2 that can covers `self` area.
     #[inline]
     pub fn trunc_over(self) -> Self {
         Self {
@@ -131,7 +130,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns the largest integer AABB that can be covered by `self` area.
+    /// Returns the largest integer Rect2 that can be covered by `self` area.
     #[inline]
     pub fn trunc_under(self) -> Self {
         Self {
@@ -140,7 +139,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with `self`'s element exp.
+    /// Returns a Rect2 with `self`'s element exp.
     #[inline]
     pub fn exp(self) -> Self {
         Self {
@@ -149,7 +148,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with `self`'s element the power of n.
+    /// Returns a Rect2 with `self`'s element the power of n.
     #[inline]
     pub fn powf(self, n: f32) -> Self {
         Self {
@@ -158,7 +157,7 @@ impl Rect2 {
         }
     }
 
-    /// Returns a AABB with `self`'s element recip.
+    /// Returns a Rect2 with `self`'s element recip.
     #[inline]
     pub fn recip(self) -> Self {
         Self {
@@ -169,46 +168,10 @@ impl Rect2 {
 
     /// Calculates the Euclidean division.
     #[inline]
-    pub fn div_euclid_f32(self, rhs: f32) -> Self {
-        Self {
-            min: self.min.div_euclid(vec2(rhs, rhs)),
-            max: self.max.div_euclid(vec2(rhs, rhs)),
-        }
-    }
-
-    /// Calculates the Euclidean division.
-    #[inline]
-    pub fn div_euclid_vec2(self, rhs: Vec2) -> Self {
-        Self {
-            min: self.min.div_euclid(rhs),
-            max: self.max.div_euclid(rhs),
-        }
-    }
-
-    /// Calculates the Euclidean division.
-    #[inline]
     pub fn div_euclid(self, rhs: Rect2) -> Self {
         Self {
             min: self.min.div_euclid(rhs.min),
             max: self.max.div_euclid(rhs.max),
-        }
-    }
-
-    /// Calculates the least nonnegative remainder of `self (mod rhs)`.
-    #[inline]
-    pub fn rem_euclid_f32(self, rhs: f32) -> Self {
-        Self {
-            min: self.min.rem_euclid(vec2(rhs, rhs)),
-            max: self.max.rem_euclid(vec2(rhs, rhs)),
-        }
-    }
-
-    /// Calculates the least nonnegative remainder of `self (mod rhs)`.
-    #[inline]
-    pub fn rem_euclid_vec2(self, rhs: Vec2) -> Self {
-        Self {
-            min: self.min.rem_euclid(rhs),
-            max: self.max.rem_euclid(rhs),
         }
     }
 
@@ -239,41 +202,17 @@ impl Rect2 {
         }
     }
 
-    /// Returns whether if `self` contains `rhs`.
+    /// Casts into `IRect2`.
     #[inline]
-    pub fn contains_vec2(&self, rhs: Vec2) -> bool {
-        self.min.x <= rhs.x && self.min.y <= rhs.y && rhs.x <= self.max.x && rhs.y <= self.max.y
-    }
-
-    /// Returns whether if `self` intersects `rhs`.
-    #[inline]
-    pub fn contains(&self, rhs: Rect2) -> bool {
-        self.min.x <= rhs.min.x
-            && self.min.y <= rhs.min.y
-            && rhs.max.x <= self.max.x
-            && rhs.max.y <= self.max.y
-    }
-
-    /// Returns whether if `self` intersects `rhs`.
-    #[inline]
-    pub fn intersects(&self, rhs: Rect2) -> bool {
-        self.min.x <= rhs.max.x
-            && self.min.y <= rhs.max.y
-            && rhs.min.x <= self.max.x
-            && rhs.min.y <= self.max.y
-    }
-
-    /// Casts into `IAabb2`.
-    #[inline]
-    pub fn as_iaabb2(&self) -> IRect2 {
+    pub fn as_irect2(&self) -> IRect2 {
         IRect2 {
-            min: self.min.floor().as_ivec2(),
-            max: self.max.ceil().as_ivec2(),
+            min: self.min.as_ivec2(),
+            max: self.max.as_ivec2(),
         }
     }
 }
 
-// - Aabb2
+// - Rect2
 impl Neg for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -285,7 +224,7 @@ impl Neg for Rect2 {
     }
 }
 
-// Aabb2 + Vec2
+// Rect2 + Vec2
 impl Add<Vec2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -297,7 +236,7 @@ impl Add<Vec2> for Rect2 {
     }
 }
 
-// Vec2 + Aabb2
+// Vec2 + Rect2
 impl Add<Rect2> for Vec2 {
     type Output = Rect2;
     #[inline]
@@ -309,7 +248,7 @@ impl Add<Rect2> for Vec2 {
     }
 }
 
-// Aabb2 + Aabb2
+// Rect2 + Rect2
 impl Add<Rect2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -321,7 +260,7 @@ impl Add<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 += Vec2
+// Rect2 += Vec2
 impl AddAssign<Vec2> for Rect2 {
     #[inline]
     fn add_assign(&mut self, rhs: Vec2) {
@@ -330,7 +269,7 @@ impl AddAssign<Vec2> for Rect2 {
     }
 }
 
-// Aabb2 += Aabb2
+// Rect2 += Rect2
 impl AddAssign<Rect2> for Rect2 {
     #[inline]
     fn add_assign(&mut self, rhs: Rect2) {
@@ -339,7 +278,7 @@ impl AddAssign<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 - Vec2
+// Rect2 - Vec2
 impl Sub<Vec2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -351,7 +290,7 @@ impl Sub<Vec2> for Rect2 {
     }
 }
 
-// Vec2 - Aabb2
+// Vec2 - Rect2
 impl Sub<Rect2> for Vec2 {
     type Output = Rect2;
     #[inline]
@@ -363,7 +302,7 @@ impl Sub<Rect2> for Vec2 {
     }
 }
 
-// Aabb2 - Aabb2
+// Rect2 - Rect2
 impl Sub<Rect2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -375,7 +314,7 @@ impl Sub<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 -= Vec2
+// Rect2 -= Vec2
 impl SubAssign<Vec2> for Rect2 {
     #[inline]
     fn sub_assign(&mut self, rhs: Vec2) {
@@ -384,7 +323,7 @@ impl SubAssign<Vec2> for Rect2 {
     }
 }
 
-// Aabb2 -= Aabb2
+// Rect2 -= Rect2
 impl SubAssign<Rect2> for Rect2 {
     #[inline]
     fn sub_assign(&mut self, rhs: Rect2) {
@@ -393,7 +332,7 @@ impl SubAssign<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 * f32
+// Rect2 * f32
 impl Mul<f32> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -405,7 +344,7 @@ impl Mul<f32> for Rect2 {
     }
 }
 
-// f32 * Aabb2
+// f32 * Rect2
 impl Mul<Rect2> for f32 {
     type Output = Rect2;
     #[inline]
@@ -417,7 +356,7 @@ impl Mul<Rect2> for f32 {
     }
 }
 
-// Aabb2 * Vec2
+// Rect2 * Vec2
 impl Mul<Vec2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -429,7 +368,7 @@ impl Mul<Vec2> for Rect2 {
     }
 }
 
-// Vec2 * Aabb2
+// Vec2 * Rect2
 impl Mul<Rect2> for Vec2 {
     type Output = Rect2;
     #[inline]
@@ -441,7 +380,7 @@ impl Mul<Rect2> for Vec2 {
     }
 }
 
-// Aabb2 * Aabb2
+// Rect2 * Rect2
 impl Mul<Rect2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -453,7 +392,7 @@ impl Mul<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 *= f32
+// Rect2 *= f32
 impl MulAssign<f32> for Rect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: f32) {
@@ -462,7 +401,7 @@ impl MulAssign<f32> for Rect2 {
     }
 }
 
-// Aabb2 *= Vec2
+// Rect2 *= Vec2
 impl MulAssign<Vec2> for Rect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: Vec2) {
@@ -471,7 +410,7 @@ impl MulAssign<Vec2> for Rect2 {
     }
 }
 
-// Aabb2 *= Aabb2
+// Rect2 *= Rect2
 impl MulAssign<Rect2> for Rect2 {
     #[inline]
     fn mul_assign(&mut self, rhs: Rect2) {
@@ -480,7 +419,7 @@ impl MulAssign<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 / f32
+// Rect2 / f32
 impl Div<f32> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -492,7 +431,7 @@ impl Div<f32> for Rect2 {
     }
 }
 
-// f32 / Aabb2
+// f32 / Rect2
 impl Div<Rect2> for f32 {
     type Output = Rect2;
     #[inline]
@@ -504,7 +443,7 @@ impl Div<Rect2> for f32 {
     }
 }
 
-// Aabb2 / Vec2
+// Rect2 / Vec2
 impl Div<Vec2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -516,7 +455,7 @@ impl Div<Vec2> for Rect2 {
     }
 }
 
-// Vec2 / Aabb2
+// Vec2 / Rect2
 impl Div<Rect2> for Vec2 {
     type Output = Rect2;
     #[inline]
@@ -528,7 +467,7 @@ impl Div<Rect2> for Vec2 {
     }
 }
 
-// Aabb2 / Aabb2
+// Rect2 / Rect2
 impl Div<Rect2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -540,7 +479,7 @@ impl Div<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 /= f32
+// Rect2 /= f32
 impl DivAssign<f32> for Rect2 {
     #[inline]
     fn div_assign(&mut self, rhs: f32) {
@@ -549,7 +488,7 @@ impl DivAssign<f32> for Rect2 {
     }
 }
 
-// Aabb2 /= Vec2
+// Rect2 /= Vec2
 impl DivAssign<Vec2> for Rect2 {
     #[inline]
     fn div_assign(&mut self, rhs: Vec2) {
@@ -558,7 +497,7 @@ impl DivAssign<Vec2> for Rect2 {
     }
 }
 
-// Aabb2 /= Aabb2
+// Rect2 /= Rect2
 impl DivAssign<Rect2> for Rect2 {
     #[inline]
     fn div_assign(&mut self, rhs: Rect2) {
@@ -567,7 +506,7 @@ impl DivAssign<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 % f32
+// Rect2 % f32
 impl Rem<f32> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -579,7 +518,7 @@ impl Rem<f32> for Rect2 {
     }
 }
 
-// f32 % Aabb2
+// f32 % Rect2
 impl Rem<Rect2> for f32 {
     type Output = Rect2;
     #[inline]
@@ -591,7 +530,7 @@ impl Rem<Rect2> for f32 {
     }
 }
 
-// Aabb2 % Vec2
+// Rect2 % Vec2
 impl Rem<Vec2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -603,7 +542,7 @@ impl Rem<Vec2> for Rect2 {
     }
 }
 
-// Vec2 % Aabb2
+// Vec2 % Rect2
 impl Rem<Rect2> for Vec2 {
     type Output = Rect2;
     #[inline]
@@ -615,7 +554,7 @@ impl Rem<Rect2> for Vec2 {
     }
 }
 
-// Aabb2 % Aabb2
+// Rect2 % Rect2
 impl Rem<Rect2> for Rect2 {
     type Output = Rect2;
     #[inline]
@@ -627,7 +566,7 @@ impl Rem<Rect2> for Rect2 {
     }
 }
 
-// Aabb2 %= f32
+// Rect2 %= f32
 impl RemAssign<f32> for Rect2 {
     fn rem_assign(&mut self, rhs: f32) {
         self.min.rem_assign(rhs);
@@ -635,7 +574,7 @@ impl RemAssign<f32> for Rect2 {
     }
 }
 
-// Aabb2 %= Vec2
+// Rect2 %= Vec2
 impl RemAssign<Vec2> for Rect2 {
     fn rem_assign(&mut self, rhs: Vec2) {
         self.min.rem_assign(rhs);
@@ -643,7 +582,7 @@ impl RemAssign<Vec2> for Rect2 {
     }
 }
 
-// Aabb2 %= Aabb2
+// Rect2 %= Rect2
 impl RemAssign<Rect2> for Rect2 {
     #[inline]
     fn rem_assign(&mut self, rhs: Rect2) {

@@ -89,7 +89,7 @@ impl PlayerSystem {
         Ok(location)
     }
 
-    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryKey, PlayerError> {
+    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryId, PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let resource = resource.borrow().map_err(DataflowError::from)?;
 
@@ -111,7 +111,7 @@ pub enum PlayerEntityDataState {
 pub struct PlayerEntityData {
     pub state: PlayerEntityDataState,
     pub reverse: bool,
-    pub inventory_key: InventoryKey,
+    pub inventory_key: InventoryId,
 }
 
 impl EntityData for PlayerEntityData {}
@@ -126,7 +126,7 @@ impl FeatureSet for PlayerEntityFeatureSet {
     fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
         let slf = Rc::new(self.clone());
         b.insert::<Rc<dyn FieldFeature<Key = EntityId>>>(slf.clone())?;
-        b.insert::<Rc<dyn InventoryFeature<Key = EntityId>>>(slf.clone())?;
+        // b.insert::<Rc<dyn InventoryFeature<Key = EntityId>>>(slf.clone())?;
         b.insert::<Rc<dyn ForwardFeature<Key = EntityId>>>(slf.clone())?;
         Ok(())
     }
@@ -136,126 +136,125 @@ impl FieldFeature for PlayerEntityFeatureSet {
     type Key = EntityId;
 
     fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
-        let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
-
-        dataflow
-            .modify_entity(key, |entity| {
-                entity.data = Box::new(PlayerEntityData {
-                    state: PlayerEntityDataState::Wait,
-                    reverse: false,
-                    inventory_key,
-                });
-            })
-            .unwrap();
-
-        PlayerSystem::insert_entity(dataflow, key).unwrap();
+        // let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
+        //
+        // dataflow
+        //     .modify_entity(key, |entity| {
+        //         entity.data = Box::new(PlayerEntityData {
+        //             state: PlayerEntityDataState::Wait,
+        //             reverse: false,
+        //             inventory_key,
+        //         });
+        //     })
+        //     .unwrap();
+        //
+        // PlayerSystem::insert_entity(dataflow, key).unwrap();
     }
 
     fn before_break(&self, dataflow: &mut Dataflow, key: EntityId) {
-        let entity = dataflow.get_entity(key).unwrap();
-
-        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-
-        let inventory_key = data.inventory_key;
-        dataflow.remove_inventory(inventory_key).unwrap();
-
-        PlayerSystem::remove_entity(dataflow).unwrap();
+        // let entity = dataflow.get_entity(key).unwrap();
+        //
+        // let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
+        //
+        // let inventory_key = data.inventory_key;
+        // dataflow.remove_inventory(inventory_key).unwrap();
+        //
+        // PlayerSystem::remove_entity(dataflow).unwrap();
     }
 }
 
-impl InventoryFeature for PlayerEntityFeatureSet {
-    type Key = EntityId;
-
-    fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey {
-        let entity = dataflow.get_entity(key).unwrap();
-        let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-        data.inventory_key
-    }
-}
+// impl InventoryFeature for PlayerEntityFeatureSet {
+//     type Key = EntityId;
+//
+//     fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey {
+//         let entity = dataflow.get_entity(key).unwrap();
+//         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
+//         data.inventory_key
+//     }
+// }
 
 impl ForwardFeature for PlayerEntityFeatureSet {
     type Key = EntityId;
 
     fn forward(&self, dataflow: &mut Dataflow, key: EntityId, delta_secs: f32) {
-        let mut entity = dataflow.get_entity(key).unwrap().clone();
-
-        let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
-
-        // consume input
-        if let Ok(input) = PlayerSystem::pop_input(dataflow) {
-            let is_move = input.length_squared() > f32::EPSILON;
-
-            if is_move {
-                let location = entity.coord + self.move_speed * input * delta_secs;
-
-                if !intersection_guard(dataflow, key, location).unwrap() {
-                    entity.coord = location;
-                }
-
-                if input.x < 0.0 {
-                    data.reverse = true;
-                } else if input.x > 0.0 {
-                    data.reverse = false;
-                }
-            }
-
-            match data.state {
-                PlayerEntityDataState::Wait => {
-                    if is_move {
-                        entity.render_state.variant = 2;
-                        entity.render_state.tick = dataflow.get_tick() as u32;
-                        data.state = PlayerEntityDataState::Move;
-                    }
-                }
-                PlayerEntityDataState::Move => {
-                    if !is_move {
-                        entity.render_state.variant = 0;
-                        entity.render_state.tick = dataflow.get_tick() as u32;
-                        data.state = PlayerEntityDataState::Wait;
-                    }
-                }
-            }
-
-            entity.render_state.variant =
-                (entity.render_state.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
-        }
-
-        PlayerSystem::remove_entity(dataflow).unwrap();
-        let key = dataflow.modify_entity(key, move |e| *e = entity).unwrap();
-        PlayerSystem::insert_entity(dataflow, key).unwrap();
+        // let mut entity = dataflow.get_entity(key).unwrap().clone();
+        //
+        // let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
+        //
+        // // consume input
+        // if let Ok(input) = PlayerSystem::pop_input(dataflow) {
+        //     let is_move = input.length_squared() > f32::EPSILON;
+        //
+        //     if is_move {
+        //         let location = entity.coord + self.move_speed * input * delta_secs;
+        //
+        //         if !intersection_guard(dataflow, key, location).unwrap() {
+        //             entity.coord = location;
+        //         }
+        //
+        //         if input.x < 0.0 {
+        //             data.reverse = true;
+        //         } else if input.x > 0.0 {
+        //             data.reverse = false;
+        //         }
+        //     }
+        //
+        //     match data.state {
+        //         PlayerEntityDataState::Wait => {
+        //             if is_move {
+        //                 entity.render_state.variant = 2;
+        //                 entity.render_state.tick = dataflow.get_tick() as u32;
+        //                 data.state = PlayerEntityDataState::Move;
+        //             }
+        //         }
+        //         PlayerEntityDataState::Move => {
+        //             if !is_move {
+        //                 entity.render_state.variant = 0;
+        //                 entity.render_state.tick = dataflow.get_tick() as u32;
+        //                 data.state = PlayerEntityDataState::Wait;
+        //             }
+        //         }
+        //     }
+        //
+        //     entity.render_state.variant =
+        //         (entity.render_state.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
+        // }
+        //
+        // PlayerSystem::remove_entity(dataflow).unwrap();
+        // let key = dataflow.modify_entity(key, move |e| *e = entity).unwrap();
+        // PlayerSystem::insert_entity(dataflow, key).unwrap();
     }
 }
 
-// intersection guard
-// DUPLICATE: src/inner/player.rs
-fn intersection_guard(
-    dataflow: &mut Dataflow,
-    entity_key: EntityId,
-    new_location: Vec2,
-) -> Result<bool, DataflowError> {
-    let entity = dataflow.get_entity(entity_key)?;
-    let base_rect = dataflow.get_entity_base_collision_rect(entity.archetype_id)?;
-
-    #[rustfmt::skip]
-    let rect = [
-        new_location + base_rect[0],
-        new_location + base_rect[1],
-    ];
-
-    // TODO: enable tile collision check
-    // if dataflow.has_tile_by_collision_rect(rect) {
-    //     return Ok(true);
-    // }
-
-    // if dataflow.has_block_by_collision_rect(rect) {
-    //     return Ok(true);
-    // }
-
-    let intersect = dataflow
-        .get_entity_ids_by_collision_rect(rect)
-        .any(|other_key| other_key != entity_key);
-    Ok(intersect)
-}
+// // TODO: intersection guard
+// // DUPLICATE: src/inner/player.rs
+// fn intersection_guard(
+//     dataflow: &mut Dataflow,
+//     entity_key: EntityId,
+//     new_location: Vec2,
+// ) -> Result<bool, DataflowError> {
+//     let entity = dataflow.get_entity(entity_key)?;
+//     let base_rect = dataflow.get_entity_base_collision_rect(entity.archetype_id)?;
+//
+//     #[rustfmt::skip]
+//     let rect = [
+//         new_location + base_rect[0],
+//         new_location + base_rect[1],
+//     ];
+//
+//     if dataflow.has_tile_by_collision_rect(rect) {
+//         return Ok(true);
+//     }
+//
+//     if dataflow.has_block_by_collision_rect(rect) {
+//         return Ok(true);
+//     }
+//
+//     let intersect = dataflow
+//         .get_entity_ids_by_collision_rect(rect)
+//         .any(|other_key| other_key != entity_key);
+//     Ok(intersect)
+// }
 
 // error handling
 

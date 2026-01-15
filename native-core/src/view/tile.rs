@@ -264,7 +264,7 @@ impl TileField {
             dataflow.find_tile_chunk_coord(min_rect[1]),
         ];
 
-        // remove/insert view chunk
+        // remove / insert view chunk
 
         if Some(min_rect) != self.min_rect {
             let mut chunk_coords = vec![];

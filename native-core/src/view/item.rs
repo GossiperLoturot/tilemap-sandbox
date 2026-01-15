@@ -3,14 +3,14 @@ use godot::prelude::*;
 
 use crate::dataflow;
 
-pub struct ItemImageInfo {
+pub struct ItemSpriteInfo {
     pub images: Vec<Gd<godot::classes::Image>>,
     pub ticks_per_image: u16,
     pub is_loop: bool,
 }
 
 pub struct ItemInfo {
-    pub sprites: Vec<ItemImageInfo>,
+    pub sprites: Vec<ItemSpriteInfo>,
 }
 
 pub struct InventoryInfo {
@@ -94,52 +94,52 @@ impl ItemStorage {
     pub fn open_inventory_by_tile(
         &self,
         dataflow: &dataflow::Dataflow,
-        tile_key: dataflow::TileId,
+        tile_id: dataflow::TileId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
-        let inventory_key = dataflow
-            .get_tile_inventory(tile_key)?
+        let inventory_id = dataflow
+            .get_tile_inventory(tile_id)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key, f)?;
+        self.open_inventory(dataflow, inventory_id, f)?;
         Ok(())
     }
 
     pub fn open_inventory_by_block(
         &self,
         dataflow: &dataflow::Dataflow,
-        block_key: dataflow::BlockId,
+        block_id: dataflow::BlockId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
-        let inventory_key = dataflow
-            .get_block_inventory(block_key)?
+        let inventory_id = dataflow
+            .get_block_inventory(block_id)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key, f)?;
+        self.open_inventory(dataflow, inventory_id, f)?;
         Ok(())
     }
 
     pub fn open_inventory_by_entity(
         &self,
         dataflow: &dataflow::Dataflow,
-        entity_key: dataflow::EntityId,
+        entity_id: dataflow::EntityId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
-        let inventory_key = dataflow
-            .get_inventory_by_entity(entity_key)?
+        let inventory_id = dataflow
+            .get_inventory_by_entity(entity_id)?
             .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_key, f)?;
+        self.open_inventory(dataflow, inventory_id, f)?;
         Ok(())
     }
 
     pub fn open_inventory(
         &self,
         dataflow: &dataflow::Dataflow,
-        inventory_key: dataflow::InventoryKey,
+        inventory_key: dataflow::InventoryId,
         f: impl FnOnce(&Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory = dataflow.get_inventory(inventory_key)?;
         let prop = self
             .inventory_layouts
-            .get(inventory.id as usize)
+            .get(inventory.archetype_id as usize)
             .ok_or(dataflow::ItemError::InventoryInvalidId)?;
 
         f(&prop.callback, inventory);
@@ -150,14 +150,14 @@ impl ItemStorage {
     pub fn draw_item(
         &self,
         dataflow: &dataflow::Dataflow,
-        slot_key: dataflow::SlotKey,
+        slot_id: dataflow::SlotId,
         control_item: Gd<godot::classes::Control>,
     ) -> Result<(), dataflow::DataflowError> {
-        let (inventory_key, local_key) = slot_key;
-        let inventory = dataflow.get_inventory(inventory_key)?;
+        let (inventory_id, local_id) = slot_id;
+        let inventory = dataflow.get_inventory(inventory_id)?;
         let slot = inventory
             .slots
-            .get(local_key as usize)
+            .get(local_id as usize)
             .ok_or(dataflow::ItemError::ItemNotFound)?;
 
         // rendering
@@ -171,7 +171,7 @@ impl ItemStorage {
         if let Some(item) = &slot.item {
             let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
 
-            let image_addr = &self.sprite_addrs[item.id as usize][item.render_param.variant as usize];
+            let image_addr = &self.sprite_addrs[item.archetype_id as usize][item.render_param.variant as usize];
 
             let index = if image_addr.ticks_per_images == 0 {
                 image_addr.start_index

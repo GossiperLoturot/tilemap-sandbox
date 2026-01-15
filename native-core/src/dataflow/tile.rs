@@ -21,7 +21,17 @@ pub struct TileArchetype {
     pub collision: bool,
 }
 
-#[derive(Debug, Clone)]
+impl TileArchetype {
+    pub fn rect(coord: IVec2) -> IRect2 {
+        IRect2::new(coord, coord)
+    }
+
+    pub fn collision_rect(coord: IVec2) -> Rect2 {
+        Rect2::new(coord.as_vec2(), coord.as_vec2() + 1.0)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct TileRenderState {
     pub variant: u8,
     pub tick: u32,
@@ -35,29 +45,27 @@ pub struct Tile {
     pub tick: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TileChunk {
     pub version: u64,
     pub tiles: slab::Slab<Tile>,
-    coord_index: Vec<Option<TileId>>,
-    space_bins: [indexmap::IndexSet<TileId, ahash::RandomState>; 16],
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     coord_index: std::collections::HashMap<IVec2, u32, ahash::RandomState>,
+    broad_tree: BroadTree<TileId>,
 }
 
 impl TileField {
     const CHUNK_SIZE: u32 = 32;
-    const TILE_LEN: u32 = Self::CHUNK_SIZE * Self::CHUNK_SIZE;
 
-    pub fn new(desc: TileFieldInfo) -> Self {
+    pub fn new(info: TileFieldInfo) -> Self {
         let mut archetypes = vec![];
 
-        for tile in desc.tiles {
+        for tile in info.tiles {
             archetypes.push(TileArchetype {
                 display_name: tile.display_name,
                 description: tile.description,
@@ -69,6 +77,7 @@ impl TileField {
             archetypes,
             chunks: Default::default(),
             coord_index: Default::default(),
+            broad_tree: Default::default(),
         }
     }
 
@@ -94,29 +103,22 @@ impl TileField {
             self.chunks.push(TileChunk {
                 version: 0,
                 tiles: Default::default(),
-                coord_index: vec![None; Self::TILE_LEN as usize],
-                space_bins: Default::default(),
             });
             self.coord_index.insert(chunk_coord, chunk_id);
             chunk_id
         };
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
 
+        // key is guaranteed to be less than u16::MAX.
         if chunk.tiles.vacant_key() >= u16::MAX as usize {
             panic!("capacity overflow");
         }
         let local_id = chunk.tiles.vacant_key() as u16;
 
-        // spatial features (dense)
-        let local_coord = tile.coord.rem_euclid(chunk_size).as_u16vec2();
-        let local_coord_ = local_coord.y * Self::CHUNK_SIZE as u16 + local_coord.x;
-        *chunk.coord_index.get_mut(local_coord_ as usize).unwrap() = Some((chunk_id, local_id));
-        // spatial features (bin)
-        let space_bin_id = (local_coord.y >> 3) << 2 | (local_coord.x >> 3);
-        let space_bin = chunk.space_bins.get_mut(space_bin_id as usize).unwrap();
-        space_bin.insert((chunk_id, local_id));
+        // register spatial index
+        let rect = tile.coord + IRect2::new(IVec2::ZERO, IVec2::ONE);
+        self.broad_tree.insert(rect, (chunk_id, local_id));
 
-        // key is guaranteed to be less than u32::MAX.
         chunk.tiles.insert(tile);
         chunk.version += 1;
 
@@ -130,16 +132,9 @@ impl TileField {
         let tile = chunk.tiles.try_remove(local_id as usize).ok_or(TileError::NotFound)?;
         chunk.version += 1;
 
-        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-
-        // spatial features (dense)
-        let local_coord = tile.coord.rem_euclid(chunk_size).as_u16vec2();
-        let local_coord_ = local_coord.y * Self::CHUNK_SIZE as u16 + local_coord.x;
-        *chunk.coord_index.get_mut(local_coord_ as usize).unwrap() = None;
-        // spatial features (bin)
-        let space_bin_id = (local_coord.y >> 3) << 2 | (local_coord.x >> 3);
-        let space_bin = chunk.space_bins.get_mut(space_bin_id as usize).unwrap();
-        space_bin.swap_remove(&(chunk_id, local_id));
+        // unregister spatial index
+        let rect = tile.coord + IRect2::new(IVec2::ZERO, IVec2::ONE);
+        self.broad_tree.remove(rect, (chunk_id, local_id));
 
         Ok(tile)
     }
@@ -182,82 +177,33 @@ impl TileField {
         Ok(chunk)
     }
 
-    // common spatial features
-
-    #[inline]
-    fn broad_find_with_point(&self, coord: IVec2) -> Option<(TileId, &Tile)> {
-        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-        let chunk_coord = coord.div_euclid(chunk_size);
-        let chunk_id = self.coord_index.get(&chunk_coord)?;
-        let chunk = self.chunks.get(*chunk_id as usize).unwrap();
-
-        let local_coord = coord.rem_euclid(chunk_size).as_u16vec2();
-        let local_coord_ = local_coord.y * Self::CHUNK_SIZE as u16 + local_coord.x;
-        let (chunk_id, local_id) = (*chunk.coord_index.get(local_coord_ as usize).unwrap())?;
-        let tile = chunk.tiles.get(local_id as usize).unwrap();
-
-        Some(((chunk_id, local_id), tile))
-    }
-
-    #[inline]
-    fn broad_find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = (TileId, &Tile)> + '_ {
-        let chunk_rect = rect.div_euclid_i32(Self::CHUNK_SIZE as i32);
-        let query = chunk_rect
-            .into_iter_ivec2()
-            .filter_map(move |chunk_coord| {
-                let chunk_id = self.coord_index.get(&chunk_coord)?;
-                let chunk = self.chunks.get(*chunk_id as usize).unwrap();
-                Some((chunk_coord, chunk))
-            });
-        let clamp = IRect2::new(IVec2::ZERO, IVec2::ONE) * (Self::CHUNK_SIZE - 1) as i32;
-        query.flat_map(move |(chunk_coord, chunk)| {
-            let bin_rect = (rect - chunk_coord * Self::CHUNK_SIZE as i32).minimum(clamp) >> 3;
-            bin_rect
-                .into_iter_ivec2()
-                .flat_map(move |bin_coord| {
-                    let space_bin_id = (bin_coord.y << 2) | bin_coord.x;
-                    let space_bin = chunk.space_bins.get(space_bin_id as usize).unwrap();
-                    space_bin.iter().map(move |&(chunk_id, local_id)| {
-                        let tile = chunk.tiles.get(local_id as usize).unwrap();
-                        ((chunk_id, local_id), tile)
-                    })
-                })
-        })
-    }
-
     // spatial features
 
-    pub fn find_with_point(&self, coord: IVec2) -> Option<TileId> {
-        self.broad_find_with_point(coord).map(|(id, _)| id)
+    pub fn find_with_point(&self, point: IVec2) -> Option<TileId> {
+        self.find_with_rect(IRect2::new(point, point)).next()
     }
 
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
-        self.broad_find_with_rect(rect)
-            .filter(move |(_, tile)| rect.contains_ivec2(tile.coord))
-            .map(|(id, _)| id)
+        self.broad_tree.find(rect)
+            .filter(move |id| {
+                let tile = self.get(*id).unwrap();
+                Intersects::intersects(&rect, &TileArchetype::rect(tile.coord))
+            })
     }
 
     // collision features
 
-    pub fn find_with_collision_point(&self, coord: Vec2) -> Option<TileId> {
-        let coord = coord.as_ivec2();
-        self.broad_find_with_point(coord)
-            .filter(|(_, tile)| {
-                let archetype = &self.archetypes[tile.archetype_id as usize];
-                archetype.collision
-            })
-            .map(|(id, _)| id)
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileId> + '_ {
+        self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
-        let rect = rect.as_iaabb2();
-        self.broad_find_with_rect(rect)
-            .filter(move |(_, tile)| rect.contains_ivec2(tile.coord))
-            .filter(move |(_, tile)| {
+        self.broad_tree.find(rect.floor().as_irect2())
+            .filter(move |id| {
+                let tile = self.get(*id).unwrap();
                 let archetype = &self.archetypes[tile.archetype_id as usize];
-                archetype.collision
+                archetype.collision && Intersects::intersects(&rect, &TileArchetype::collision_rect(tile.coord))
             })
-            .map(|(id, _)| id)
     }
 }
 
@@ -487,8 +433,10 @@ mod tests {
             })
             .unwrap();
 
-        let coord = Vec2::new(-1.0, 4.0);
-        assert_eq!(field.find_with_collision_point(coord), Some(id1));
+        let point = Vec2::new(-1.0, 4.0);
+        let vec = field.find_with_collision_point(point).collect::<Vec<_>>();
+        assert!(vec.contains(&id0));
+        assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
         let vec = field.find_with_collision_rect(rect).collect::<Vec<_>>();

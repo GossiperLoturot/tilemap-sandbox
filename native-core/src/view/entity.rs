@@ -2,6 +2,7 @@ use glam::*;
 use godot::prelude::*;
 
 use crate::dataflow;
+use crate::geom;
 
 pub struct EntitySpriteInfo {
     pub images: Vec<Gd<godot::classes::Image>>,
@@ -12,8 +13,7 @@ pub struct EntitySpriteInfo {
 pub struct EntityInfo {
     pub sprites: Vec<EntitySpriteInfo>,
     pub y_sorting: bool,
-    pub rendering_size: Vec2,
-    pub rendering_offset: Vec2,
+    pub rendering_rect: geom::Rect2,
 }
 
 pub struct EntityFieldInfo {
@@ -96,8 +96,8 @@ impl EntityField {
         for entity in &info.entities {
             layouts.push(RenderLayout {
                 y_sorting: entity.y_sorting,
-                rendering_size: entity.rendering_size,
-                rendering_offset: entity.rendering_offset,
+                rendering_size: entity.rendering_rect.size(),
+                rendering_offset: entity.rendering_rect.min,
             });
         }
 
@@ -276,11 +276,12 @@ impl EntityField {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let min_rect = [
-            dataflow.get_entity_chunk_coord(min_rect[0]),
-            dataflow.get_entity_chunk_coord(min_rect[1]),
+            dataflow.find_entity_chunk_coord(min_rect[0]),
+            dataflow.find_entity_chunk_coord(min_rect[1]),
         ];
 
-        // remove/insert view chunk
+        // remove / insert view chunk
+
         if Some(min_rect) != self.min_rect {
             let mut chunk_coords = vec![];
             for (chunk_coord, _) in &self.live_chunks {
@@ -324,7 +325,7 @@ impl EntityField {
         // update view chunk
 
         for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(version) = dataflow.get_entity_version_by_chunk_coord(*chunk_coord) else {
+            let Ok(chunk) = dataflow.get_entity_chunk(*chunk_coord) else {
                 continue;
             };
 
@@ -333,14 +334,13 @@ impl EntityField {
                 rendering_server.material_set_param(*material, "tick", &tick.to_variant());
             }
 
-            if version <= live_chunk.version {
+            if chunk.version <= live_chunk.version {
                 continue;
             }
 
             let mut count = 0;
-            let entity_ids = dataflow.get_entity_ids_by_chunk_coord(*chunk_coord).unwrap();
-            for (i, entity_id) in entity_ids.take(Self::BUFFER_LEN).enumerate() {
-                let entity = dataflow.get_entity(entity_id).unwrap();
+            let entities = chunk.entities.iter().map(|(_, entity)| entity);
+            for (i, entity) in entities.take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[entity.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;
@@ -359,11 +359,11 @@ impl EntityField {
                 self.instance_buffer[i * 12 + 10] = z_scale;
                 self.instance_buffer[i * 12 + 11] = 0.0;
 
-                let image_addr = &self.sprite_addrs[entity.archetype_id as usize][entity.render_state.variant as usize];
+                let image_addr = &self.sprite_addrs[entity.archetype_id as usize][entity.variant as usize];
                 self.address_buffer[i * 4] = image_addr.atlas_start_index;
                 self.address_buffer[i * 4 + 1] = image_addr.atlas_end_index;
                 self.address_buffer[i * 4 + 2] = image_addr.ticks_per_image as u32 | ((image_addr.is_loop as u32) << 16);
-                self.address_buffer[i * 4 + 3] = entity.render_state.tick;
+                self.address_buffer[i * 4 + 3] = entity.tick;
 
                 count += 1;
             }
@@ -378,7 +378,7 @@ impl EntityField {
                 rendering_server.material_set_param(*material, "head_buffer", &address_buffer.to_variant());
             }
 
-            live_chunk.version = version;
+            live_chunk.version = chunk.version;
         }
     }
 }

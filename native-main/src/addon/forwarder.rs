@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use glam::*;
 use native_core::dataflow::*;
 
@@ -46,8 +44,8 @@ impl ForwarderSystem {
 
         // entity
         let rect = [
-            dataflow.get_entity_chunk_coord(min_rect[0]),
-            dataflow.get_entity_chunk_coord(min_rect[1]),
+            dataflow.find_entity_chunk_coord(min_rect[0]),
+            dataflow.find_entity_chunk_coord(min_rect[1]),
         ];
         for y in rect[0].y..=rect[1].y {
             for x in rect[0].x..=rect[1].x {
@@ -104,23 +102,24 @@ fn forward_block_chunk(_dataflow: &mut Dataflow, _chunk_location: IVec2, _delta_
     // }
 }
 
-fn forward_entity_chunk(dataflow: &mut Dataflow, chunk_location: IVec2, delta_secs: f32) {
-    let Ok(entity_keys) = dataflow.get_entity_ids_by_chunk_coord(chunk_location) else {
-        return;
-    };
-
-    for entity_key in entity_keys.collect::<Vec<_>>() {
-        let Ok(entity) = dataflow.get_entity(entity_key) else {
-            continue;
-        };
-
-        let Ok(feature) =
-            dataflow.get_entity_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(entity.archetype_id)
-        else {
-            continue;
-        };
-
-        let feature = feature.clone();
-        feature.forward(dataflow, entity_key, delta_secs);
-    }
+fn forward_entity_chunk(_dataflow: &mut Dataflow, _chunk_location: IVec2, _delta_secs: f32) {
+    // // TODO: implement entity forwarding
+    // let Ok(entity_keys) = dataflow.get_entity_ids_by_chunk_coord(chunk_location) else {
+    //     return;
+    // };
+    //
+    // for entity_key in entity_keys.collect::<Vec<_>>() {
+    //     let Ok(entity) = dataflow.get_entity(entity_key) else {
+    //         continue;
+    //     };
+    //
+    //     let Ok(feature) =
+    //         dataflow.get_entity_feature::<Rc<dyn ForwardFeature<Key = EntityId>>>(entity.archetype_id)
+    //     else {
+    //         continue;
+    //     };
+    //
+    //     let feature = feature.clone();
+    //     feature.forward(dataflow, entity_key, delta_secs);
+    // }
 }
