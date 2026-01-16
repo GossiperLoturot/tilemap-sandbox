@@ -1,10 +1,9 @@
 use glam::*;
-use godot::prelude::*;
 
 use crate::dataflow;
 
 pub struct TileSpriteInfo {
-    pub images: Vec<Gd<godot::classes::Image>>,
+    pub images: Vec<godot::obj::Gd<godot::classes::Image>>,
     pub tick_per_image: u16,
     pub is_loop: bool,
 }
@@ -15,8 +14,8 @@ pub struct TileInfo {
 
 pub struct TileFieldInfo {
     pub tiles: Vec<TileInfo>,
-    pub shaders: Vec<Gd<godot::classes::Shader>>,
-    pub world: Gd<godot::classes::World3D>,
+    pub shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
+    pub world: godot::obj::Gd<godot::classes::World3D>,
 }
 
 struct ImageAddress {
@@ -27,9 +26,9 @@ struct ImageAddress {
 }
 
 struct DeadChunk {
-    materials: Vec<Rid>,
-    multimesh: Rid,
-    instance: Rid,
+    materials: Vec<godot::builtin::Rid>,
+    multimesh: godot::builtin::Rid,
+    instance: godot::builtin::Rid,
 }
 
 impl DeadChunk {
@@ -45,9 +44,9 @@ impl DeadChunk {
 
 struct LiveChunk {
     version: u64,
-    materials: Vec<Rid>,
-    multimesh: Rid,
-    instance: Rid,
+    materials: Vec<godot::builtin::Rid>,
+    multimesh: godot::builtin::Rid,
+    instance: godot::builtin::Rid,
 }
 
 impl LiveChunk {
@@ -64,7 +63,7 @@ pub struct TileField {
     sprite_addrs: Vec<Vec<ImageAddress>>,
     dead_chunks: Vec<DeadChunk>,
     live_chunks: ahash::AHashMap<IVec2, LiveChunk>,
-    free_handles: Vec<Rid>,
+    free_handles: Vec<godot::builtin::Rid>,
     min_rect: Option<[IVec2; 2]>,
     instance_buffer: Vec<f32>,
     address_buffer: Vec<u32>,
@@ -80,7 +79,7 @@ impl TileField {
     const INV_U16: f32 = (u16::MAX as f32).recip();
 
     pub fn new(info: TileFieldInfo) -> Self {
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
         let mut free_handles = vec![];
 
@@ -145,7 +144,7 @@ impl TileField {
                 Self::ATLAS_WIDTH as i32,
                 false,
                 godot::classes::image::Format::RGBA8,
-                &PackedByteArray::from(image.to_vec()),
+                &godot::builtin::PackedByteArray::from(image.to_vec()),
             )
             .unwrap();
 
@@ -153,7 +152,7 @@ impl TileField {
         }
 
         let texture_array = rendering_server.texture_2d_layered_create(
-            &Array::from(images.as_slice()),
+            &godot::builtin::Array::from(images.as_slice()),
             godot::classes::rendering_server::TextureLayeredType::LAYERED_2D_ARRAY,
         );
         free_handles.push(texture_array);
@@ -179,30 +178,38 @@ impl TileField {
             Self::COORD_BUFFER_WIDTH as i32,
             false,
             godot::classes::image::Format::RGBAF,
-            &PackedByteArray::from(coord_buffer),
+            &godot::builtin::PackedByteArray::from(coord_buffer),
         )
         .unwrap();
         let coord_texture = rendering_server.texture_2d_create(&coord_image);
         free_handles.push(coord_texture);
 
-        let mut mesh_data = VarArray::new();
+        let mut mesh_data = godot::builtin::VarArray::new();
         mesh_data.resize(
-            godot::classes::rendering_server::ArrayType::MAX.ord() as usize,
-            &Variant::nil(),
+            godot::obj::EngineEnum::ord(godot::classes::rendering_server::ArrayType::MAX) as usize,
+            &godot::builtin::Variant::nil()
         );
         mesh_data.set(
-            godot::classes::rendering_server::ArrayType::VERTEX.ord() as usize,
-            &PackedVector3Array::from(&[Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.0, 1.0, 0.0), Vector3::new(1.0, 1.0, 0.0), Vector3::new(1.0, 0.0, 0.0)])
-            .to_variant(),
+            godot::obj::EngineEnum::ord(godot::classes::rendering_server::ArrayType::VERTEX) as usize,
+            &godot::meta::ToGodot::to_variant(&godot::builtin::PackedVector3Array::from(&[
+                godot::builtin::Vector3::new(0.0, 0.0, 0.0),
+                godot::builtin::Vector3::new(0.0, 1.0, 0.0),
+                godot::builtin::Vector3::new(1.0, 1.0, 0.0),
+                godot::builtin::Vector3::new(1.0, 0.0, 0.0),
+            ])),
         );
         mesh_data.set(
-            godot::classes::rendering_server::ArrayType::TEX_UV.ord() as usize,
-            &PackedVector2Array::from(&[Vector2::new(0.0, 1.0), Vector2::new(0.0, 0.0), Vector2::new(1.0, 0.0), Vector2::new(1.0, 1.0)])
-            .to_variant(),
+            godot::obj::EngineEnum::ord(godot::classes::rendering_server::ArrayType::TEX_UV) as usize,
+            &godot::meta::ToGodot::to_variant(&godot::builtin::PackedVector2Array::from(&[
+                godot::builtin::Vector2::new(0.0, 1.0),
+                godot::builtin::Vector2::new(0.0, 0.0),
+                godot::builtin::Vector2::new(1.0, 0.0),
+                godot::builtin::Vector2::new(1.0, 1.0),
+            ])),
         );
         mesh_data.set(
-            godot::classes::rendering_server::ArrayType::INDEX.ord() as usize,
-            &PackedInt32Array::from(&[0, 1, 2, 0, 2, 3]).to_variant(),
+            godot::obj::EngineEnum::ord(godot::classes::rendering_server::ArrayType::INDEX) as usize,
+            &godot::meta::ToGodot::to_variant(&godot::builtin::PackedInt32Array::from(&[0, 1, 2, 0, 2, 3])),
         );
 
         let mut dead_chunks = vec![];
@@ -211,8 +218,8 @@ impl TileField {
             for shader in &info.shaders {
                 let material = rendering_server.material_create();
                 rendering_server.material_set_shader(material, shader.get_rid());
-                rendering_server.material_set_param(material, "texture_array", &texture_array.to_variant());
-                rendering_server.material_set_param(material, "bake_texture", &coord_texture.to_variant());
+                rendering_server.material_set_param(material, "texture_array", &godot::meta::ToGodot::to_variant(&texture_array));
+                rendering_server.material_set_param(material, "bake_texture", &godot::meta::ToGodot::to_variant(&coord_texture));
                 free_handles.push(material);
 
                 materials.push(material)
@@ -257,7 +264,7 @@ impl TileField {
     }
 
     pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, min_rect: [Vec2; 2]) {
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
         let min_rect = [
             dataflow.find_tile_chunk_coord(min_rect[0]),
@@ -315,7 +322,7 @@ impl TileField {
 
             for material in &live_chunk.materials {
                 let tick = dataflow.get_tick() as i32;
-                rendering_server.material_set_param(*material, "tick", &tick.to_variant());
+                rendering_server.material_set_param(*material, "tick", &godot::meta::ToGodot::to_variant(&tick));
             }
 
             if chunk.version <= live_chunk.version {
@@ -352,14 +359,14 @@ impl TileField {
                 count += 1;
             }
 
-            let instance_buffer = PackedFloat32Array::from(self.instance_buffer.as_slice());
+            let instance_buffer = godot::builtin::PackedFloat32Array::from(self.instance_buffer.as_slice());
             rendering_server.multimesh_set_buffer(live_chunk.multimesh, &instance_buffer);
             rendering_server.multimesh_set_visible_instances(live_chunk.multimesh, count);
 
             let address_buffer = bytemuck::cast_slice::<_, i32>(self.address_buffer.as_slice());
-            let address_buffer = PackedInt32Array::from(address_buffer);
+            let address_buffer = godot::builtin::PackedInt32Array::from(address_buffer);
             for material in &live_chunk.materials {
-                rendering_server.material_set_param(*material, "head_buffer", &address_buffer.to_variant());
+                rendering_server.material_set_param(*material, "head_buffer", &godot::meta::ToGodot::to_variant(&address_buffer));
             }
 
             live_chunk.version = chunk.version;
@@ -369,7 +376,7 @@ impl TileField {
 
 impl Drop for TileField {
     fn drop(&mut self) {
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
         for free_handle in &self.free_handles {
             rendering_server.free_rid(*free_handle);
         }

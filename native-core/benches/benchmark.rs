@@ -1,17 +1,17 @@
 use criterion::*;
 use glam::*;
-use native_core::dataflow::*;
-use native_core::geom::*;
 
-fn make_tile_field() -> TileField {
-    TileField::new(TileFieldInfo {
+use native_core::*;
+
+fn make_tile_field() -> dataflow::TileField {
+    dataflow::TileField::new(dataflow::TileFieldInfo {
         tiles: vec![
-            TileInfo {
+            dataflow::TileInfo {
                 display_name: "tile_0".into(),
                 description: "tile_0_desc".into(),
                 collision: true,
             },
-            TileInfo {
+            dataflow::TileInfo {
                 display_name: "tile_1".into(),
                 description: "tile_1_desc".into(),
                 collision: true,
@@ -28,7 +28,7 @@ fn benchmark_tile(c: &mut Criterion) {
             // warm up
             for i in 0..iters {
                 let _ = field
-                    .insert(Tile {
+                    .insert(dataflow::Tile {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -38,7 +38,7 @@ fn benchmark_tile(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                let tile = std::hint::black_box(Tile {
+                let tile = std::hint::black_box(dataflow::Tile {
                     archetype_id: 0,
                     coord: IVec2::new(i as i32, 1),
                     ..Default::default()
@@ -57,7 +57,7 @@ fn benchmark_tile(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Tile {
+                    .insert(dataflow::Tile {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -83,7 +83,7 @@ fn benchmark_tile(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Tile {
+                    .insert(dataflow::Tile {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -109,7 +109,7 @@ fn benchmark_tile(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Tile {
+                    .insert(dataflow::Tile {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -120,7 +120,7 @@ fn benchmark_tile(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|render_state: &mut TileRenderState| render_state.variant += 1);
+                let f = std::hint::black_box(|render_state: &mut dataflow::TileRenderState| render_state.variant += 1);
                 let result = field.modify(id, f).unwrap();
                 std::hint::black_box(result);
             }
@@ -128,7 +128,7 @@ fn benchmark_tile(c: &mut Criterion) {
         });
     });
 
-    let row: &[(&str, Box<dyn Fn(&TileField, usize)>)] = &[
+    let row: &[(&str, Box<dyn Fn(&dataflow::TileField, usize)>)] = &[
         ("tile find point", Box::new(|field, i| {
             let query = std::hint::black_box(IVec2::new(i as i32, 0));
             let result = field.find_with_point(query);
@@ -158,7 +158,7 @@ fn benchmark_tile(c: &mut Criterion) {
                 let mut ids = vec![];
                 for i in 0..iters {
                     let id = field
-                        .insert(Tile {
+                        .insert(dataflow::Tile {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
                             ..Default::default()
@@ -177,10 +177,10 @@ fn benchmark_tile(c: &mut Criterion) {
     }
 }
 
-fn make_block_field() -> BlockField {
-    BlockField::new(BlockFieldInfo {
+fn make_block_field() -> dataflow::BlockField {
+    dataflow::BlockField::new(dataflow::BlockFieldInfo {
         blocks: vec![
-            BlockInfo {
+            dataflow::BlockInfo {
                 display_name: "block_0".into(),
                 description: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
@@ -188,7 +188,7 @@ fn make_block_field() -> BlockField {
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
-            BlockInfo {
+            dataflow::BlockInfo {
                 display_name: "block_1".into(),
                 description: "block_1_desc".into(),
                 size: IVec2::new(1, 1),
@@ -208,7 +208,7 @@ fn benchmark_block(c: &mut Criterion) {
             // warm up
             for i in 0..iters {
                 let _ = field
-                    .insert(Block {
+                    .insert(dataflow::Block {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -218,7 +218,7 @@ fn benchmark_block(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for i in 0..iters {
-                let tile = std::hint::black_box(Block {
+                let tile = std::hint::black_box(dataflow::Block {
                     archetype_id: 0,
                     coord: IVec2::new(i as i32, 1),
                     ..Default::default()
@@ -237,7 +237,7 @@ fn benchmark_block(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Block {
+                    .insert(dataflow::Block {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -263,7 +263,7 @@ fn benchmark_block(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Block {
+                    .insert(dataflow::Block {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -289,7 +289,7 @@ fn benchmark_block(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Block {
+                    .insert(dataflow::Block {
                         archetype_id: 0,
                         coord: IVec2::new(i as i32, 0),
                         ..Default::default()
@@ -300,7 +300,7 @@ fn benchmark_block(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|render_state: &mut BlockRenderState| render_state.variant += 1);
+                let f = std::hint::black_box(|render_state: &mut dataflow::BlockRenderState| render_state.variant += 1);
                 let result = field.modify(id, f).unwrap();
                 std::hint::black_box(result);
             }
@@ -308,7 +308,7 @@ fn benchmark_block(c: &mut Criterion) {
         });
     });
 
-    let row: &[(&str, Box<dyn Fn(&BlockField, usize)>)] = &[
+    let row: &[(&str, Box<dyn Fn(&dataflow::BlockField, usize)>)] = &[
         ("block find point", Box::new(|field, i| {
             let query = std::hint::black_box(IVec2::new(i as i32, 0));
             let result = field.find_with_point(query);
@@ -338,7 +338,7 @@ fn benchmark_block(c: &mut Criterion) {
                 let mut ids = vec![];
                 for i in 0..iters {
                     let id = field
-                        .insert(Block {
+                        .insert(dataflow::Block {
                             archetype_id: 0,
                             coord: IVec2::new(i as i32, 0),
                             ..Default::default()
@@ -357,17 +357,17 @@ fn benchmark_block(c: &mut Criterion) {
     }
 }
 
-fn make_entity_field() -> EntityField {
-    EntityField::new(EntityFieldInfo {
+fn make_entity_field() -> dataflow::EntityField {
+    dataflow::EntityField::new(dataflow::EntityFieldInfo {
         entities: vec![
-            EntityInfo {
+            dataflow::EntityInfo {
                 display_name: "entity_0".into(),
                 description: "entity_0_desc".into(),
                 collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
-            EntityInfo {
+            dataflow::EntityInfo {
                 display_name: "entity_1".into(),
                 description: "entity_1_desc".into(),
                 collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
@@ -387,7 +387,7 @@ fn benchmark_entity(c: &mut Criterion) {
             for i in 0..iters {
                 std::hint::black_box(
                     field
-                        .insert(Entity {
+                        .insert(dataflow::Entity {
                             archetype_id: 0,
                             coord: Vec2::new(i as f32, 0.0),
                             ..Default::default()
@@ -406,7 +406,7 @@ fn benchmark_entity(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Entity {
+                    .insert(dataflow::Entity {
                         archetype_id: 0,
                         coord: Vec2::new(i as f32, 0.0),
                         ..Default::default()
@@ -432,7 +432,7 @@ fn benchmark_entity(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Entity {
+                    .insert(dataflow::Entity {
                         archetype_id: 0,
                         coord: Vec2::new(i as f32, 0.0),
                         ..Default::default()
@@ -458,7 +458,7 @@ fn benchmark_entity(c: &mut Criterion) {
             let mut ids = vec![];
             for i in 0..iters {
                 let id = field
-                    .insert(Entity {
+                    .insert(dataflow::Entity {
                         archetype_id: 0,
                         coord: Vec2::new(i as f32, 0.0),
                         ..Default::default()
@@ -469,7 +469,7 @@ fn benchmark_entity(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|render_state: &mut EntityRenderState| render_state.variant += 1);
+                let f = std::hint::black_box(|render_state: &mut dataflow::EntityRenderState| render_state.variant += 1);
                 let result = field.modify(id, f).unwrap();
                 std::hint::black_box(result);
             }
@@ -477,7 +477,7 @@ fn benchmark_entity(c: &mut Criterion) {
         });
     });
 
-    let row: &[(&str, Box<dyn Fn(&EntityField, usize)>)] = &[
+    let row: &[(&str, Box<dyn Fn(&dataflow::EntityField, usize)>)] = &[
         ("entity find collision point", Box::new(|field, i| {
             let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
             let result = field.find_with_collision_point(query).count();
@@ -486,6 +486,16 @@ fn benchmark_entity(c: &mut Criterion) {
         ("entity find collision rect", Box::new(|field, i| {
             let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
             let result = field.find_with_collision_rect(query).count();
+            std::hint::black_box(result);
+        })),
+        ("entity find hint point", Box::new(|field, i| {
+            let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
+            let result = field.find_with_hint_point(query).count();
+            std::hint::black_box(result);
+        })),
+        ("entity find hint rect", Box::new(|field, i| {
+            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let result = field.find_with_hint_rect(query).count();
             std::hint::black_box(result);
         })),
     ];
@@ -497,7 +507,7 @@ fn benchmark_entity(c: &mut Criterion) {
                 let mut ids = vec![];
                 for i in 0..iters {
                     let id = field
-                        .insert(Entity {
+                        .insert(dataflow::Entity {
                             archetype_id: 0,
                             coord: Vec2::new(i as f32, 0.0),
                             ..Default::default()

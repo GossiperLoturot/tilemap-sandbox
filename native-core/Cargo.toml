@@ -10,13 +10,10 @@ harness = false
 [dependencies]
 ahash = "0.8"
 bytemuck = "1"
-downcast-rs = "2"
-dyn-clone = "1"
 glam = "0.30"
 godot = "0.4"
 image = { version = "0.25", default-features = false }
 image-atlas = "0.4"
-indexmap = "2"
 rstar = "0.12"
 slab = "0.4"
 

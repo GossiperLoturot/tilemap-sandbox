@@ -1,24 +1,25 @@
-use glam::*;
-use godot::prelude::*;
+pub use glam::*;
+pub use geom::*;
 
 pub mod dataflow;
 pub mod view;
-pub mod geom;
+
+mod geom;
 
 // retriever for loading resources
 
 pub struct Retriever {
-    retrieve_callable: Callable,
+    retrieve_callable: godot::builtin::Callable,
 }
 
 impl Retriever {
-    pub fn new(retrieve_callable: Callable) -> Self {
+    pub fn new(retrieve_callable: godot::builtin::Callable) -> Self {
         Self { retrieve_callable }
     }
 
     pub fn load<T>(&self, name: &str) -> T
     where
-        T: FromGodot,
+        T: godot::meta::FromGodot,
     {
         if self.retrieve_callable.is_null() {
             panic!("Retriever callable is null");
@@ -26,19 +27,21 @@ impl Retriever {
         if self.retrieve_callable.get_argument_count() < 1 {
             panic!("Retriever callable must have at least one argument");
         }
-        let ret = self.retrieve_callable.call(&[name.to_variant()]);
+        let variant = godot::meta::ToGodot::to_variant(&name);
+        let ret = self.retrieve_callable.call(&[variant]);
 
-        match ret.try_to() {
+        match ret.try_to::<T>() {
             Ok(value) => {
                 // successfully converted to the expected type
                 value
             }
             Err(e) => {
-                let found_type = ret.get_type().as_str();
-                let expected_type = std::any::type_name::<T>();
                 panic!(
-                    "Failed to load resource {}: Expected type is {}, but found type is {}.\n{}",
-                    name, found_type, expected_type, e
+                    "Failed to load resource {:?}: Expected type is {:?}, but found type is {:?}.\n{:?}",
+                    name,
+                    ret.get_type(),
+                    std::any::type_name::<T>(),
+                    e,
                 );
             }
         }
@@ -81,7 +84,7 @@ impl Registry {
 // descriptor for building the context
 
 pub struct SpriteInfo {
-    pub images: Vec<Gd<godot::classes::Image>>,
+    pub images: Vec<godot::obj::Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
@@ -91,7 +94,6 @@ pub struct TileInfo {
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
     pub collision: bool,
-    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct BlockInfo {
@@ -100,9 +102,8 @@ pub struct BlockInfo {
     pub sprites: Vec<SpriteInfo>,
     pub y_sorting: bool,
     pub size: IVec2,
-    pub collision_rect: geom::Rect2,
-    pub rendering_rect: geom::Rect2,
-    pub feature_set: Box<dyn dataflow::FeatureSet>,
+    pub collision_rect: Rect2,
+    pub rendering_rect: Rect2,
 }
 
 pub struct EntityInfo {
@@ -110,29 +111,26 @@ pub struct EntityInfo {
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
     pub y_sorting: bool,
-    pub collision_rect: geom::Rect2,
-    pub rendering_rect: geom::Rect2,
-    pub feature_set: Box<dyn dataflow::FeatureSet>,
+    pub collision_rect: Rect2,
+    pub rendering_rect: Rect2,
 }
 
 pub struct ItemInfo {
     pub display_name: String,
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
-    pub feature_set: Box<dyn dataflow::FeatureSet>,
 }
 
 pub struct InventoryInfo {
     pub size: u32,
-    pub callback: Callable,
+    pub callback: godot::builtin::Callable,
 }
 
 pub struct BuildInfo {
-    pub tile_shaders: Vec<Gd<godot::classes::Shader>>,
-    pub block_shaders: Vec<Gd<godot::classes::Shader>>,
-    pub entity_shaders: Vec<Gd<godot::classes::Shader>>,
-    pub selection_shader: Gd<godot::classes::Shader>,
-    pub viewport: Gd<godot::classes::Viewport>,
+    pub tile_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
+    pub block_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
+    pub entity_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
+    pub viewport: godot::obj::Gd<godot::classes::Viewport>,
 }
 
 type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry, &'a Retriever) -> T>;
@@ -203,20 +201,11 @@ impl ContextBuilder {
             .get_world_3d()
             .unwrap_or_else(|| panic!("Failed to get World3D from {}", info.viewport));
 
-        // feature matrix builder
-        let mut tile_feature_builder = dataflow::FeatureMatrixBuilder::default();
-        let mut block_feature_builder = dataflow::FeatureMatrixBuilder::default();
-        let mut entity_feature_builder = dataflow::FeatureMatrixBuilder::default();
-        let mut item_feature_builder = dataflow::FeatureMatrixBuilder::default();
-
         // tile field
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
             let tile_info = tile(&self.registry, retriever);
-
-            let mut set_builder = tile_feature_builder.insert_row();
-            tile_info.feature_set.attach_set(&mut set_builder).unwrap();
 
             tiles.push(dataflow::TileInfo {
                 display_name: tile_info.display_name,
@@ -258,9 +247,6 @@ impl ContextBuilder {
         let mut blocks_view = vec![];
         for block in self.blocks {
             let block_info = block(&self.registry, retriever);
-
-            let mut set_builder = block_feature_builder.insert_row();
-            block_info.feature_set.attach_set(&mut set_builder).unwrap();
 
             blocks.push(dataflow::BlockInfo {
                 display_name: block_info.display_name,
@@ -310,9 +296,6 @@ impl ContextBuilder {
         for entity in self.entities {
             let entity_info = entity(&self.registry, retriever);
 
-            let mut set_builder = entity_feature_builder.insert_row();
-            entity_info.feature_set.attach_set(&mut set_builder).unwrap();
-
             entities.push(dataflow::EntityInfo {
                 display_name: entity_info.display_name,
                 description: entity_info.description,
@@ -360,9 +343,6 @@ impl ContextBuilder {
         for item in self.items {
             let item_info = item(&self.registry, retriever);
 
-            let mut set_builder = item_feature_builder.insert_row();
-            item_info.feature_set.attach_set(&mut set_builder).unwrap();
-
             items.push(dataflow::ItemInfo {
                 display_name: item_info.display_name,
                 description: item_info.description,
@@ -404,21 +384,11 @@ impl ContextBuilder {
             inventories: inventories_view,
         });
 
-        let selection_view = view::Selection::new(view::SelectionInfo {
-            shader: info.selection_shader,
-            world: world.clone(),
-        });
-
         let dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
             inventory_system: inventory_storage_info,
-
-            tile_feature_builder,
-            block_feature_builder,
-            entity_feature_builder,
-            item_feature_builder,
         });
 
         Context {
@@ -428,7 +398,6 @@ impl ContextBuilder {
             block_field_view,
             entity_field_view,
             inventory_system_view,
-            selection_view,
         }
     }
 }
@@ -440,5 +409,4 @@ pub struct Context {
     pub block_field_view: view::BlockField,
     pub entity_field_view: view::EntityField,
     pub inventory_system_view: view::InventorySystem,
-    pub selection_view: view::Selection,
 }

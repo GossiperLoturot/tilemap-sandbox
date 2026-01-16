@@ -1,10 +1,9 @@
 use glam::*;
-use godot::prelude::*;
 
 use crate::dataflow;
 
 pub struct ItemSpriteInfo {
-    pub images: Vec<Gd<godot::classes::Image>>,
+    pub images: Vec<godot::obj::Gd<godot::classes::Image>>,
     pub ticks_per_image: u16,
     pub is_loop: bool,
 }
@@ -14,7 +13,7 @@ pub struct ItemInfo {
 }
 
 pub struct InventoryInfo {
-    pub callback: Callable,
+    pub callback: godot::builtin::Callable,
 }
 
 pub struct InventorySystemInfo {
@@ -30,19 +29,19 @@ struct ImageAddress {
 }
 
 struct InventoryRenderLayout {
-    pub callback: Callable,
+    pub callback: godot::builtin::Callable,
 }
 
 pub struct InventorySystem {
     inventory_layouts: Vec<InventoryRenderLayout>,
     sprite_addrs: Vec<Vec<ImageAddress>>,
-    textures: Vec<Rid>,
-    free_handles: Vec<Rid>,
+    textures: Vec<godot::builtin::Rid>,
+    free_handles: Vec<godot::builtin::Rid>,
 }
 
 impl InventorySystem {
     pub fn new(info: InventorySystemInfo) -> Self {
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
         let mut free_handles = vec![];
 
@@ -91,50 +90,11 @@ impl InventorySystem {
         }
     }
 
-    pub fn open_inventory_by_tile(
-        &self,
-        dataflow: &dataflow::Dataflow,
-        tile_id: dataflow::TileId,
-        f: impl FnOnce(&Callable, &dataflow::Inventory),
-    ) -> Result<(), dataflow::DataflowError> {
-        let inventory_id = dataflow
-            .get_tile_inventory(tile_id)?
-            .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_id, f)?;
-        Ok(())
-    }
-
-    pub fn open_inventory_by_block(
-        &self,
-        dataflow: &dataflow::Dataflow,
-        block_id: dataflow::BlockId,
-        f: impl FnOnce(&Callable, &dataflow::Inventory),
-    ) -> Result<(), dataflow::DataflowError> {
-        let inventory_id = dataflow
-            .get_block_inventory(block_id)?
-            .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_id, f)?;
-        Ok(())
-    }
-
-    pub fn open_inventory_by_entity(
-        &self,
-        dataflow: &dataflow::Dataflow,
-        entity_id: dataflow::EntityId,
-        f: impl FnOnce(&Callable, &dataflow::Inventory),
-    ) -> Result<(), dataflow::DataflowError> {
-        let inventory_id = dataflow
-            .get_inventory_by_entity(entity_id)?
-            .ok_or(dataflow::ItemError::InventoryNotFound)?;
-        self.open_inventory(dataflow, inventory_id, f)?;
-        Ok(())
-    }
-
     pub fn open_inventory(
         &self,
         dataflow: &dataflow::Dataflow,
         inventory_key: dataflow::InventoryId,
-        f: impl FnOnce(&Callable, &dataflow::Inventory),
+        f: impl FnOnce(&godot::builtin::Callable, &dataflow::Inventory),
     ) -> Result<(), dataflow::DataflowError> {
         let inventory = dataflow.get_inventory(inventory_key)?;
         let prop = self
@@ -151,7 +111,7 @@ impl InventorySystem {
         &self,
         dataflow: &dataflow::Dataflow,
         slot_id: dataflow::ItemId,
-        control_item: Gd<godot::classes::Control>,
+        control_item: godot::obj::Gd<godot::classes::Control>,
     ) -> Result<(), dataflow::DataflowError> {
         let (inventory_id, local_id) = slot_id;
 
@@ -166,12 +126,12 @@ impl InventorySystem {
 
         let canvas_item = control_item.get_canvas_item();
 
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
         rendering_server.canvas_item_clear(canvas_item);
 
         if let Some(item) = item_ref {
-            let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
+            let rect = godot::builtin::Rect2::new(godot::builtin::Vector2::ZERO, control_item.get_size());
 
             let image_addr = &self.sprite_addrs[item.archetype_id as usize][item.variant as usize];
 
@@ -195,7 +155,7 @@ impl InventorySystem {
 
 impl Drop for InventorySystem {
     fn drop(&mut self) {
-        let mut rendering_server = godot::classes::RenderingServer::singleton();
+        let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
         for free_handle in &self.free_handles {
             rendering_server.free_rid(*free_handle);
         }

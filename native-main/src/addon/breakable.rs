@@ -3,8 +3,6 @@ use std::rc::Rc;
 use glam::*;
 use native_core::dataflow::*;
 
-use super::*;
-
 // feature
 
 pub trait BreakFeature<D> {
