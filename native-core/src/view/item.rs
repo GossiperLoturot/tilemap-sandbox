@@ -17,7 +17,7 @@ pub struct InventoryInfo {
     pub callback: Callable,
 }
 
-pub struct ItemStorageInfo {
+pub struct InventorySystemInfo {
     pub items: Vec<ItemInfo>,
     pub inventories: Vec<InventoryInfo>,
 }
@@ -33,15 +33,15 @@ struct InventoryRenderLayout {
     pub callback: Callable,
 }
 
-pub struct ItemStorage {
+pub struct InventorySystem {
     inventory_layouts: Vec<InventoryRenderLayout>,
     sprite_addrs: Vec<Vec<ImageAddress>>,
     textures: Vec<Rid>,
     free_handles: Vec<Rid>,
 }
 
-impl ItemStorage {
-    pub fn new(info: ItemStorageInfo) -> Self {
+impl InventorySystem {
+    pub fn new(info: InventorySystemInfo) -> Self {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
 
         let mut free_handles = vec![];
@@ -150,13 +150,15 @@ impl ItemStorage {
     pub fn draw_item(
         &self,
         dataflow: &dataflow::Dataflow,
-        slot_id: dataflow::SlotId,
+        slot_id: dataflow::ItemId,
         control_item: Gd<godot::classes::Control>,
     ) -> Result<(), dataflow::DataflowError> {
         let (inventory_id, local_id) = slot_id;
+
         let inventory = dataflow.get_inventory(inventory_id)?;
-        let slot = inventory
-            .slots
+
+        let item_ref = inventory
+            .items
             .get(local_id as usize)
             .ok_or(dataflow::ItemError::ItemNotFound)?;
 
@@ -168,15 +170,15 @@ impl ItemStorage {
 
         rendering_server.canvas_item_clear(canvas_item);
 
-        if let Some(item) = &slot.item {
+        if let Some(item) = item_ref {
             let rect = Rect2::new(Vector2::ZERO, control_item.get_size());
 
-            let image_addr = &self.sprite_addrs[item.archetype_id as usize][item.render_param.variant as usize];
+            let image_addr = &self.sprite_addrs[item.archetype_id as usize][item.variant as usize];
 
             let index = if image_addr.ticks_per_images == 0 {
                 image_addr.start_index
             } else {
-                let step_index = (dataflow.get_tick() as u32 - item.render_param.tick) / image_addr.ticks_per_images as u32;
+                let step_index = (dataflow.get_tick() as u32 - item.tick) / image_addr.ticks_per_images as u32;
                 let step_len = image_addr.end_index - image_addr.start_index;
                 let cycle = if image_addr.is_loop { step_index % step_len } else { u32::min(step_index, step_len - 1) };
                 image_addr.start_index + cycle
@@ -191,7 +193,7 @@ impl ItemStorage {
     }
 }
 
-impl Drop for ItemStorage {
+impl Drop for InventorySystem {
     fn drop(&mut self) {
         let mut rendering_server = godot::classes::RenderingServer::singleton();
         for free_handle in &self.free_handles {

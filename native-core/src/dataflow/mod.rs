@@ -25,7 +25,7 @@ pub struct DataflowInfo {
     pub tile_field: TileFieldInfo,
     pub block_field: BlockFieldInfo,
     pub entity_field: EntityFieldInfo,
-    pub item_storage: ItemStorageInfo,
+    pub inventory_system: InventorySystemInfo,
 
     pub tile_feature_builder: FeatureMatrixBuilder,
     pub block_feature_builder: FeatureMatrixBuilder,
@@ -40,7 +40,7 @@ pub struct Dataflow {
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
-    item_storage: ItemStorage,
+    inventory_system: InventorySystem,
 
     // readonly functional data storage
     tile_features: FeatureMatrix,
@@ -60,7 +60,7 @@ impl Dataflow {
             tile_field: TileField::new(info.tile_field),
             block_field: BlockField::new(info.block_field),
             entity_field: EntityField::new(info.entity_field),
-            item_storage: ItemStorage::new(info.item_storage),
+            inventory_system: InventorySystem::new(info.inventory_system),
 
             tile_features: info.tile_feature_builder.build(),
             block_features: info.block_feature_builder.build(),
@@ -346,57 +346,62 @@ impl Dataflow {
     }
 
     pub fn insert_inventory(&mut self, archetype_id: u16) -> Result<InventoryId, DataflowError> {
-        let inventory_key = self.item_storage.insert_inventory(archetype_id)?;
+        let inventory_key = self.inventory_system.insert_inventory(archetype_id)?;
         Ok(inventory_key)
     }
 
     pub fn remove_inventory(&mut self, inventory_id: InventoryId) -> Result<u16, DataflowError> {
-        let id = self.item_storage.remove_inventory(inventory_id)?;
+        let id = self.inventory_system.remove_inventory(inventory_id)?;
         Ok(id)
     }
 
     pub fn get_inventory(&self, inventory_id: InventoryId) -> Result<&Inventory, DataflowError> {
-        let inventory = self.item_storage.get_inventory(inventory_id)?;
+        let inventory = self.inventory_system.get_inventory(inventory_id)?;
         Ok(inventory)
     }
 
     pub fn push_item_to_inventory(&mut self, inventory_id: InventoryId, item: Item) -> Result<(), DataflowError> {
-        self.item_storage.push_item_to_inventory(inventory_id, item)?;
+        self.inventory_system.push_item_to_inventory(inventory_id, item)?;
         Ok(())
     }
 
     pub fn pop_item_from_inventory(&mut self, inventory_id: InventoryId) -> Result<Item, DataflowError> {
-        let item = self.item_storage.pop_item_from_inventory(inventory_id)?;
+        let item = self.inventory_system.pop_item_from_inventory(inventory_id)?;
         Ok(item)
     }
 
-    pub fn insert_item(&mut self, slot_id: SlotId, item: Item) -> Result<(), DataflowError> {
-        self.item_storage.insert_item(slot_id, item)?;
+    pub fn insert_item(&mut self, slot_id: ItemId, item: Item) -> Result<(), DataflowError> {
+        self.inventory_system.insert_item(slot_id, item)?;
         Ok(())
     }
 
-    pub fn remove_item(&mut self, slot_id: SlotId) -> Result<Item, DataflowError> {
-        let item = self.item_storage.remove_item(slot_id)?;
+    pub fn remove_item(&mut self, slot_id: ItemId) -> Result<Item, DataflowError> {
+        let item = self.inventory_system.remove_item(slot_id)?;
         Ok(item)
     }
 
-    pub fn modify_item(&mut self, slot_id: SlotId, f: impl FnOnce(&mut Item)) -> Result<(), DataflowError> {
-        self.item_storage.modify_item(slot_id, f)?;
+    pub fn modify_item(&mut self, slot_id: ItemId, f: impl FnOnce(&mut ItemRenderState)) -> Result<(), DataflowError> {
+        self.inventory_system.modify_item(slot_id, f)?;
         Ok(())
     }
 
-    pub fn swap_item(&mut self, src_slot_id: SlotId, dst_slot_id: SlotId) -> Result<(), DataflowError> {
-        self.item_storage.swap_item(src_slot_id, dst_slot_id)?;
+    pub fn swap_item(&mut self, src_slot_id: ItemId, dst_slot_id: ItemId) -> Result<(), DataflowError> {
+        self.inventory_system.swap_item(src_slot_id, dst_slot_id)?;
         Ok(())
     }
 
-    pub fn get_item(&self, slot_id: SlotId) -> Result<&Item, DataflowError> {
-        let item = self.item_storage.get_item(slot_id)?;
+    pub fn get_item(&self, slot_id: ItemId) -> Result<&Item, DataflowError> {
+        let item = self.inventory_system.get_item(slot_id)?;
         Ok(item)
     }
 
     pub fn get_item_archetype(&self, archetype_id: u16) -> Result<&ItemArchetype, DataflowError> {
-        let archetype = self.item_storage.get_item_archetype(archetype_id)?;
+        let archetype = self.inventory_system.get_item_archetype(archetype_id)?;
+        Ok(archetype)
+    }
+
+    pub fn get_inventory_archetype(&self, archetype_id: u16) -> Result<&InventoryArchetype, DataflowError> {
+        let archetype = self.inventory_system.get_inventory_archetype(archetype_id)?;
         Ok(archetype)
     }
 

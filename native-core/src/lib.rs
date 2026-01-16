@@ -397,9 +397,9 @@ impl ContextBuilder {
             });
         }
 
-        let item_storage_info = dataflow::ItemStorageInfo { items, inventories };
+        let inventory_storage_info = dataflow::InventorySystemInfo { items, inventories };
 
-        let item_storage_view = view::ItemStorage::new(view::ItemStorageInfo {
+        let inventory_system_view = view::InventorySystem::new(view::InventorySystemInfo {
             items: items_view,
             inventories: inventories_view,
         });
@@ -413,7 +413,7 @@ impl ContextBuilder {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
-            item_storage: item_storage_info,
+            inventory_system: inventory_storage_info,
 
             tile_feature_builder,
             block_feature_builder,
@@ -427,7 +427,7 @@ impl ContextBuilder {
             tile_field_view,
             block_field_view,
             entity_field_view,
-            item_storage_view,
+            inventory_system_view,
             selection_view,
         }
     }
@@ -439,6 +439,6 @@ pub struct Context {
     pub tile_field_view: view::TileField,
     pub block_field_view: view::BlockField,
     pub entity_field_view: view::EntityField,
-    pub item_storage_view: view::ItemStorage,
+    pub inventory_system_view: view::InventorySystem,
     pub selection_view: view::Selection,
 }

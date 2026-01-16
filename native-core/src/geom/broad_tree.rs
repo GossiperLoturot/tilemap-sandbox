@@ -5,18 +5,9 @@ use super::*;
 type Rect = rstar::primitives::Rectangle<[i32; 2]>;
 type Node<T> = rstar::primitives::GeomWithData<Rect, T>;
 
-struct Params;
-
-impl rstar::RTreeParams for Params {
-    const MIN_SIZE: usize = 4;
-    const MAX_SIZE: usize = 16;
-    const REINSERTION_COUNT: usize = 2;
-    type DefaultInsertionStrategy = rstar::RStarInsertionStrategy;
-}
-
 #[derive(Debug, Default)]
 pub struct BroadTree<T> {
-    rtree: rstar::RTree<Node<T>, Params>
+    rtree: rstar::RTree<Node<T>>
 }
 
 impl<T> BroadTree<T> where T: PartialEq + Copy {

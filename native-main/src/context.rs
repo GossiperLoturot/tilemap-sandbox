@@ -708,17 +708,17 @@ impl Context {
     fn open_player_inventory(&mut self) {
         let context = self.context.as_mut().unwrap();
 
-        if let Ok(inventory_key) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
-            let _ = context.item_storage_view.open_inventory(
+        if let Ok(inventory_id) = addon::PlayerSystem::get_inventory_key(&context.dataflow) {
+            let _ = context.inventory_system_view.open_inventory(
                 &context.dataflow,
-                inventory_key,
+                inventory_id,
                 |callable, inventory| {
-                    let mut slot_keys = Array::<Gd<SlotKey>>::new();
-                    for (local_key, _) in inventory.slots.iter().enumerate() {
-                        let slot_key = (inventory_key, local_key as u32);
-                        slot_keys.push(&Gd::from_object(SlotKey { inner: slot_key }));
+                    let mut item_ids = Array::<Gd<SlotKey>>::new();
+                    for (local_id, _) in inventory.items.iter().enumerate() {
+                        let item_id = (inventory_id, local_id as u32);
+                        item_ids.push(&Gd::from_object(SlotKey { inner: item_id }));
                     }
-                    callable.call(&[slot_keys.to_variant()]);
+                    callable.call(&[item_ids.to_variant()]);
                 },
             );
         }
@@ -730,19 +730,17 @@ impl Context {
     fn open_global_inventory(&mut self) {
         let context = self.context.as_mut().unwrap();
 
-        if let Ok(inventory_key) =
-            addon::GlobalInventorySystem::get_inventory_key(&context.dataflow)
-        {
-            let _ = context.item_storage_view.open_inventory(
+        if let Ok(inventory_id) = addon::GlobalInventorySystem::get_inventory_key(&context.dataflow) {
+            let _ = context.inventory_system_view.open_inventory(
                 &context.dataflow,
-                inventory_key,
+                inventory_id,
                 |callable, inventory| {
-                    let mut slot_keys = Array::<Gd<SlotKey>>::new();
-                    for (local_key, _) in inventory.slots.iter().enumerate() {
-                        let slot_key = (inventory_key, local_key as u32);
-                        slot_keys.push(&Gd::from_object(SlotKey { inner: slot_key }));
+                    let mut item_ids = Array::<Gd<SlotKey>>::new();
+                    for (local_id, _) in inventory.items.iter().enumerate() {
+                        let item_id = (inventory_id, local_id as u32);
+                        item_ids.push(&Gd::from_object(SlotKey { inner: item_id }));
                     }
-                    callable.call(&[slot_keys.to_variant()]);
+                    callable.call(&[item_ids.to_variant()]);
                 },
             );
         }
@@ -783,7 +781,7 @@ impl Context {
 
         let slot_key = **slot_key.bind();
         context
-            .item_storage_view
+            .inventory_system_view
             .draw_item(&context.dataflow, slot_key, control_item)
             .unwrap();
     }
@@ -961,11 +959,11 @@ impl Context {
 #[derive(GodotClass)]
 #[class(no_init, base=RefCounted)]
 struct SlotKey {
-    inner: core::dataflow::SlotId,
+    inner: core::dataflow::ItemId,
 }
 
 impl std::ops::Deref for SlotKey {
-    type Target = core::dataflow::SlotId;
+    type Target = core::dataflow::ItemId;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

@@ -156,8 +156,10 @@ impl EntityField {
 
     pub fn modify(&mut self, id: EntityId, f: impl FnOnce(&mut EntityRenderState)) -> Result<EntityId, EntityError> {
         let (chunk_id, local_id) = id;
+
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let entity = chunk.entities.get_mut(local_id as usize).ok_or(EntityError::NotFound)?;
+
         let mut render_state = EntityRenderState { variant: entity.variant, tick: entity.tick };
         f(&mut render_state);
         entity.variant = render_state.variant;
