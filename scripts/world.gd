@@ -1,20 +1,16 @@
 extends Node3D
 
 
-@export var ui: Control
-var _forwarder_rect: Rect2
-var _gen_rect: Rect2
 var _view_rect: Rect2
 
 
 func _enter_tree() -> void:
 	Context.open(retrieve_func)
+	Context.spawn_world()
 
 
 func _process(delta: float) -> void:
 	# logic
-	Context.forwarde_rect(_forwarder_rect, delta)
-	Context.generate_rect(_gen_rect)
 	Context.forward_time(delta)
 	# rendering
 	Context.draw_field(_view_rect)
@@ -24,23 +20,14 @@ func _exit_tree() -> void:
 	Context.close()
 
 
-func _on_forwarder_rect_changed(rect: Rect2) -> void:
-	_forwarder_rect = rect
-
-
-func _on_gen_rect_changed(rect: Rect2) -> void:
-	_gen_rect = rect
-
-
 func _on_view_rect_changed(rect: Rect2) -> void:
 	_view_rect = rect
 
 
-func retrieve_func(name: String):
+func retrieve_func(resource_name: String):
 	var retrieve_table = {
 		"shader_field": preload("res://shaders/field.gdshader"),
 		"shader_field_shadow": preload("res://shaders/field_shadow.gdshader"),
-		"shader_selection": preload("res://shaders/selector.gdshader"),
 		"viewport": self.get_viewport(),
 
 		"image_tile_dirt": preload("res://images/dirt.webp"),
@@ -85,19 +72,5 @@ func retrieve_func(name: String):
 		"image_item_fallenleaves": preload("res://images/fallenleaves.webp"),
 		"image_item_mixpebbles": preload("res://images/mixpebbles.webp"),
 		"image_item_wood": preload("res://images/wood.webp"),
-
-		"callable_inventory_player": instantiate_inventory_player,
-		"callable_inventory_global": instantiate_inventory_global,
 	}
-	return retrieve_table[name]
-
-
-func instantiate_inventory_player(slot_keys: Array[SlotKey]) -> void:
-	var instance = preload("res://scenes/inventory_player.tscn").instantiate()
-	ui.add_child(instance)
-	instance.on_instantiate(slot_keys)
-
-func instantiate_inventory_global(slot_keys: Array[SlotKey]) -> void:
-	var instance = preload("res://scenes/inventory_global.tscn").instantiate()
-	ui.add_child(instance)
-	instance.on_instantiate(slot_keys)
+	return retrieve_table[resource_name]

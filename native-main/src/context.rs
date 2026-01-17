@@ -409,19 +409,6 @@ impl Context {
     // setup system
 
     #[func]
-    fn spawn_player(&mut self, coord: Vector2) {
-        let context = self.context.as_mut().unwrap();
-
-        let coord = Vec2::new(coord.x, coord.y);
-        let entity = core::dataflow::Entity {
-            archetype_id: context.registry.get("entity_player"),
-            coord,
-            ..Default::default()
-        };
-        context.dataflow.insert_entity(entity).unwrap();
-    }
-
-    #[func]
     fn spawn_world(&mut self) {
         let context = self.context.as_mut().unwrap();
 
@@ -429,14 +416,35 @@ impl Context {
         for y in -SIZE..=SIZE {
             for x in -SIZE..=SIZE {
                 let coord = IVec2::new(x, y);
+                let archetype_id = if (x + y) % 2 == 0 {
+                    context.registry.get("tile_grass")
+                } else {
+                    context.registry.get("tile_dirt")
+                };
                 let tile = core::dataflow::Tile {
-                    archetype_id: context.registry.get("tile_grass"),
+                    archetype_id,
                     coord,
                     ..Default::default()
                 };
                 context.dataflow.insert_tile(tile).unwrap();
             }
         }
+
+        let coord = IVec2::new(2, 2);
+        let block = core::dataflow::Block {
+            archetype_id: context.registry.get("block_oaktree"),
+            coord,
+            ..Default::default()
+        };
+        context.dataflow.insert_block(block).unwrap();
+
+        let coord = Vec2::new(0.0, 0.0);
+        let entity = core::dataflow::Entity {
+            archetype_id: context.registry.get("entity_player"),
+            coord,
+            ..Default::default()
+        };
+        context.dataflow.insert_entity(entity).unwrap();
     }
 
     // field

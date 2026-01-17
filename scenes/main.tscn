@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://dwy0soa82f5eo"]
+[gd_scene load_steps=16 format=3 uid="uid://dwy0soa82f5eo"]
 
 [ext_resource type="Script" uid="uid://bsd7tx34x8nw" path="res://scripts/hook.gd" id="1_1bvp3"]
 [ext_resource type="Script" uid="uid://bpv4xw5yua7lf" path="res://scripts/world.gd" id="1_b2r8a"]
@@ -14,9 +14,6 @@
 [ext_resource type="Script" uid="uid://cu6r4o63rqnx1" path="res://scripts/audio.gd" id="10_jkv2x"]
 [ext_resource type="AudioStream" uid="uid://6wq024pbdqnx" path="res://audio/冷夏.ogg" id="10_yc10j"]
 [ext_resource type="PackedScene" uid="uid://c4385iln2rtsi" path="res://scenes/audio_status.tscn" id="14_jbj1t"]
-[ext_resource type="PackedScene" uid="uid://cyidwdky23fs5" path="res://scenes/selection.tscn" id="14_jkv2x"]
-[ext_resource type="Script" uid="uid://c76of51woo10b" path="res://scripts/field.gd" id="14_muem4"]
-[ext_resource type="PackedScene" uid="uid://b1k0slci3f1xj" path="res://scenes/selection_mode_picker.tscn" id="15_muem4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_eft26"]
 shader = ExtResource("5_h8o78")
@@ -63,24 +60,6 @@ offset_top = -39.0
 offset_bottom = 0.0
 grow_vertical = 0
 
-[node name="Selection" parent="UI" instance=ExtResource("14_jkv2x")]
-visible = false
-z_index = 1
-layout_mode = 0
-
-[node name="Field" type="Control" parent="UI" node_paths=PackedStringArray("camera")]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("14_muem4")
-camera = NodePath("../../World/Camera3D")
-
-[node name="SelectionModePicker" parent="UI" instance=ExtResource("15_muem4")]
-layout_mode = 0
-
 [node name="World" type="Node3D" parent="." node_paths=PackedStringArray("ui")]
 script = ExtResource("1_b2r8a")
 ui = NodePath("../UI")
@@ -94,17 +73,9 @@ size = 32.0
 [node name="Player" type="Node3D" parent="World" node_paths=PackedStringArray("camera")]
 script = ExtResource("2_c0xk6")
 camera = NodePath("../Camera3D")
-forward_size = 32.0
 view_size_over = 8.0
 
 [connection signal="finished" from="Audio" to="Audio" method="next_stream"]
 [connection signal="ready" from="Audio" to="Audio" method="next_stream"]
 [connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="_on_stream_changed"]
-[connection signal="gui_input" from="UI" to="UI" method="_on_gui_input"]
-[connection signal="mouse_entered" from="UI" to="UI" method="_on_mouse_entered"]
-[connection signal="mouse_exited" from="UI" to="UI" method="_on_mouse_exited"]
-[connection signal="mouse_entered" from="UI/Field" to="UI/Field" method="_on_mouse_entered"]
-[connection signal="mouse_exited" from="UI/Field" to="UI/Field" method="_on_mouse_exited"]
-[connection signal="forwarder_rect_changed" from="World/Player" to="World" method="_on_forwarder_rect_changed"]
-[connection signal="gen_rect_changed" from="World/Player" to="World" method="_on_gen_rect_changed"]
 [connection signal="view_rect_changed" from="World/Player" to="World" method="_on_view_rect_changed"]
