@@ -74,7 +74,7 @@ pub struct BlockField {
     dead_chunks: Vec<DeadChunk>,
     live_chunks: ahash::AHashMap<IVec2, LiveChunk>,
     free_handles: Vec<godot::builtin::Rid>,
-    min_rect: Option<[IVec2; 2]>,
+    rect: Option<IRect2>,
     instance_buffer: Vec<f32>,
     address_buffer: Vec<u32>,
 }
@@ -275,7 +275,7 @@ impl BlockField {
             dead_chunks,
             live_chunks: Default::default(),
             free_handles,
-            min_rect: None,
+            rect: None,
             instance_buffer: vec![0.0; Self::BUFFER_LEN * 12],
             address_buffer: vec![0; Self::BUFFER_LEN * 4],
         }
@@ -283,22 +283,20 @@ impl BlockField {
 
     // rendering features
 
-    pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, min_rect: [Vec2; 2]) {
+    pub fn update_view(&mut self, dataflow: &dataflow::Dataflow, rect: Rect2) {
         let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
-        let min_rect = [
-            dataflow.find_block_chunk_coord(min_rect[0]),
-            dataflow.find_block_chunk_coord(min_rect[1]),
-        ];
+        let rect = IRect2::new(
+            dataflow.find_block_chunk_coord(rect.min),
+            dataflow.find_block_chunk_coord(rect.max),
+        );
 
         // remove / insert view chunk
 
-        if Some(min_rect) != self.min_rect {
+        if Some(rect) != self.rect {
             let mut chunk_coords = vec![];
             for (chunk_coord, _) in &self.live_chunks {
-                let is_outside_x = chunk_coord.x < min_rect[0].x || min_rect[1].x < chunk_coord.x;
-                let is_outsize_y = chunk_coord.y < min_rect[0].y || min_rect[1].y < chunk_coord.y;
-                if is_outside_x || is_outsize_y {
+                if !Intersects::intersects(chunk_coord, &rect) {
                     chunk_coords.push(*chunk_coord);
                 }
             }
@@ -310,8 +308,8 @@ impl BlockField {
                 self.dead_chunks.push(live_chunk.despawn());
             }
 
-            for y in min_rect[0].y..=min_rect[1].y {
-                for x in min_rect[0].x..=min_rect[1].x {
+            for y in rect[0].y..=rect[1].y {
+                for x in rect[0].x..=rect[1].x {
                     let chunk_coord = IVec2::new(x, y);
 
                     if self.live_chunks.contains_key(&chunk_coord) {
@@ -330,7 +328,7 @@ impl BlockField {
                 }
             }
 
-            self.min_rect = Some(min_rect);
+            self.rect = Some(rect);
         }
 
         // update view chunk
