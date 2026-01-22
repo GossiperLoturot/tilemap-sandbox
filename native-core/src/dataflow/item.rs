@@ -35,7 +35,7 @@ pub struct InventoryArchetype {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct ItemRenderState {
+pub struct ItemModify {
     pub variant: u8,
     pub tick: u32,
 }
@@ -201,7 +201,7 @@ impl InventorySystem {
         Ok(item)
     }
 
-    pub fn modify_item(&mut self, item_id: ItemId, f: impl FnOnce(&mut ItemRenderState)) -> Result<(), ItemError> {
+    pub fn modify_item(&mut self, item_id: ItemId, f: impl FnOnce(&mut ItemModify)) -> Result<(), ItemError> {
         let (inventory_id, local_id) = item_id;
 
         let inventory = self
@@ -215,10 +215,10 @@ impl InventorySystem {
             .ok_or(ItemError::InventoryNotFound)?;
 
         let item = item_mut.as_mut().ok_or(ItemError::ItemNotFound)?;
-        let mut render_state = ItemRenderState { variant: item.variant, tick: item.tick };
-        f(&mut render_state);
-        item.variant = render_state.variant;
-        item.tick = render_state.tick;
+        let mut item_modify = ItemModify { variant: item.variant, tick: item.tick };
+        f(&mut item_modify);
+        item.variant = item_modify.variant;
+        item.tick = item_modify.tick;
         inventory.version += 1;
         Ok(())
     }

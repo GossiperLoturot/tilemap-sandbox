@@ -39,7 +39,7 @@ impl EntityArchetype {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct EntityRenderState {
+pub struct EntityModify {
     pub variant: u8,
     pub tick: u32,
 }
@@ -156,16 +156,16 @@ impl EntityField {
         Ok(entity)
     }
 
-    pub fn modify(&mut self, id: EntityId, f: impl FnOnce(&mut EntityRenderState)) -> Result<EntityId, EntityError> {
+    pub fn modify(&mut self, id: EntityId, f: impl FnOnce(&mut EntityModify)) -> Result<EntityId, EntityError> {
         let (chunk_id, local_id) = id;
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let entity = chunk.entities.get_mut(local_id as usize).ok_or(EntityError::NotFound)?;
 
-        let mut render_state = EntityRenderState { variant: entity.variant, tick: entity.tick };
-        f(&mut render_state);
-        entity.variant = render_state.variant;
-        entity.tick = render_state.tick;
+        let mut entity_modify = EntityModify { variant: entity.variant, tick: entity.tick };
+        f(&mut entity_modify);
+        entity.variant = entity_modify.variant;
+        entity.tick = entity_modify.tick;
         chunk.version += 1;
         Ok(id)
     }

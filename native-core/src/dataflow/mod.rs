@@ -76,7 +76,7 @@ impl Dataflow {
         Ok(tile)
     }
 
-    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut TileRenderState)) -> Result<TileId, DataflowError> {
+    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut TileModify)) -> Result<TileId, DataflowError> {
         let tile_id = self.tile_field.modify(tile_id, f)?;
         Ok(tile_id)
     }
@@ -132,7 +132,7 @@ impl Dataflow {
         Ok(block)
     }
 
-    pub fn modify_block(&mut self, block_id: BlockId, f: impl FnOnce(&mut BlockRenderState)) -> Result<BlockId, DataflowError> {
+    pub fn modify_block(&mut self, block_id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, DataflowError> {
         let block_id = self.block_field.modify(block_id, f)?;
         Ok(block_id)
     }
@@ -198,7 +198,7 @@ impl Dataflow {
         Ok(entity)
     }
 
-    pub fn modify_entity(&mut self, entity_id: EntityId, f: impl FnOnce(&mut EntityRenderState)) -> Result<EntityId, DataflowError> {
+    pub fn modify_entity(&mut self, entity_id: EntityId, f: impl FnOnce(&mut EntityModify)) -> Result<EntityId, DataflowError> {
         let entity_id = self.entity_field.modify(entity_id, f)?;
         Ok(entity_id)
     }
@@ -279,7 +279,7 @@ impl Dataflow {
         Ok(item)
     }
 
-    pub fn modify_item(&mut self, item_id: ItemId, f: impl FnOnce(&mut ItemRenderState)) -> Result<(), DataflowError> {
+    pub fn modify_item(&mut self, item_id: ItemId, f: impl FnOnce(&mut ItemModify)) -> Result<(), DataflowError> {
         self.inventory_system.modify_item(item_id, f)?;
         Ok(())
     }

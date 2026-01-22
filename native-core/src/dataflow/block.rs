@@ -45,7 +45,7 @@ impl BlockArchetype {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct BlockRenderState {
+pub struct BlockModify {
     pub variant: u8,
     pub tick: u32,
 }
@@ -173,14 +173,14 @@ impl BlockField {
         Ok(block)
     }
 
-    pub fn modify(&mut self, id: BlockId, f: impl FnOnce(&mut BlockRenderState)) -> Result<BlockId, BlockError> {
+    pub fn modify(&mut self, id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, BlockError> {
         let (chunk_id, local_id) = id;
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let block = chunk.blocks.get_mut(local_id as usize).ok_or(BlockError::NotFound)?;
-        let mut render_state = BlockRenderState { variant: block.variant, tick: block.tick };
-        f(&mut render_state);
-        block.variant = render_state.variant;
-        block.tick = render_state.tick;
+        let mut block_modify = BlockModify { variant: block.variant, tick: block.tick };
+        f(&mut block_modify);
+        block.variant = block_modify.variant;
+        block.tick = block_modify.tick;
         chunk.version += 1;
         Ok(id)
     }
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(field.find_with_point(IVec2::new(-1, 4)), Some(id));
 
         let id = field
-            .modify(id, |render_state| render_state.variant = 1)
+            .modify(id, |block_modify| block_modify.variant = 1)
             .unwrap();
 
         let block = field.get(id).unwrap();

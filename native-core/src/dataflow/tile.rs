@@ -34,7 +34,7 @@ impl TileArchetype {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct TileRenderState {
+pub struct TileModify {
     pub variant: u8,
     pub tick: u32,
 }
@@ -141,14 +141,14 @@ impl TileField {
         Ok(tile)
     }
 
-    pub fn modify(&mut self, id: TileId, f: impl FnOnce(&mut TileRenderState)) -> Result<TileId, TileError> {
+    pub fn modify(&mut self, id: TileId, f: impl FnOnce(&mut TileModify)) -> Result<TileId, TileError> {
         let (chunk_id, local_id) = id;
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let tile = chunk.tiles.get_mut(local_id as usize).ok_or(TileError::NotFound)?;
-        let mut render_state = TileRenderState { variant: tile.variant, tick: tile.tick };
-        f(&mut render_state);
-        tile.variant = render_state.variant;
-        tile.tick = render_state.tick;
+        let mut tile_modify = TileModify { variant: tile.variant, tick: tile.tick };
+        f(&mut tile_modify);
+        tile.variant = tile_modify.variant;
+        tile.tick = tile_modify.tick;
         chunk.version += 1;
         Ok(id)
     }
@@ -333,7 +333,7 @@ mod tests {
         assert_eq!(field.find_with_point(IVec2::new(-1, 4)), Some(id));
 
         let id = field
-            .modify(id, |render_state| render_state.variant = 1)
+            .modify(id, |tile_modify| tile_modify.variant = 1)
             .unwrap();
 
         let tile = field.get(id).unwrap();
