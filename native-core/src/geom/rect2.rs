@@ -134,8 +134,8 @@ impl Rect2 {
     #[inline]
     pub fn trunc_under(self) -> Self {
         Self {
-            min: self.min.floor(),
-            max: self.max.ceil(),
+            min: self.min.ceil(),
+            max: self.max.floor(),
         }
     }
 
@@ -568,6 +568,7 @@ impl Rem<Rect2> for Rect2 {
 
 // Rect2 %= f32
 impl RemAssign<f32> for Rect2 {
+    #[inline]
     fn rem_assign(&mut self, rhs: f32) {
         self.min.rem_assign(rhs);
         self.max.rem_assign(rhs);
@@ -576,6 +577,7 @@ impl RemAssign<f32> for Rect2 {
 
 // Rect2 %= Vec2
 impl RemAssign<Vec2> for Rect2 {
+    #[inline]
     fn rem_assign(&mut self, rhs: Vec2) {
         self.min.rem_assign(rhs);
         self.max.rem_assign(rhs);

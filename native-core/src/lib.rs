@@ -102,7 +102,7 @@ pub struct BlockInfo {
     pub sprites: Vec<SpriteInfo>,
     pub y_sorting: bool,
     pub size: IVec2,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
 }
 
@@ -111,7 +111,7 @@ pub struct EntityInfo {
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
     pub y_sorting: bool,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
 }
 

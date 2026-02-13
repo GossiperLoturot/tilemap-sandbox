@@ -50,7 +50,7 @@ impl Context {
             }],
             y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
         });
 
@@ -65,7 +65,7 @@ impl Context {
             }],
             y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
         });
 
@@ -80,7 +80,7 @@ impl Context {
             }],
             y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
         });
 
@@ -95,7 +95,7 @@ impl Context {
             }],
             y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
         });
 
@@ -113,7 +113,7 @@ impl Context {
             }],
             y_sorting: true,
             size: IVec2::new(4, 2),
-            collision_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 2.0)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 2.0))),
             rendering_rect: core::Rect2::new(Vec2::new(-2.0, 0.0), Vec2::new(2.0, 6.0)),
         });
 
@@ -160,7 +160,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.75, 0.0), Vec2::new(0.75, 2.25)),
         });
 
@@ -189,7 +189,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
         });
 
@@ -218,7 +218,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
         });
 
@@ -247,7 +247,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
         });
 
@@ -271,7 +271,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
         });
 
@@ -295,7 +295,7 @@ impl Context {
                 },
             ],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9)),
+            collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
         });
 
@@ -309,7 +309,7 @@ impl Context {
                 is_loop: false,
             }],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(-0.25, -0.25), Vec2::new(0.25, 0.25)),
         });
 
@@ -326,7 +326,7 @@ impl Context {
                 is_loop: false,
             }],
             y_sorting: true,
-            collision_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, -1.0), Vec2::new(1.0, 1.0)),
         });
 

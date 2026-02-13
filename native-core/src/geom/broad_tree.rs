@@ -2,130 +2,223 @@ use glam::*;
 
 use super::*;
 
-#[derive(Debug, Default)]
-pub struct BroadTree<T> {
-    grid_s: ahash::AHashMap<IVec2, ahash::AHashSet<T>>,
-    grid_m: ahash::AHashMap<IVec2, ahash::AHashSet<T>>,
-    grid_l: ahash::AHashMap<IVec2, ahash::AHashSet<T>>,
+const SIZE_SM: i32 = 8;
+const SIZE_MD: i32 = 32;
+const SIZE_LG: i32 = 128;
+const SIZE_CO: i32 = SIZE_MD / SIZE_SM;
+
+#[derive(Debug)]
+struct Cell<K, V> {
+    index: ahash::AHashMap<K, u32>,
+    data: slab::Slab<(K, V)>
 }
 
-impl<T> BroadTree<T> where T: Copy + std::hash::Hash + Eq {
-    const S_SIZE: u32 = 8;
-    const M_SIZE: u32 = 32;
-    const L_SIZE: u32 = 128;
-
-    pub fn new() -> Self {
+impl<K, V> Default for Cell<K, V> {
+    #[inline]
+    fn default() -> Self {
         Self {
-            grid_s: Default::default(),
-            grid_m: Default::default(),
-            grid_l: Default::default(),
+            index: Default::default(),
+            data: Default::default(),
+        }
+    }
+}
+
+impl<K, V> Cell<K, V> where K: Copy + std::hash::Hash + Eq {
+    #[inline]
+    fn insert(&mut self, key: K, value: V) {
+        let id = self.data.insert((key, value)) as u32;
+        self.index.insert(key, id);
+    }
+
+    #[inline]
+    fn remove(&mut self, key: K) {
+        let id = self.index.remove(&key).unwrap();
+        self.data.remove(id as usize);
+    }
+
+    #[inline]
+    fn iter(&self) -> impl Iterator<Item = &(K, V)> + '_ {
+        self.data.iter().map(|(_, v)| v)
+    }
+}
+
+#[derive(Debug)]
+pub struct BroadTree<K, V> {
+    cells_co: ahash::AHashMap<IVec2, [Cell<K, V>; (1 + SIZE_CO * SIZE_CO) as usize]>,
+    cells_lg: ahash::AHashMap<IVec2, Cell<K, V>>,
+}
+
+impl<K, V> Default for BroadTree<K, V> {
+    fn default() -> Self {
+        Self {
+            cells_co: Default::default(),
+            cells_lg: Default::default(),
+        }
+    }
+}
+
+impl<K, V> BroadTree<K, V> where K: Copy + std::hash::Hash + Eq, V: Clone {
+    pub fn insert(&mut self, rect: IRect2, key: K, value: V) {
+        let size = rect.size().max_element();
+
+        match size {
+            // small
+            ..SIZE_SM => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_MD));
+                GridRange::new(min, max).for_each(|coord| {
+                    let [_, cells @ ..] = self.cells_co.entry(coord).or_default();
+                    let min = (rect.min.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                    let max = (rect.max.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                    GridRange::new(min, max).for_each(|coord| {
+                        let index = coord.x + coord.y * SIZE_CO;
+                        cells[index as usize].insert(key, value.clone());
+                    });
+                });
+            }
+            // medium
+            SIZE_SM..SIZE_MD => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_MD));
+                GridRange::new(min, max).for_each(|coord| {
+                    let [cell, ..] = self.cells_co.entry(coord).or_default();
+                    cell.insert(key, value.clone());
+                });
+            }
+            // large
+            SIZE_MD.. => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_LG));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_LG));
+                GridRange::new(min, max).for_each(|coord| {
+                    let cell = self.cells_lg.entry(coord).or_default();
+                    cell.insert(key, value.clone());
+                });
+            }
         }
     }
 
-    pub fn insert(&mut self, rect: IRect2, data: T) {
-        let size = rect.size().max_element() as u32;
+    pub fn remove(&mut self, rect: IRect2, key: K) {
+        let size = rect.size().max_element();
 
-        // small
-        if size <= Self::S_SIZE {
-            let min = rect.min.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    let grid = self.grid_s.entry(coord).or_default();
-                    grid.insert(data);
-                }
+        match size {
+            // small
+            ..SIZE_SM => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_MD));
+                GridRange::new(min, max).for_each(|coord| {
+                    if let Some([_, cells @ ..]) = self.cells_co.get_mut(&coord) {
+                        let min = (rect.min.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                        let max = (rect.max.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                        GridRange::new(min, max).for_each(|coord| {
+                            let index = coord.x + coord.y * SIZE_CO;
+                            cells[index as usize].remove(key);
+                        });
+                    }
+                });
             }
-        // medium
-        } else if size <= Self::M_SIZE {
-            let min = rect.min.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    let grid = self.grid_m.entry(coord).or_default();
-                    grid.insert(data);
-                }
+            // medium
+            SIZE_SM..SIZE_MD => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_MD));
+                GridRange::new(min, max).for_each(|coord| {
+                    if let Some([cell, ..]) = self.cells_co.get_mut(&coord) {
+                        cell.remove(key);
+                    }
+                });
             }
-        // large
-        } else {
-            let min = rect.min.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    let grid = self.grid_l.entry(coord).or_default();
-                    grid.insert(data);
-                }
+            // large
+            SIZE_MD.. => {
+                let min = rect.min.div_euclid(IVec2::splat(SIZE_LG));
+                let max = rect.max.div_euclid(IVec2::splat(SIZE_LG));
+                GridRange::new(min, max).for_each(|coord| {
+                    if let Some(cell) = self.cells_lg.get_mut(&coord) {
+                        cell.remove(key);
+                    }
+                });
             }
         }
     }
 
-    pub fn remove(&mut self, rect: IRect2, data: T) {
-        let size = rect.size().max_element() as u32;
-
-        // small
-        if size <= Self::S_SIZE {
-            let min = rect.min.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    self.grid_s.get_mut(&coord).map(|grid| grid.remove(&data));
-                }
-            }
-        // medium
-        } else if size <= Self::M_SIZE {
-            let min = rect.min.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    self.grid_m.get_mut(&coord).map(|grid| grid.remove(&data));
-                }
-            }
+    pub fn find(&self, rect: IRect2) -> impl Iterator<Item = &(K, V)> + '_ {
+        // small and medium
+        let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
+        let max = rect.max.div_euclid(IVec2::splat(SIZE_MD));
+        let iter_co = GridRange::new(min, max)
+            .filter_map(|coord| self.cells_co.get(&coord).map(|cells| (coord, cells)))
+            .flat_map(move |(coord, [cell, cells @ ..])| {
+                let min = (rect.min.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                let max = (rect.max.div_euclid(IVec2::splat(SIZE_SM)) - coord * SIZE_CO).clamp(IVec2::ZERO, IVec2::splat(SIZE_CO - 1));
+                GridRange::new(min, max)
+                    .flat_map(|coord| {
+                        let index = coord.x + coord.y * SIZE_CO;
+                        cells[index as usize].iter()
+                    })
+                    .chain(cell.iter())
+            });
         // large
-        } else {
-            let min = rect.min.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-            let max = rect.max.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-            for y in min.y..=max.y {
-                for x in min.x..=max.x {
-                    let coord = IVec2::new(x, y);
-                    self.grid_l.get_mut(&coord).map(|grid| grid.remove(&data));
-                }
-            }
+        let min = rect.min.div_euclid(IVec2::splat(SIZE_LG));
+        let max = rect.max.div_euclid(IVec2::splat(SIZE_LG));
+        let iter_lg = GridRange::new(min, max)
+            .filter_map(|coord| self.cells_lg.get(&coord))
+            .flat_map(|cell| cell.iter());
+
+        iter_co.chain(iter_lg)
+    }
+}
+
+pub struct GridRange {
+    current: IVec2,
+    min_x: i32,
+    max_x: i32,
+    max_y: i32,
+}
+
+impl GridRange {
+    #[inline]
+    pub fn new(min: IVec2, max: IVec2) -> Self {
+        if min.x > max.x || min.y > max.y {
+            panic!("min must be less than or equal to max");
+        }
+        
+        Self {
+            current: min,
+            min_x: min.x,
+            max_x: max.x,
+            max_y: max.y,
         }
     }
+}
 
-    pub fn find(&self, rect: IRect2) -> impl Iterator<Item = T> + '_ {
-        // small
-        let min = rect.min.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-        let max = rect.max.div_euclid(IVec2::splat(Self::S_SIZE as i32));
-        let iter_s = (min.y..=max.y).flat_map(move |y| {
-            (min.x..=max.x).flat_map(move |x| {
-                let coord = IVec2::new(x, y);
-                self.grid_s.get(&coord).into_iter().flat_map(|grid| grid.iter().copied())
-            })
-        });
-        // medium
-        let min = rect.min.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-        let max = rect.max.div_euclid(IVec2::splat(Self::M_SIZE as i32));
-        let iter_m = (min.y..=max.y).flat_map(move |y| {
-            (min.x..=max.x).flat_map(move |x| {
-                let coord = IVec2::new(x, y);
-                self.grid_m.get(&coord).into_iter().flat_map(|grid| grid.iter().copied())
-            })
-        });
-        // large
-        let min = rect.min.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-        let max = rect.max.div_euclid(IVec2::splat(Self::L_SIZE as i32));
-        let iter_l = (min.y..=max.y).flat_map(move |y| {
-            (min.x..=max.x).flat_map(move |x| {
-                let coord = IVec2::new(x, y);
-                self.grid_l.get(&coord).into_iter().flat_map(|grid| grid.iter().copied())
-            })
-        });
+impl Iterator for GridRange {
+    type Item = IVec2;
 
-        iter_s.chain(iter_m).chain(iter_l)
+    #[inline] 
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.y > self.max_y {
+            return None;
+        }
+        let result = self.current;
+
+        self.current.x += 1;
+        if self.current.x > self.max_x {
+            self.current.x = self.min_x;
+            self.current.y += 1;
+        }
+
+        Some(result)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.current.y > self.max_y {
+            return (0, Some(0));
+        }
+        
+        let num_rows = (self.max_y - self.current.y) as usize;
+        let width = (self.max_x - self.min_x + 1) as usize;
+        let num_cols = (self.max_x - self.current.x + 1) as usize;
+        
+        let count = num_rows * width + num_cols;
+        (count, Some(count))
     }
 }

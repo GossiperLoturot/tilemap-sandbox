@@ -4,12 +4,19 @@ use crate::geom::*;
 
 pub type BlockId = (u32, u16);
 
+#[derive(Clone, Debug)]
+struct BlockSpatialData {
+    rect: IRect2,
+    collision_rect: Option<Rect2>,
+    hint_rect: Rect2,
+}
+
 #[derive(Debug, Clone)]
 pub struct BlockInfo {
     pub display_name: String,
     pub description: String,
     pub size: IVec2,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
     pub y_sorting: bool,
 }
@@ -24,23 +31,31 @@ pub struct BlockArchetype {
     pub display_name: String,
     pub description: String,
     pub size: IVec2,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
     pub broad_rect: IRect2,
     pub y_sorting: bool,
 }
 
 impl BlockArchetype {
+    #[inline]
     pub fn rect(&self, coord: IVec2) -> IRect2 {
         IRect2::new(coord, coord + self.size - 1)
     }
 
-    pub fn collision_rect(&self, coord: IVec2) -> Rect2 {
-        Rect2::new(coord.as_vec2(), coord.as_vec2()) + self.collision_rect
+    #[inline]
+    pub fn collision_rect(&self, coord: IVec2) -> Option<Rect2> {
+        self.collision_rect.map(|rect| coord.as_vec2() + rect)
     }
 
+    #[inline]
     pub fn hint_rect(&self, coord: IVec2) -> Rect2 {
-        Rect2::new(coord.as_vec2(), coord.as_vec2()) + self.hint_rect
+        coord.as_vec2() + self.hint_rect
+    }
+
+    #[inline]
+    pub fn broad_rect(&self, coord: IVec2) -> IRect2 {
+        coord + self.broad_rect
     }
 }
 
@@ -69,7 +84,7 @@ pub struct BlockField {
     archetypes: Vec<BlockArchetype>,
     chunks: Vec<BlockChunk>,
     coord_index: ahash::AHashMap<IVec2, u32>,
-    broad_tree: BroadTree<BlockId>,
+    broad_tree: BroadTree<BlockId, BlockSpatialData>,
 }
 
 impl BlockField {
@@ -82,17 +97,19 @@ impl BlockField {
             if block.size.x <= 0 || block.size.y <= 0 {
                 panic!("size must be positive");
             }
-            let broad_rect = IRect2::new(IVec2::new(0, 0), block.size);
+            let mut broad_rect = IRect2::new(IVec2::ZERO, block.size);
 
-            if block.collision_rect.size().x < 0.0 || block.collision_rect.size().y < 0.0 {
-                panic!("collision size must be non-negative");
+            if let Some(rect) = &block.collision_rect {
+                if rect.size().x < 0.0 || rect.size().y < 0.0 {
+                    panic!("collision size must be non-negative");
+                }
+                broad_rect = broad_rect.maximum(rect.trunc_over().as_irect2());
             }
-            let broad_rect = broad_rect.maximum(block.collision_rect.floor().as_irect2());
 
             if block.hint_rect.size().x < 0.0 || block.hint_rect.size().y < 0.0 {
                 panic!("hint size must be non-negative");
             }
-            let broad_rect = broad_rect.maximum(block.hint_rect.floor().as_irect2());
+            broad_rect = broad_rect.maximum(block.hint_rect.trunc_over().as_irect2());
 
             archetypes.push(BlockArchetype {
                 display_name: block.display_name,
@@ -134,7 +151,7 @@ impl BlockField {
 
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(BlockChunk {
-                version: 0,
+                version: Default::default(),
                 blocks: Default::default(),
             });
             self.coord_index.insert(chunk_coord, chunk_id);
@@ -149,8 +166,12 @@ impl BlockField {
         let local_id = chunk.blocks.vacant_key() as u16;
 
         // register spatial index
-        let rect = block.coord + archetype.broad_rect;
-        self.broad_tree.insert(rect, (chunk_id, local_id));
+        let broad_rect = archetype.broad_rect(block.coord);
+        self.broad_tree.insert(broad_rect, (chunk_id, local_id), BlockSpatialData {
+            rect: archetype.rect(block.coord),
+            collision_rect: archetype.collision_rect(block.coord),
+            hint_rect: archetype.hint_rect(block.coord),
+        });
 
         chunk.blocks.insert(block);
         chunk.version += 1;
@@ -167,8 +188,8 @@ impl BlockField {
 
         // unregister spatial index
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
-        let rect = block.coord + archetype.broad_rect;
-        self.broad_tree.remove(rect, (chunk_id, local_id));
+        let broad_rect = archetype.broad_rect(block.coord);
+        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
 
         Ok(block)
     }
@@ -194,17 +215,20 @@ impl BlockField {
 
     // archetype
 
+    #[inline]
     pub fn get_archetype(&self, archetype_id: u16) -> Result<&BlockArchetype, BlockError> {
         self.archetypes.get(archetype_id as usize).ok_or(BlockError::InvalidId)
     }
 
     // transfer chunk data
 
+    #[inline]
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         coord.div_euclid(chunk_size).as_ivec2()
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&BlockChunk, BlockError> {
         let chunk_id = self.coord_index.get(&chunk_coord).ok_or(BlockError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
@@ -213,47 +237,47 @@ impl BlockField {
 
     // spatial features
 
+    #[inline]
     pub fn find_with_point(&self, point: IVec2) -> Option<BlockId> {
         self.find_with_rect(IRect2::new(point, point)).next()
     }
 
+    #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = BlockId> + '_ {
         self.broad_tree.find(rect)
-            .filter(move |id| {
-                let block = self.get(*id).unwrap();
-                let archetype = &self.archetypes[block.archetype_id as usize];
-                Intersects::intersects(&rect, &archetype.rect(block.coord))
-            })
+            .map(|(id, data)| (id, data.rect))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 
     // collision features
 
+    #[inline]
     pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
+    #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
         self.broad_tree.find(rect.floor().as_irect2())
-            .filter(move |id| {
-                let block = self.get(*id).unwrap();
-                let archetype = &self.archetypes[block.archetype_id as usize];
-                Intersects::intersects(&rect, &archetype.collision_rect(block.coord))
-            })
+            .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 
     // hint features
 
+    #[inline]
     pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
+    #[inline]
     pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
         self.broad_tree.find(rect.floor().as_irect2())
-            .filter(move |id| {
-                let block = self.get(*id).unwrap();
-                let archetype = &self.archetypes[block.archetype_id as usize];
-                Intersects::intersects(&rect, &archetype.hint_rect(block.coord))
-            })
+            .map(|(id, data)| (id, data.hint_rect))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 }
 
@@ -287,7 +311,7 @@ mod tests {
                     display_name: "block_0".into(),
                     description: "block_0_desc".into(),
                     size: IVec2::new(1, 1),
-                    collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                    collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                     hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                     y_sorting: false,
                 },
@@ -295,7 +319,7 @@ mod tests {
                     display_name: "block_1".into(),
                     description: "block_1_desc".into(),
                     size: IVec2::new(1, 1),
-                    collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                    collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                     hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                     y_sorting: false,
                 },
@@ -311,7 +335,7 @@ mod tests {
                 display_name: "block_0".into(),
                 description: "block_0_desc".into(),
                 size: IVec2::new(-1, -1),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             }],
@@ -326,7 +350,7 @@ mod tests {
                 display_name: "block_0".into(),
                 description: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             }],
@@ -341,7 +365,7 @@ mod tests {
                 display_name: "block_0".into(),
                 description: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0)),
                 y_sorting: false,
             }],

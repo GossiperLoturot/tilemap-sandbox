@@ -475,6 +475,7 @@ impl Rem<IRect2> for IRect2 {
 
 // IRect2 %= i32
 impl RemAssign<i32> for IRect2 {
+    #[inline]
     fn rem_assign(&mut self, rhs: i32) {
         self.min.rem_assign(rhs);
         self.max.rem_assign(rhs);

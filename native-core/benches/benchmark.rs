@@ -135,7 +135,7 @@ fn benchmark_tile(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("tile find rect", Box::new(|field, i| {
-            let query = std::hint::black_box(IRect2::new(IVec2::ZERO, IVec2::new(i as i32, 0)));
+            let query = std::hint::black_box(IRect2::new(IVec2::new(i as i32 - 100, 0), IVec2::new(i as i32, 100)));
             let result = field.find_with_rect(query).count();
             std::hint::black_box(result);
         })),
@@ -145,7 +145,7 @@ fn benchmark_tile(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("tile find collision rect", Box::new(|field, i| {
-            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let query = std::hint::black_box(Rect2::new(Vec2::new(i as f32 - 100.0, 0.0), Vec2::new(i as f32, 100.0)));
             let result = field.find_with_collision_rect(query).count();
             std::hint::black_box(result);
         })),
@@ -156,15 +156,17 @@ fn benchmark_tile(c: &mut Criterion) {
                 let mut field = make_tile_field();
 
                 let mut ids = vec![];
-                for i in 0..iters {
-                    let id = field
-                        .insert(dataflow::Tile {
-                            archetype_id: 0,
-                            coord: IVec2::new(i as i32, 0),
-                            ..Default::default()
-                        })
-                        .unwrap();
-                    ids.push(id);
+                for x in 0..iters {
+                    for y in 0..100 {
+                        let id = field
+                            .insert(dataflow::Tile {
+                                archetype_id: 0,
+                                coord: IVec2::new(x as i32, y as i32),
+                                ..Default::default()
+                            })
+                            .unwrap();
+                        ids.push(id);
+                    }
                 }
 
                 let instance = std::time::Instant::now();
@@ -184,7 +186,7 @@ fn make_block_field() -> dataflow::BlockField {
                 display_name: "block_0".into(),
                 description: "block_0_desc".into(),
                 size: IVec2::new(1, 1),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
@@ -192,7 +194,7 @@ fn make_block_field() -> dataflow::BlockField {
                 display_name: "block_1".into(),
                 description: "block_1_desc".into(),
                 size: IVec2::new(1, 1),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
@@ -315,7 +317,7 @@ fn benchmark_block(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("block find rect", Box::new(|field, i| {
-            let query = std::hint::black_box(IRect2::new(IVec2::ZERO, IVec2::new(i as i32, 0)));
+            let query = std::hint::black_box(IRect2::new(IVec2::new(i as i32 - 100, 0), IVec2::new(i as i32, 100)));
             let result = field.find_with_rect(query).count();
             std::hint::black_box(result);
         })),
@@ -325,8 +327,18 @@ fn benchmark_block(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("block find collision rect", Box::new(|field, i| {
-            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let query = std::hint::black_box(Rect2::new(Vec2::new(i as f32 - 100.0, 0.0), Vec2::new(i as f32, 100.0)));
             let result = field.find_with_collision_rect(query).count();
+            std::hint::black_box(result);
+        })),
+        ("block find hint point", Box::new(|field, i| {
+            let query = std::hint::black_box(Vec2::new(i as f32, 0.0));
+            let result = field.find_with_hint_point(query).count();
+            std::hint::black_box(result);
+        })),
+        ("block find hint rect", Box::new(|field, i| {
+            let query = std::hint::black_box(Rect2::new(Vec2::new(i as f32 - 100.0, 0.0), Vec2::new(i as f32, 100.0)));
+            let result = field.find_with_hint_rect(query).count();
             std::hint::black_box(result);
         })),
     ];
@@ -336,15 +348,17 @@ fn benchmark_block(c: &mut Criterion) {
                 let mut field = make_block_field();
 
                 let mut ids = vec![];
-                for i in 0..iters {
-                    let id = field
-                        .insert(dataflow::Block {
-                            archetype_id: 0,
-                            coord: IVec2::new(i as i32, 0),
-                            ..Default::default()
-                        })
-                        .unwrap();
-                    ids.push(id);
+                for x in 0..iters {
+                    for y in 0..100 {
+                        let id = field
+                            .insert(dataflow::Block {
+                                archetype_id: 0,
+                                coord: IVec2::new(x as i32, y as i32),
+                                ..Default::default()
+                            })
+                            .unwrap();
+                        ids.push(id);
+                    }
                 }
 
                 let instance = std::time::Instant::now();
@@ -363,14 +377,14 @@ fn make_entity_field() -> dataflow::EntityField {
             dataflow::EntityInfo {
                 display_name: "entity_0".into(),
                 description: "entity_0_desc".into(),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
             dataflow::EntityInfo {
                 display_name: "entity_1".into(),
                 description: "entity_1_desc".into(),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             },
@@ -484,7 +498,7 @@ fn benchmark_entity(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("entity find collision rect", Box::new(|field, i| {
-            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let query = std::hint::black_box(Rect2::new(Vec2::new(i as f32 - 100.0, 0.0), Vec2::new(i as f32, 100.0)));
             let result = field.find_with_collision_rect(query).count();
             std::hint::black_box(result);
         })),
@@ -494,7 +508,7 @@ fn benchmark_entity(c: &mut Criterion) {
             std::hint::black_box(result);
         })),
         ("entity find hint rect", Box::new(|field, i| {
-            let query = std::hint::black_box(Rect2::new(Vec2::ZERO, Vec2::new(i as f32, 0.0)));
+            let query = std::hint::black_box(Rect2::new(Vec2::new(i as f32 - 100.0, 0.0), Vec2::new(i as f32, 100.0)));
             let result = field.find_with_hint_rect(query).count();
             std::hint::black_box(result);
         })),
@@ -505,15 +519,17 @@ fn benchmark_entity(c: &mut Criterion) {
                 let mut field = make_entity_field();
 
                 let mut ids = vec![];
-                for i in 0..iters {
-                    let id = field
-                        .insert(dataflow::Entity {
-                            archetype_id: 0,
-                            coord: Vec2::new(i as f32, 0.0),
-                            ..Default::default()
-                        })
-                        .unwrap();
-                    ids.push(id);
+                for x in 0..iters {
+                    for y in 0..100 {
+                        let id = field
+                            .insert(dataflow::Entity {
+                                archetype_id: 0,
+                                coord: Vec2::new(x as f32, y as f32),
+                                ..Default::default()
+                            })
+                            .unwrap();
+                        ids.push(id);
+                    }
                 }
 
                 let instance = std::time::Instant::now();

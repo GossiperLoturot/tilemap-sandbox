@@ -4,11 +4,17 @@ use crate::geom::*;
 
 pub type EntityId = (u32, u16);
 
+#[derive(Clone, Debug)]
+struct EntitySpatialData {
+    collision_rect: Option<Rect2>,
+    hint_rect: Rect2,
+}
+
 #[derive(Debug, Clone)]
 pub struct EntityInfo {
     pub display_name: String,
     pub description: String,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
     pub y_sorting: bool,
 }
@@ -22,19 +28,26 @@ pub struct EntityFieldInfo {
 pub struct EntityArchetype {
     pub display_name: String,
     pub description: String,
-    pub collision_rect: Rect2,
+    pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
     pub broad_rect: IRect2,
     pub y_sorting: bool,
 }
 
 impl EntityArchetype {
-    pub fn collision_rect(&self, coord: Vec2) -> Rect2 {
-        Rect2::new(coord, coord) + self.collision_rect
+    #[inline]
+    pub fn collision_rect(&self, coord: Vec2) -> Option<Rect2> {
+        self.collision_rect.map(|rect| coord + rect)
     }
 
+    #[inline]
     pub fn hint_rect(&self, coord: Vec2) -> Rect2 {
-        Rect2::new(coord, coord) + self.hint_rect
+        coord + self.hint_rect
+    }
+
+    #[inline]
+    pub fn broad_rect(&self, coord: Vec2) -> IRect2 {
+        coord.floor().as_ivec2() + self.broad_rect
     }
 }
 
@@ -63,7 +76,7 @@ pub struct EntityField {
     archetypes: Vec<EntityArchetype>,
     chunks: Vec<EntityChunk>,
     coord_index: ahash::AHashMap<IVec2, u32>,
-    broad_tree: BroadTree<EntityId>,
+    broad_tree: BroadTree<EntityId, EntitySpatialData>,
 }
 
 impl EntityField {
@@ -73,15 +86,19 @@ impl EntityField {
         let mut archetyps = vec![];
 
         for entity in info.entities {
-            if entity.collision_rect.size().x < 0.0 || entity.collision_rect.size().y < 0.0 {
-                panic!("collision size must be non-negative");
+            let mut broad_rect = IRect2::new(IVec2::MAX, IVec2::MIN);
+
+            if let Some(rect) = &entity.collision_rect {
+                if rect.size().x < 0.0 || rect.size().y < 0.0 {
+                    panic!("collision size must be non-negative");
+                }
+                broad_rect = broad_rect.maximum(rect.trunc_over().as_irect2());
             }
-            let broad_rect = entity.collision_rect.floor().as_irect2();
 
             if entity.hint_rect.size().x < 0.0 || entity.hint_rect.size().y < 0.0 {
                 panic!("hint size must be non-negative");
             }
-            let broad_rect = broad_rect.maximum(entity.hint_rect.floor().as_irect2());
+            broad_rect = broad_rect.maximum(entity.hint_rect.trunc_over().as_irect2());
 
             archetyps.push(EntityArchetype {
                 display_name: entity.display_name,
@@ -132,8 +149,11 @@ impl EntityField {
         let local_id = chunk.entities.vacant_key() as u16;
 
         // register spatial index
-        let rect = entity.coord.floor().as_ivec2() + archetype.broad_rect;
-        self.broad_tree.insert(rect, (chunk_id, local_id));
+        let broad_rect = archetype.broad_rect(entity.coord);
+        self.broad_tree.insert(broad_rect, (chunk_id, local_id), EntitySpatialData {
+            collision_rect: archetype.collision_rect(entity.coord),
+            hint_rect: archetype.hint_rect(entity.coord),
+        });
 
         chunk.entities.insert(entity);
         chunk.version += 1;
@@ -150,8 +170,8 @@ impl EntityField {
 
         // unregister spatial index
         let archetype = self.archetypes.get(entity.archetype_id as usize).unwrap();
-        let rect = entity.coord.floor().as_ivec2() + archetype.broad_rect;
-        self.broad_tree.insert(rect, (chunk_id, local_id));
+        let broad_rect = archetype.broad_rect(entity.coord);
+        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
 
         Ok(entity)
     }
@@ -179,17 +199,20 @@ impl EntityField {
 
     // archetype
 
+    #[inline]
     pub fn get_archetype(&self, archetype_id: u16) -> Result<&EntityArchetype, EntityError> {
         self.archetypes.get(archetype_id as usize).ok_or(EntityError::InvalidId)
     }
 
     // transfer chunk data
 
+    #[inline]
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         coord.div_euclid(chunk_size).as_ivec2()
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&EntityChunk, EntityError> {
         let chunk_id = self.coord_index.get(&chunk_coord).ok_or(EntityError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
@@ -198,32 +221,32 @@ impl EntityField {
 
     // collision features
 
+    #[inline]
     pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
+    #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
         self.broad_tree.find(rect.floor().as_irect2())
-            .filter(move |id| {
-                let entity = self.get(*id).unwrap();
-                let archetype = &self.archetypes[entity.archetype_id as usize];
-                Intersects::intersects(&rect, &archetype.collision_rect(entity.coord))
-            })
+            .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 
     // hint features
 
+    #[inline]
     pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
+    #[inline]
     pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
         self.broad_tree.find(rect.floor().as_irect2())
-            .filter(move |id| {
-                let entity = self.get(*id).unwrap();
-                let archetype = &self.archetypes[entity.archetype_id as usize];
-                Intersects::intersects(&rect, &archetype.hint_rect(entity.coord))
-            })
+            .map(|(id, data)| (id, data.hint_rect))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 }
 
@@ -256,14 +279,14 @@ mod tests {
                 EntityInfo {
                     display_name: "entity_0".into(),
                     description: "entity_0_desc".into(),
-                    collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                    collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                     hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                     y_sorting: false,
                 },
                 EntityInfo {
                     display_name: "entity_1".into(),
                     description: "entity_1_desc".into(),
-                    collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                    collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                     hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                     y_sorting: false,
                 },
@@ -278,7 +301,7 @@ mod tests {
             entities: vec![EntityInfo {
                 display_name: "entity_0".into(),
                 description: "entity_0_desc".into(),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
                 y_sorting: false,
             }],
@@ -292,7 +315,7 @@ mod tests {
             entities: vec![EntityInfo {
                 display_name: "entity_0".into(),
                 description: "entity_0_desc".into(),
-                collision_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+                collision_rect: Some(Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))),
                 hint_rect: Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(-1.0, -1.0)),
                 y_sorting: false,
             }],

@@ -5,6 +5,12 @@ use crate::geom::*;
 pub type TileId = (u32, u16);
 
 #[derive(Debug, Clone)]
+struct TileSpatialData {
+    rect: IRect2,
+    collision_rect: Option<Rect2>,
+}
+
+#[derive(Debug, Clone)]
 pub struct TileInfo {
     pub display_name: String,
     pub description: String,
@@ -24,12 +30,23 @@ pub struct TileArchetype {
 }
 
 impl TileArchetype {
+    #[inline]
     pub fn rect(coord: IVec2) -> IRect2 {
         IRect2::new(coord, coord)
     }
 
-    pub fn collision_rect(coord: IVec2) -> Rect2 {
-        Rect2::new(coord.as_vec2(), coord.as_vec2() + 1.0)
+    #[inline]
+    pub fn collision_rect(&self, coord: IVec2) -> Option<Rect2> {
+        if !self.collision {
+            return None;
+        }
+
+        Some(Rect2::new(coord.as_vec2(), coord.as_vec2() + 1.0))
+    }
+
+    #[inline]
+    pub fn broad_rect(coord: IVec2) -> IRect2 {
+        IRect2::new(coord, coord + 1)
     }
 }
 
@@ -58,7 +75,7 @@ pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     coord_index: std::collections::HashMap<IVec2, u32, ahash::RandomState>,
-    broad_tree: BroadTree<TileId>,
+    broad_tree: BroadTree<TileId, TileSpatialData>,
 }
 
 impl TileField {
@@ -84,7 +101,7 @@ impl TileField {
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<TileId, TileError> {
-        let _ = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
+        let archetype = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
 
         // check by spatial features
         if self.find_with_point(tile.coord).is_some() {
@@ -118,8 +135,11 @@ impl TileField {
         let local_id = chunk.tiles.vacant_key() as u16;
 
         // register spatial index
-        let rect = tile.coord + IRect2::new(IVec2::ZERO, IVec2::ONE);
-        self.broad_tree.insert(rect, (chunk_id, local_id));
+        let broad_rect = TileArchetype::broad_rect(tile.coord);
+        self.broad_tree.insert(broad_rect, (chunk_id, local_id), TileSpatialData {
+            rect: TileArchetype::rect(tile.coord),
+            collision_rect: archetype.collision_rect(tile.coord),
+        });
 
         chunk.tiles.insert(tile);
         chunk.version += 1;
@@ -135,8 +155,8 @@ impl TileField {
         chunk.version += 1;
 
         // unregister spatial index
-        let rect = tile.coord + IRect2::new(IVec2::ZERO, IVec2::ONE);
-        self.broad_tree.remove(rect, (chunk_id, local_id));
+        let broad_rect = TileArchetype::broad_rect(tile.coord);
+        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
 
         Ok(tile)
     }
@@ -162,17 +182,20 @@ impl TileField {
 
     // archetype
 
+    #[inline]
     pub fn get_archetype(&self, archetype_id: u16) -> Result<&TileArchetype, TileError> {
         self.archetypes.get(archetype_id as usize).ok_or(TileError::InvalidId)
     }
 
     // transfer chunk data
 
+    #[inline]
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         coord.div_euclid(chunk_size).as_ivec2()
     }
 
+    #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, TileError> {
         let chunk_id = self.coord_index.get(&chunk_coord).ok_or(TileError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
@@ -181,31 +204,32 @@ impl TileField {
 
     // spatial features
 
+    #[inline]
     pub fn find_with_point(&self, point: IVec2) -> Option<TileId> {
         self.find_with_rect(IRect2::new(point, point)).next()
     }
 
+    #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
         self.broad_tree.find(rect)
-            .filter(move |id| {
-                let tile = self.get(*id).unwrap();
-                Intersects::intersects(&rect, &TileArchetype::rect(tile.coord))
-            })
+            .map(|(id, data)| (id, data.rect))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 
     // collision features
 
+    #[inline]
     pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = TileId> + '_ {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
+    #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
         self.broad_tree.find(rect.floor().as_irect2())
-            .filter(move |id| {
-                let tile = self.get(*id).unwrap();
-                let archetype = &self.archetypes[tile.archetype_id as usize];
-                archetype.collision && Intersects::intersects(&rect, &TileArchetype::collision_rect(tile.coord))
-            })
+            .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
+            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
+            .map(|(id, _)| *id)
     }
 }
 
