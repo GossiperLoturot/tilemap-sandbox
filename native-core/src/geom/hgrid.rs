@@ -43,12 +43,12 @@ impl<K, V> Cell<K, V> where K: Copy + std::hash::Hash + Eq {
 }
 
 #[derive(Debug)]
-pub struct BroadTree<K, V> {
+pub struct HGrid<K, V> {
     cells_co: ahash::AHashMap<IVec2, [Cell<K, V>; (1 + SIZE_CO * SIZE_CO) as usize]>,
     cells_lg: ahash::AHashMap<IVec2, Cell<K, V>>,
 }
 
-impl<K, V> Default for BroadTree<K, V> {
+impl<K, V> Default for HGrid<K, V> {
     fn default() -> Self {
         Self {
             cells_co: Default::default(),
@@ -57,7 +57,7 @@ impl<K, V> Default for BroadTree<K, V> {
     }
 }
 
-impl<K, V> BroadTree<K, V> where K: Copy + std::hash::Hash + Eq, V: Clone {
+impl<K, V> HGrid<K, V> where K: Copy + std::hash::Hash + Eq, V: Clone {
     pub fn insert(&mut self, rect: IRect2, key: K, value: V) {
         let size = rect.size().max_element();
 

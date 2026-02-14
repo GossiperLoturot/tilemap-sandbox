@@ -76,7 +76,7 @@ pub struct EntityField {
     archetypes: Vec<EntityArchetype>,
     chunks: Vec<EntityChunk>,
     coord_index: ahash::AHashMap<IVec2, u32>,
-    broad_tree: BroadTree<EntityId, EntitySpatialData>,
+    hgrid: HGrid<EntityId, EntitySpatialData>,
 }
 
 impl EntityField {
@@ -114,7 +114,7 @@ impl EntityField {
             archetypes: archetyps,
             chunks: Default::default(),
             coord_index: Default::default(),
-            broad_tree: Default::default(),
+            hgrid: Default::default(),
         }
     }
 
@@ -150,7 +150,7 @@ impl EntityField {
 
         // register spatial index
         let broad_rect = archetype.broad_rect(entity.coord);
-        self.broad_tree.insert(broad_rect, (chunk_id, local_id), EntitySpatialData {
+        self.hgrid.insert(broad_rect, (chunk_id, local_id), EntitySpatialData {
             collision_rect: archetype.collision_rect(entity.coord),
             hint_rect: archetype.hint_rect(entity.coord),
         });
@@ -171,7 +171,7 @@ impl EntityField {
         // unregister spatial index
         let archetype = self.archetypes.get(entity.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(entity.coord);
-        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
+        self.hgrid.remove(broad_rect, (chunk_id, local_id));
 
         Ok(entity)
     }
@@ -228,7 +228,7 @@ impl EntityField {
 
     #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
-        self.broad_tree.find(rect.floor().as_irect2())
+        self.hgrid.find(rect.trunc_over().as_irect2())
             .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)
@@ -243,7 +243,7 @@ impl EntityField {
 
     #[inline]
     pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
-        self.broad_tree.find(rect.floor().as_irect2())
+        self.hgrid.find(rect.trunc_over().as_irect2())
             .map(|(id, data)| (id, data.hint_rect))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)

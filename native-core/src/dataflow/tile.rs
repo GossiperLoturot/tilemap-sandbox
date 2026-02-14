@@ -75,7 +75,7 @@ pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     coord_index: std::collections::HashMap<IVec2, u32, ahash::RandomState>,
-    broad_tree: BroadTree<TileId, TileSpatialData>,
+    hgrid: HGrid<TileId, TileSpatialData>,
 }
 
 impl TileField {
@@ -96,7 +96,7 @@ impl TileField {
             archetypes,
             chunks: Default::default(),
             coord_index: Default::default(),
-            broad_tree: Default::default(),
+            hgrid: Default::default(),
         }
     }
 
@@ -136,7 +136,7 @@ impl TileField {
 
         // register spatial index
         let broad_rect = TileArchetype::broad_rect(tile.coord);
-        self.broad_tree.insert(broad_rect, (chunk_id, local_id), TileSpatialData {
+        self.hgrid.insert(broad_rect, (chunk_id, local_id), TileSpatialData {
             rect: TileArchetype::rect(tile.coord),
             collision_rect: archetype.collision_rect(tile.coord),
         });
@@ -156,7 +156,7 @@ impl TileField {
 
         // unregister spatial index
         let broad_rect = TileArchetype::broad_rect(tile.coord);
-        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
+        self.hgrid.remove(broad_rect, (chunk_id, local_id));
 
         Ok(tile)
     }
@@ -211,7 +211,7 @@ impl TileField {
 
     #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
-        self.broad_tree.find(rect)
+        self.hgrid.find(rect)
             .map(|(id, data)| (id, data.rect))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)
@@ -226,7 +226,7 @@ impl TileField {
 
     #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
-        self.broad_tree.find(rect.floor().as_irect2())
+        self.hgrid.find(rect.trunc_over().as_irect2())
             .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)

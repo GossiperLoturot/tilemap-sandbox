@@ -84,7 +84,7 @@ pub struct BlockField {
     archetypes: Vec<BlockArchetype>,
     chunks: Vec<BlockChunk>,
     coord_index: ahash::AHashMap<IVec2, u32>,
-    broad_tree: BroadTree<BlockId, BlockSpatialData>,
+    hgrid: HGrid<BlockId, BlockSpatialData>,
 }
 
 impl BlockField {
@@ -126,7 +126,7 @@ impl BlockField {
             archetypes,
             chunks: Default::default(),
             coord_index: Default::default(),
-            broad_tree: Default::default(),
+            hgrid: Default::default(),
         }
     }
 
@@ -167,7 +167,7 @@ impl BlockField {
 
         // register spatial index
         let broad_rect = archetype.broad_rect(block.coord);
-        self.broad_tree.insert(broad_rect, (chunk_id, local_id), BlockSpatialData {
+        self.hgrid.insert(broad_rect, (chunk_id, local_id), BlockSpatialData {
             rect: archetype.rect(block.coord),
             collision_rect: archetype.collision_rect(block.coord),
             hint_rect: archetype.hint_rect(block.coord),
@@ -189,7 +189,7 @@ impl BlockField {
         // unregister spatial index
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(block.coord);
-        self.broad_tree.remove(broad_rect, (chunk_id, local_id));
+        self.hgrid.remove(broad_rect, (chunk_id, local_id));
 
         Ok(block)
     }
@@ -244,7 +244,7 @@ impl BlockField {
 
     #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = BlockId> + '_ {
-        self.broad_tree.find(rect)
+        self.hgrid.find(rect)
             .map(|(id, data)| (id, data.rect))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)
@@ -259,7 +259,7 @@ impl BlockField {
 
     #[inline]
     pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
-        self.broad_tree.find(rect.floor().as_irect2())
+        self.hgrid.find(rect.trunc_over().as_irect2())
             .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)
@@ -274,7 +274,7 @@ impl BlockField {
 
     #[inline]
     pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
-        self.broad_tree.find(rect.floor().as_irect2())
+        self.hgrid.find(rect.trunc_over().as_irect2())
             .map(|(id, data)| (id, data.hint_rect))
             .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
             .map(|(id, _)| *id)
