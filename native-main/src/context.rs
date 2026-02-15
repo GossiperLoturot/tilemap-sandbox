@@ -79,7 +79,7 @@ impl Context {
                 step_tick: 0,
                 is_loop: false,
             }],
-            y_sorting: false,
+            y_sorting: true,
             size: IVec2::new(1, 1),
             collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
@@ -458,12 +458,24 @@ impl Context {
         };
         addon::GeneratorSystem::insert(&mut context.dataflow, desc).unwrap();
 
+        // player system
+        addon::PlayerSystem::insert(&mut context.dataflow).unwrap();
+
         self.context = Some(context);
     }
 
     #[func]
     fn close(&mut self) {
         self.context = None;
+    }
+
+    #[func]
+    fn spawn_player(&mut self) {
+        let context = self.context.as_mut().unwrap();
+
+        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_player"), ..Default::default() };
+        let entity_id = context.dataflow.insert_entity(entity).unwrap();
+        addon::PlayerSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
     }
 
     // update system
@@ -474,6 +486,8 @@ impl Context {
 
         let delta_secs = delta_secs as f32;
         context.dataflow.forward_time(delta_secs);
+
+        addon::PlayerSystem::process(&mut context.dataflow, delta_secs).unwrap();
     }
 
     #[func]
@@ -484,6 +498,14 @@ impl Context {
         let size = Vec2::new(rect.size.x, rect.size.y);
         let rect = core::Rect2::new(position, position + size);
         addon::GeneratorSystem::generate(&mut context.dataflow, rect).unwrap();
+    }
+
+    #[func]
+    fn push_input(&mut self, input: Vector2) {
+        let context = self.context.as_mut().unwrap();
+
+        let input = Vec2::new(input.x, input.y);
+        addon::PlayerSystem::push_input(&mut context.dataflow, input).unwrap();
     }
 
     // draw

@@ -13,6 +13,9 @@ signal view_rect_changed(rect: Rect2)
 
 
 func _process(delta) -> void:
+	var move_input = Input.get_vector("left", "right", "down", "up")
+	Context.push_input(move_input)
+
 	var location = Vector2()
 
 	if Input.is_action_just_released("scroll_up"):

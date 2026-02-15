@@ -17,5 +17,7 @@
 // mod player;
 
 pub use generator::*;
+pub use player::*;
 
 mod generator;
+mod player;

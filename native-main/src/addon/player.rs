@@ -1,63 +1,56 @@
-use std::rc::Rc;
-
 use glam::*;
-use native_core::dataflow::*;
-
-use super::*;
+use native_core::*;
 
 // resource
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+enum PlayerState {
+    Wait,
+    Move,
+}
+
+#[derive(Debug)]
 pub struct PlayerResource {
-    current: Option<EntityId>,
+    current: Option<dataflow::EntityId>,
     input: Option<Vec2>,
+    state: PlayerState,
+    move_speed: f32,
+    reverse: bool,
 }
 
-impl PlayerResource {
-    #[inline]
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
-impl Resource for PlayerResource {}
+impl dataflow::Resource for PlayerResource {}
 
 // system
 
 pub struct PlayerSystem;
 
 impl PlayerSystem {
-    pub fn insert_entity(
-        dataflow: &mut Dataflow,
-        entity_key: EntityId,
-    ) -> Result<(), PlayerError> {
+    pub fn insert(dataflow: &mut dataflow::Dataflow) -> Result<(), PlayerError> {
+        let resource = PlayerResource {
+            current: Default::default(),
+            input: Default::default(),
+            state: PlayerState::Wait,
+            move_speed: 1.0,
+            reverse: false,
+        };
+        dataflow.insert_resources(resource)?;
+        Ok(())
+    }
+
+    pub fn attach_entity(dataflow: &mut dataflow::Dataflow, entity_id: dataflow::EntityId) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
 
         if resource.current.is_some() {
             return Err(PlayerError::AlreadyExist);
         }
-        resource.current = Some(entity_key);
+        resource.current = Some(entity_id);
         Ok(())
     }
 
-    pub fn remove_entity(dataflow: &mut Dataflow) -> Result<EntityId, PlayerError> {
+    pub fn push_input(dataflow: &mut dataflow::Dataflow, input: Vec2) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
-
-        resource.current.take().ok_or(PlayerError::NotFound)
-    }
-
-    pub fn get_entity(dataflow: &Dataflow) -> Result<EntityId, PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let resource = resource.borrow().map_err(DataflowError::from)?;
-
-        resource.current.ok_or(PlayerError::NotFound)
-    }
-
-    pub fn push_input(dataflow: &mut Dataflow, input: Vec2) -> Result<(), PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
 
         if resource.input.is_some() {
             return Err(PlayerError::AlreadyExist);
@@ -66,201 +59,58 @@ impl PlayerSystem {
         Ok(())
     }
 
-    pub fn pop_input(dataflow: &mut Dataflow) -> Result<Vec2, PlayerError> {
+    pub fn process(dataflow: &mut dataflow::Dataflow, delta_secs: f32) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(DataflowError::from)?;
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
 
-        resource.input.take().ok_or(PlayerError::NotFound)
-    }
+        let entity_id = resource.current.ok_or(PlayerError::NotFound)?;
+        let mut entity = dataflow.get_entity(entity_id).unwrap().clone();
 
-    pub fn get_input(dataflow: &Dataflow) -> Result<Vec2, PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let resource = resource.borrow().map_err(DataflowError::from)?;
+        if let Some(input) = resource.input.take() {
+            let is_move = input.length_squared() > f32::EPSILON;
 
-        resource.input.ok_or(PlayerError::NotFound)
-    }
+            if is_move {
+                let location = entity.coord + resource.move_speed * input * delta_secs;
 
-    pub fn get_location(dataflow: &Dataflow) -> Result<Vec2, PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let resource = resource.borrow().map_err(DataflowError::from)?;
+                entity.coord = location;
 
-        let current = resource.current.ok_or(PlayerError::NotFound)?;
-        let location = dataflow.get_entity(current)?.coord;
-        Ok(location)
-    }
+                if input.x < 0.0 {
+                    resource.reverse = true;
+                } else if input.x > 0.0 {
+                    resource.reverse = false;
+                }
+            }
 
-    pub fn get_inventory_key(dataflow: &Dataflow) -> Result<InventoryId, PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let resource = resource.borrow().map_err(DataflowError::from)?;
+            match resource.state {
+                PlayerState::Wait if is_move => {
+                    entity.variant = 2;
+                    entity.tick = dataflow.get_tick() as u32;
+                    resource.state = PlayerState::Move;
+                }
+                PlayerState::Move if !is_move => {
+                    entity.variant = 0;
+                    entity.tick = dataflow.get_tick() as u32;
+                    resource.state = PlayerState::Wait;
+                }
+                _ => {}
+            }
 
-        let current = resource.current.ok_or(PlayerError::NotFound)?;
-        let inventory_key = dataflow.get_inventory_by_entity(current)?.unwrap();
-        Ok(inventory_key)
-    }
-}
+            entity.variant = (entity.variant & 0b1111_1110) | if resource.reverse { 0b0000_0001 } else { 0b0000_0000 };
+        }
 
-// feature
+        dataflow.remove_entity(entity_id).unwrap();
+        let entity_id = dataflow.insert_entity(entity).unwrap();
+        resource.current = Some(entity_id);
 
-#[derive(Debug, Clone)]
-pub enum PlayerEntityDataState {
-    Wait,
-    Move,
-}
-
-#[derive(Debug, Clone)]
-pub struct PlayerEntityData {
-    pub state: PlayerEntityDataState,
-    pub reverse: bool,
-    pub inventory_key: InventoryId,
-}
-
-impl EntityData for PlayerEntityData {}
-
-#[derive(Debug, Clone)]
-pub struct PlayerEntityFeatureSet {
-    pub move_speed: f32,
-    pub inventory_id: u16,
-}
-
-impl FeatureSet for PlayerEntityFeatureSet {
-    fn attach_set(&self, b: &mut FeatureSetBuilder) -> Result<(), FeatureError> {
-        let slf = Rc::new(self.clone());
-        b.insert::<Rc<dyn FieldFeature<Key = EntityId>>>(slf.clone())?;
-        // b.insert::<Rc<dyn InventoryFeature<Key = EntityId>>>(slf.clone())?;
-        b.insert::<Rc<dyn ForwardFeature<Key = EntityId>>>(slf.clone())?;
         Ok(())
     }
 }
-
-impl FieldFeature for PlayerEntityFeatureSet {
-    type Key = EntityId;
-
-    fn after_place(&self, dataflow: &mut Dataflow, key: Self::Key) {
-        // let inventory_key = dataflow.insert_inventory(self.inventory_id).unwrap();
-        //
-        // dataflow
-        //     .modify_entity(key, |entity| {
-        //         entity.data = Box::new(PlayerEntityData {
-        //             state: PlayerEntityDataState::Wait,
-        //             reverse: false,
-        //             inventory_key,
-        //         });
-        //     })
-        //     .unwrap();
-        //
-        // PlayerSystem::insert_entity(dataflow, key).unwrap();
-    }
-
-    fn before_break(&self, dataflow: &mut Dataflow, key: EntityId) {
-        // let entity = dataflow.get_entity(key).unwrap();
-        //
-        // let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-        //
-        // let inventory_key = data.inventory_key;
-        // dataflow.remove_inventory(inventory_key).unwrap();
-        //
-        // PlayerSystem::remove_entity(dataflow).unwrap();
-    }
-}
-
-// impl InventoryFeature for PlayerEntityFeatureSet {
-//     type Key = EntityId;
-//
-//     fn get_inventory(&self, dataflow: &Dataflow, key: Self::Key) -> InventoryKey {
-//         let entity = dataflow.get_entity(key).unwrap();
-//         let data = entity.data.downcast_ref::<PlayerEntityData>().unwrap();
-//         data.inventory_key
-//     }
-// }
-
-impl ForwardFeature for PlayerEntityFeatureSet {
-    type Key = EntityId;
-
-    fn forward(&self, dataflow: &mut Dataflow, key: EntityId, delta_secs: f32) {
-        // let mut entity = dataflow.get_entity(key).unwrap().clone();
-        //
-        // let data = entity.data.downcast_mut::<PlayerEntityData>().unwrap();
-        //
-        // // consume input
-        // if let Ok(input) = PlayerSystem::pop_input(dataflow) {
-        //     let is_move = input.length_squared() > f32::EPSILON;
-        //
-        //     if is_move {
-        //         let location = entity.coord + self.move_speed * input * delta_secs;
-        //
-        //         if !intersection_guard(dataflow, key, location).unwrap() {
-        //             entity.coord = location;
-        //         }
-        //
-        //         if input.x < 0.0 {
-        //             data.reverse = true;
-        //         } else if input.x > 0.0 {
-        //             data.reverse = false;
-        //         }
-        //     }
-        //
-        //     match data.state {
-        //         PlayerEntityDataState::Wait => {
-        //             if is_move {
-        //                 entity.render_state.variant = 2;
-        //                 entity.render_state.tick = dataflow.get_tick() as u32;
-        //                 data.state = PlayerEntityDataState::Move;
-        //             }
-        //         }
-        //         PlayerEntityDataState::Move => {
-        //             if !is_move {
-        //                 entity.render_state.variant = 0;
-        //                 entity.render_state.tick = dataflow.get_tick() as u32;
-        //                 data.state = PlayerEntityDataState::Wait;
-        //             }
-        //         }
-        //     }
-        //
-        //     entity.render_state.variant =
-        //         (entity.render_state.variant & !0b1) | if data.reverse { 0b1 } else { 0b0 };
-        // }
-        //
-        // PlayerSystem::remove_entity(dataflow).unwrap();
-        // let key = dataflow.modify_entity(key, move |e| *e = entity).unwrap();
-        // PlayerSystem::insert_entity(dataflow, key).unwrap();
-    }
-}
-
-// // TODO: intersection guard
-// // DUPLICATE: src/inner/player.rs
-// fn intersection_guard(
-//     dataflow: &mut Dataflow,
-//     entity_key: EntityId,
-//     new_location: Vec2,
-// ) -> Result<bool, DataflowError> {
-//     let entity = dataflow.get_entity(entity_key)?;
-//     let base_rect = dataflow.get_entity_base_collision_rect(entity.archetype_id)?;
-//
-//     #[rustfmt::skip]
-//     let rect = [
-//         new_location + base_rect[0],
-//         new_location + base_rect[1],
-//     ];
-//
-//     if dataflow.has_tile_by_collision_rect(rect) {
-//         return Ok(true);
-//     }
-//
-//     if dataflow.has_block_by_collision_rect(rect) {
-//         return Ok(true);
-//     }
-//
-//     let intersect = dataflow
-//         .get_entity_ids_by_collision_rect(rect)
-//         .any(|other_key| other_key != entity_key);
-//     Ok(intersect)
-// }
 
 // error handling
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlayerError {
-    DataflowError(DataflowError),
+    DataflowError(dataflow::DataflowError),
     AlreadyExist,
     NotFound,
 }
@@ -284,8 +134,8 @@ impl std::error::Error for PlayerError {
     }
 }
 
-impl From<DataflowError> for PlayerError {
-    fn from(e: DataflowError) -> Self {
+impl From<dataflow::DataflowError> for PlayerError {
+    fn from(e: dataflow::DataflowError) -> Self {
         Self::DataflowError(e)
     }
 }

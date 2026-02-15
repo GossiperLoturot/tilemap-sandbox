@@ -7,6 +7,7 @@ var _view_rect: Rect2
 
 func _enter_tree() -> void:
 	Context.open(retrieve_func)
+	Context.spawn_player()
 
 
 func _process(delta: float) -> void:
