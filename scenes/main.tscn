@@ -73,9 +73,11 @@ size = 32.0
 [node name="Player" type="Node3D" parent="World" node_paths=PackedStringArray("camera")]
 script = ExtResource("2_c0xk6")
 camera = NodePath("../Camera3D")
+gen_size_over = 8.0
 view_size_over = 8.0
 
 [connection signal="finished" from="Audio" to="Audio" method="next_stream"]
 [connection signal="ready" from="Audio" to="Audio" method="next_stream"]
 [connection signal="stream_changed" from="Audio" to="UI/AudioStatus" method="_on_stream_changed"]
+[connection signal="gen_rect_changed" from="World/Player" to="World" method="_on_gen_rect_changed"]
 [connection signal="view_rect_changed" from="World/Player" to="World" method="_on_view_rect_changed"]

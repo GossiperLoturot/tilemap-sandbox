@@ -1,23 +1,28 @@
 extends Node3D
 
 
+var _gen_rect: Rect2
 var _view_rect: Rect2
 
 
 func _enter_tree() -> void:
 	Context.open(retrieve_func)
-	Context.spawn_world()
 
 
 func _process(delta: float) -> void:
 	# logic
 	Context.forward_time(delta)
+	Context.generate_field(_gen_rect)
 	# rendering
 	Context.draw_field(_view_rect)
 
 
 func _exit_tree() -> void:
 	Context.close()
+
+
+func _on_gen_rect_changed(rect: Rect2) -> void:
+	_gen_rect = rect
 
 
 func _on_view_rect_changed(rect: Rect2) -> void:

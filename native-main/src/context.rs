@@ -2,6 +2,7 @@ use glam::*;
 use godot::prelude::*;
 
 use native_core as core;
+use crate::addon;
 
 #[derive(GodotClass)]
 #[class(init, base=Object)]
@@ -374,6 +375,7 @@ impl Context {
             }],
         });
 
+        // build
         let retriever = core::Retriever::new(retrieve_callable);
         let desc = core::BuildInfo {
             tile_shaders: vec![retriever.load("shader_field")],
@@ -387,7 +389,75 @@ impl Context {
             ],
             viewport: retriever.load("viewport"),
         };
-        let context = builder.build(&retriever, desc);
+        let mut context = builder.build(&retriever, desc);
+
+        // field generator
+        let desc = addon::GeneratorResourceDescriptor {
+            generators: vec![
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.75,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("tile_grass");
+                        Box::new(move |dataflow, coord| {
+                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_tile(tile);
+                        })
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 1.0,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("tile_dirt");
+                        Box::new(move |dataflow, coord| {
+                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_tile(tile);
+                        })
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.01,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("block_oaktree");
+                        Box::new(move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        })
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.1,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("block_dandelion");
+                        Box::new(move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        })
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.1,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("block_mixgrass");
+                        Box::new(move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        })
+                    }
+                }),
+                Box::new(addon::RandomGenerator {
+                    probability: 0.01,
+                    sample_fn: {
+                        let archetype_id = context.registry.get("entity_bird");
+                        Box::new(move |dataflow, coord| {
+                            let entity = core::dataflow::Entity { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_entity(entity);
+                        })
+                    }
+                }),
+            ]
+        };
+        addon::GeneratorSystem::insert(&mut context.dataflow, desc).unwrap();
+
         self.context = Some(context);
     }
 
@@ -406,48 +476,17 @@ impl Context {
         context.dataflow.forward_time(delta_secs);
     }
 
-    // setup system
-
     #[func]
-    fn spawn_world(&mut self) {
+    fn generate_field(&mut self, rect: Rect2) {
         let context = self.context.as_mut().unwrap();
 
-        const SIZE: i32 = 256;
-        for y in -SIZE..=SIZE {
-            for x in -SIZE..=SIZE {
-                let coord = IVec2::new(x, y);
-                let archetype_id = if (x + y) % 2 == 0 {
-                    context.registry.get("tile_grass")
-                } else {
-                    context.registry.get("tile_dirt")
-                };
-                let tile = core::dataflow::Tile {
-                    archetype_id,
-                    coord,
-                    ..Default::default()
-                };
-                context.dataflow.insert_tile(tile).unwrap();
-            }
-        }
-
-        let coord = IVec2::new(2, 2);
-        let block = core::dataflow::Block {
-            archetype_id: context.registry.get("block_oaktree"),
-            coord,
-            ..Default::default()
-        };
-        context.dataflow.insert_block(block).unwrap();
-
-        let coord = Vec2::new(0.0, 0.0);
-        let entity = core::dataflow::Entity {
-            archetype_id: context.registry.get("entity_player"),
-            coord,
-            ..Default::default()
-        };
-        context.dataflow.insert_entity(entity).unwrap();
+        let position = Vec2::new(rect.position.x, rect.position.y);
+        let size = Vec2::new(rect.size.x, rect.size.y);
+        let rect = core::Rect2::new(position, position + size);
+        addon::GeneratorSystem::generate(&mut context.dataflow, rect).unwrap();
     }
 
-    // field
+    // draw
 
     #[func]
     fn draw_field(&mut self, rect: Rect2) {

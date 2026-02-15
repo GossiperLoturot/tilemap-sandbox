@@ -1,5 +1,6 @@
 use godot::prelude::*;
 
+mod addon;
 mod context;
 mod panic_hook;
 

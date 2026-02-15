@@ -1,55 +1,54 @@
 use glam::*;
-use native_core::dataflow::*;
+use native_core::*;
 
 pub trait Generator {
-    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]);
+    fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2);
 }
 
-// method for generating chunk
+// method for generating
 
-pub type PlaceFn<T> = Box<dyn Fn(&mut Dataflow, T)>;
+pub type SampleFn<T> = Box<dyn Fn(&mut dataflow::Dataflow, T)>;
 
-pub struct MarchGenerator {
-    pub prob: f32,
-    pub place_fn: PlaceFn<IVec2>,
+pub struct DiscreteGenerator {
+    pub probability: f32,
+    pub sample_fn: SampleFn<IVec2>,
 }
 
-impl Generator for MarchGenerator {
-    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]) {
+impl Generator for DiscreteGenerator {
+    fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
         let rng = &mut rand::thread_rng();
 
-        for y in rect[0].y..rect[1].y {
-            for x in rect[0].x..rect[1].x {
-                let location = IVec2::new(x, y);
+        for y in broad_rect.min.y..broad_rect.max.y {
+            for x in broad_rect.min.x..broad_rect.max.x {
+                let coord = IVec2::new(x, y);
 
                 let value = rand::Rng::gen_range(rng, 0.0..1.0);
-                if self.prob < value {
+                if self.probability < value {
                     continue;
                 }
 
-                (*self.place_fn)(dataflow, location);
+                (*self.sample_fn)(dataflow, coord);
             }
         }
     }
 }
 
-pub struct SpawnGenerator {
-    pub prob: f32,
-    pub place_fn: PlaceFn<Vec2>,
+pub struct RandomGenerator {
+    pub probability: f32,
+    pub sample_fn: SampleFn<Vec2>,
 }
 
-impl Generator for SpawnGenerator {
-    fn generate_chunk(&self, dataflow: &mut Dataflow, rect: [IVec2; 2]) {
+impl Generator for RandomGenerator {
+    fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
         let rng = &mut rand::thread_rng();
 
-        let area = (rect[1] - rect[0]).element_product();
-        let generate_count = (area as f32 * self.prob) as i32;
+        let generate_count = (broad_rect.volume() as f32 * self.probability) as i32;
         for _ in 0..generate_count {
-            let x = rand::Rng::gen_range(rng, rect[0].x as f32..rect[1].x as f32);
-            let y = rand::Rng::gen_range(rng, rect[0].y as f32..rect[1].y as f32);
-            let location = Vec2::new(x, y);
+            let x = rand::Rng::gen_range(rng, broad_rect.min.x as f32..broad_rect.max.x as f32);
+            let y = rand::Rng::gen_range(rng, broad_rect.min.y as f32..broad_rect.max.y as f32);
+            let coord = Vec2::new(x, y);
 
-            (*self.place_fn)(dataflow, location)
+            (*self.sample_fn)(dataflow, coord)
         }
     }
 }
@@ -60,23 +59,13 @@ pub struct GeneratorResourceDescriptor {
 
 // resource
 
-pub struct GeneratorResource {
+struct GeneratorResource {
     generators: Vec<Box<dyn Generator>>,
-    min_rect: Option<[IVec2; 2]>,
+    rect: Option<IRect2>,
     visited: ahash::AHashSet<IVec2>,
 }
 
-impl GeneratorResource {
-    pub fn new(desc: GeneratorResourceDescriptor) -> Self {
-        Self {
-            generators: desc.generators,
-            min_rect: Default::default(),
-            visited: ahash::AHashSet::new(),
-        }
-    }
-}
-
-impl Resource for GeneratorResource {}
+impl dataflow::Resource for GeneratorResource {}
 
 // system
 
@@ -85,37 +74,48 @@ pub struct GeneratorSystem;
 impl GeneratorSystem {
     const CHUNK_SIZE: u32 = 32;
 
-    pub fn generate(dataflow: &mut Dataflow, min_rect: [Vec2; 2]) -> Result<(), DataflowError> {
+    pub fn insert(dataflow: &mut dataflow::Dataflow, desc: GeneratorResourceDescriptor) -> Result<(), dataflow::DataflowError> {
+        let resource = GeneratorResource {
+            generators: desc.generators,
+            rect: Default::default(),
+            visited: Default::default(),
+        };
+        dataflow.insert_resources(resource)?;
+        Ok(())
+    }
+
+    pub fn generate(dataflow: &mut dataflow::Dataflow, rect: Rect2) -> Result<(), dataflow::DataflowError> {
         let resource = dataflow.find_resources::<GeneratorResource>()?;
         let mut resource = resource.borrow_mut()?;
 
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
-        let min_rect = [
-            min_rect[0].div_euclid(chunk_size).as_ivec2(),
-            min_rect[1].div_euclid(chunk_size).as_ivec2(),
-        ];
+        let rect = IRect2::new(
+            rect.min.div_euclid(chunk_size).as_ivec2(),
+            rect.max.div_euclid(chunk_size).as_ivec2(),
+        );
 
-        if Some(min_rect) != resource.min_rect {
-            for y in min_rect[0].y..=min_rect[1].y {
-                for x in min_rect[0].x..=min_rect[1].x {
-                    let chunk_location = IVec2::new(x, y);
+        if Some(rect) != resource.rect {
+            for y in rect.min.y..=rect.max.y {
+                for x in rect.min.x..=rect.max.x {
+                    let chunk_coord = IVec2::new(x, y);
 
-                    if resource.visited.contains(&chunk_location) {
+                    if resource.visited.contains(&chunk_coord) {
                         continue;
                     }
 
-                    let p0 = chunk_location * Self::CHUNK_SIZE as i32;
-                    let p1 = (chunk_location + IVec2::ONE) * Self::CHUNK_SIZE as i32;
-                    let rect = [p0, p1];
+                    let rect = IRect2::new(
+                        chunk_coord * Self::CHUNK_SIZE as i32,
+                        chunk_coord * Self::CHUNK_SIZE as i32 + Self::CHUNK_SIZE as i32,
+                    );
                     for generator in &resource.generators {
-                        generator.generate_chunk(dataflow, rect);
+                        generator.generate(dataflow, rect);
                     }
 
-                    resource.visited.insert(chunk_location);
+                    resource.visited.insert(chunk_coord);
                 }
             }
 
-            resource.min_rect = Some(min_rect);
+            resource.rect = Some(rect);
         }
 
         Ok(())
