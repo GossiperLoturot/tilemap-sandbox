@@ -2,7 +2,22 @@ use glam::*;
 
 use crate::geom::*;
 
-pub type BlockId = (u32, u16);
+pub type BlockId = u64;
+
+#[inline]
+fn encode_id(chunk_id: u32, local_id: u16) -> BlockId {
+    (chunk_id as u64) << 32 | local_id as u64
+}
+
+#[inline]
+fn decode_id(tile_id: BlockId) -> (u32, u16) {
+    ((tile_id >> 32) as u32, tile_id as u16)
+}
+
+#[inline]
+fn encode_coord(coord: IVec2) -> u64 {
+    (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
+}
 
 #[derive(Clone, Debug)]
 struct BlockSpatialData {
@@ -83,8 +98,8 @@ pub struct BlockChunk {
 pub struct BlockField {
     archetypes: Vec<BlockArchetype>,
     chunks: Vec<BlockChunk>,
-    coord_index: ahash::AHashMap<IVec2, u32>,
-    hgrid: HGrid<BlockId, BlockSpatialData>,
+    coord_index: ahash::AHashMap<u64, u32>,
+    hgrid: HGrid<BlockSpatialData>,
 }
 
 impl BlockField {
@@ -140,9 +155,10 @@ impl BlockField {
 
         let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
         let chunk_coord = block.coord.div_euclid(chunk_size);
+        let chunk_coord_ = encode_coord(chunk_coord);
 
         // get or allocate chunk
-        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord) {
+        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
             if self.chunks.len() >= u32::MAX as usize {
@@ -154,7 +170,7 @@ impl BlockField {
                 version: Default::default(),
                 blocks: Default::default(),
             });
-            self.coord_index.insert(chunk_coord, chunk_id);
+            self.coord_index.insert(chunk_coord_, chunk_id);
             chunk_id
         };
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
@@ -164,10 +180,11 @@ impl BlockField {
             panic!("capacity overflow");
         }
         let local_id = chunk.blocks.vacant_key() as u16;
+        let id = encode_id(chunk_id, local_id);
 
         // register spatial index
         let broad_rect = archetype.broad_rect(block.coord);
-        self.hgrid.insert(broad_rect, (chunk_id, local_id), BlockSpatialData {
+        self.hgrid.insert(broad_rect, id, BlockSpatialData {
             rect: archetype.rect(block.coord),
             collision_rect: archetype.collision_rect(block.coord),
             hint_rect: archetype.hint_rect(block.coord),
@@ -176,11 +193,11 @@ impl BlockField {
         chunk.blocks.insert(block);
         chunk.version += 1;
 
-        Ok((chunk_id, local_id))
+        Ok(id)
     }
 
     pub fn remove(&mut self, id: BlockId) -> Result<Block, BlockError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let block = chunk.blocks.try_remove(local_id as usize).ok_or(BlockError::NotFound)?;
@@ -189,13 +206,13 @@ impl BlockField {
         // unregister spatial index
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(block.coord);
-        self.hgrid.remove(broad_rect, (chunk_id, local_id));
+        self.hgrid.remove(broad_rect, id);
 
         Ok(block)
     }
 
     pub fn modify(&mut self, id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, BlockError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let block = chunk.blocks.get_mut(local_id as usize).ok_or(BlockError::NotFound)?;
         let mut block_modify = BlockModify { variant: block.variant, tick: block.tick };
@@ -207,7 +224,7 @@ impl BlockField {
     }
 
     pub fn get(&self, id: BlockId) -> Result<&Block, BlockError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
         let chunk = self.chunks.get(chunk_id as usize).unwrap();
         let block = chunk.blocks.get(local_id as usize).ok_or(BlockError::NotFound)?;
         Ok(block)
@@ -230,7 +247,8 @@ impl BlockField {
 
     #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&BlockChunk, BlockError> {
-        let chunk_id = self.coord_index.get(&chunk_coord).ok_or(BlockError::NotFound)?;
+        let chunk_coord_ = encode_coord(chunk_coord);
+        let chunk_id = self.coord_index.get(&chunk_coord_).ok_or(BlockError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
         Ok(chunk)
     }

@@ -2,7 +2,22 @@ use glam::*;
 
 use crate::geom::*;
 
-pub type EntityId = (u32, u16);
+pub type EntityId = u64;
+
+#[inline]
+fn encode_id(chunk_id: u32, local_id: u16) -> EntityId {
+    (chunk_id as u64) << 32 | local_id as u64
+}
+
+#[inline]
+fn decode_id(tile_id: EntityId) -> (u32, u16) {
+    ((tile_id >> 32) as u32, tile_id as u16)
+}
+
+#[inline]
+fn encode_coord(coord: IVec2) -> u64 {
+    (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
+}
 
 #[derive(Clone, Debug)]
 struct EntitySpatialData {
@@ -75,8 +90,8 @@ pub struct EntityChunk {
 pub struct EntityField {
     archetypes: Vec<EntityArchetype>,
     chunks: Vec<EntityChunk>,
-    coord_index: ahash::AHashMap<IVec2, u32>,
-    hgrid: HGrid<EntityId, EntitySpatialData>,
+    coord_index: ahash::AHashMap<u64, u32>,
+    hgrid: HGrid<EntitySpatialData>,
 }
 
 impl EntityField {
@@ -123,9 +138,10 @@ impl EntityField {
 
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         let chunk_coord = entity.coord.div_euclid(chunk_size).as_ivec2();
+        let chunk_coord_ = encode_coord(chunk_coord);
 
         // get or allocate chunk
-        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord) {
+        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
             if self.chunks.len() >= u32::MAX as usize {
@@ -137,7 +153,7 @@ impl EntityField {
                 version: 0,
                 entities: Default::default(),
             });
-            self.coord_index.insert(chunk_coord, chunk_id);
+            self.coord_index.insert(chunk_coord_, chunk_id);
             chunk_id
         };
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
@@ -147,10 +163,11 @@ impl EntityField {
             panic!("capacity overflow");
         }
         let local_id = chunk.entities.vacant_key() as u16;
+        let id = encode_id(chunk_id, local_id);
 
         // register spatial index
         let broad_rect = archetype.broad_rect(entity.coord);
-        self.hgrid.insert(broad_rect, (chunk_id, local_id), EntitySpatialData {
+        self.hgrid.insert(broad_rect, id, EntitySpatialData {
             collision_rect: archetype.collision_rect(entity.coord),
             hint_rect: archetype.hint_rect(entity.coord),
         });
@@ -158,11 +175,11 @@ impl EntityField {
         chunk.entities.insert(entity);
         chunk.version += 1;
 
-        Ok((chunk_id, local_id))
+        Ok(id)
     }
 
     pub fn remove(&mut self, id: EntityId) -> Result<Entity, EntityError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let entity = chunk.entities.try_remove(local_id as usize).ok_or(EntityError::NotFound)?;
@@ -171,13 +188,13 @@ impl EntityField {
         // unregister spatial index
         let archetype = self.archetypes.get(entity.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(entity.coord);
-        self.hgrid.remove(broad_rect, (chunk_id, local_id));
+        self.hgrid.remove(broad_rect, id);
 
         Ok(entity)
     }
 
     pub fn modify(&mut self, id: EntityId, f: impl FnOnce(&mut EntityModify)) -> Result<EntityId, EntityError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let entity = chunk.entities.get_mut(local_id as usize).ok_or(EntityError::NotFound)?;
@@ -191,7 +208,7 @@ impl EntityField {
     }
 
     pub fn get(&self, id: EntityId) -> Result<&Entity, EntityError> {
-        let (chunk_id, local_id) = id;
+        let (chunk_id, local_id) = decode_id(id);
         let chunk = self.chunks.get(chunk_id as usize).unwrap();
         let entity = chunk.entities.get(local_id as usize).ok_or(EntityError::NotFound)?;
         Ok(entity)
@@ -214,7 +231,8 @@ impl EntityField {
 
     #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&EntityChunk, EntityError> {
-        let chunk_id = self.coord_index.get(&chunk_coord).ok_or(EntityError::NotFound)?;
+        let chunk_coord_ = encode_coord(chunk_coord);
+        let chunk_id = self.coord_index.get(&chunk_coord_).ok_or(EntityError::NotFound)?;
         let chunk = self.chunks.get(*chunk_id as usize).unwrap();
         Ok(chunk)
     }
