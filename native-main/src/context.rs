@@ -460,6 +460,8 @@ impl Context {
 
         // player system
         addon::PlayerSystem::insert(&mut context.dataflow).unwrap();
+        // animal system
+        addon::AnimalSystem::insert(&mut context.dataflow).unwrap();
 
         self.context = Some(context);
     }
@@ -478,6 +480,15 @@ impl Context {
         addon::PlayerSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
     }
 
+    #[func]
+    fn spawn_animal(&mut self) {
+        let context = self.context.as_mut().unwrap();
+
+        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), ..Default::default() };
+        let entity_id = context.dataflow.insert_entity(entity).unwrap();
+        addon::AnimalSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
+    }
+
     // update system
 
     #[func]
@@ -487,7 +498,10 @@ impl Context {
         let delta_secs = delta_secs as f32;
         context.dataflow.forward_time(delta_secs);
 
+        // player system
         addon::PlayerSystem::process(&mut context.dataflow, delta_secs).unwrap();
+        // animal sysyem
+        addon::AnimalSystem::process(&mut context.dataflow, delta_secs).unwrap();
     }
 
     #[func]
@@ -501,11 +515,11 @@ impl Context {
     }
 
     #[func]
-    fn push_input(&mut self, input: Vector2) {
+    fn queue_input(&mut self, input: Vector2) {
         let context = self.context.as_mut().unwrap();
 
         let input = Vec2::new(input.x, input.y);
-        addon::PlayerSystem::push_input(&mut context.dataflow, input).unwrap();
+        addon::PlayerSystem::queue_input(&mut context.dataflow, input).unwrap();
     }
 
     // draw

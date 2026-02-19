@@ -7,7 +7,11 @@ var _view_rect: Rect2
 
 func _enter_tree() -> void:
 	Context.open(retrieve_func)
+	# spawn player
 	Context.spawn_player()
+	# spawn 8k animal for load-test
+	for i in range(1024 * 8):
+		Context.spawn_animal()
 
 
 func _process(delta: float) -> void:

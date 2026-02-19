@@ -180,12 +180,15 @@ impl TileField {
 
     pub fn modify(&mut self, id: TileId, f: impl FnOnce(&mut TileModify)) -> Result<TileId, TileError> {
         let (chunk_id, local_id) = decode_id(id);
+
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let tile = chunk.tiles.get_mut(local_id as usize).ok_or(TileError::NotFound)?;
+
         let mut tile_modify = TileModify { variant: tile.variant, tick: tile.tick };
         f(&mut tile_modify);
         tile.variant = tile_modify.variant;
         tile.tick = tile_modify.tick;
+
         chunk.version += 1;
         Ok(id)
     }

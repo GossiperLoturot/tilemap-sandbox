@@ -14,7 +14,7 @@ signal view_rect_changed(rect: Rect2)
 
 func _process(delta) -> void:
 	var move_input = Input.get_vector("left", "right", "down", "up")
-	Context.push_input(move_input)
+	Context.queue_input(move_input)
 
 	var location = Vector2()
 

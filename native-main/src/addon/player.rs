@@ -48,17 +48,6 @@ impl PlayerSystem {
         Ok(())
     }
 
-    pub fn push_input(dataflow: &mut dataflow::Dataflow, input: Vec2) -> Result<(), PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
-
-        if resource.input.is_some() {
-            return Err(PlayerError::AlreadyExist);
-        }
-        resource.input = Some(input);
-        Ok(())
-    }
-
     pub fn process(dataflow: &mut dataflow::Dataflow, delta_secs: f32) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
@@ -102,6 +91,17 @@ impl PlayerSystem {
         let entity_id = dataflow.insert_entity(entity).unwrap();
         resource.current = Some(entity_id);
 
+        Ok(())
+    }
+
+    pub fn queue_input(dataflow: &mut dataflow::Dataflow, input: Vec2) -> Result<(), PlayerError> {
+        let resource = dataflow.find_resources::<PlayerResource>()?;
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
+
+        if resource.input.is_some() {
+            return Err(PlayerError::AlreadyExist);
+        }
+        resource.input = Some(input);
         Ok(())
     }
 }

@@ -203,6 +203,7 @@ impl EntityField {
         f(&mut entity_modify);
         entity.variant = entity_modify.variant;
         entity.tick = entity_modify.tick;
+
         chunk.version += 1;
         Ok(id)
     }

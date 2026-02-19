@@ -213,12 +213,15 @@ impl BlockField {
 
     pub fn modify(&mut self, id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
+
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         let block = chunk.blocks.get_mut(local_id as usize).ok_or(BlockError::NotFound)?;
+
         let mut block_modify = BlockModify { variant: block.variant, tick: block.tick };
         f(&mut block_modify);
         block.variant = block_modify.variant;
         block.tick = block_modify.tick;
+
         chunk.version += 1;
         Ok(id)
     }
