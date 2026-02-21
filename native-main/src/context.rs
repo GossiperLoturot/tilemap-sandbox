@@ -481,10 +481,11 @@ impl Context {
     }
 
     #[func]
-    fn spawn_animal(&mut self) {
+    fn spawn_animal(&mut self, position: Vector2) {
         let context = self.context.as_mut().unwrap();
 
-        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), ..Default::default() };
+        let coord = Vec2::new(position.x, position.y);
+        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), coord, ..Default::default() };
         let entity_id = context.dataflow.insert_entity(entity).unwrap();
         addon::AnimalSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
     }

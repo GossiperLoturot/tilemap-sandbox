@@ -128,6 +128,32 @@ fn benchmark_tile(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("tile move", |b| {
+        b.iter_custom(|iters| {
+            let mut field = make_tile_field();
+
+            let mut ids = vec![];
+            for i in 0..iters {
+                let id = field
+                    .insert(dataflow::Tile {
+                        archetype_id: 0,
+                        coord: IVec2::new(i as i32, 0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
+            }
+
+            let instance = std::time::Instant::now();
+            for i in 0..iters {
+                let new_coord = std::hint::black_box(IVec2::new(i as i32, (i % 16) as i32));
+                let result = field.r#move(ids[i as usize], new_coord).unwrap();
+                std::hint::black_box(result);
+            }
+            instance.elapsed()
+        });
+    });
+
     let row: &[(&str, Box<dyn Fn(&dataflow::TileField, usize)>)] = &[
         ("tile find point", Box::new(|field, i| {
             let query = std::hint::black_box(IVec2::new(i as i32, 0));
@@ -310,6 +336,32 @@ fn benchmark_block(c: &mut Criterion) {
         });
     });
 
+    c.bench_function("block move", |b| {
+        b.iter_custom(|iters| {
+            let mut field = make_block_field();
+
+            let mut ids = vec![];
+            for i in 0..iters {
+                let id = field
+                    .insert(dataflow::Block {
+                        archetype_id: 0,
+                        coord: IVec2::new(i as i32, 0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
+            }
+
+            let instance = std::time::Instant::now();
+            for i in 0..iters {
+                let new_coord = std::hint::black_box(IVec2::new(i as i32, (i % 16) as i32));
+                let result = field.r#move(ids[i as usize], new_coord).unwrap();
+                std::hint::black_box(result);
+            }
+            instance.elapsed()
+        });
+    });
+
     let row: &[(&str, Box<dyn Fn(&dataflow::BlockField, usize)>)] = &[
         ("block find point", Box::new(|field, i| {
             let query = std::hint::black_box(IVec2::new(i as i32, 0));
@@ -485,6 +537,32 @@ fn benchmark_entity(c: &mut Criterion) {
             for id in ids {
                 let f = std::hint::black_box(|entity_modify: &mut dataflow::EntityModify| entity_modify.variant += 1);
                 let result = field.modify(id, f).unwrap();
+                std::hint::black_box(result);
+            }
+            instance.elapsed()
+        });
+    });
+
+    c.bench_function("entity move", |b| {
+        b.iter_custom(|iters| {
+            let mut field = make_entity_field();
+
+            let mut ids = vec![];
+            for i in 0..iters {
+                let id = field
+                    .insert(dataflow::Entity {
+                        archetype_id: 0,
+                        coord: Vec2::new(i as f32, 0.0),
+                        ..Default::default()
+                    })
+                    .unwrap();
+                ids.push(id);
+            }
+
+            let instance = std::time::Instant::now();
+            for i in 0..iters {
+                let new_coord = std::hint::black_box(Vec2::new(i as f32, (i % 16) as f32));
+                let result = field.r#move(ids[i as usize], new_coord).unwrap();
                 std::hint::black_box(result);
             }
             instance.elapsed()

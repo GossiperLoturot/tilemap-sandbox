@@ -9,9 +9,10 @@ func _enter_tree() -> void:
 	Context.open(retrieve_func)
 	# spawn player
 	Context.spawn_player()
-	# spawn 8k animal for load-test
-	for i in range(1024 * 8):
-		Context.spawn_animal()
+	# spawn 65,536 animal for load-test
+	for y in range(-128, 127):
+		for x in range(-128, 127):
+			Context.spawn_animal(Vector2(x, y))
 
 
 func _process(delta: float) -> void:

@@ -19,6 +19,7 @@ fn encode_coord(coord: IVec2) -> u64 {
     (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
 }
 
+// locality of reference
 #[derive(Clone, Debug)]
 struct BlockSpatialData {
     rect: IRect2,
@@ -226,6 +227,49 @@ impl BlockField {
         Ok(id)
     }
 
+    pub fn r#move(&mut self, id: BlockId, new_coord: IVec2) -> Result<BlockId, BlockError> {
+        let (chunk_id, local_id) = decode_id(id);
+
+        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let block = chunk.blocks.get(local_id as usize).ok_or(BlockError::NotFound)?;
+        if block.coord == new_coord {
+            return Ok(id);
+        }
+
+        // move spatial memory
+        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
+        let chunk_coord = block.coord.div_euclid(chunk_size);
+        let new_chunk_coord = new_coord.div_euclid(chunk_size);
+        if new_chunk_coord != chunk_coord {
+            let new_id = self.insert(Block { coord: new_coord, ..block.clone() })?;
+            self.remove(id).unwrap(); // for transaction rollback
+            return Ok(new_id)
+        }
+
+        // update spatial index
+        let archetype = self.get_archetype(block.archetype_id)?;
+        let broad_rect = archetype.broad_rect(block.coord);
+        let new_broad_rect = archetype.broad_rect(new_coord);
+        if self.hgrid.check_move(broad_rect, new_broad_rect) {
+            let value = BlockSpatialData {
+                rect: archetype.rect(new_coord),
+                collision_rect: archetype.collision_rect(new_coord),
+                hint_rect: archetype.hint_rect(new_coord),
+            };
+            self.hgrid.remove(broad_rect, id);
+            self.hgrid.insert(new_broad_rect, id, value);
+        }
+
+        // move in same spatial memory
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let block = chunk.blocks.get_mut(local_id as usize).unwrap();
+        block.coord = new_coord;
+
+        chunk.version += 1;
+        Ok(id)
+    }
+
+    #[inline]
     pub fn get(&self, id: BlockId) -> Result<&Block, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
         let chunk = self.chunks.get(chunk_id as usize).unwrap();
@@ -536,14 +580,7 @@ mod tests {
             })
             .unwrap();
 
-        field.remove(id).unwrap();
-        let id = field
-            .insert(Block {
-                archetype_id: 1,
-                coord: IVec2::new(-1, 1000),
-                ..Default::default()
-            })
-            .unwrap();
+        let id = field.r#move(id, IVec2::new(-1, 1000)).unwrap();
 
         let block = field.get(id).unwrap();
         assert_eq!(block.archetype_id, 1);

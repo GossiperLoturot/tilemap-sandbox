@@ -68,7 +68,7 @@ impl AnimalSystem {
 
         let mut rng = rand::thread_rng();
         for data in resource.storage.iter_mut() {
-            let mut entity = dataflow.get_entity(data.entity_id).unwrap().clone();
+            let entity = dataflow.get_entity(data.entity_id).unwrap().clone();
 
             match data.state {
                 AnimalDataState::Init => {
@@ -110,12 +110,8 @@ impl AnimalSystem {
                         let distance = difference.length();
                         let direction = difference / distance;
                         let velocity = distance.min(data.speed * delta_secs);
-                        let location = entity.coord + direction * velocity;
-
-                        entity.coord = location;
-
-                        dataflow.remove_entity(data.entity_id).unwrap();
-                        data.entity_id = dataflow.insert_entity(entity).unwrap();
+                        let new_coord = entity.coord + direction * velocity;
+                        data.entity_id = dataflow.move_entity(data.entity_id, new_coord).unwrap();
                     } else {
                         data.state = AnimalDataState::WaitStart;
                     }

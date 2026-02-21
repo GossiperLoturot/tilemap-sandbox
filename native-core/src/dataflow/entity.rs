@@ -25,6 +25,7 @@ struct EntitySpatialData {
     hint_rect: Rect2,
 }
 
+// locality of reference
 #[derive(Debug, Clone)]
 pub struct EntityInfo {
     pub display_name: String,
@@ -208,6 +209,48 @@ impl EntityField {
         Ok(id)
     }
 
+    pub fn r#move(&mut self, id: EntityId, new_coord: Vec2) -> Result<EntityId, EntityError> {
+        let (chunk_id, local_id) = decode_id(id);
+
+        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let entity = chunk.entities.get(local_id as usize).ok_or(EntityError::NotFound)?;
+        if entity.coord == new_coord {
+            return Ok(id);
+        }
+
+        // move spatial memory
+        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
+        let chunk_coord = entity.coord.div_euclid(chunk_size).as_ivec2();
+        let new_chunk_coord = new_coord.div_euclid(chunk_size).as_ivec2();
+        if new_chunk_coord != chunk_coord {
+            let new_id = self.insert(Entity { coord: new_coord, ..entity.clone() })?;
+            self.remove(id).unwrap(); // for transaction rollback
+            return Ok(new_id)
+        }
+
+        // update spatial index
+        let archetype = self.get_archetype(entity.archetype_id)?;
+        let broad_rect = archetype.broad_rect(entity.coord);
+        let new_broad_rect = archetype.broad_rect(new_coord);
+        if self.hgrid.check_move(broad_rect, new_broad_rect) {
+            let value = EntitySpatialData {
+                collision_rect: archetype.collision_rect(new_coord),
+                hint_rect: archetype.hint_rect(new_coord),
+            };
+            self.hgrid.remove(broad_rect, id);
+            self.hgrid.insert(new_broad_rect, id, value);
+        }
+
+        // move in same spatial memory
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let entity = chunk.entities.get_mut(local_id as usize).unwrap();
+        entity.coord = new_coord;
+
+        chunk.version += 1;
+        Ok(id)
+    }
+
+    #[inline]
     pub fn get(&self, id: EntityId) -> Result<&Entity, EntityError> {
         let (chunk_id, local_id) = decode_id(id);
         let chunk = self.chunks.get(chunk_id as usize).unwrap();
@@ -452,14 +495,7 @@ mod tests {
             })
             .unwrap();
 
-        field.remove(id).unwrap();
-        let id = field
-            .insert(Entity {
-                archetype_id: 1,
-                coord: Vec2::new(-1.0, 1000.0),
-                ..Default::default()
-            })
-            .unwrap();
+        let id = field.r#move(id, Vec2::new(-1.0, 1000.0)).unwrap();
 
         let entity = field.get(id).unwrap();
         assert_eq!(entity.archetype_id, 1);

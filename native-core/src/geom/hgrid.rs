@@ -149,6 +149,28 @@ impl<T> HGrid<T> where T: Clone {
         }
     }
 
+    #[inline]
+    pub fn check_move(&self, rect: IRect2, new_rect: IRect2) -> bool {
+        assert_eq!(rect.size(), new_rect.size(), "Rect size must be same.");
+
+        let size = rect.size().max_element();
+        let chunk_size = match size {
+            // small
+            ..SIZE_SM => SIZE_SM,
+            // medium
+            SIZE_SM..SIZE_MD => SIZE_MD,
+            // large
+            SIZE_MD.. => SIZE_LG,
+        };
+
+        let min = rect.min.div_euclid(IVec2::splat(chunk_size));
+        let max = rect.max.div_euclid(IVec2::splat(chunk_size));
+        let new_min = new_rect.min.div_euclid(IVec2::splat(chunk_size));
+        let new_max = new_rect.max.div_euclid(IVec2::splat(chunk_size));
+
+        min != new_min || max != new_max
+    }
+
     pub fn find(&self, rect: IRect2) -> impl Iterator<Item = &(u64, T)> + '_ {
         // small and medium
         let min = rect.min.div_euclid(IVec2::splat(SIZE_MD));
