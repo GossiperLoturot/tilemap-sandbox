@@ -113,24 +113,24 @@ impl Dataflow {
     // tile spatial features
 
     #[inline]
-    pub fn find_tile_with_point(&self, point: IVec2) -> Option<TileId> {
+    pub fn find_tile_with_point(&self, point: IVec2) -> Option<&(TileId, TileSpatialData)> {
         self.tile_field.find_with_point(point)
     }
 
     #[inline]
-    pub fn find_tile_with_rect(&self, rect: IRect2) -> impl Iterator<Item = TileId> + '_ {
+    pub fn find_tile_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
         self.tile_field.find_with_rect(rect)
     }
 
     // tile collision features
 
     #[inline]
-    pub fn find_tile_with_collision_point(&self, coord: Vec2) -> impl Iterator<Item = TileId> + '_ {
+    pub fn find_tile_with_collision_point(&self, coord: Vec2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
         self.tile_field.find_with_collision_point(coord)
     }
 
     #[inline]
-    pub fn find_tile_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = TileId> + '_ {
+    pub fn find_tile_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
         self.tile_field.find_with_collision_rect(rect)
     }
 
@@ -180,36 +180,36 @@ impl Dataflow {
     // block spatial features
 
     #[inline]
-    pub fn find_block_with_point(&self, point: IVec2) -> Option<BlockId> {
+    pub fn find_block_with_point(&self, point: IVec2) -> Option<&(BlockId, BlockSpatialData)> {
         self.block_field.find_with_point(point)
     }
 
     #[inline]
-    pub fn find_block_with_rect(&self, rect: IRect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_block_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.block_field.find_with_rect(rect)
     }
 
     // block collision features
 
     #[inline]
-    pub fn find_block_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_block_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.block_field.find_with_collision_point(point)
     }
 
     #[inline]
-    pub fn find_block_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_block_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.block_field.find_with_collision_rect(rect)
     }
 
     // block hint features
 
     #[inline]
-    pub fn find_block_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_block_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.block_field.find_with_hint_point(point)
     }
 
     #[inline]
-    pub fn find_block_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_block_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.block_field.find_with_hint_rect(rect)
     }
 
@@ -265,24 +265,24 @@ impl Dataflow {
     // entity collision features
 
     #[inline]
-    pub fn find_entity_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_entity_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.entity_field.find_with_collision_point(point)
     }
 
     #[inline]
-    pub fn find_entity_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_entity_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.entity_field.find_with_collision_rect(rect)
     }
 
     // entity hint features
 
     #[inline]
-    pub fn find_entity_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_entity_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.entity_field.find_with_hint_point(point)
     }
 
     #[inline]
-    pub fn find_entity_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_entity_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.entity_field.find_with_hint_rect(rect)
     }
 

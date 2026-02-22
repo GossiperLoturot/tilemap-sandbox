@@ -5,13 +5,13 @@ use crate::geom::*;
 pub type BlockId = u64;
 
 #[inline]
-fn encode_id(chunk_id: u32, local_id: u16) -> BlockId {
+fn encode_id(chunk_id: u32, local_id: u32) -> BlockId {
     (chunk_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
-fn decode_id(tile_id: BlockId) -> (u32, u16) {
-    ((tile_id >> 32) as u32, tile_id as u16)
+fn decode_id(tile_id: BlockId) -> (u32, u32) {
+    ((tile_id >> 32) as u32, tile_id as u32)
 }
 
 #[inline]
@@ -21,10 +21,10 @@ fn encode_coord(coord: IVec2) -> u64 {
 
 // locality of reference
 #[derive(Clone, Debug)]
-struct BlockSpatialData {
-    rect: IRect2,
-    collision_rect: Option<Rect2>,
-    hint_rect: Rect2,
+pub struct BlockSpatialData {
+    pub rect: IRect2,
+    pub collision_rect: Option<Rect2>,
+    pub hint_rect: Rect2,
 }
 
 #[derive(Debug, Clone)]
@@ -162,10 +162,7 @@ impl BlockField {
         let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
-            if self.chunks.len() >= u32::MAX as usize {
-                panic!("capacity overflow");
-            }
-
+            assert!(self.chunks.len() < u32::MAX as usize, "capacity overflow");
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(BlockChunk {
                 version: Default::default(),
@@ -176,11 +173,9 @@ impl BlockField {
         };
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
 
-        // block_key is guaranteed to be less than u16::MAX.
-        if chunk.blocks.vacant_key() >= u16::MAX as usize {
-            panic!("capacity overflow");
-        }
-        let local_id = chunk.blocks.vacant_key() as u16;
+        // block_id is guaranteed to be less than u32::MAX.
+        assert!(chunk.blocks.vacant_key() < u32::MAX as usize, "capacity overflow");
+        let local_id = chunk.blocks.vacant_key() as u32;
         let id = encode_id(chunk_id, local_id);
 
         // register spatial index
@@ -303,46 +298,40 @@ impl BlockField {
     // spatial features
 
     #[inline]
-    pub fn find_with_point(&self, point: IVec2) -> Option<BlockId> {
+    pub fn find_with_point(&self, point: IVec2) -> Option<&(BlockId, BlockSpatialData)> {
         self.find_with_rect(IRect2::new(point, point)).next()
     }
 
     #[inline]
-    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.hgrid.find(rect)
-            .map(|(id, data)| (id, data.rect))
-            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
-            .map(|(id, _)| *id)
+            .filter(move |(_, data)| Intersects::intersects(&rect, &data.rect))
     }
 
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
-            .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
-            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
-            .map(|(id, _)| *id)
+            .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
     }
 
     // hint features
 
     #[inline]
-    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = BlockId> + '_ {
+    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
-            .map(|(id, data)| (id, data.hint_rect))
-            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
-            .map(|(id, _)| *id)
+            .filter(move |(_, data)| Intersects::intersects(&rect, &data.hint_rect))
     }
 }
 
@@ -453,14 +442,16 @@ mod tests {
         assert_eq!(block.archetype_id, 1);
         assert_eq!(block.coord, IVec2::new(-1, 3));
 
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), Some(id));
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, Some(id));
 
         let block = field.remove(id).unwrap();
         assert_eq!(block.archetype_id, 1);
         assert_eq!(block.coord, IVec2::new(-1, 3));
 
         assert_eq!(field.get(id).unwrap_err(), BlockError::NotFound);
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), None);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, None);
         assert_eq!(field.remove(id).unwrap_err(), BlockError::NotFound);
     }
 
@@ -476,7 +467,9 @@ mod tests {
             }),
             Err(BlockError::InvalidId)
         );
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), None);
+
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, None);
 
         let id = field
             .insert(Block {
@@ -498,7 +491,8 @@ mod tests {
         assert_eq!(block.archetype_id, 1);
         assert_eq!(block.coord, IVec2::new(-1, 3));
 
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), Some(id));
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, Some(id));
     }
 
     #[test]
@@ -517,8 +511,10 @@ mod tests {
         assert_eq!(block.archetype_id, 1);
         assert_eq!(block.coord, IVec2::new(-1, 4));
 
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), None);
-        assert_eq!(field.find_with_point(IVec2::new(-1, 4)), Some(id));
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, None);
+        let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
+        assert_eq!(query, Some(id));
 
         let id = field
             .modify(id, |block_modify| block_modify.variant = 1)
@@ -560,12 +556,14 @@ mod tests {
         assert_eq!(block.archetype_id, 0);
         assert_eq!(block.coord, IVec2::new(-1, 3));
 
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), Some(id0));
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, Some(id0));
 
         field.remove(id1).unwrap();
         assert_eq!(field.modify(id1, |_| {}), Err(BlockError::NotFound));
         assert_eq!(field.get(id1).unwrap_err(), BlockError::NotFound);
-        assert_eq!(field.find_with_point(IVec2::new(-1, 4)), None);
+        let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
+        assert_eq!(query, None);
     }
 
     #[test]
@@ -586,8 +584,10 @@ mod tests {
         assert_eq!(block.archetype_id, 1);
         assert_eq!(block.coord, IVec2::new(-1, 1000));
 
-        assert_eq!(field.find_with_point(IVec2::new(-1, 3)), None);
-        assert_eq!(field.find_with_point(IVec2::new(-1, 1000)), Some(id));
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        assert_eq!(query, None);
+        let query = field.find_with_point(IVec2::new(-1, 1000)).map(|(id, _)| *id);
+        assert_eq!(query, Some(id));
     }
 
     #[test]
@@ -617,12 +617,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_collision_point(point).collect::<Vec<_>>();
+        let vec = field.find_with_collision_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_collision_rect(rect).collect::<Vec<_>>();
+        let vec = field.find_with_collision_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }
@@ -654,12 +654,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_hint_point(point).collect::<Vec<_>>();
+        let vec = field.find_with_hint_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_hint_rect(rect).collect::<Vec<_>>();
+        let vec = field.find_with_hint_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }

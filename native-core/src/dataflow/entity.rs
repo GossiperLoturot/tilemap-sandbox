@@ -5,13 +5,13 @@ use crate::geom::*;
 pub type EntityId = u64;
 
 #[inline]
-fn encode_id(chunk_id: u32, local_id: u16) -> EntityId {
+fn encode_id(chunk_id: u32, local_id: u32) -> EntityId {
     (chunk_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
-fn decode_id(tile_id: EntityId) -> (u32, u16) {
-    ((tile_id >> 32) as u32, tile_id as u16)
+fn decode_id(tile_id: EntityId) -> (u32, u32) {
+    ((tile_id >> 32) as u32, tile_id as u32)
 }
 
 #[inline]
@@ -20,9 +20,9 @@ fn encode_coord(coord: IVec2) -> u64 {
 }
 
 #[derive(Clone, Debug)]
-struct EntitySpatialData {
-    collision_rect: Option<Rect2>,
-    hint_rect: Rect2,
+pub struct EntitySpatialData {
+    pub collision_rect: Option<Rect2>,
+    pub hint_rect: Rect2,
 }
 
 // locality of reference
@@ -145,10 +145,7 @@ impl EntityField {
         let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
-            if self.chunks.len() >= u32::MAX as usize {
-                panic!("capacity overflow");
-            }
-
+            assert!(self.chunks.len() < u32::MAX as usize, "capacity overflow");
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(EntityChunk {
                 version: 0,
@@ -159,11 +156,9 @@ impl EntityField {
         };
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
 
-        // entity_key is guaranteed to be less than u16::MAX.
-        if chunk.entities.vacant_key() >= u16::MAX as usize {
-            panic!("capacity overflow");
-        }
-        let local_id = chunk.entities.vacant_key() as u16;
+        // entity_id is guaranteed to be less than u32::MAX.
+        assert!(chunk.entities.vacant_key() < u32::MAX as usize, "capacity overflow");
+        let local_id = chunk.entities.vacant_key() as u32;
         let id = encode_id(chunk_id, local_id);
 
         // register spatial index
@@ -284,31 +279,27 @@ impl EntityField {
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
-            .filter_map(|(id, data)| data.collision_rect.map(|obj_rect| (id, obj_rect)))
-            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
-            .map(|(id, _)| *id)
+            .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
     }
 
     // hint features
 
     #[inline]
-    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = EntityId> + '_ {
+    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
-            .map(|(id, data)| (id, data.hint_rect))
-            .filter(move |(_, obj_rect)| Intersects::intersects(&rect, obj_rect))
-            .map(|(id, _)| *id)
+            .filter(move |(_, data)| Intersects::intersects(&rect, &data.hint_rect))
     }
 }
 
@@ -529,12 +520,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_collision_point(point).collect::<Vec<_>>();
+        let vec = field.find_with_collision_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_collision_rect(rect).collect::<Vec<_>>();
+        let vec = field.find_with_collision_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }
@@ -566,12 +557,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_hint_point(point).collect::<Vec<_>>();
+        let vec = field.find_with_hint_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_hint_rect(rect).collect::<Vec<_>>();
+        let vec = field.find_with_hint_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }
