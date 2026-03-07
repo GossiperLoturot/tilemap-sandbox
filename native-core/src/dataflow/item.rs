@@ -1,331 +1,271 @@
-use super::*;
+use glam::*;
 
 // item storage
 
-pub type InventoryKey = u32;
-pub type SlotKey = (InventoryKey, u32);
+pub type InventoryId = u32;
+
+pub type ItemId = (InventoryId, u32);
 
 #[derive(Debug, Clone)]
-pub struct ItemDescriptor {
+pub struct ItemInfo {
     pub display_name: String,
     pub description: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct InventoryDescriptor {
+pub struct InventoryInfo {
     pub size: u32,
 }
 
 #[derive(Debug, Clone)]
-pub struct ItemStorageDescriptor {
-    pub items: Vec<ItemDescriptor>,
-    pub inventories: Vec<InventoryDescriptor>,
+pub struct InventorySystemInfo {
+    pub items: Vec<ItemInfo>,
+    pub inventories: Vec<InventoryInfo>,
 }
 
 #[derive(Debug, Clone)]
-struct ItemProperty {
-    display_name: String,
-    description: String,
+pub struct ItemArchetype {
+    pub display_name: String,
+    pub description: String,
 }
 
 #[derive(Debug, Clone)]
-struct InventoryProperty {
-    size: u32,
-}
-
-#[derive(Debug, Clone)]
-pub struct Item {
-    pub id: u16,
-    pub amount: u32,
-    pub data: Box<dyn ItemData>,
-    pub render_param: ItemRenderParam,
+pub struct InventoryArchetype {
+    pub size: u32,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Slot {
-    pub version: u64,
-    pub item: Option<Item>,
+pub struct ItemModify {
+    pub variant: u8,
+    pub tick: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
+pub struct Item {
+    pub archetype_id: u16,
+    pub amount: u32,
+    pub variant: u8,
+    pub tick: u32,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct Inventory {
-    pub id: u16,
+    pub archetype_id: u16,
     pub size: u32,
-    pub slots: Vec<Slot>,
+    pub items: Vec<Option<Item>>,
     pub version: u64,
 }
 
-#[derive(Debug, Clone)]
-pub struct ItemStorage {
-    item_props: Vec<ItemProperty>,
-    inventory_props: Vec<InventoryProperty>,
+#[derive(Debug)]
+pub struct InventorySystem {
+    item_archetypes: Vec<ItemArchetype>,
+    inventory_archetypes: Vec<InventoryArchetype>,
     inventories: slab::Slab<Inventory>,
 }
 
-impl ItemStorage {
-    pub fn new(desc: ItemStorageDescriptor) -> Self {
-        let mut item_props = vec![];
-        for item in desc.items {
-            item_props.push(ItemProperty {
-                display_name: item.display_name,
-                description: item.description,
+impl InventorySystem {
+    pub fn new(info: InventorySystemInfo) -> Self {
+        let mut item_archetypes = vec![];
+        for info in info.items {
+            item_archetypes.push(ItemArchetype {
+                display_name: info.display_name,
+                description: info.description,
             });
         }
 
-        let mut inventory_props = vec![];
-        for inventory in desc.inventories {
-            inventory_props.push(InventoryProperty {
-                size: inventory.size,
+        let mut inventory_archetypes = vec![];
+        for info in info.inventories {
+            inventory_archetypes.push(InventoryArchetype {
+                size: info.size,
             });
         }
 
         Self {
-            item_props,
-            inventory_props,
+            item_archetypes,
+            inventory_archetypes,
             inventories: Default::default(),
         }
     }
 
     // inventory
 
-    pub fn insert_inventory(&mut self, id: u16) -> Result<InventoryKey, ItemError> {
-        let props = self
-            .inventory_props
-            .get(id as usize)
+    pub fn insert_inventory(&mut self, archetype_id: u16) -> Result<InventoryId, ItemError> {
+        let archetype = self
+            .inventory_archetypes
+            .get(archetype_id as usize)
             .ok_or(ItemError::InventoryInvalidId)?;
 
         let inventory = Inventory {
-            id,
-            size: props.size,
-            slots: vec![Default::default(); props.size as usize],
+            archetype_id,
+            size: archetype.size,
+            items: vec![None; archetype.size as usize],
             version: 0,
         };
-        let inventory_key = self.inventories.insert(inventory) as u32;
+        let inventory_id = self.inventories.insert(inventory) as u32;
 
-        Ok(inventory_key)
+        Ok(inventory_id)
     }
 
-    pub fn remove_inventory(&mut self, inventory_key: InventoryKey) -> Result<u16, ItemError> {
+    pub fn remove_inventory(&mut self, inventory_id: InventoryId) -> Result<u16, ItemError> {
         let inventory = self
             .inventories
-            .try_remove(inventory_key as usize)
+            .try_remove(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        Ok(inventory.id)
+        Ok(inventory.archetype_id)
     }
 
-    pub fn get_inventory(&self, inventory_key: InventoryKey) -> Result<&Inventory, ItemError> {
+    pub fn get_inventory(&self, inventory_id: InventoryId) -> Result<&Inventory, ItemError> {
         self.inventories
-            .get(inventory_key as usize)
+            .get(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)
     }
 
     // inventory + item
 
-    pub fn push_item_to_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-        item: Item,
-    ) -> Result<(), ItemError> {
+    pub fn push_item_to_inventory(&mut self, inventory_id: InventoryId, item: Item) -> Result<(), ItemError> {
         let inventory = self
             .inventories
-            .get_mut(inventory_key as usize)
+            .get_mut(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        let slot = inventory
-            .slots
+        let item_mut = inventory
+            .items
             .iter_mut()
-            .find(|slot| slot.item.is_none())
+            .find(|item| item.is_none())
             .ok_or(ItemError::ItemConflict)?;
 
-        let _ = std::mem::replace(&mut slot.item, Some(item));
-        slot.version += 1;
+        let _ = item_mut.replace(item);
         inventory.version += 1;
         Ok(())
     }
 
-    pub fn pop_item_from_inventory(
-        &mut self,
-        inventory_key: InventoryKey,
-    ) -> Result<Item, ItemError> {
+    pub fn pop_item_from_inventory(&mut self, inventory_id: InventoryId) -> Result<Item, ItemError> {
         let inventory = self
             .inventories
-            .get_mut(inventory_key as usize)
+            .get_mut(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        let slot = inventory
-            .slots
+        let item_mut = inventory
+            .items
             .iter_mut()
-            .find(|slot| slot.item.is_some())
+            .find(|item| item.is_some())
             .ok_or(ItemError::ItemNotFound)?;
 
-        let item = slot.item.take().unwrap();
-        slot.version += 1;
+        let item = item_mut.take().unwrap();
         inventory.version += 1;
         Ok(item)
-    }
-
-    pub fn search_item_in_inventory(
-        &self,
-        inventory_key: InventoryKey,
-        text: &str,
-    ) -> Result<Vec<SlotKey>, ItemError> {
-        let inventory = self
-            .inventories
-            .get(inventory_key as usize)
-            .ok_or(ItemError::InventoryNotFound)?;
-
-        let mut slot_keys = vec![];
-        for local_key in 0..inventory.slots.len() {
-            let slot = &inventory.slots.get(local_key).unwrap();
-
-            let Some(item) = &slot.item else {
-                continue;
-            };
-
-            let other_text = &self
-                .item_props
-                .get(item.id as usize)
-                .ok_or(ItemError::ItemInvalidId)?
-                .display_name;
-            if other_text.contains(text) || text.contains(other_text) {
-                let slot_key = (inventory_key, local_key as u32);
-                slot_keys.push(slot_key);
-            }
-        }
-
-        Ok(slot_keys)
     }
 
     // item
 
-    pub fn insert_item(&mut self, slot_key: SlotKey, item: Item) -> Result<(), ItemError> {
-        let (inventory_key, local_key) = slot_key;
+    pub fn insert_item(&mut self, item_id: ItemId, item: Item) -> Result<(), ItemError> {
+        let (inventory_id, local_id) = item_id;
 
         let inventory = self
             .inventories
-            .get_mut(inventory_key as usize)
-            .ok_or(ItemError::InventoryNotFound)?;
-        let slot = inventory
-            .slots
-            .get_mut(local_key as usize)
+            .get_mut(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        if slot.item.is_some() {
+        let item_mut = inventory
+            .items
+            .get_mut(local_id as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        if item_mut.is_some() {
             return Err(ItemError::ItemNotFound);
         }
 
-        let _ = std::mem::replace(&mut slot.item, Some(item));
-        slot.version += 1;
+        let _ = item_mut.replace(item);
         inventory.version += 1;
         Ok(())
     }
 
-    pub fn remove_item(&mut self, slot_key: SlotKey) -> Result<Item, ItemError> {
-        let (inventory_key, local_key) = slot_key;
+    pub fn remove_item(&mut self, item_id: ItemId) -> Result<Item, ItemError> {
+        let (inventory_id, local_id) = item_id;
 
         let inventory = self
             .inventories
-            .get_mut(inventory_key as usize)
+            .get_mut(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        let slot = inventory
-            .slots
-            .get_mut(local_key as usize)
+        let item_mut = inventory
+            .items
+            .get_mut(local_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        if slot.item.is_none() {
+        if item_mut.is_none() {
             return Err(ItemError::ItemNotFound);
         }
 
-        let item = slot.item.take().unwrap();
-
-        slot.version += 1;
+        let item = item_mut.take().unwrap();
         inventory.version += 1;
         Ok(item)
     }
 
-    pub fn modify_item(
-        &mut self,
-        slot_key: SlotKey,
-        f: impl FnOnce(&mut Item),
-    ) -> Result<(), ItemError> {
-        let (inventory_key, local_key) = slot_key;
+    pub fn modify_item(&mut self, item_id: ItemId, f: impl FnOnce(&mut ItemModify)) -> Result<(), ItemError> {
+        let (inventory_id, local_id) = item_id;
 
         let inventory = self
             .inventories
-            .get_mut(inventory_key as usize)
+            .get_mut(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        let slot = inventory
-            .slots
-            .get_mut(local_key as usize)
+
+        let item_mut = inventory
+            .items
+            .get_mut(local_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
-        let item = slot.item.as_mut().ok_or(ItemError::ItemNotFound)?;
 
-        let mut new_item = item.clone();
-        f(&mut new_item);
-
-        if new_item.id != item.id {
-            return Err(ItemError::ItemInvalidId);
-        }
-
-        if new_item.amount != item.amount || new_item.render_param != item.render_param {
-            slot.version += 1;
-            inventory.version += 1;
-        }
-
-        item.data = new_item.data;
+        let item = item_mut.as_mut().ok_or(ItemError::ItemNotFound)?;
+        let mut item_modify = ItemModify { variant: item.variant, tick: item.tick };
+        f(&mut item_modify);
+        item.variant = item_modify.variant;
+        item.tick = item_modify.tick;
+        inventory.version += 1;
         Ok(())
     }
 
-    pub fn swap_item(
-        &mut self,
-        src_slot_key: SlotKey,
-        dst_slot_key: SlotKey,
-    ) -> Result<(), ItemError> {
-        let src_item = self.remove_item(src_slot_key);
-        let dst_item = self.remove_item(dst_slot_key);
+    pub fn swap_item(&mut self, from_item_id: ItemId, to_item_id: ItemId) -> Result<(), ItemError> {
+        let from_item = self.remove_item(from_item_id);
+        let to_item = self.remove_item(to_item_id);
 
-        if let Ok(item) = dst_item {
-            self.insert_item(src_slot_key, item)?;
+        if let Ok(item) = to_item {
+            self.insert_item(from_item_id, item)?;
         }
-        if let Ok(item) = src_item {
-            self.insert_item(dst_slot_key, item)?;
+        if let Ok(item) = from_item {
+            self.insert_item(to_item_id, item)?;
         }
 
         Ok(())
     }
 
-    pub fn get_item(&self, slot_key: SlotKey) -> Result<&Item, ItemError> {
-        let (inventory_key, local_key) = slot_key;
+    pub fn get_item(&self, item_id: ItemId) -> Result<&Item, ItemError> {
+        let (inventory_id, local_id) = item_id;
 
         let inventory = self
             .inventories
-            .get(inventory_key as usize)
-            .ok_or(ItemError::InventoryNotFound)?;
-        let slot = inventory
-            .slots
-            .get(local_key as usize)
+            .get(inventory_id as usize)
             .ok_or(ItemError::InventoryNotFound)?;
 
-        if slot.item.is_none() {
+        let item_ref = inventory
+            .items
+            .get(local_id as usize)
+            .ok_or(ItemError::InventoryNotFound)?;
+
+        if item_ref.is_none() {
             return Err(ItemError::ItemNotFound);
         }
 
-        let item = slot.item.as_ref().ok_or(ItemError::ItemNotFound)?;
+        let item = item_ref.as_ref().ok_or(ItemError::ItemNotFound)?;
         Ok(item)
     }
 
-    // item property
+    // archetype
 
-    pub fn get_item_display_name(&self, key: SlotKey) -> Result<&str, ItemError> {
-        let item = self.get_item(key)?;
-        let prop = self.item_props.get(item.id as usize).unwrap();
-        Ok(&prop.display_name)
+    pub fn get_item_archetype(&self, archetype_id: u16) -> Result<&ItemArchetype, ItemError> {
+        self.item_archetypes.get(archetype_id as usize).ok_or(ItemError::ItemInvalidId)
     }
 
-    pub fn get_item_description(&self, key: SlotKey) -> Result<&str, ItemError> {
-        let item = self.get_item(key)?;
-        let prop = self.item_props.get(item.id as usize).unwrap();
-        Ok(&prop.description)
+    pub fn get_inventory_archetype(&self, archetype_id: u16) -> Result<&InventoryArchetype, ItemError> {
+        self.inventory_archetypes.get(archetype_id as usize).ok_or(ItemError::InventoryInvalidId)
     }
 }
 

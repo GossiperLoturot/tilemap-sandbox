@@ -6,11 +6,11 @@ pub struct ResourceCell<T> {
 }
 
 impl<T> ResourceCell<T> {
-    pub fn borrow(&self) -> Result<std::cell::Ref<T>, ResourceError> {
+    pub fn borrow(&self) -> Result<std::cell::Ref<'_, T>, ResourceError> {
         self.value.try_borrow().map_err(|_| ResourceError::Busy)
     }
 
-    pub fn borrow_mut(&self) -> Result<std::cell::RefMut<T>, ResourceError> {
+    pub fn borrow_mut(&self) -> Result<std::cell::RefMut<'_, T>, ResourceError> {
         self.value.try_borrow_mut().map_err(|_| ResourceError::Busy)
     }
 }
