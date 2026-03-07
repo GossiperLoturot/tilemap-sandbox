@@ -39,8 +39,8 @@ impl Retriever {
                 panic!(
                     "Failed to load resource {:?}: Expected type is {:?}, but found type is {:?}.\n{:?}",
                     name,
-                    ret.get_type(),
                     std::any::type_name::<T>(),
+                    ret.get_type(),
                     e,
                 );
             }

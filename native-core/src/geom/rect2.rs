@@ -593,20 +593,6 @@ impl RemAssign<Rect2> for Rect2 {
     }
 }
 
-impl AsRef<[Vec2; 2]> for Rect2 {
-    #[inline]
-    fn as_ref(&self) -> &[Vec2; 2] {
-        unsafe { &*(self as *const Rect2 as *const [Vec2; 2]) }
-    }
-}
-
-impl AsMut<[Vec2; 2]> for Rect2 {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [Vec2; 2] {
-        unsafe { &mut *(self as *mut Rect2 as *mut [Vec2; 2]) }
-    }
-}
-
 impl iter::Sum for Rect2 {
     #[inline]
     fn sum<I: Iterator<Item = Rect2>>(iter: I) -> Rect2 {

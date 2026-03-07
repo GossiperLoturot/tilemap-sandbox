@@ -499,20 +499,6 @@ impl RemAssign<IRect2> for IRect2 {
     }
 }
 
-impl AsRef<[IVec2; 2]> for IRect2 {
-    #[inline]
-    fn as_ref(&self) -> &[IVec2; 2] {
-        unsafe { &*(self as *const IRect2 as *const [IVec2; 2]) }
-    }
-}
-
-impl AsMut<[IVec2; 2]> for IRect2 {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [IVec2; 2] {
-        unsafe { &mut *(self as *mut IRect2 as *mut [IVec2; 2]) }
-    }
-}
-
 impl iter::Sum for IRect2 {
     #[inline]
     fn sum<I: Iterator<Item = IRect2>>(iter: I) -> IRect2 {
