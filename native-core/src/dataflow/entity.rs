@@ -10,8 +10,8 @@ fn encode_id(chunk_id: u32, local_id: u32) -> EntityId {
 }
 
 #[inline]
-fn decode_id(tile_id: EntityId) -> (u32, u32) {
-    ((tile_id >> 32) as u32, tile_id as u32)
+fn decode_id(entity_id: EntityId) -> (u32, u32) {
+    ((entity_id >> 32) as u32, entity_id as u32)
 }
 
 #[inline]
@@ -19,13 +19,13 @@ fn encode_coord(coord: IVec2) -> u64 {
     (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
 }
 
-#[derive(Clone, Debug)]
+// locality of reference
+#[derive(Debug, Clone)]
 pub struct EntitySpatialData {
     pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
 }
 
-// locality of reference
 #[derive(Debug, Clone)]
 pub struct EntityInfo {
     pub display_name: String,
@@ -42,8 +42,6 @@ pub struct EntityFieldInfo {
 
 #[derive(Debug, Clone)]
 pub struct EntityArchetype {
-    pub display_name: String,
-    pub description: String,
     pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
     pub broad_rect: IRect2,
@@ -53,17 +51,17 @@ pub struct EntityArchetype {
 impl EntityArchetype {
     #[inline]
     pub fn collision_rect(&self, coord: Vec2) -> Option<Rect2> {
-        self.collision_rect.map(|rect| coord + rect)
+        self.collision_rect.map(|rect| rect + coord)
     }
 
     #[inline]
     pub fn hint_rect(&self, coord: Vec2) -> Rect2 {
-        coord + self.hint_rect
+        self.hint_rect + coord
     }
 
     #[inline]
     pub fn broad_rect(&self, coord: Vec2) -> IRect2 {
-        coord.floor().as_ivec2() + self.broad_rect
+        self.broad_rect + coord.floor().as_ivec2()
     }
 }
 
@@ -101,6 +99,7 @@ impl EntityField {
     pub fn new(info: EntityFieldInfo) -> Self {
         let mut archetyps = vec![];
 
+        assert!(info.entities.len() <= u16::MAX as usize, "capacity overflow");
         for entity in info.entities {
             let mut broad_rect = IRect2::new(IVec2::MAX, IVec2::MIN);
 
@@ -117,8 +116,6 @@ impl EntityField {
             broad_rect = broad_rect.maximum(entity.hint_rect.trunc_over().as_irect2());
 
             archetyps.push(EntityArchetype {
-                display_name: entity.display_name,
-                description: entity.description,
                 collision_rect: entity.collision_rect,
                 hint_rect: entity.hint_rect,
                 broad_rect,
@@ -134,65 +131,67 @@ impl EntityField {
         }
     }
 
-    pub fn insert(&mut self, entity: Entity) -> Result<EntityId, EntityError> {
-        let archetype = self.archetypes.get(entity.archetype_id as usize).ok_or(EntityError::InvalidId)?;
-
-        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
-        let chunk_coord = entity.coord.div_euclid(chunk_size).as_ivec2();
+    #[inline]
+    fn alloc_chunk(&mut self, coord: Vec2) -> u32 {
+        let chunk_coord = Self::find_chunk_coord_internal(coord);
         let chunk_coord_ = encode_coord(chunk_coord);
 
-        // get or allocate chunk
-        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
+        if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
-            assert!(self.chunks.len() < u32::MAX as usize, "capacity overflow");
+            assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(EntityChunk {
-                version: 0,
+                version: Default::default(),
                 entities: Default::default(),
             });
             self.coord_index.insert(chunk_coord_, chunk_id);
             chunk_id
-        };
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        }
+    }
 
-        // entity_id is guaranteed to be less than u32::MAX.
-        assert!(chunk.entities.vacant_key() < u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.entities.vacant_key() as u32;
+    pub fn insert(&mut self, entity: Entity) -> Result<EntityId, EntityError> {
+        let coord = entity.coord;
+        let chunk_id = self.alloc_chunk(coord);
+
+        // check by spatial features
+        let archetype = self.archetypes.get(entity.archetype_id as usize).ok_or(EntityError::InvalidId)?;
+
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        assert!(chunk.entities.len() <= u32::MAX as usize, "capacity overflow");
+        let local_id = chunk.entities.insert(entity) as u32;
         let id = encode_id(chunk_id, local_id);
 
         // register spatial index
-        let broad_rect = archetype.broad_rect(entity.coord);
+        let broad_rect = archetype.broad_rect(coord);
         self.hgrid.insert(broad_rect, id, EntitySpatialData {
-            collision_rect: archetype.collision_rect(entity.coord),
-            hint_rect: archetype.hint_rect(entity.coord),
+            collision_rect: archetype.collision_rect(coord),
+            hint_rect: archetype.hint_rect(coord),
         });
 
-        chunk.entities.insert(entity);
         chunk.version += 1;
-
         Ok(id)
     }
 
     pub fn remove(&mut self, id: EntityId) -> Result<Entity, EntityError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(EntityError::NotFound)?;
         let entity = chunk.entities.try_remove(local_id as usize).ok_or(EntityError::NotFound)?;
-        chunk.version += 1;
 
         // unregister spatial index
         let archetype = self.archetypes.get(entity.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(entity.coord);
         self.hgrid.remove(broad_rect, id);
 
+        chunk.version += 1;
         Ok(entity)
     }
 
     pub fn modify(&mut self, id: EntityId, f: impl FnOnce(&mut EntityModify)) -> Result<EntityId, EntityError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(EntityError::NotFound)?;
         let entity = chunk.entities.get_mut(local_id as usize).ok_or(EntityError::NotFound)?;
 
         let mut entity_modify = EntityModify { variant: entity.variant, tick: entity.tick };
@@ -207,7 +206,7 @@ impl EntityField {
     pub fn r#move(&mut self, id: EntityId, new_coord: Vec2) -> Result<EntityId, EntityError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get(chunk_id as usize).ok_or(EntityError::NotFound)?;
         let entity = chunk.entities.get(local_id as usize).ok_or(EntityError::NotFound)?;
         if entity.coord == new_coord {
             return Ok(id);
@@ -248,8 +247,10 @@ impl EntityField {
     #[inline]
     pub fn get(&self, id: EntityId) -> Result<&Entity, EntityError> {
         let (chunk_id, local_id) = decode_id(id);
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+
+        let chunk = self.chunks.get(chunk_id as usize).ok_or(EntityError::NotFound)?;
         let entity = chunk.entities.get(local_id as usize).ok_or(EntityError::NotFound)?;
+
         Ok(entity)
     }
 
@@ -264,8 +265,12 @@ impl EntityField {
 
     #[inline]
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
-        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
-        coord.div_euclid(chunk_size).as_ivec2()
+        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
+    }
+
+    #[inline]
+    fn find_chunk_coord_internal(coord: Vec2) -> IVec2 {
+        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
     }
 
     #[inline]

@@ -10,8 +10,8 @@ fn encode_id(chunk_id: u32, local_id: u32) -> BlockId {
 }
 
 #[inline]
-fn decode_id(tile_id: BlockId) -> (u32, u32) {
-    ((tile_id >> 32) as u32, tile_id as u32)
+fn decode_id(block_id: BlockId) -> (u32, u32) {
+    ((block_id >> 32) as u32, block_id as u32)
 }
 
 #[inline]
@@ -20,7 +20,7 @@ fn encode_coord(coord: IVec2) -> u64 {
 }
 
 // locality of reference
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockSpatialData {
     pub rect: IRect2,
     pub collision_rect: Option<Rect2>,
@@ -44,8 +44,6 @@ pub struct BlockFieldInfo {
 
 #[derive(Debug, Clone)]
 pub struct BlockArchetype {
-    pub display_name: String,
-    pub description: String,
     pub size: IVec2,
     pub collision_rect: Option<Rect2>,
     pub hint_rect: Rect2,
@@ -61,17 +59,17 @@ impl BlockArchetype {
 
     #[inline]
     pub fn collision_rect(&self, coord: IVec2) -> Option<Rect2> {
-        self.collision_rect.map(|rect| coord.as_vec2() + rect)
+        self.collision_rect.map(|rect| rect + coord.as_vec2())
     }
 
     #[inline]
     pub fn hint_rect(&self, coord: IVec2) -> Rect2 {
-        coord.as_vec2() + self.hint_rect
+         self.hint_rect + coord.as_vec2()
     }
 
     #[inline]
     pub fn broad_rect(&self, coord: IVec2) -> IRect2 {
-        coord + self.broad_rect
+        self.broad_rect + coord
     }
 }
 
@@ -109,6 +107,7 @@ impl BlockField {
     pub fn new(info: BlockFieldInfo) -> Self {
         let mut archetypes = vec![];
 
+        assert!(info.blocks.len() <= u16::MAX as usize, "capacity overflow");
         for block in info.blocks {
             if block.size.x <= 0 || block.size.y <= 0 {
                 panic!("size must be positive");
@@ -128,8 +127,6 @@ impl BlockField {
             broad_rect = broad_rect.maximum(block.hint_rect.trunc_over().as_irect2());
 
             archetypes.push(BlockArchetype {
-                display_name: block.display_name,
-                description: block.description,
                 size: block.size,
                 collision_rect: block.collision_rect,
                 hint_rect: block.hint_rect,
@@ -146,23 +143,15 @@ impl BlockField {
         }
     }
 
-    pub fn insert(&mut self, block: Block) -> Result<BlockId, BlockError> {
-        let archetype = self.archetypes.get(block.archetype_id as usize).ok_or(BlockError::InvalidId)?;
-
-        // check by spatial features
-        if self.find_with_rect(archetype.rect(block.coord)).next().is_some() {
-            return Err(BlockError::Conflict);
-        }
-
-        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-        let chunk_coord = block.coord.div_euclid(chunk_size);
+    #[inline]
+    fn alloc_chunk(&mut self, coord: IVec2) -> u32 {
+        let chunk_coord = Self::find_chunk_coord_internal(coord);
         let chunk_coord_ = encode_coord(chunk_coord);
 
-        // get or allocate chunk
-        let chunk_id = if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
+        if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
             *chunk_id
         } else {
-            assert!(self.chunks.len() < u32::MAX as usize, "capacity overflow");
+            assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
             let chunk_id = self.chunks.len() as u32;
             self.chunks.push(BlockChunk {
                 version: Default::default(),
@@ -170,47 +159,55 @@ impl BlockField {
             });
             self.coord_index.insert(chunk_coord_, chunk_id);
             chunk_id
-        };
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        }
+    }
 
-        // block_id is guaranteed to be less than u32::MAX.
-        assert!(chunk.blocks.vacant_key() < u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.blocks.vacant_key() as u32;
+    pub fn insert(&mut self, block: Block) -> Result<BlockId, BlockError> {
+        let coord = block.coord;
+        let chunk_id = self.alloc_chunk(coord);
+
+        // check by spatial features
+        let archetype = self.archetypes.get(block.archetype_id as usize).ok_or(BlockError::InvalidId)?;
+        if self.find_with_rect(archetype.rect(coord)).next().is_some() {
+            return Err(BlockError::Conflict);
+        }
+
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        assert!(chunk.blocks.len() <= u32::MAX as usize, "capacity overflow");
+        let local_id = chunk.blocks.insert(block) as u32;
         let id = encode_id(chunk_id, local_id);
 
         // register spatial index
-        let broad_rect = archetype.broad_rect(block.coord);
+        let broad_rect = archetype.broad_rect(coord);
         self.hgrid.insert(broad_rect, id, BlockSpatialData {
-            rect: archetype.rect(block.coord),
-            collision_rect: archetype.collision_rect(block.coord),
-            hint_rect: archetype.hint_rect(block.coord),
+            rect: archetype.rect(coord),
+            collision_rect: archetype.collision_rect(coord),
+            hint_rect: archetype.hint_rect(coord),
         });
 
-        chunk.blocks.insert(block);
         chunk.version += 1;
-
         Ok(id)
     }
 
     pub fn remove(&mut self, id: BlockId) -> Result<Block, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(BlockError::NotFound)?;
         let block = chunk.blocks.try_remove(local_id as usize).ok_or(BlockError::NotFound)?;
-        chunk.version += 1;
 
         // unregister spatial index
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
         let broad_rect = archetype.broad_rect(block.coord);
         self.hgrid.remove(broad_rect, id);
 
+        chunk.version += 1;
         Ok(block)
     }
 
     pub fn modify(&mut self, id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(BlockError::NotFound)?;
         let block = chunk.blocks.get_mut(local_id as usize).ok_or(BlockError::NotFound)?;
 
         let mut block_modify = BlockModify { variant: block.variant, tick: block.tick };
@@ -225,7 +222,7 @@ impl BlockField {
     pub fn r#move(&mut self, id: BlockId, new_coord: IVec2) -> Result<BlockId, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let chunk = self.chunks.get(chunk_id as usize).ok_or(BlockError::NotFound)?;
         let block = chunk.blocks.get(local_id as usize).ok_or(BlockError::NotFound)?;
         if block.coord == new_coord {
             return Ok(id);
@@ -267,8 +264,10 @@ impl BlockField {
     #[inline]
     pub fn get(&self, id: BlockId) -> Result<&Block, BlockError> {
         let (chunk_id, local_id) = decode_id(id);
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+
+        let chunk = self.chunks.get(chunk_id as usize).ok_or(BlockError::NotFound)?;
         let block = chunk.blocks.get(local_id as usize).ok_or(BlockError::NotFound)?;
+
         Ok(block)
     }
 
@@ -285,6 +284,11 @@ impl BlockField {
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
         let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
         coord.div_euclid(chunk_size).as_ivec2()
+    }
+
+    #[inline]
+    fn find_chunk_coord_internal(coord: IVec2) -> IVec2 {
+        coord.div_euclid(IVec2::splat(Self::CHUNK_SIZE as i32))
     }
 
     #[inline]
