@@ -346,8 +346,7 @@ impl EntityField {
             }
 
             let mut count = 0;
-            let entities = chunk.entities.iter().map(|(_, entity)| entity);
-            for (i, entity) in entities.take(Self::BUFFER_LEN).enumerate() {
+            for (i, entity) in chunk.entities.iter().take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[entity.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;

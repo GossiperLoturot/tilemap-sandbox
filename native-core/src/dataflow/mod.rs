@@ -82,9 +82,21 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn modify_tile(&mut self, tile_id: TileId, f: impl FnOnce(&mut TileModify)) -> Result<TileId, DataflowError> {
-        let tile_id = self.tile_field.modify(tile_id, f)?;
-        Ok(tile_id)
+    pub fn modify_tile_variant(&mut self, tile_id: TileId, variant: u16) -> Result<(), DataflowError> {
+        self.tile_field.modify_variant(tile_id, variant)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn modify_tile_tick(&mut self, tile_id: TileId, tick: u32) -> Result<(), DataflowError> {
+        self.tile_field.modify_tick(tile_id, tick)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn move_tile(&mut self, tile_id: TileId, new_coord: IVec2) -> Result<(), DataflowError> {
+        self.tile_field.r#move(tile_id, new_coord)?;
+        Ok(())
     }
 
     #[inline]
@@ -149,9 +161,21 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn modify_block(&mut self, block_id: BlockId, f: impl FnOnce(&mut BlockModify)) -> Result<BlockId, DataflowError> {
-        let block_id = self.block_field.modify(block_id, f)?;
-        Ok(block_id)
+    pub fn modify_block_variant(&mut self, block_id: BlockId, variant: u16) -> Result<(), DataflowError> {
+        self.block_field.modify_variant(block_id, variant)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn modify_block_tick(&mut self, block_id: BlockId, tick: u32) -> Result<(), DataflowError> {
+        self.block_field.modify_tick(block_id, tick)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn move_block(&mut self, block_id: BlockId, new_coord: IVec2) -> Result<(), DataflowError> {
+        self.block_field.r#move(block_id, new_coord)?;
+        Ok(())
     }
 
     #[inline]
@@ -228,15 +252,21 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn modify_entity(&mut self, entity_id: EntityId, f: impl FnOnce(&mut EntityModify)) -> Result<EntityId, DataflowError> {
-        let entity_id = self.entity_field.modify(entity_id, f)?;
-        Ok(entity_id)
+    pub fn modify_entity_variant(&mut self, entity_id: EntityId, variant: u16) -> Result<(), DataflowError> {
+        self.entity_field.modify_variant(entity_id, variant)?;
+        Ok(())
     }
 
     #[inline]
-    pub fn move_entity(&mut self, entity_id: EntityId, new_coord: Vec2) -> Result<EntityId, DataflowError> {
-        let entity_id = self.entity_field.r#move(entity_id, new_coord)?;
-        Ok(entity_id)
+    pub fn modify_entity_tick(&mut self, entity_id: EntityId, tick: u32) -> Result<(), DataflowError> {
+        self.entity_field.modify_tick(entity_id, tick)?;
+        Ok(())
+    }
+
+    #[inline]
+    pub fn move_entity(&mut self, entity_id: EntityId, new_coord: Vec2) -> Result<(), DataflowError> {
+        self.entity_field.r#move(entity_id, new_coord)?;
+        Ok(())
     }
 
     #[inline]

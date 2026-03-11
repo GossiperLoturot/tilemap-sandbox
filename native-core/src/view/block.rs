@@ -348,8 +348,7 @@ impl BlockField {
             }
 
             let mut count = 0;
-            let blocks = chunk.blocks.iter().map(|(_, block)| block);
-            for (i, block) in blocks.take(Self::BUFFER_LEN).enumerate() {
+            for (i, block) in chunk.blocks.iter().take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[block.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;

@@ -1,8 +1,8 @@
 use glam::*;
 use native_core::*;
 
-const IDLE_VARIANT: u8 = 0;
-const WALK_VARIANT: u8 = 1;
+const IDLE_VARIANT: u16 = 0;
+const WALK_VARIANT: u16 = 1;
 
 // resource
 
@@ -75,12 +75,8 @@ impl AnimalSystem {
                     data.state = AnimalDataState::WaitStart;
                 }
                 AnimalDataState::WaitStart => {
-                    let tick = dataflow.get_tick() as u32;
-                    let _ = dataflow.modify_entity(data.entity_id, |entity| {
-                        entity.variant = IDLE_VARIANT;
-                        entity.tick = tick;
-                    });
-
+                    dataflow.modify_entity_variant(data.entity_id, IDLE_VARIANT).unwrap();
+                    dataflow.modify_entity_tick(data.entity_id, dataflow.get_tick() as u32).unwrap();
                     let wait_secs = rand::Rng::gen_range(&mut rng, data.min_rest_secs..data.max_rest_secs);
                     data.state = AnimalDataState::Wait(wait_secs);
                 }
@@ -93,12 +89,8 @@ impl AnimalSystem {
                     }
                 }
                 AnimalDataState::TripStart => {
-                    let tick = dataflow.get_tick() as u32;
-                    let _ = dataflow.modify_entity(data.entity_id, |entity| {
-                        entity.variant = WALK_VARIANT;
-                        entity.tick = tick;
-                    });
-
+                    dataflow.modify_entity_variant(data.entity_id, WALK_VARIANT).unwrap();
+                    dataflow.modify_entity_tick(data.entity_id, dataflow.get_tick() as u32).unwrap();
                     let angle = rand::Rng::gen_range(&mut rng, 0.0..std::f32::consts::PI * 2.0);
                     let distance = rand::Rng::gen_range(&mut rng, data.min_distance..data.max_distance);
                     let destination = entity.coord + Vec2::from_angle(angle) * distance;
@@ -111,7 +103,7 @@ impl AnimalSystem {
                         let direction = difference / distance;
                         let velocity = distance.min(data.speed * delta_secs);
                         let new_coord = entity.coord + direction * velocity;
-                        data.entity_id = dataflow.move_entity(data.entity_id, new_coord).unwrap();
+                        dataflow.move_entity(data.entity_id, new_coord).unwrap();
                     } else {
                         data.state = AnimalDataState::WaitStart;
                     }

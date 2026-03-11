@@ -120,8 +120,7 @@ fn benchmark_tile(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|tile_modify: &mut dataflow::TileModify| tile_modify.variant += 1);
-                let result = field.modify(id, f).unwrap();
+                let result = field.modify_variant(id, std::hint::black_box(1)).unwrap();
                 std::hint::black_box(result);
             }
             instance.elapsed()
@@ -328,8 +327,7 @@ fn benchmark_block(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|block_modify: &mut dataflow::BlockModify| block_modify.variant += 1);
-                let result = field.modify(id, f).unwrap();
+                let result = field.modify_variant(id, std::hint::black_box(1)).unwrap();
                 std::hint::black_box(result);
             }
             instance.elapsed()
@@ -535,8 +533,7 @@ fn benchmark_entity(c: &mut Criterion) {
 
             let instance = std::time::Instant::now();
             for id in ids {
-                let f = std::hint::black_box(|entity_modify: &mut dataflow::EntityModify| entity_modify.variant += 1);
-                let result = field.modify(id, f).unwrap();
+                let result = field.modify_variant(id, std::hint::black_box(1)).unwrap();
                 std::hint::black_box(result);
             }
             instance.elapsed()

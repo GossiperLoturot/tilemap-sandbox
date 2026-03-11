@@ -329,8 +329,7 @@ impl TileField {
             }
 
             let mut count = 0;
-            let tiles = chunk.tiles.iter().map(|(_, tile)| tile);
-            for (i, tile) in tiles.take(Self::BUFFER_LEN).enumerate() {
+            for (i, tile) in chunk.tiles.iter().take(Self::BUFFER_LEN).enumerate() {
                 self.instance_buffer[i * 12] = 2.0;
                 self.instance_buffer[i * 12 + 1] = 0.0;
                 self.instance_buffer[i * 12 + 2] = 0.0;

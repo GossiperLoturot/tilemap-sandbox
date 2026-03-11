@@ -5,13 +5,13 @@ use crate::geom::*;
 pub type TileId = u64;
 
 #[inline]
-fn encode_id(chunk_id: u32, local_id: u32) -> TileId {
+fn encode_address(chunk_id: u32, local_id: u32) -> u64 {
     (chunk_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
-fn decode_id(tile_id: TileId) -> (u32, u32) {
-    ((tile_id >> 32) as u32, tile_id as u32)
+fn decode_address(address: u64) -> (u32, u32) {
+    ((address >> 32) as u32, address as u32)
 }
 
 #[inline]
@@ -65,23 +65,18 @@ impl TileArchetype {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct TileModify {
-    pub variant: u8,
-    pub tick: u32,
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct Tile {
-    pub archetype_id: u16,
     pub coord: IVec2,
-    pub variant: u8,
+    pub archetype_id: u16,
+    pub variant: u16,
     pub tick: u32,
 }
 
 #[derive(Debug)]
 pub struct TileChunk {
     pub version: u64,
-    pub tiles: slab::Slab<Tile>,
+    pub tiles: Vec<Tile>,
+    pub ids: Vec<u64>,
 }
 
 #[derive(Debug)]
@@ -89,6 +84,7 @@ pub struct TileField {
     archetypes: Vec<TileArchetype>,
     chunks: Vec<TileChunk>,
     coord_index: ahash::AHashMap<u64, u32>,
+    id_index: slab::Slab<u64>,
     hgrid: HGrid<TileSpatialData>,
 }
 
@@ -109,6 +105,7 @@ impl TileField {
             archetypes,
             chunks: Default::default(),
             coord_index: Default::default(),
+            id_index: Default::default(),
             hgrid: Default::default(),
         }
     }
@@ -126,6 +123,7 @@ impl TileField {
             self.chunks.push(TileChunk {
                 version: Default::default(),
                 tiles: Default::default(),
+                ids: Default::default(),
             });
             self.coord_index.insert(chunk_coord_, chunk_id);
             chunk_id
@@ -133,8 +131,7 @@ impl TileField {
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<TileId, TileError> {
-        let coord = tile.coord;
-        let chunk_id = self.alloc_chunk(coord);
+        let chunk_id = self.alloc_chunk(tile.coord);
 
         // check by spatial features
         let archetype = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
@@ -144,25 +141,34 @@ impl TileField {
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         assert!(chunk.tiles.len() <= u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.tiles.insert(tile) as u32;
-        let id = encode_id(chunk_id, local_id);
+        let local_id = chunk.tiles.len() as u32;
+        let address = encode_address(chunk_id, local_id);
+        let id = self.id_index.insert(address) as u64;
 
         // register spatial index
-        let broad_rect = TileArchetype::broad_rect(coord);
+        let broad_rect = TileArchetype::broad_rect(tile.coord);
         self.hgrid.insert(broad_rect, id, TileSpatialData {
-            rect: TileArchetype::rect(coord),
-            collision_rect: archetype.collision_rect(coord),
+            rect: TileArchetype::rect(tile.coord),
+            collision_rect: archetype.collision_rect(tile.coord),
         });
 
+        chunk.tiles.push(tile);
+        chunk.ids.push(id);
         chunk.version += 1;
         Ok(id)
     }
 
     pub fn remove(&mut self, id: TileId) -> Result<Tile, TileError> {
-        let (chunk_id, local_id) = decode_id(id);
+        let address = self.id_index.try_remove(id as usize).ok_or(TileError::NotFound)?;
+        let (chunk_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(TileError::NotFound)?;
-        let tile = chunk.tiles.try_remove(local_id as usize).ok_or(TileError::NotFound)?;
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let tile = chunk.tiles.swap_remove(local_id as usize);
+        let _ = chunk.ids.swap_remove(local_id as usize);
+
+        if let Some(id) = chunk.ids.get(local_id as usize) {
+            *self.id_index.get_mut(*id as usize).unwrap() = address;
+        }
 
         // unregister spatial index
         let broad_rect = TileArchetype::broad_rect(tile.coord);
@@ -172,42 +178,45 @@ impl TileField {
         Ok(tile)
     }
 
-    pub fn modify(&mut self, id: TileId, f: impl FnOnce(&mut TileModify)) -> Result<TileId, TileError> {
-        let (chunk_id, local_id) = decode_id(id);
+    pub fn modify_variant(&mut self, id: TileId, variant: u16) -> Result<(), TileError> {
+        let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
+        let (chunk_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).ok_or(TileError::NotFound)?;
-        let tile = chunk.tiles.get_mut(local_id as usize).ok_or(TileError::NotFound)?;
-
-        let mut tile_modify = TileModify { variant: tile.variant, tick: tile.tick };
-        f(&mut tile_modify);
-        tile.variant = tile_modify.variant;
-        tile.tick = tile_modify.tick;
-
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+        tile.variant = variant;
         chunk.version += 1;
-        Ok(id)
+        Ok(())
     }
 
-    pub fn r#move(&mut self, id: TileId, new_coord: IVec2) -> Result<TileId, TileError> {
-        let (chunk_id, local_id) = decode_id(id);
+    pub fn modify_tick(&mut self, id: TileId, tick: u32) -> Result<(), TileError> {
+        let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
+        let (chunk_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).ok_or(TileError::NotFound)?;
-        let tile = chunk.tiles.get(local_id as usize).ok_or(TileError::NotFound)?;
+        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+        let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+        tile.tick = tick;
+        chunk.version += 1;
+        Ok(())
+    }
+
+    pub fn r#move(&mut self, id: TileId, new_coord: IVec2) -> Result<(), TileError> {
+        let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
+        let (chunk_id, local_id) = decode_address(address);
+
+        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let tile = chunk.tiles.get(local_id as usize).unwrap();
         if tile.coord == new_coord {
-            return Ok(id);
+            return Ok(());
         }
 
-        // move spatial memory
-        let chunk_size = IVec2::splat(Self::CHUNK_SIZE as i32);
-        let chunk_coord = tile.coord.div_euclid(chunk_size);
-        let new_chunk_coord = new_coord.div_euclid(chunk_size);
-        if new_chunk_coord != chunk_coord {
-            let new_id = self.insert(Tile { coord: new_coord, ..tile.clone() })?;
-            self.remove(id).unwrap(); // for transaction rollback
-            return Ok(new_id)
+        // check by spatial features
+        let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
+        if self.find_with_point(new_coord).is_some() {
+            return Err(TileError::Conflict);
         }
 
         // update spatial index
-        let archetype = self.get_archetype(tile.archetype_id)?;
         let broad_rect = TileArchetype::broad_rect(tile.coord);
         let new_broad_rect = TileArchetype::broad_rect(new_coord);
         if self.hgrid.check_move(broad_rect, new_broad_rect) {
@@ -219,21 +228,46 @@ impl TileField {
             self.hgrid.insert(new_broad_rect, id, value);
         }
 
-        // move in same spatial memory
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
-        tile.coord = new_coord;
+        // move owner
+        let chunk_coord = Self::find_chunk_coord_internal(tile.coord);
+        let new_chunk_coord = Self::find_chunk_coord_internal(new_coord);
+        if new_chunk_coord != chunk_coord {
+            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+            let tile = chunk.tiles.swap_remove(local_id as usize);
+            let _ = chunk.ids.swap_remove(local_id as usize);
 
-        chunk.version += 1;
-        Ok(id)
+            if let Some(id) = chunk.ids.get(local_id as usize) {
+                *self.id_index.get_mut(*id as usize).unwrap() = address;
+            }
+            chunk.version += 1;
+
+            let new_chunk_id = self.alloc_chunk(new_coord);
+
+            let new_chunk = self.chunks.get_mut(new_chunk_id as usize).unwrap();
+            assert!(new_chunk.tiles.len() <= u32::MAX as usize, "capacity overflow");
+            let new_local_id = new_chunk.tiles.len() as u32;
+            let new_address = encode_address(new_chunk_id, new_local_id);
+            *self.id_index.get_mut(id as usize).unwrap() = new_address;
+
+            new_chunk.tiles.push(Tile { coord: new_coord, ..tile });
+            new_chunk.ids.push(id);
+            new_chunk.version += 1;
+        } else {
+            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
+            let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+            tile.coord = new_coord;
+            chunk.version += 1;
+        }
+        Ok(())
     }
 
     #[inline]
     pub fn get(&self, id: TileId) -> Result<&Tile, TileError> {
-        let (chunk_id, local_id) = decode_id(id);
+        let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
+        let (chunk_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).ok_or(TileError::NotFound)?;
-        let tile = chunk.tiles.get(local_id as usize).ok_or(TileError::NotFound)?;
+        let chunk = self.chunks.get(chunk_id as usize).unwrap();
+        let tile = chunk.tiles.get(local_id as usize).unwrap();
 
         Ok(tile)
     }
@@ -249,8 +283,7 @@ impl TileField {
 
     #[inline]
     pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
-        let chunk_size = Vec2::splat(Self::CHUNK_SIZE as f32);
-        coord.div_euclid(chunk_size).as_ivec2()
+        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
     }
 
     #[inline]
@@ -261,8 +294,8 @@ impl TileField {
     #[inline]
     pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, TileError> {
         let chunk_coord_ = encode_coord(chunk_coord);
-        let chunk_id = self.coord_index.get(&chunk_coord_).ok_or(TileError::NotFound)?;
-        let chunk = self.chunks.get(*chunk_id as usize).unwrap();
+        let chunk_id = *self.coord_index.get(&chunk_coord_).ok_or(TileError::NotFound)?;
+        let chunk = self.chunks.get(chunk_id as usize).unwrap();
         Ok(chunk)
     }
 
@@ -423,16 +456,7 @@ mod tests {
         let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
         assert_eq!(query, Some(id));
 
-        let id = field
-            .modify(id, |tile_modify| tile_modify.variant = 1)
-            .unwrap();
-
-        let tile = field.get(id).unwrap();
-        assert_eq!(tile.archetype_id, 1);
-        assert_eq!(tile.coord, IVec2::new(-1, 4));
-        assert_eq!(tile.variant, 1);
-
-        let id = field.modify(id, |_| {}).unwrap();
+        field.modify_variant(id, 1).unwrap();
 
         let tile = field.get(id).unwrap();
         assert_eq!(tile.archetype_id, 1);
@@ -467,7 +491,7 @@ mod tests {
         assert_eq!(query, Some(id0));
 
         field.remove(id1).unwrap();
-        assert_eq!(field.modify(id1, |_| {}), Err(TileError::NotFound));
+        assert_eq!(field.modify_variant(id1, 1), Err(TileError::NotFound));
         assert_eq!(field.get(id1).unwrap_err(), TileError::NotFound);
         let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
         assert_eq!(query, None);
@@ -485,7 +509,7 @@ mod tests {
             })
             .unwrap();
 
-        let id = field.r#move(id, IVec2::new(-1, 1000)).unwrap();
+        field.r#move(id, IVec2::new(-1, 1000)).unwrap();
 
         let tile = field.get(id).unwrap();
         assert_eq!(tile.archetype_id, 1);
