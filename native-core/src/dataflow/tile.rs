@@ -302,12 +302,12 @@ impl TileField {
     // spatial features
 
     #[inline]
-    pub fn find_with_point(&self, point: IVec2) -> Option<&(TileId, TileSpatialData)> {
+    pub fn find_with_point(&self, point: IVec2) -> Option<(&TileId, &TileSpatialData)> {
         self.find_with_rect(IRect2::new(point, point)).next()
     }
 
     #[inline]
-    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
+    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
         self.hgrid.find(rect)
             .filter(move |(_, data)| Intersects::intersects(&rect, &data.rect))
     }
@@ -315,12 +315,12 @@ impl TileField {
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(TileId, TileSpatialData)> {
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
             .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
     }

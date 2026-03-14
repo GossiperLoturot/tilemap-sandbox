@@ -244,7 +244,7 @@ impl BlockField {
 
         // check by spatial features
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
-        if self.find_with_rect(archetype.rect(new_coord)).find(|(v, _)| *v != id).is_some() {
+        if self.find_with_rect(archetype.rect(new_coord)).find(|(v, _)| **v != id).is_some() {
             return Err(BlockError::Conflict);
         }
 
@@ -335,12 +335,12 @@ impl BlockField {
     // spatial features
 
     #[inline]
-    pub fn find_with_point(&self, point: IVec2) -> Option<&(BlockId, BlockSpatialData)> {
+    pub fn find_with_point(&self, point: IVec2) -> Option<(&BlockId, &BlockSpatialData)> {
         self.find_with_rect(IRect2::new(point, point)).next()
     }
 
     #[inline]
-    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
+    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = (&BlockId, &BlockSpatialData)> {
         self.hgrid.find(rect)
             .filter(move |(_, data)| Intersects::intersects(&rect, &data.rect))
     }
@@ -348,12 +348,12 @@ impl BlockField {
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = (&BlockId, &BlockSpatialData)> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = (&BlockId, &BlockSpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
             .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
     }
@@ -361,12 +361,12 @@ impl BlockField {
     // hint features
 
     #[inline]
-    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
+    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = (&BlockId, &BlockSpatialData)> {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(BlockId, BlockSpatialData)> {
+    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = (&BlockId, &BlockSpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
             .filter(move |(_, data)| Intersects::intersects(&rect, &data.hint_rect))
     }

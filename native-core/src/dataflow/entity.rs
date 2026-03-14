@@ -315,12 +315,12 @@ impl EntityField {
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
             .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
     }
@@ -328,12 +328,12 @@ impl EntityField {
     // hint features
 
     #[inline]
-    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
+    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &(EntityId, EntitySpatialData)> {
+    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
         self.hgrid.find(rect.trunc_over().as_irect2())
             .filter(move |(_, data)| Intersects::intersects(&rect, &data.hint_rect))
     }
