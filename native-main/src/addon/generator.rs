@@ -7,14 +7,12 @@ pub trait Generator {
 
 // method for generating
 
-pub type SampleFn<T> = Box<dyn Fn(&mut dataflow::Dataflow, T)>;
-
-pub struct DiscreteGenerator {
+pub struct DiscreteGenerator<F> where F: Fn(&mut dataflow::Dataflow, IVec2) {
     pub probability: f32,
-    pub sample_fn: SampleFn<IVec2>,
+    pub sample_fn: F,
 }
 
-impl Generator for DiscreteGenerator {
+impl<F> Generator for DiscreteGenerator<F> where F: Fn(&mut dataflow::Dataflow, IVec2)  {
     fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
         let rng = &mut rand::thread_rng();
 
@@ -27,18 +25,18 @@ impl Generator for DiscreteGenerator {
                     continue;
                 }
 
-                (*self.sample_fn)(dataflow, coord);
+                (self.sample_fn)(dataflow, coord);
             }
         }
     }
 }
 
-pub struct RandomGenerator {
+pub struct RandomGenerator<F> where F: Fn(&mut dataflow::Dataflow, Vec2) {
     pub probability: f32,
-    pub sample_fn: SampleFn<Vec2>,
+    pub sample_fn: F,
 }
 
-impl Generator for RandomGenerator {
+impl<F> Generator for RandomGenerator<F> where F: Fn(&mut dataflow::Dataflow, Vec2) {
     fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
         let rng = &mut rand::thread_rng();
 
@@ -48,7 +46,7 @@ impl Generator for RandomGenerator {
             let y = rand::Rng::gen_range(rng, broad_rect.min.y as f32..broad_rect.max.y as f32);
             let coord = Vec2::new(x, y);
 
-            (*self.sample_fn)(dataflow, coord)
+            (self.sample_fn)(dataflow, coord)
         }
     }
 }

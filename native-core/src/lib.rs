@@ -6,48 +6,6 @@ pub mod view;
 
 mod geom;
 
-// retriever for loading resources
-
-pub struct Retriever {
-    retrieve_callable: godot::builtin::Callable,
-}
-
-impl Retriever {
-    pub fn new(retrieve_callable: godot::builtin::Callable) -> Self {
-        Self { retrieve_callable }
-    }
-
-    pub fn load<T>(&self, name: &str) -> T
-    where
-        T: godot::meta::FromGodot,
-    {
-        if self.retrieve_callable.is_null() {
-            panic!("Retriever callable is null");
-        }
-        if self.retrieve_callable.get_argument_count() < 1 {
-            panic!("Retriever callable must have at least one argument");
-        }
-        let variant = godot::meta::ToGodot::to_variant(&name);
-        let ret = self.retrieve_callable.call(&[variant]);
-
-        match ret.try_to::<T>() {
-            Ok(value) => {
-                // successfully converted to the expected type
-                value
-            }
-            Err(e) => {
-                panic!(
-                    "Failed to load resource {:?}: Expected type is {:?}, but found type is {:?}.\n{:?}",
-                    name,
-                    std::any::type_name::<T>(),
-                    ret.get_type(),
-                    e,
-                );
-            }
-        }
-    }
-}
-
 // registry
 
 #[derive(Default)]
@@ -115,17 +73,6 @@ pub struct EntityInfo {
     pub rendering_rect: Rect2,
 }
 
-pub struct ItemInfo {
-    pub display_name: String,
-    pub description: String,
-    pub sprites: Vec<SpriteInfo>,
-}
-
-pub struct InventoryInfo {
-    pub size: u32,
-    pub callback: godot::builtin::Callable,
-}
-
 pub struct BuildInfo {
     pub tile_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
@@ -133,15 +80,13 @@ pub struct BuildInfo {
     pub viewport: godot::obj::Gd<godot::classes::Viewport>,
 }
 
-type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry, &'a Retriever) -> T>;
+type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry) -> T>;
 
 #[derive(Default)]
 pub struct ContextBuilder {
     tiles: Vec<RegisterFn<TileInfo>>,
     blocks: Vec<RegisterFn<BlockInfo>>,
     entities: Vec<RegisterFn<EntityInfo>>,
-    items: Vec<RegisterFn<ItemInfo>>,
-    inventories: Vec<RegisterFn<InventoryInfo>>,
     registry: Registry,
 }
 
@@ -150,52 +95,28 @@ impl ContextBuilder {
         Default::default()
     }
 
-    pub fn add_tile<F>(&mut self, name: String, desc_fn: F)
-    where
-        F: FnOnce(&Registry, &Retriever) -> TileInfo + 'static,
+    pub fn add_tile<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> TileInfo + 'static,
     {
         self.tiles.push(Box::new(desc_fn));
         let id = (self.tiles.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn add_block<F>(&mut self, name: String, desc_fn: F)
-    where
-        F: FnOnce(&Registry, &Retriever) -> BlockInfo + 'static,
+    pub fn add_block<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> BlockInfo + 'static,
     {
         self.blocks.push(Box::new(desc_fn));
         let id = (self.blocks.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn add_entity<F>(&mut self, name: String, desc_fn: F)
-    where
-        F: FnOnce(&Registry, &Retriever) -> EntityInfo + 'static,
+    pub fn add_entity<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> EntityInfo + 'static,
     {
         self.entities.push(Box::new(desc_fn));
         let id = (self.entities.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn add_item<F>(&mut self, name: String, desc_fn: F)
-    where
-        F: FnOnce(&Registry, &Retriever) -> ItemInfo + 'static,
-    {
-        self.items.push(Box::new(desc_fn));
-        let id = (self.items.len() - 1) as u16;
-        self.registry.set(name, id);
-    }
-
-    pub fn add_inventory<F>(&mut self, name: String, desc_fn: F)
-    where
-        F: FnOnce(&Registry, &Retriever) -> InventoryInfo + 'static,
-    {
-        self.inventories.push(Box::new(desc_fn));
-        let id = (self.inventories.len() - 1) as u16;
-        self.registry.set(name, id);
-    }
-
-    pub fn build(self, retriever: &Retriever, info: BuildInfo) -> Context {
+    pub fn build(self, info: BuildInfo) -> Context {
         let world = info
             .viewport
             .get_world_3d()
@@ -205,7 +126,7 @@ impl ContextBuilder {
         let mut tiles = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
-            let tile_info = tile(&self.registry, retriever);
+            let tile_info = tile(&self.registry);
 
             tiles.push(dataflow::TileInfo {
                 display_name: tile_info.display_name,
@@ -246,7 +167,7 @@ impl ContextBuilder {
         let mut blocks = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
-            let block_info = block(&self.registry, retriever);
+            let block_info = block(&self.registry);
 
             blocks.push(dataflow::BlockInfo {
                 display_name: block_info.display_name,
@@ -294,7 +215,7 @@ impl ContextBuilder {
         let mut entities = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
-            let entity_info = entity(&self.registry, retriever);
+            let entity_info = entity(&self.registry);
 
             entities.push(dataflow::EntityInfo {
                 display_name: entity_info.display_name,
@@ -337,58 +258,10 @@ impl ContextBuilder {
             world: world.clone(),
         });
 
-        // item field
-        let mut items = vec![];
-        let mut items_view = vec![];
-        for item in self.items {
-            let item_info = item(&self.registry, retriever);
-
-            items.push(dataflow::ItemInfo {
-                display_name: item_info.display_name,
-                description: item_info.description,
-            });
-
-            let mut sprites = vec![];
-            for image in item_info.sprites {
-                let mut images = vec![];
-                for image in image.images {
-                    images.push(image);
-                }
-
-                sprites.push(view::ItemSpriteInfo {
-                    images,
-                    ticks_per_image: image.step_tick,
-                    is_loop: image.is_loop,
-                });
-            }
-
-            items_view.push(view::ItemInfo { sprites });
-        }
-
-        let mut inventories = vec![];
-        let mut inventories_view = vec![];
-        for inventory in self.inventories {
-            let inventory_info = inventory(&self.registry, retriever);
-
-            inventories.push(dataflow::InventoryInfo { size: inventory_info.size });
-
-            inventories_view.push(view::InventoryInfo {
-                callback: inventory_info.callback,
-            });
-        }
-
-        let inventory_storage_info = dataflow::InventorySystemInfo { items, inventories };
-
-        let inventory_system_view = view::InventorySystem::new(view::InventorySystemInfo {
-            items: items_view,
-            inventories: inventories_view,
-        });
-
         let dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
-            inventory_system: inventory_storage_info,
         });
 
         Context {
@@ -397,7 +270,6 @@ impl ContextBuilder {
             tile_field_view,
             block_field_view,
             entity_field_view,
-            inventory_system_view,
         }
     }
 }
@@ -408,5 +280,4 @@ pub struct Context {
     pub tile_field_view: view::TileField,
     pub block_field_view: view::BlockField,
     pub entity_field_view: view::EntityField,
-    pub inventory_system_view: view::InventorySystem,
 }

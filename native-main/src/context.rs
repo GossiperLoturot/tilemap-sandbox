@@ -13,15 +13,15 @@ pub struct Context {
 #[godot_api]
 impl Context {
     #[func]
-    fn open(&mut self, retrieve_callable: Callable) {
+    fn open(&mut self, viewport: Gd<godot::classes::Viewport>) {
         let mut builder = core::ContextBuilder::new();
 
         // dirt tile
-        builder.add_tile("tile_dirt".into(), |_, retriever| core::TileInfo {
+        builder.add_tile("tile_dirt".into(), |_| core::TileInfo {
             display_name: "Dirt".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_tile_dirt")],
+                images: vec![load("res://images/dirt.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -29,11 +29,11 @@ impl Context {
         });
 
         // grass tile
-        builder.add_tile("tile_grass".into(), |_, retriever| core::TileInfo {
+        builder.add_tile("tile_grass".into(), |_| core::TileInfo {
             display_name: "Grass".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_tile_grass")],
+                images: vec![load("res://images/grass.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -41,11 +41,11 @@ impl Context {
         });
 
         // dandelion block
-        builder.add_block("block_dandelion".into(), |_, retriever| core::BlockInfo {
+        builder.add_block("block_dandelion".into(), |_| core::BlockInfo {
             display_name: "Dandelion".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_block_dandelion")],
+                images: vec![load("res://images/dandelion.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -56,11 +56,11 @@ impl Context {
         });
 
         // fallen leaves block
-        builder.add_block("block_fallenleaves".into(), |_, retriever| core::BlockInfo {
+        builder.add_block("block_fallenleaves".into(), |_| core::BlockInfo {
             display_name: "Fallen Leaves".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_block_fallenleaves")],
+                images: vec![load("res://images/fallenleaves.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -71,11 +71,11 @@ impl Context {
         });
 
         // mix grass block
-        builder.add_block("block_mixgrass".into(), |_, retriever| core::BlockInfo {
+        builder.add_block("block_mixgrass".into(), |_| core::BlockInfo {
             display_name: "Grass".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_block_mixgrass")],
+                images: vec![load("res://images/mixgrass.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -86,11 +86,11 @@ impl Context {
         });
 
         // mix pebbles block
-        builder.add_block("block_mixpebbles".into(), |_, retriever| core::BlockInfo {
+        builder.add_block("block_mixpebbles".into(), |_| core::BlockInfo {
             display_name: "Pebbles".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_block_mixpebbles")],
+                images: vec![load("res://images/mixpebbles.webp")],
                 step_tick: 0,
                 is_loop: false,
             }],
@@ -101,13 +101,13 @@ impl Context {
         });
 
         // oak tree block
-        builder.add_block("block_oaktree".into(), |_, retriever| core::BlockInfo {
+        builder.add_block("block_oaktree".into(), |_| core::BlockInfo {
             display_name: "Oak Tree".into(),
             description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![
-                    retriever.load("image_block_oaktree0"),
-                    retriever.load("image_block_oaktree1"),
+                    load("res://images/oaktree_0.webp"),
+                    load("res://images/oaktree_1.webp"),
                 ],
                 step_tick: 48,
                 is_loop: true,
@@ -119,42 +119,42 @@ impl Context {
         });
 
         // player entity
-        builder.add_entity("entity_player".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_player".into(), |_| core::EntityInfo {
             display_name: "Player".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_player_idle0"),
-                        retriever.load("image_entity_player_idle1"),
+                        load("res://images/player_idle0.webp"),
+                        load("res://images/player_idle1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_player_idle0r"),
-                        retriever.load("image_entity_player_idle1r"),
+                        load("res://images/player_idle0r.webp"),
+                        load("res://images/player_idle1r.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_player_walk0"),
-                        retriever.load("image_entity_player_idle0"),
-                        retriever.load("image_entity_player_walk1"),
-                        retriever.load("image_entity_player_idle1"),
+                        load("res://images/player_idle0.webp"),
+                        load("res://images/player_walk0.webp"),
+                        load("res://images/player_idle1.webp"),
+                        load("res://images/player_walk1.webp"),
                     ],
                     step_tick: 6,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_player_walk0r"),
-                        retriever.load("image_entity_player_idle0r"),
-                        retriever.load("image_entity_player_walk1r"),
-                        retriever.load("image_entity_player_idle1r"),
+                        load("res://images/player_idle0r.webp"),
+                        load("res://images/player_walk0r.webp"),
+                        load("res://images/player_idle1r.webp"),
+                        load("res://images/player_walk1r.webp"),
                     ],
                     step_tick: 6,
                     is_loop: true,
@@ -166,24 +166,24 @@ impl Context {
         });
 
         // pig entity
-        builder.add_entity("entity_pig".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_pig".into(), |_| core::EntityInfo {
             display_name: "Pig".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_pig_idle0"),
-                        retriever.load("image_entity_pig_idle1"),
+                        load("res://images/pig_idle0.webp"),
+                        load("res://images/pig_idle1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_pig_walk0"),
-                        retriever.load("image_entity_pig_idle0"),
-                        retriever.load("image_entity_pig_walk1"),
-                        retriever.load("image_entity_pig_idle1"),
+                        load("res://images/pig_walk0.webp"),
+                        load("res://images/pig_idle0.webp"),
+                        load("res://images/pig_walk1.webp"),
+                        load("res://images/pig_idle1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -195,24 +195,24 @@ impl Context {
         });
 
         // cow entity
-        builder.add_entity("entity_cow".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_cow".into(), |_| core::EntityInfo {
             display_name: "Cow".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_cow_idle0"),
-                        retriever.load("image_entity_cow_idle1"),
+                        load("res://images/cow_idle0.webp"),
+                        load("res://images/cow_idle1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_cow_walk0"),
-                        retriever.load("image_entity_cow_idle0"),
-                        retriever.load("image_entity_cow_walk1"),
-                        retriever.load("image_entity_cow_idle1"),
+                        load("res://images/cow_walk0.webp"),
+                        load("res://images/cow_idle0.webp"),
+                        load("res://images/cow_walk1.webp"),
+                        load("res://images/cow_idle1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -224,24 +224,24 @@ impl Context {
         });
 
         // sheep entity
-        builder.add_entity("entity_sheep".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_sheep".into(), |_| core::EntityInfo {
             display_name: "Sheep".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_sheep_idle0"),
-                        retriever.load("image_entity_sheep_idle1"),
+                        load("res://images/sheep_idle0.webp"),
+                        load("res://images/sheep_idle1.webp"),
                     ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_sheep_walk0"),
-                        retriever.load("image_entity_sheep_idle0"),
-                        retriever.load("image_entity_sheep_walk1"),
-                        retriever.load("image_entity_sheep_idle1"),
+                        load("res://images/sheep_walk0.webp"),
+                        load("res://images/sheep_idle0.webp"),
+                        load("res://images/sheep_walk1.webp"),
+                        load("res://images/sheep_idle1.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -253,19 +253,21 @@ impl Context {
         });
 
         // chicken entity
-        builder.add_entity("entity_chicken".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_chicken".into(), |_| core::EntityInfo {
             display_name: "Chicken".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
-                    images: vec![retriever.load("image_entity_chicken_idle")],
+                    images: vec![
+                        load("res://images/chicken_idle.webp"),
+                    ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_chicken_walk"),
-                        retriever.load("image_entity_chicken_idle"),
+                        load("res://images/chicken_walk.webp"),
+                        load("res://images/chicken_idle.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -277,19 +279,21 @@ impl Context {
         });
 
         // bird entity
-        builder.add_entity("entity_bird".into(), |_, retriever| core::EntityInfo {
+        builder.add_entity("entity_bird".into(), |_| core::EntityInfo {
             display_name: "Bird".into(),
             description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
-                    images: vec![retriever.load("image_entity_bird_idle")],
+                    images: vec![
+                        load("res://images/bird_idle.webp"),
+                    ],
                     step_tick: 24,
                     is_loop: true,
                 },
                 core::SpriteInfo {
                     images: vec![
-                        retriever.load("image_entity_bird_walk"),
-                        retriever.load("image_entity_bird_idle"),
+                        load("res://images/bird_walk.webp"),
+                        load("res://images/bird_idle.webp"),
                     ],
                     step_tick: 12,
                     is_loop: true,
@@ -300,96 +304,22 @@ impl Context {
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
         });
 
-        // package entity
-        builder.add_entity("entity_package".into(), |_, retriever| core::EntityInfo {
-            display_name: "Package".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_entity_package")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-            y_sorting: true,
-            collision_rect: None,
-            rendering_rect: core::Rect2::new(Vec2::new(-0.25, -0.25), Vec2::new(0.25, 0.25)),
-        });
-
-        // particle entity
-        builder.add_entity("entity_particle".into(), |_, retriever| core::EntityInfo {
-            display_name: "Particle".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![
-                    retriever.load("image_entity_particle0"),
-                    retriever.load("image_entity_particle1"),
-                ],
-                step_tick: 4,
-                is_loop: false,
-            }],
-            y_sorting: true,
-            collision_rect: None,
-            rendering_rect: core::Rect2::new(Vec2::new(-1.0, -1.0), Vec2::new(1.0, 1.0)),
-        });
-
-        // grass item
-        builder.add_item("item_grass".into(), |_, retriever| core::ItemInfo {
-            display_name: "Grass".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_item_grass")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-        });
-
-        // fallen leaves item
-        builder.add_item("item_fallenleaves".into(), |_, retriever| core::ItemInfo {
-            display_name: "Fallen Leaves".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_item_fallenleaves")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-        });
-
-        // mix pebbles item
-        builder.add_item("item_mixpebbles".into(), |_, retriever| core::ItemInfo {
-            display_name: "Pebbles".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_item_mixpebbles")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-        });
-
-        // wood item
-        builder.add_item("item_wood".into(), |_, retriever| core::ItemInfo {
-            display_name: "Wood".into(),
-            description: Default::default(),
-            sprites: vec![core::SpriteInfo {
-                images: vec![retriever.load("image_item_wood")],
-                step_tick: 0,
-                is_loop: false,
-            }],
-        });
-
         // build
-        let retriever = core::Retriever::new(retrieve_callable);
         let desc = core::BuildInfo {
-            tile_shaders: vec![retriever.load("shader_field")],
+            tile_shaders: vec![
+                load("res://shaders/field.gdshader"),
+            ],
             block_shaders: vec![
-                retriever.load("shader_field"),
-                retriever.load("shader_field_shadow"),
+                load("res://shaders/field.gdshader"),
+                load("res://shaders/field_shadow.gdshader"),
             ],
             entity_shaders: vec![
-                retriever.load("shader_field"),
-                retriever.load("shader_field_shadow"),
+                load("res://shaders/field.gdshader"),
+                load("res://shaders/field_shadow.gdshader"),
             ],
-            viewport: retriever.load("viewport"),
+            viewport,
         };
-        let mut context = builder.build(&retriever, desc);
+        let mut context = builder.build(desc);
 
         // field generator
         let desc = addon::GeneratorResourceDescriptor {
@@ -398,60 +328,60 @@ impl Context {
                     probability: 0.75,
                     sample_fn: {
                         let archetype_id = context.registry.get("tile_grass");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_tile(tile);
-                        })
+                        }
                     }
                 }),
                 Box::new(addon::DiscreteGenerator {
                     probability: 1.0,
                     sample_fn: {
                         let archetype_id = context.registry.get("tile_dirt");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_tile(tile);
-                        })
+                        }
                     }
                 }),
                 Box::new(addon::DiscreteGenerator {
                     probability: 0.01,
                     sample_fn: {
                         let archetype_id = context.registry.get("block_oaktree");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_block(block);
-                        })
+                        }
                     }
                 }),
                 Box::new(addon::DiscreteGenerator {
                     probability: 0.1,
                     sample_fn: {
                         let archetype_id = context.registry.get("block_dandelion");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_block(block);
-                        })
+                        }
                     }
                 }),
                 Box::new(addon::DiscreteGenerator {
                     probability: 0.1,
                     sample_fn: {
                         let archetype_id = context.registry.get("block_mixgrass");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_block(block);
-                        })
+                        }
                     }
                 }),
                 Box::new(addon::RandomGenerator {
                     probability: 0.01,
                     sample_fn: {
                         let archetype_id = context.registry.get("entity_bird");
-                        Box::new(move |dataflow, coord| {
+                        move |dataflow, coord| {
                             let entity = core::dataflow::Entity { archetype_id, coord, ..Default::default() };
                             let _ = dataflow.insert_entity(entity);
-                        })
+                        }
                     }
                 }),
             ]
