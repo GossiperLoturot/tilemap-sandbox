@@ -19,91 +19,77 @@ impl Context {
         // dirt tile
         builder.add_tile("tile_dirt".into(), |_| core::TileInfo {
             display_name: "Dirt".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/dirt.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
             collision: false,
+            ..Default::default()
         });
 
         // grass tile
         builder.add_tile("tile_grass".into(), |_| core::TileInfo {
             display_name: "Grass".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/grass.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
             collision: false,
+            ..Default::default()
         });
 
         // dandelion block
         builder.add_block("block_dandelion".into(), |_| core::BlockInfo {
             display_name: "Dandelion".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/dandelion.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
-            y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+            ..Default::default()
         });
 
         // fallen leaves block
         builder.add_block("block_fallenleaves".into(), |_| core::BlockInfo {
             display_name: "Fallen Leaves".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/fallenleaves.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
-            y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+            ..Default::default()
         });
 
         // mix grass block
         builder.add_block("block_mixgrass".into(), |_| core::BlockInfo {
             display_name: "Grass".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/mixgrass.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
             y_sorting: true,
             size: IVec2::new(1, 1),
-            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+            ..Default::default()
         });
 
         // mix pebbles block
         builder.add_block("block_mixpebbles".into(), |_| core::BlockInfo {
             display_name: "Pebbles".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![load("res://images/mixpebbles.webp")],
-                step_tick: 0,
-                is_loop: false,
+                ..Default::default()
             }],
-            y_sorting: false,
             size: IVec2::new(1, 1),
-            collision_rect: None,
             rendering_rect: core::Rect2::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0)),
+            ..Default::default()
         });
 
         // oak tree block
         builder.add_block("block_oaktree".into(), |_| core::BlockInfo {
             display_name: "Oak Tree".into(),
-            description: Default::default(),
             sprites: vec![core::SpriteInfo {
                 images: vec![
                     load("res://images/oaktree_0.webp"),
@@ -116,12 +102,12 @@ impl Context {
             size: IVec2::new(4, 2),
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 2.0))),
             rendering_rect: core::Rect2::new(Vec2::new(-2.0, 0.0), Vec2::new(2.0, 6.0)),
+            ..Default::default()
         });
 
         // player entity
         builder.add_entity("entity_player".into(), |_| core::EntityInfo {
             display_name: "Player".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -163,12 +149,13 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.75, 0.0), Vec2::new(0.75, 2.25)),
+            on_add: core::EventHandler::new(|dataflow, id| { addon::PlayerSystem::attach_entity(dataflow, id).unwrap(); }),
+            ..Default::default()
         });
 
         // pig entity
         builder.add_entity("entity_pig".into(), |_| core::EntityInfo {
             display_name: "Pig".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -192,12 +179,12 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            ..Default::default()
         });
 
         // cow entity
         builder.add_entity("entity_cow".into(), |_| core::EntityInfo {
             display_name: "Cow".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -221,12 +208,12 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            ..Default::default()
         });
 
         // sheep entity
         builder.add_entity("entity_sheep".into(), |_| core::EntityInfo {
             display_name: "Sheep".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -250,12 +237,12 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            ..Default::default()
         });
 
         // chicken entity
         builder.add_entity("entity_chicken".into(), |_| core::EntityInfo {
             display_name: "Chicken".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -276,12 +263,12 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
+            ..Default::default()
         });
 
         // bird entity
         builder.add_entity("entity_bird".into(), |_| core::EntityInfo {
             display_name: "Bird".into(),
-            description: Default::default(),
             sprites: vec![
                 core::SpriteInfo {
                     images: vec![
@@ -302,6 +289,8 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
+            on_add: core::EventHandler::new(|dataflow, id| { addon::AnimalSystem::attach_entity(dataflow, id).unwrap(); }),
+            ..Default::default()
         });
 
         // build
@@ -406,18 +395,15 @@ impl Context {
         let context = self.context.as_mut().unwrap();
 
         let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_player"), ..Default::default() };
-        let entity_id = context.dataflow.insert_entity(entity).unwrap();
-        addon::PlayerSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
+        context.dataflow.insert_entity(entity).unwrap();
     }
 
     #[func]
     fn spawn_animal(&mut self, position: Vector2) {
         let context = self.context.as_mut().unwrap();
 
-        let coord = Vec2::new(position.x, position.y);
-        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), coord, ..Default::default() };
-        let entity_id = context.dataflow.insert_entity(entity).unwrap();
-        addon::AnimalSystem::attach_entity(&mut context.dataflow, entity_id).unwrap();
+        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), coord: Vec2::new(position.x, position.y), ..Default::default() };
+        context.dataflow.insert_entity(entity).unwrap();
     }
 
     // update system

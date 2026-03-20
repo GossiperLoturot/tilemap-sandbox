@@ -39,21 +39,47 @@ impl Registry {
     }
 }
 
+// event handler
+
+pub struct EventHandler<T>(Box<dyn Fn(&mut dataflow::Dataflow, T)>);
+
+impl<T> Default for EventHandler<T> {
+    fn default() -> Self {
+        Self(Box::new(|_, _| {}))
+    }
+}
+
+impl<T> EventHandler<T> {
+    pub fn new<F>(value: F) -> Self where F: Fn(&mut dataflow::Dataflow, T) + 'static {
+        Self(Box::new(value))
+    }
+
+    pub fn into_rc(self) -> dataflow::EventHandler<T> {
+        let Self(value) = self;
+        value.into()
+    }
+}
+
 // descriptor for building the context
 
+#[derive(Default)]
 pub struct SpriteInfo {
     pub images: Vec<godot::obj::Gd<godot::classes::Image>>,
     pub step_tick: u16,
     pub is_loop: bool,
 }
 
+#[derive(Default)]
 pub struct TileInfo {
     pub display_name: String,
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
     pub collision: bool,
+    pub on_add: EventHandler<dataflow::TileId>,
+    pub on_remove: EventHandler<dataflow::TileId>,
 }
 
+#[derive(Default)]
 pub struct BlockInfo {
     pub display_name: String,
     pub description: String,
@@ -62,8 +88,11 @@ pub struct BlockInfo {
     pub size: IVec2,
     pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
+    pub on_add: EventHandler<dataflow::BlockId>,
+    pub on_remove: EventHandler<dataflow::BlockId>,
 }
 
+#[derive(Default)]
 pub struct EntityInfo {
     pub display_name: String,
     pub description: String,
@@ -71,6 +100,8 @@ pub struct EntityInfo {
     pub y_sorting: bool,
     pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
+    pub on_add: EventHandler<dataflow::EntityId>,
+    pub on_remove: EventHandler<dataflow::EntityId>,
 }
 
 pub struct BuildInfo {
@@ -124,6 +155,8 @@ impl ContextBuilder {
 
         // tile field
         let mut tiles = vec![];
+        let mut on_tile_add = vec![];
+        let mut on_tile_remove = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
             let tile_info = tile(&self.registry);
@@ -148,6 +181,9 @@ impl ContextBuilder {
                 });
             }
 
+            on_tile_add.push(tile_info.on_add.into_rc());
+            on_tile_remove.push(tile_info.on_remove.into_rc());
+
             tiles_view.push(view::TileInfo { sprites });
         }
 
@@ -165,6 +201,8 @@ impl ContextBuilder {
 
         // block field
         let mut blocks = vec![];
+        let mut on_block_add = vec![];
+        let mut on_block_remove = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
             let block_info = block(&self.registry);
@@ -192,6 +230,9 @@ impl ContextBuilder {
                 });
             }
 
+            on_block_add.push(block_info.on_add.into_rc());
+            on_block_remove.push(block_info.on_remove.into_rc());
+
             blocks_view.push(view::BlockInfo {
                 sprites,
                 y_sorting: block_info.y_sorting,
@@ -213,6 +254,8 @@ impl ContextBuilder {
 
         // entity filed
         let mut entities = vec![];
+        let mut on_entity_add = vec![];
+        let mut on_entity_remove = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
             let entity_info = entity(&self.registry);
@@ -239,6 +282,9 @@ impl ContextBuilder {
                 });
             }
 
+            on_entity_add.push(entity_info.on_add.into_rc());
+            on_entity_remove.push(entity_info.on_remove.into_rc());
+
             entities_view.push(view::EntityInfo {
                 sprites,
                 y_sorting: entity_info.y_sorting,
@@ -258,10 +304,19 @@ impl ContextBuilder {
             world: world.clone(),
         });
 
+        let event_handlers = dataflow::EventHandlers {
+            on_tile_add,
+            on_tile_remove,
+            on_block_add,
+            on_block_remove,
+            on_entity_add,
+            on_entity_remove,
+        };
         let dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
+            event_handlers,
         });
 
         Context {

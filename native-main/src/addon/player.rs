@@ -59,9 +59,9 @@ impl PlayerSystem {
             let is_move = input.length_squared() > f32::EPSILON;
 
             if is_move {
-                let location = entity.coord + resource.move_speed * input * delta_secs;
+                let new_coord = entity.coord + resource.move_speed * input * delta_secs;
 
-                entity.coord = location;
+                entity.coord = new_coord;
 
                 if input.x < 0.0 {
                     resource.reverse = true;
@@ -72,12 +72,12 @@ impl PlayerSystem {
 
             match resource.state {
                 PlayerState::Wait if is_move => {
-                    entity.variant = 2;
+                    entity.variant = 0b0010;
                     entity.tick = dataflow.get_tick() as u32;
                     resource.state = PlayerState::Move;
                 }
                 PlayerState::Move if !is_move => {
-                    entity.variant = 0;
+                    entity.variant = 0b0000;
                     entity.tick = dataflow.get_tick() as u32;
                     resource.state = PlayerState::Wait;
                 }
@@ -87,9 +87,9 @@ impl PlayerSystem {
             entity.variant = (entity.variant & 0b1111_1110) | if resource.reverse { 0b0000_0001 } else { 0b0000_0000 };
         }
 
-        dataflow.remove_entity(entity_id).unwrap();
-        let entity_id = dataflow.insert_entity(entity).unwrap();
-        resource.current = Some(entity_id);
+        dataflow.move_entity(entity_id, entity.coord).unwrap();
+        dataflow.modify_entity_variant(entity_id, entity.variant).unwrap();
+        dataflow.modify_entity_tick(entity_id, entity.tick).unwrap();
 
         Ok(())
     }
