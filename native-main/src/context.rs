@@ -149,7 +149,7 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.75, 0.0), Vec2::new(0.75, 2.25)),
-            on_add: core::EventHandler::new(|dataflow, id| { addon::PlayerSystem::attach_entity(dataflow, id).unwrap(); }),
+            event_handler: core::EventHandler::new(addon::PlayerEventHandler),
             ..Default::default()
         });
 
@@ -179,6 +179,7 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            event_handler: core::EventHandler::new(addon::AnimalEventHandler),
             ..Default::default()
         });
 
@@ -208,6 +209,7 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            event_handler: core::EventHandler::new(addon::AnimalEventHandler),
             ..Default::default()
         });
 
@@ -237,6 +239,7 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-1.0, 0.0), Vec2::new(1.0, 2.0)),
+            event_handler: core::EventHandler::new(addon::AnimalEventHandler),
             ..Default::default()
         });
 
@@ -263,6 +266,7 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
+            event_handler: core::EventHandler::new(addon::AnimalEventHandler),
             ..Default::default()
         });
 
@@ -289,9 +293,87 @@ impl Context {
             y_sorting: true,
             collision_rect: Some(core::Rect2::new(Vec2::new(-0.4, 0.1), Vec2::new(0.4, 0.9))),
             rendering_rect: core::Rect2::new(Vec2::new(-0.5, 0.0), Vec2::new(0.5, 1.0)),
-            on_add: core::EventHandler::new(|dataflow, id| { addon::AnimalSystem::attach_entity(dataflow, id).unwrap(); }),
+            event_handler: core::EventHandler::new(addon::AnimalEventHandler),
             ..Default::default()
         });
+
+        // generator resource
+        builder.add_resource(|registry| addon::GeneratorResource::new(
+            vec![
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.75,
+                    sample_fn: {
+                        let archetype_id = registry.get("tile_grass");
+                        move |dataflow, coord| {
+                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_tile(tile);
+                        }
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 1.0,
+                    sample_fn: {
+                        let archetype_id = registry.get("tile_dirt");
+                        move |dataflow, coord| {
+                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_tile(tile);
+                        }
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.01,
+                    sample_fn: {
+                        let archetype_id = registry.get("block_oaktree");
+                        move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        }
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.1,
+                    sample_fn: {
+                        let archetype_id = registry.get("block_dandelion");
+                        move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        }
+                    }
+                }),
+                Box::new(addon::DiscreteGenerator {
+                    probability: 0.1,
+                    sample_fn: {
+                        let archetype_id = registry.get("block_mixgrass");
+                        move |dataflow, coord| {
+                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_block(block);
+                        }
+                    }
+                }),
+                Box::new(addon::RandomGenerator {
+                    probability: 0.01,
+                    sample_fn: {
+                        let archetype_id = registry.get("entity_bird");
+                        move |dataflow, coord| {
+                            let entity = core::dataflow::Entity { archetype_id, coord, ..Default::default() };
+                            let _ = dataflow.insert_entity(entity);
+                        }
+                    }
+                }),
+            ]
+        ));
+
+        // player resource
+        builder.add_resource(|_| addon::PlayerResource::new());
+
+        // animal resource
+        builder.add_resource(|_| addon::AnimalResource::new());
+
+        // player spawn resource
+        builder.add_resource(|registry| addon::PlayerSpawnResource { archetype_id: registry.get("entity_player") });
+
+        // animal bulk spawn resource
+        builder.add_resource(|registry| addon::AnimalBulkSpawnResource { archetype_id: registry.get("entity_bird") });
 
         // build
         let desc = core::BuildInfo {
@@ -308,81 +390,7 @@ impl Context {
             ],
             viewport,
         };
-        let mut context = builder.build(desc);
-
-        // field generator
-        let desc = addon::GeneratorResourceDescriptor {
-            generators: vec![
-                Box::new(addon::DiscreteGenerator {
-                    probability: 0.75,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("tile_grass");
-                        move |dataflow, coord| {
-                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_tile(tile);
-                        }
-                    }
-                }),
-                Box::new(addon::DiscreteGenerator {
-                    probability: 1.0,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("tile_dirt");
-                        move |dataflow, coord| {
-                            let tile = core::dataflow::Tile { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_tile(tile);
-                        }
-                    }
-                }),
-                Box::new(addon::DiscreteGenerator {
-                    probability: 0.01,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("block_oaktree");
-                        move |dataflow, coord| {
-                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_block(block);
-                        }
-                    }
-                }),
-                Box::new(addon::DiscreteGenerator {
-                    probability: 0.1,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("block_dandelion");
-                        move |dataflow, coord| {
-                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_block(block);
-                        }
-                    }
-                }),
-                Box::new(addon::DiscreteGenerator {
-                    probability: 0.1,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("block_mixgrass");
-                        move |dataflow, coord| {
-                            let block = core::dataflow::Block { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_block(block);
-                        }
-                    }
-                }),
-                Box::new(addon::RandomGenerator {
-                    probability: 0.01,
-                    sample_fn: {
-                        let archetype_id = context.registry.get("entity_bird");
-                        move |dataflow, coord| {
-                            let entity = core::dataflow::Entity { archetype_id, coord, ..Default::default() };
-                            let _ = dataflow.insert_entity(entity);
-                        }
-                    }
-                }),
-            ]
-        };
-        addon::GeneratorSystem::insert(&mut context.dataflow, desc).unwrap();
-
-        // player system
-        addon::PlayerSystem::insert(&mut context.dataflow).unwrap();
-        // animal system
-        addon::AnimalSystem::insert(&mut context.dataflow).unwrap();
-
-        self.context = Some(context);
+        self.context = Some(builder.build(desc));
     }
 
     #[func]
@@ -394,26 +402,24 @@ impl Context {
     fn spawn_player(&mut self) {
         let context = self.context.as_mut().unwrap();
 
-        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_player"), ..Default::default() };
-        context.dataflow.insert_entity(entity).unwrap();
+        addon::PlayerSpawnSystem::spawn(&mut context.dataflow).unwrap();
     }
 
     #[func]
-    fn spawn_animal(&mut self, position: Vector2) {
+    fn spawn_bulk_animal(&mut self) {
         let context = self.context.as_mut().unwrap();
 
-        let entity = core::dataflow::Entity { archetype_id: context.registry.get("entity_bird"), coord: Vec2::new(position.x, position.y), ..Default::default() };
-        context.dataflow.insert_entity(entity).unwrap();
+        addon::AnimalBulkSpawnSystem::spawn(&mut context.dataflow).unwrap();
     }
 
     // update system
 
     #[func]
-    fn forward_time(&mut self, delta_secs: f64) {
+    fn process(&mut self, delta_secs: f64) {
         let context = self.context.as_mut().unwrap();
 
         let delta_secs = delta_secs as f32;
-        context.dataflow.forward_time(delta_secs);
+        context.dataflow.process(delta_secs);
 
         // player system
         addon::PlayerSystem::process(&mut context.dataflow, delta_secs).unwrap();

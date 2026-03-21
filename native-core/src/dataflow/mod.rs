@@ -14,16 +14,25 @@ mod tile;
 mod block;
 mod entity;
 
-pub type EventHandler<T> = std::rc::Rc<dyn Fn(&mut Dataflow, T)>;
+// event handling
+
+pub trait EventHandler<T> {
+    fn on_insert(&self, dataflow: &mut Dataflow, id: T);
+    fn on_remove(&self, dataflow: &mut Dataflow, id: T);
+}
+
+impl<T> EventHandler<T> for () {
+    fn on_insert(&self, _: &mut Dataflow, _: T) { }
+    fn on_remove(&self, _: &mut Dataflow, _: T) { }
+}
 
 pub struct EventHandlers {
-    pub on_tile_add: Vec<EventHandler<TileId>>,
-    pub on_tile_remove: Vec<EventHandler<TileId>>,
-    pub on_block_add: Vec<EventHandler<BlockId>>,
-    pub on_block_remove: Vec<EventHandler<BlockId>>,
-    pub on_entity_add: Vec<EventHandler<EntityId>>,
-    pub on_entity_remove: Vec<EventHandler<EntityId>>,
+    pub tiles: Vec<std::rc::Rc<dyn EventHandler<TileId>>>,
+    pub blocks: Vec<std::rc::Rc<dyn EventHandler<BlockId>>>,
+    pub entities: Vec<std::rc::Rc<dyn EventHandler<EntityId>>>,
 }
+
+// dataflow
 
 pub struct DataflowInfo {
     pub tile_field: TileFieldInfo,
@@ -72,8 +81,8 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn forward_time(&mut self, delta_secs: f32) {
-        self.time_storage.forward(delta_secs);
+    pub fn process(&mut self, delta_secs: f32) {
+        self.time_storage.process(delta_secs);
     }
 
     // tile
@@ -82,16 +91,16 @@ impl Dataflow {
     pub fn insert_tile(&mut self, tile: Tile) -> Result<TileId, DataflowError> {
         let archetype_id = tile.archetype_id;
         let tile_id = self.tile_field.insert(tile)?;
-        let handler = self.event_handlers.on_tile_add.get(archetype_id as usize).unwrap();
-        handler.clone()(self, tile_id);
+        let handler = self.event_handlers.tiles.get(archetype_id as usize).unwrap().clone();
+        handler.on_insert(self, tile_id);
         Ok(tile_id)
     }
 
     #[inline]
     pub fn remove_til(&mut self, tile_id: TileId) -> Result<Tile, DataflowError> {
         let tile = self.tile_field.remove(tile_id)?;
-        let handler = self.event_handlers.on_tile_remove.get(tile.archetype_id as usize).unwrap();
-        handler.clone()(self, tile_id);
+        let handler = self.event_handlers.tiles.get(tile.archetype_id as usize).unwrap().clone();
+        handler.on_remove(self, tile_id);
         Ok(tile)
     }
 
@@ -166,16 +175,16 @@ impl Dataflow {
     pub fn insert_block(&mut self, block: Block) -> Result<BlockId, DataflowError> {
         let archetype_id = block.archetype_id;
         let block_id = self.block_field.insert(block)?;
-        let handler = self.event_handlers.on_block_add.get(archetype_id as usize).unwrap();
-        handler.clone()(self, block_id);
+        let handler = self.event_handlers.blocks.get(archetype_id as usize).unwrap().clone();
+        handler.on_insert(self, block_id);
         Ok(block_id)
     }
 
     #[inline]
     pub fn remove_block(&mut self, block_id: BlockId) -> Result<Block, DataflowError> {
         let block = self.block_field.remove(block_id)?;
-        let handler = self.event_handlers.on_block_remove.get(block.archetype_id as usize).unwrap();
-        handler.clone()(self, block_id);
+        let handler = self.event_handlers.blocks.get(block.archetype_id as usize).unwrap().clone();
+        handler.on_remove(self, block_id);
         Ok(block)
     }
 
@@ -262,16 +271,16 @@ impl Dataflow {
     pub fn insert_entity(&mut self, entity: Entity) -> Result<EntityId, DataflowError> {
         let archetype_id = entity.archetype_id;
         let entity_id = self.entity_field.insert(entity)?;
-        let handler = self.event_handlers.on_entity_add.get(archetype_id as usize).unwrap();
-        handler.clone()(self, entity_id);
+        let handler = self.event_handlers.entities.get(archetype_id as usize).unwrap().clone();
+        handler.on_insert(self, entity_id);
         Ok(entity_id)
     }
 
     #[inline]
     pub fn remove_entity(&mut self, entity_id: EntityId) -> Result<Entity, DataflowError> {
         let entity = self.entity_field.remove(entity_id)?;
-        let handler = self.event_handlers.on_entity_remove.get(entity.archetype_id as usize).unwrap();
-        handler.clone()(self, entity_id);
+        let handler = self.event_handlers.entities.get(entity.archetype_id as usize).unwrap().clone();
+        handler.on_remove(self, entity_id);
         Ok(entity)
     }
 

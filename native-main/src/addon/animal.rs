@@ -6,7 +6,6 @@ const WALK_VARIANT: u16 = 1;
 
 // resource
 
-#[derive(Debug)]
 pub enum AnimalDataState {
     Init,
     WaitStart,
@@ -15,7 +14,6 @@ pub enum AnimalDataState {
     Trip(Vec2),
 }
 
-#[derive(Debug)]
 pub struct AnimalData {
     pub entity_id: dataflow::EntityId,
     pub min_rest_secs: f32,
@@ -26,32 +24,29 @@ pub struct AnimalData {
     pub state: AnimalDataState,
 }
 
-#[derive(Debug)]
 pub struct AnimalResource {
-    pub storage: Vec<AnimalData>,
+    storage: Vec<AnimalData>,
+}
+
+impl AnimalResource {
+    pub fn new() -> Self {
+        Self { storage: Default::default() }
+    }
 }
 
 impl dataflow::Resource for AnimalResource {}
 
-// system
+// event handler
 
-pub struct AnimalSystem;
+pub struct AnimalEventHandler;
 
-impl AnimalSystem {
-    pub fn insert(dataflow: &mut dataflow::Dataflow) -> Result<(), dataflow::DataflowError> {
-        let resource = AnimalResource {
-            storage: Default::default(),
-        };
-        dataflow.insert_resources(resource)?;
-        Ok(())
-    }
-
-    pub fn attach_entity(dataflow: &mut dataflow::Dataflow, entity_id: dataflow::EntityId) -> Result<(), dataflow::DataflowError> {
-        let resource = dataflow.find_resources::<AnimalResource>()?;
-        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
+impl dataflow::EventHandler<dataflow::EntityId> for AnimalEventHandler {
+    fn on_insert(&self, dataflow: &mut dataflow::Dataflow, id: dataflow::EntityId) {
+        let resource = dataflow.find_resources::<AnimalResource>().unwrap();
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from).unwrap();
 
         resource.storage.push(AnimalData {
-            entity_id,
+            entity_id: id,
             min_rest_secs: 1.0,
             max_rest_secs: 4.0,
             min_distance: 1.0,
@@ -59,9 +54,22 @@ impl AnimalSystem {
             speed: 1.0,
             state: AnimalDataState::Init,
         });
-        Ok(())
     }
 
+    fn on_remove(&self, dataflow: &mut dataflow::Dataflow, id: dataflow::EntityId) {
+        let resource = dataflow.find_resources::<AnimalResource>().unwrap();
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from).unwrap();
+
+        let index = resource.storage.iter().position(|data| data.entity_id == id).unwrap();
+        resource.storage.swap_remove(index);
+    }
+}
+
+// system
+
+pub struct AnimalSystem;
+
+impl AnimalSystem {
     pub fn process(dataflow: &mut dataflow::Dataflow, delta_secs: f32) -> Result<(), dataflow::DataflowError> {
         let resource = dataflow.find_resources::<AnimalResource>()?;
         let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
@@ -108,6 +116,37 @@ impl AnimalSystem {
                         data.state = AnimalDataState::WaitStart;
                     }
                 }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// bulk spawn mod
+
+pub struct AnimalBulkSpawnResource {
+    pub archetype_id: u16
+}
+
+impl dataflow::Resource for AnimalBulkSpawnResource {}
+
+pub struct AnimalBulkSpawnSystem;
+
+impl AnimalBulkSpawnSystem {
+    pub fn spawn(dataflow: &mut dataflow::Dataflow) -> Result<(), dataflow::DataflowError> {
+        let resource = dataflow.find_resources::<AnimalBulkSpawnResource>()?;
+        let resource = resource.borrow().map_err(dataflow::DataflowError::from)?;
+
+        for y in -128..=127 {
+            for x in -128..=127 {
+                let coord = Vec2::new(x as f32, y as f32);
+
+                dataflow.insert_entity(dataflow::Entity {
+                    archetype_id: resource.archetype_id,
+                    coord,
+                    ..Default::default()
+                })?;
             }
         }
 

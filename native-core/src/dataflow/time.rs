@@ -21,7 +21,7 @@ impl TimeStorage {
         self.tick
     }
 
-    pub fn forward(&mut self, delta_secs: f32) {
+    pub fn process(&mut self, delta_secs: f32) {
         self.temporary += delta_secs;
 
         let tick = (self.temporary * TICK_PER_SECS as f32) as u32;

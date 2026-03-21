@@ -12,16 +12,20 @@ func _enter_tree() -> void:
 	# spawn player
 	Context.spawn_player()
 	# spawn 65,536 animal for load-test
-	for y in range(-128, 127):
-		for x in range(-128, 127):
-			Context.spawn_animal(Vector2(x, y))
+	Context.spawn_bulk_animal()
 
 
 func _process(delta: float) -> void:
-	# logic
-	Context.forward_time(delta)
+	_logic_process(delta)
+	_draw_process()
+
+
+func _logic_process(delta: float) -> void:
+	Context.process(delta)
 	Context.generate_field(_gen_rect)
-	# rendering
+
+
+func _draw_process() -> void:
 	Context.draw_field(_view_rect)
 
 

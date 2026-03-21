@@ -27,40 +27,27 @@ impl Registry {
     }
 
     pub fn get(&self, name: &str) -> u16 {
-        match self.storage.get(name) {
-            Some(value) => {
-                // successfully get the value
-                *value
-            }
-            None => {
-                panic!("Name {} not found", name);
-            }
-        }
-    }
-}
-
-// event handler
-
-pub struct EventHandler<T>(Box<dyn Fn(&mut dataflow::Dataflow, T)>);
-
-impl<T> Default for EventHandler<T> {
-    fn default() -> Self {
-        Self(Box::new(|_, _| {}))
-    }
-}
-
-impl<T> EventHandler<T> {
-    pub fn new<F>(value: F) -> Self where F: Fn(&mut dataflow::Dataflow, T) + 'static {
-        Self(Box::new(value))
-    }
-
-    pub fn into_rc(self) -> dataflow::EventHandler<T> {
-        let Self(value) = self;
-        value.into()
+        *self.storage
+            .get(name)
+            .unwrap_or_else(|| panic!("Name {} not found", name))
     }
 }
 
 // descriptor for building the context
+
+pub struct EventHandler<T>(Box<dyn dataflow::EventHandler<T>>);
+
+impl<T> Default for EventHandler<T> {
+    fn default() -> Self {
+        Self(Box::new(()))
+    }
+}
+
+impl<T> EventHandler<T> {
+    pub fn new<F>(value: F) -> Self where F: dataflow::EventHandler<T> + 'static {
+        Self(Box::new(value))
+    }
+}
 
 #[derive(Default)]
 pub struct SpriteInfo {
@@ -75,8 +62,7 @@ pub struct TileInfo {
     pub description: String,
     pub sprites: Vec<SpriteInfo>,
     pub collision: bool,
-    pub on_add: EventHandler<dataflow::TileId>,
-    pub on_remove: EventHandler<dataflow::TileId>,
+    pub event_handler: EventHandler<dataflow::TileId>,
 }
 
 #[derive(Default)]
@@ -88,8 +74,7 @@ pub struct BlockInfo {
     pub size: IVec2,
     pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
-    pub on_add: EventHandler<dataflow::BlockId>,
-    pub on_remove: EventHandler<dataflow::BlockId>,
+    pub event_handler: EventHandler<dataflow::TileId>,
 }
 
 #[derive(Default)]
@@ -100,8 +85,7 @@ pub struct EntityInfo {
     pub y_sorting: bool,
     pub collision_rect: Option<Rect2>,
     pub rendering_rect: Rect2,
-    pub on_add: EventHandler<dataflow::EntityId>,
-    pub on_remove: EventHandler<dataflow::EntityId>,
+    pub event_handler: EventHandler<dataflow::TileId>,
 }
 
 pub struct BuildInfo {
@@ -111,13 +95,13 @@ pub struct BuildInfo {
     pub viewport: godot::obj::Gd<godot::classes::Viewport>,
 }
 
-type RegisterFn<T> = Box<dyn for<'a> FnOnce(&'a Registry) -> T>;
-
+#[allow(clippy::type_complexity)]
 #[derive(Default)]
 pub struct ContextBuilder {
-    tiles: Vec<RegisterFn<TileInfo>>,
-    blocks: Vec<RegisterFn<BlockInfo>>,
-    entities: Vec<RegisterFn<EntityInfo>>,
+    tiles: Vec<Box<dyn FnOnce(&Registry) -> TileInfo>>,
+    blocks: Vec<Box<dyn FnOnce(&Registry) -> BlockInfo>>,
+    entities: Vec<Box<dyn FnOnce(&Registry) -> EntityInfo>>,
+    resources: Vec<Box<dyn FnOnce(&Registry, &mut dataflow::Dataflow)>>,
     registry: Registry,
 }
 
@@ -126,25 +110,33 @@ impl ContextBuilder {
         Default::default()
     }
 
-    pub fn add_tile<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> TileInfo + 'static,
+    pub fn add_tile<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> TileInfo + 'static
     {
         self.tiles.push(Box::new(desc_fn));
         let id = (self.tiles.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn add_block<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> BlockInfo + 'static,
+    pub fn add_block<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> BlockInfo + 'static
     {
         self.blocks.push(Box::new(desc_fn));
         let id = (self.blocks.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
-    pub fn add_entity<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> EntityInfo + 'static,
+    pub fn add_entity<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> EntityInfo + 'static
     {
         self.entities.push(Box::new(desc_fn));
         let id = (self.entities.len() - 1) as u16;
         self.registry.set(name, id);
+    }
+
+    pub fn add_resource<F, R>(&mut self, desc_fn: F) where F: FnOnce(&Registry) -> R + 'static, R: dataflow::Resource + 'static
+    {
+        self.resources.push(Box::new(|registry, dataflow| {
+            let resource = desc_fn(registry);
+            dataflow.insert_resources(resource).unwrap();
+        }));
     }
 
     pub fn build(self, info: BuildInfo) -> Context {
@@ -155,8 +147,7 @@ impl ContextBuilder {
 
         // tile field
         let mut tiles = vec![];
-        let mut on_tile_add = vec![];
-        let mut on_tile_remove = vec![];
+        let mut tiles_event_handler = vec![];
         let mut tiles_view = vec![];
         for tile in self.tiles {
             let tile_info = tile(&self.registry);
@@ -181,8 +172,8 @@ impl ContextBuilder {
                 });
             }
 
-            on_tile_add.push(tile_info.on_add.into_rc());
-            on_tile_remove.push(tile_info.on_remove.into_rc());
+            let EventHandler(handler) = tile_info.event_handler;
+            tiles_event_handler.push(handler.into());
 
             tiles_view.push(view::TileInfo { sprites });
         }
@@ -201,8 +192,7 @@ impl ContextBuilder {
 
         // block field
         let mut blocks = vec![];
-        let mut on_block_add = vec![];
-        let mut on_block_remove = vec![];
+        let mut blocks_event_handler = vec![];
         let mut blocks_view = vec![];
         for block in self.blocks {
             let block_info = block(&self.registry);
@@ -230,8 +220,8 @@ impl ContextBuilder {
                 });
             }
 
-            on_block_add.push(block_info.on_add.into_rc());
-            on_block_remove.push(block_info.on_remove.into_rc());
+            let EventHandler(handler) = block_info.event_handler;
+            blocks_event_handler.push(handler.into());
 
             blocks_view.push(view::BlockInfo {
                 sprites,
@@ -254,8 +244,7 @@ impl ContextBuilder {
 
         // entity filed
         let mut entities = vec![];
-        let mut on_entity_add = vec![];
-        let mut on_entity_remove = vec![];
+        let mut entities_event_handler = vec![];
         let mut entities_view = vec![];
         for entity in self.entities {
             let entity_info = entity(&self.registry);
@@ -282,8 +271,8 @@ impl ContextBuilder {
                 });
             }
 
-            on_entity_add.push(entity_info.on_add.into_rc());
-            on_entity_remove.push(entity_info.on_remove.into_rc());
+            let EventHandler(handler) = entity_info.event_handler;
+            entities_event_handler.push(handler.into());
 
             entities_view.push(view::EntityInfo {
                 sprites,
@@ -304,23 +293,25 @@ impl ContextBuilder {
             world: world.clone(),
         });
 
+        // dataflow
         let event_handlers = dataflow::EventHandlers {
-            on_tile_add,
-            on_tile_remove,
-            on_block_add,
-            on_block_remove,
-            on_entity_add,
-            on_entity_remove,
+            tiles: tiles_event_handler,
+            blocks: blocks_event_handler,
+            entities: entities_event_handler,
         };
-        let dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
+        let mut dataflow = dataflow::Dataflow::new(dataflow::DataflowInfo {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
             event_handlers,
         });
 
+        // resources
+        for resource in self.resources {
+            resource(&self.registry, &mut dataflow);
+        }
+
         Context {
-            registry: self.registry,
             dataflow,
             tile_field_view,
             block_field_view,
@@ -330,7 +321,6 @@ impl ContextBuilder {
 }
 
 pub struct Context {
-    pub registry: Registry,
     pub dataflow: dataflow::Dataflow,
     pub tile_field_view: view::TileField,
     pub block_field_view: view::BlockField,

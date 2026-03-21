@@ -3,13 +3,11 @@ use native_core::*;
 
 // resource
 
-#[derive(Debug)]
-enum PlayerState {
+pub enum PlayerState {
     Wait,
     Move,
 }
 
-#[derive(Debug)]
 pub struct PlayerResource {
     current: Option<dataflow::EntityId>,
     input: Option<Vec2>,
@@ -18,36 +16,51 @@ pub struct PlayerResource {
     reverse: bool,
 }
 
+impl PlayerResource {
+    pub fn new() -> Self {
+        Self {
+            current: Default::default(),
+            input: Default::default(),
+            state: PlayerState::Wait,
+            move_speed: 2.0,
+            reverse: false,
+        }
+    }
+}
+
 impl dataflow::Resource for PlayerResource {}
+
+// event handler
+
+pub struct PlayerEventHandler;
+
+impl dataflow::EventHandler<dataflow::EntityId> for PlayerEventHandler {
+    fn on_insert(&self, dataflow: &mut dataflow::Dataflow, id: dataflow::EntityId) {
+        let resource = dataflow.find_resources::<PlayerResource>().unwrap();
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from).unwrap();
+
+        if resource.current.is_some() {
+            panic!("player is already exist.");
+        }
+        resource.current = Some(id);
+    }
+
+    fn on_remove(&self, dataflow: &mut dataflow::Dataflow, _: dataflow::EntityId) {
+        let resource = dataflow.find_resources::<PlayerResource>().unwrap();
+        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from).unwrap();
+
+        if resource.current.is_none() {
+            panic!("player is already no exist.");
+        }
+        resource.current = None;
+    }
+}
 
 // system
 
 pub struct PlayerSystem;
 
 impl PlayerSystem {
-    pub fn insert(dataflow: &mut dataflow::Dataflow) -> Result<(), PlayerError> {
-        let resource = PlayerResource {
-            current: Default::default(),
-            input: Default::default(),
-            state: PlayerState::Wait,
-            move_speed: 1.0,
-            reverse: false,
-        };
-        dataflow.insert_resources(resource)?;
-        Ok(())
-    }
-
-    pub fn attach_entity(dataflow: &mut dataflow::Dataflow, entity_id: dataflow::EntityId) -> Result<(), PlayerError> {
-        let resource = dataflow.find_resources::<PlayerResource>()?;
-        let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
-
-        if resource.current.is_some() {
-            return Err(PlayerError::AlreadyExist);
-        }
-        resource.current = Some(entity_id);
-        Ok(())
-    }
-
     pub fn process(dataflow: &mut dataflow::Dataflow, delta_secs: f32) -> Result<(), PlayerError> {
         let resource = dataflow.find_resources::<PlayerResource>()?;
         let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
@@ -102,6 +115,30 @@ impl PlayerSystem {
             return Err(PlayerError::AlreadyExist);
         }
         resource.input = Some(input);
+        Ok(())
+    }
+}
+
+// spawn mod
+
+pub struct PlayerSpawnResource {
+    pub archetype_id: u16
+}
+
+impl dataflow::Resource for PlayerSpawnResource {}
+
+pub struct PlayerSpawnSystem;
+
+impl PlayerSpawnSystem {
+    pub fn spawn(dataflow: &mut dataflow::Dataflow) -> Result<(), PlayerError> {
+        let resource = dataflow.find_resources::<PlayerSpawnResource>()?;
+        let resource = resource.borrow().map_err(dataflow::DataflowError::from)?;
+
+        dataflow.insert_entity(dataflow::Entity {
+            archetype_id: resource.archetype_id,
+            ..Default::default()
+        })?;
+
         Ok(())
     }
 }

@@ -51,16 +51,22 @@ impl<F> Generator for RandomGenerator<F> where F: Fn(&mut dataflow::Dataflow, Ve
     }
 }
 
-pub struct GeneratorResourceDescriptor {
-    pub generators: Vec<Box<dyn Generator>>,
-}
-
 // resource
 
-struct GeneratorResource {
+pub struct GeneratorResource {
     generators: Vec<Box<dyn Generator>>,
     rect: Option<IRect2>,
     visited: ahash::AHashSet<IVec2>,
+}
+
+impl GeneratorResource {
+    pub fn new(generators: Vec<Box<dyn Generator>>) -> Self {
+        Self {
+            generators,
+            rect: Default::default(),
+            visited: Default::default(),
+        }
+    }
 }
 
 impl dataflow::Resource for GeneratorResource {}
@@ -71,16 +77,6 @@ pub struct GeneratorSystem;
 
 impl GeneratorSystem {
     const CHUNK_SIZE: u32 = 32;
-
-    pub fn insert(dataflow: &mut dataflow::Dataflow, desc: GeneratorResourceDescriptor) -> Result<(), dataflow::DataflowError> {
-        let resource = GeneratorResource {
-            generators: desc.generators,
-            rect: Default::default(),
-            visited: Default::default(),
-        };
-        dataflow.insert_resources(resource)?;
-        Ok(())
-    }
 
     pub fn generate(dataflow: &mut dataflow::Dataflow, rect: Rect2) -> Result<(), dataflow::DataflowError> {
         let resource = dataflow.find_resources::<GeneratorResource>()?;
