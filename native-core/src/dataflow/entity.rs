@@ -77,7 +77,7 @@ pub struct Entity {
 pub struct EntityChunk {
     pub version: u64,
     pub entities: Vec<Entity>,
-    pub ids: Vec<u64>,
+    pub ids: Vec<EntityId>,
 }
 
 #[derive(Debug)]
@@ -93,7 +93,7 @@ impl EntityField {
     const CHUNK_SIZE: u32 = 32;
 
     pub fn new(info: EntityFieldInfo) -> Self {
-        let mut archetyps = vec![];
+        let mut archetypes = vec![];
 
         assert!(info.entities.len() <= u16::MAX as usize, "capacity overflow");
         for entity in info.entities {
@@ -111,7 +111,7 @@ impl EntityField {
             }
             broad_rect = broad_rect.maximum(entity.hint_rect.trunc_over().as_irect2());
 
-            archetyps.push(EntityArchetype {
+            archetypes.push(EntityArchetype {
                 collision_rect: entity.collision_rect,
                 hint_rect: entity.hint_rect,
                 broad_rect,
@@ -120,7 +120,7 @@ impl EntityField {
         }
 
         Self {
-            archetypes: archetyps,
+            archetypes,
             chunks: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),

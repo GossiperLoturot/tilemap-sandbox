@@ -2,17 +2,19 @@ use glam::*;
 
 use crate::geom::*;
 
-pub use resource::*;
-pub use time::*;
-pub use tile::*;
 pub use block::*;
 pub use entity::*;
+pub use item::*;
+pub use resource::*;
+pub use tile::*;
+pub use time::*;
 
-mod resource;
-mod time;
-mod tile;
 mod block;
 mod entity;
+mod item;
+mod resource;
+mod tile;
+mod time;
 
 // event handling
 

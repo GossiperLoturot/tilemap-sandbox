@@ -76,7 +76,7 @@ pub struct Tile {
 pub struct TileChunk {
     pub version: u64,
     pub tiles: Vec<Tile>,
-    pub ids: Vec<u64>,
+    pub ids: Vec<TileId>,
 }
 
 #[derive(Debug)]

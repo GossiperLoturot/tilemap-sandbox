@@ -85,7 +85,7 @@ pub struct Block {
 pub struct BlockChunk {
     pub version: u64,
     pub blocks: Vec<Block>,
-    pub ids: Vec<u64>,
+    pub ids: Vec<BlockId>,
 }
 
 #[derive(Debug)]
