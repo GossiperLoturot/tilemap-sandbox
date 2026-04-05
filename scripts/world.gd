@@ -8,7 +8,7 @@ var _view_rect: Rect2
 func _enter_tree() -> void:
 	_warmup()
 
-	Context.open(self.get_viewport())
+	Context.open(self.get_viewport(), _callback)
 	# spawn player
 	Context.spawn_player()
 	# spawn 65,536 animal for load-test
@@ -44,3 +44,7 @@ func _on_view_rect_changed(rect: Rect2) -> void:
 func _warmup():
 	preload("res://shaders/field.gdshader")
 	preload("res://shaders/field_shadow.gdshader")
+
+
+func _callback():
+	pass

@@ -13,7 +13,7 @@ pub struct Context {
 #[godot_api]
 impl Context {
     #[func]
-    fn open(&mut self, viewport: Gd<godot::classes::Viewport>) {
+    fn open(&mut self, viewport: Gd<godot::classes::Viewport>, callback: Callable) {
         let mut builder = core::ContextBuilder::new();
 
         // dirt tile
@@ -366,14 +366,14 @@ impl Context {
         // player resource
         builder.add_resource(|_| addon::PlayerResource::new());
 
-        // animal resource
-        builder.add_resource(|_| addon::AnimalResource::new());
-
         // player spawn resource
         builder.add_resource(|registry| addon::PlayerSpawnResource { archetype_id: registry.get("entity_player") });
 
-        // animal bulk spawn resource
-        builder.add_resource(|registry| addon::AnimalBulkSpawnResource { archetype_id: registry.get("entity_bird") });
+        // animal resource
+        builder.add_resource(|_| addon::AnimalResource::new());
+
+        // callback resource
+        builder.add_resource(|_| addon::CallbackResource::new(callback));
 
         // build
         let desc = core::BuildInfo {
@@ -403,13 +403,6 @@ impl Context {
         let context = self.context.as_mut().unwrap();
 
         addon::PlayerSpawnSystem::spawn(&mut context.dataflow).unwrap();
-    }
-
-    #[func]
-    fn spawn_bulk_animal(&mut self) {
-        let context = self.context.as_mut().unwrap();
-
-        addon::AnimalBulkSpawnSystem::spawn(&mut context.dataflow).unwrap();
     }
 
     // update system

@@ -1,6 +1,8 @@
 use glam::*;
 use native_core::*;
 
+use crate::addon::CallbackResource;
+
 // resource
 
 pub enum PlayerState {
@@ -10,6 +12,7 @@ pub enum PlayerState {
 
 pub struct PlayerResource {
     current: Option<dataflow::EntityId>,
+    inventory_id: Option<dataflow::InventoryId>,
     input: Option<Vec2>,
     state: PlayerState,
     move_speed: f32,
@@ -20,6 +23,7 @@ impl PlayerResource {
     pub fn new() -> Self {
         Self {
             current: Default::default(),
+            inventory_id: Default::default(),
             input: Default::default(),
             state: PlayerState::Wait,
             move_speed: 2.0,
@@ -43,6 +47,9 @@ impl dataflow::EventHandler<dataflow::EntityId> for PlayerEventHandler {
             panic!("player is already exist.");
         }
         resource.current = Some(id);
+
+        let inventory_id = dataflow.insert_inventory(dataflow::Inventory { max_variety: 32, max_stack: 64 }).unwrap();
+        resource.inventory_id = Some(inventory_id);
     }
 
     fn on_remove(&self, dataflow: &mut dataflow::Dataflow, _: dataflow::EntityId) {
@@ -53,6 +60,18 @@ impl dataflow::EventHandler<dataflow::EntityId> for PlayerEventHandler {
             panic!("player is already no exist.");
         }
         resource.current = None;
+
+        let inventory_id = resource.inventory_id.unwrap();
+        dataflow.remove_inventory(inventory_id).unwrap();
+    }
+
+    fn on_use(&self, dataflow: &mut dataflow::Dataflow, id: dataflow::EntityId) {
+        let resource = dataflow.find_resources::<PlayerResource>().unwrap();
+        let resource = resource.borrow().map_err(dataflow::DataflowError::from).unwrap();
+
+        let callback = dataflow.find_resources::<CallbackResource>().unwrap();
+        let callback = callback.borrow().map_err(dataflow::DataflowError::from).unwrap();
+        callback.callback.call(&[]);
     }
 }
 

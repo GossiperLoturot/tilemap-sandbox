@@ -88,6 +88,12 @@ pub struct EntityInfo {
     pub event_handler: EventHandler<dataflow::TileId>,
 }
 
+#[derive(Default)]
+pub struct ItemInfo {
+    pub display_name: String,
+    pub description: String,
+}
+
 pub struct BuildInfo {
     pub tile_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
     pub block_shaders: Vec<godot::obj::Gd<godot::classes::Shader>>,
@@ -101,6 +107,7 @@ pub struct ContextBuilder {
     tiles: Vec<Box<dyn FnOnce(&Registry) -> TileInfo>>,
     blocks: Vec<Box<dyn FnOnce(&Registry) -> BlockInfo>>,
     entities: Vec<Box<dyn FnOnce(&Registry) -> EntityInfo>>,
+    items: Vec<Box<dyn FnOnce(&Registry) -> ItemInfo>>,
     resources: Vec<Box<dyn FnOnce(&Registry, &mut dataflow::Dataflow)>>,
     registry: Registry,
 }
@@ -128,6 +135,13 @@ impl ContextBuilder {
     {
         self.entities.push(Box::new(desc_fn));
         let id = (self.entities.len() - 1) as u16;
+        self.registry.set(name, id);
+    }
+
+    pub fn add_item<F>(&mut self, name: String, desc_fn: F) where F: FnOnce(&Registry) -> ItemInfo + 'static
+    {
+        self.items.push(Box::new(desc_fn));
+        let id = (self.items.len() - 1) as u16;
         self.registry.set(name, id);
     }
 
@@ -293,6 +307,20 @@ impl ContextBuilder {
             world: world.clone(),
         });
 
+        // item storage
+
+        let mut items = vec![];
+        for item in self.items {
+            let item_info = item(&self.registry);
+
+            items.push(dataflow::ItemInfo {
+                display_name: item_info.display_name,
+                description: item_info.description,
+            });
+        }
+
+        let item_storage_info = dataflow::ItemStorageInfo { items };
+
         // dataflow
         let event_handlers = dataflow::EventHandlers {
             tiles: tiles_event_handler,
@@ -303,6 +331,7 @@ impl ContextBuilder {
             tile_field: tile_field_info,
             block_field: block_field_info,
             entity_field: entity_field_info,
+            item_storage: item_storage_info,
             event_handlers,
         });
 

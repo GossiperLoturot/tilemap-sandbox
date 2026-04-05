@@ -63,6 +63,8 @@ impl dataflow::EventHandler<dataflow::EntityId> for AnimalEventHandler {
         let index = resource.storage.iter().position(|data| data.entity_id == id).unwrap();
         resource.storage.swap_remove(index);
     }
+
+    fn on_use(&self, _: &mut dataflow::Dataflow, _: dataflow::EntityId) { }
 }
 
 // system
@@ -116,37 +118,6 @@ impl AnimalSystem {
                         data.state = AnimalDataState::WaitStart;
                     }
                 }
-            }
-        }
-
-        Ok(())
-    }
-}
-
-// bulk spawn mod
-
-pub struct AnimalBulkSpawnResource {
-    pub archetype_id: u16
-}
-
-impl dataflow::Resource for AnimalBulkSpawnResource {}
-
-pub struct AnimalBulkSpawnSystem;
-
-impl AnimalBulkSpawnSystem {
-    pub fn spawn(dataflow: &mut dataflow::Dataflow) -> Result<(), dataflow::DataflowError> {
-        let resource = dataflow.find_resources::<AnimalBulkSpawnResource>()?;
-        let resource = resource.borrow().map_err(dataflow::DataflowError::from)?;
-
-        for y in -128..=127 {
-            for x in -128..=127 {
-                let coord = Vec2::new(x as f32, y as f32);
-
-                dataflow.insert_entity(dataflow::Entity {
-                    archetype_id: resource.archetype_id,
-                    coord,
-                    ..Default::default()
-                })?;
             }
         }
 

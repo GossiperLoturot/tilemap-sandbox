@@ -18,14 +18,16 @@ mod time;
 
 // event handling
 
-pub trait EventHandler<T> {
-    fn on_insert(&self, dataflow: &mut Dataflow, id: T);
-    fn on_remove(&self, dataflow: &mut Dataflow, id: T);
+pub trait EventHandler<Id> {
+    fn on_insert(&self, dataflow: &mut Dataflow, id: Id);
+    fn on_remove(&self, dataflow: &mut Dataflow, id: Id);
+    fn on_use(&self, dataflow: &mut Dataflow, id: Id);
 }
 
-impl<T> EventHandler<T> for () {
-    fn on_insert(&self, _: &mut Dataflow, _: T) { }
-    fn on_remove(&self, _: &mut Dataflow, _: T) { }
+impl<Id> EventHandler<Id> for () {
+    fn on_insert(&self, _: &mut Dataflow, _: Id) { }
+    fn on_remove(&self, _: &mut Dataflow, _: Id) { }
+    fn on_use(&self, _: &mut Dataflow, _: Id) { }
 }
 
 pub struct EventHandlers {
@@ -40,6 +42,7 @@ pub struct DataflowInfo {
     pub tile_field: TileFieldInfo,
     pub block_field: BlockFieldInfo,
     pub entity_field: EntityFieldInfo,
+    pub item_storage: ItemStorageInfo,
     pub event_handlers: EventHandlers,
 }
 
@@ -50,6 +53,7 @@ pub struct Dataflow {
     tile_field: TileField,
     block_field: BlockField,
     entity_field: EntityField,
+    item_storage: ItemStorage,
     event_handlers: EventHandlers,
 
     // external data storage
@@ -64,6 +68,7 @@ impl Dataflow {
             tile_field: TileField::new(info.tile_field),
             block_field: BlockField::new(info.block_field),
             entity_field: EntityField::new(info.entity_field),
+            item_storage: ItemStorage::new(info.item_storage),
             event_handlers: info.event_handlers,
 
             resource_storage: ResourceStorage::new(),
@@ -351,6 +356,20 @@ impl Dataflow {
         self.entity_field.find_with_hint_rect(rect)
     }
 
+    // item
+
+    #[inline]
+    pub fn insert_inventory(&mut self, inventory: Inventory) -> Result<InventoryId, DataflowError> {
+        let inventory_id = self.item_storage.insert_inventory(inventory)?;
+        Ok(inventory_id)
+    }
+
+    #[inline]
+    pub fn remove_inventory(&mut self, inventory_id: InventoryId) -> Result<Inventory, DataflowError> {
+        let inventory = self.item_storage.remove_inventory(inventory_id)?;
+        Ok(inventory)
+    }
+
     // resources
 
     #[inline]
@@ -382,6 +401,7 @@ pub enum DataflowError {
     TileError(TileError),
     BlockError(BlockError),
     EntityError(EntityError),
+    ItemError(ItemError),
     ResourceError(ResourceError),
 }
 
@@ -391,6 +411,7 @@ impl std::fmt::Display for DataflowError {
             Self::TileError(e) => e.fmt(f),
             Self::BlockError(e) => e.fmt(f),
             Self::EntityError(e) => e.fmt(f),
+            Self::ItemError(e) => e.fmt(f),
             Self::ResourceError(e) => e.fmt(f),
         }
     }
@@ -402,6 +423,7 @@ impl std::error::Error for DataflowError {
             Self::TileError(e) => Some(e),
             Self::BlockError(e) => Some(e),
             Self::EntityError(e) => Some(e),
+            Self::ItemError(e) => Some(e),
             Self::ResourceError(e) => Some(e),
         }
     }
@@ -422,6 +444,12 @@ impl From<BlockError> for DataflowError {
 impl From<EntityError> for DataflowError {
     fn from(e: EntityError) -> Self {
         Self::EntityError(e)
+    }
+}
+
+impl From<ItemError> for DataflowError {
+    fn from(e: ItemError) -> Self {
+        Self::ItemError(e)
     }
 }
 
