@@ -19,13 +19,6 @@ fn encode_coord(coord: IVec2) -> u64 {
     (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
 }
 
-// locality of reference
-#[derive(Debug, Clone)]
-pub struct TileSpatialData {
-    pub rect: IRect2,
-    pub collision_rect: Option<Rect2>,
-}
-
 #[derive(Debug, Clone)]
 pub struct TileInfo {
     pub display_name: String,
@@ -85,7 +78,7 @@ pub struct TileField {
     chunks: Vec<TileChunk>,
     coord_index: ahash::AHashMap<u64, u32>,
     id_index: slab::Slab<u64>,
-    hgrid: HGrid<TileSpatialData>,
+    grid: PagingGrid,
 }
 
 impl TileField {
@@ -106,7 +99,7 @@ impl TileField {
             chunks: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),
-            hgrid: Default::default(),
+            grid: Default::default(),
         }
     }
 
@@ -134,7 +127,7 @@ impl TileField {
         let chunk_id = self.alloc_chunk(tile.coord);
 
         // check by spatial features
-        let archetype = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
+        let _ = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
         if self.find_with_point(tile.coord).is_some() {
             return Err(TileError::Conflict);
         }
@@ -146,11 +139,8 @@ impl TileField {
         let id = self.id_index.insert(address) as u64;
 
         // register spatial index
-        let broad_rect = TileArchetype::broad_rect(tile.coord);
-        self.hgrid.insert(broad_rect, id, TileSpatialData {
-            rect: TileArchetype::rect(tile.coord),
-            collision_rect: archetype.collision_rect(tile.coord),
-        });
+        let rect = TileArchetype::rect(tile.coord);
+        self.grid.insert(rect, id);
 
         chunk.tiles.push(tile);
         chunk.ids.push(id);
@@ -171,8 +161,8 @@ impl TileField {
         }
 
         // unregister spatial index
-        let broad_rect = TileArchetype::broad_rect(tile.coord);
-        self.hgrid.remove(broad_rect, id);
+        let rect = TileArchetype::rect(tile.coord);
+        self.grid.remove(rect);
 
         chunk.version += 1;
         Ok(tile)
@@ -211,22 +201,16 @@ impl TileField {
         }
 
         // check by spatial features
-        let archetype = self.archetypes.get(tile.archetype_id as usize).unwrap();
+        let _ = self.archetypes.get(tile.archetype_id as usize).unwrap();
         if self.find_with_point(new_coord).is_some() {
             return Err(TileError::Conflict);
         }
 
         // update spatial index
-        let broad_rect = TileArchetype::broad_rect(tile.coord);
-        let new_broad_rect = TileArchetype::broad_rect(new_coord);
-        if self.hgrid.check_move(broad_rect, new_broad_rect) {
-            let value = TileSpatialData {
-                rect: TileArchetype::rect(new_coord),
-                collision_rect: archetype.collision_rect(new_coord),
-            };
-            self.hgrid.remove(broad_rect, id);
-            self.hgrid.insert(new_broad_rect, id, value);
-        }
+        let rect = TileArchetype::rect(tile.coord);
+        let new_rect = TileArchetype::rect(new_coord);
+        self.grid.remove(rect);
+        self.grid.insert(new_rect, id);
 
         // move owner
         let chunk_coord = Self::find_chunk_coord_internal(tile.coord);
@@ -302,27 +286,25 @@ impl TileField {
     // spatial features
 
     #[inline]
-    pub fn find_with_point(&self, point: IVec2) -> Option<(&TileId, &TileSpatialData)> {
-        self.find_with_rect(IRect2::new(point, point)).next()
+    pub fn find_with_point(&self, point: IVec2) -> Option<&TileId> {
+        self.grid.find_point(point)
     }
 
     #[inline]
-    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
-        self.hgrid.find(rect)
-            .filter(move |(_, data)| Intersects::intersects(&rect, &data.rect))
+    pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &TileId> {
+        self.grid.find_rect(rect)
     }
 
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &TileId> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = (&TileId, &TileSpatialData)> {
-        self.hgrid.find(rect.trunc_over().as_irect2())
-            .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &TileId> {
+        std::iter::empty()
     }
 }
 
@@ -382,7 +364,7 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, Some(id));
 
         let tile = field.remove(id).unwrap();
@@ -390,7 +372,7 @@ mod tests {
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
         assert_eq!(field.get(id).unwrap_err(), TileError::NotFound);
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, None);
         assert_eq!(field.remove(id).unwrap_err(), TileError::NotFound);
     }
@@ -408,7 +390,7 @@ mod tests {
             Err(TileError::InvalidId)
         );
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, None);
 
         let id = field
@@ -431,7 +413,7 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, Some(id));
     }
 
@@ -451,9 +433,9 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 4));
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, None);
-        let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 4)).map(|id| *id);
         assert_eq!(query, Some(id));
 
         field.modify_variant(id, 1).unwrap();
@@ -487,13 +469,13 @@ mod tests {
         assert_eq!(tile.archetype_id, 0);
         assert_eq!(tile.coord, IVec2::new(-1, 3));
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, Some(id0));
 
         field.remove(id1).unwrap();
         assert_eq!(field.modify_variant(id1, 1), Err(TileError::NotFound));
         assert_eq!(field.get(id1).unwrap_err(), TileError::NotFound);
-        let query = field.find_with_point(IVec2::new(-1, 4)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 4)).map(|id| *id);
         assert_eq!(query, None);
     }
 
@@ -515,9 +497,9 @@ mod tests {
         assert_eq!(tile.archetype_id, 1);
         assert_eq!(tile.coord, IVec2::new(-1, 1000));
 
-        let query = field.find_with_point(IVec2::new(-1, 3)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 3)).map(|id| *id);
         assert_eq!(query, None);
-        let query = field.find_with_point(IVec2::new(-1, 1000)).map(|(id, _)| *id);
+        let query = field.find_with_point(IVec2::new(-1, 1000)).map(|id| *id);
         assert_eq!(query, Some(id));
     }
 
@@ -548,12 +530,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_collision_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_collision_point(point).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_collision_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_collision_rect(rect).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }

@@ -19,13 +19,6 @@ fn encode_coord(coord: IVec2) -> u64 {
     (coord.x as u32 as u64) << 32 | coord.y as u32 as u64
 }
 
-// locality of reference
-#[derive(Debug, Clone)]
-pub struct EntitySpatialData {
-    pub collision_rect: Option<Rect2>,
-    pub hint_rect: Rect2,
-}
-
 #[derive(Debug, Clone)]
 pub struct EntityInfo {
     pub display_name: String,
@@ -86,7 +79,6 @@ pub struct EntityField {
     chunks: Vec<EntityChunk>,
     coord_index: ahash::AHashMap<u64, u32>,
     id_index: slab::Slab<u64>,
-    hgrid: HGrid<EntitySpatialData>,
 }
 
 impl EntityField {
@@ -124,7 +116,6 @@ impl EntityField {
             chunks: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),
-            hgrid: Default::default(),
         }
     }
 
@@ -152,20 +143,13 @@ impl EntityField {
         let chunk_id = self.alloc_chunk(entity.coord);
 
         // check by spatial features
-        let archetype = self.archetypes.get(entity.archetype_id as usize).ok_or(EntityError::InvalidId)?;
+        let _ = self.archetypes.get(entity.archetype_id as usize).ok_or(EntityError::InvalidId)?;
 
         let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
         assert!(chunk.entities.len() <= u32::MAX as usize, "capacity overflow");
         let local_id = chunk.entities.len() as u32;
         let address = encode_address(chunk_id, local_id);
         let id = self.id_index.insert(address) as u64;
-
-        // register spatial index
-        let broad_rect = archetype.broad_rect(entity.coord);
-        self.hgrid.insert(broad_rect, id, EntitySpatialData {
-            collision_rect: archetype.collision_rect(entity.coord),
-            hint_rect: archetype.hint_rect(entity.coord),
-        });
 
         chunk.entities.push(entity);
         chunk.ids.push(id);
@@ -184,11 +168,6 @@ impl EntityField {
         if let Some(id) = chunk.ids.get(local_id as usize) {
             *self.id_index.get_mut(*id as usize).unwrap() = address;
         }
-
-        // unregister spatial index
-        let archetype = self.archetypes.get(entity.archetype_id as usize).unwrap();
-        let broad_rect = archetype.broad_rect(entity.coord);
-        self.hgrid.remove(broad_rect, id);
 
         chunk.version += 1;
         Ok(entity)
@@ -227,19 +206,7 @@ impl EntityField {
         }
 
         // check by spatial features
-        let archetype = self.get_archetype(entity.archetype_id)?;
-
-        // update spatial index
-        let broad_rect = archetype.broad_rect(entity.coord);
-        let new_broad_rect = archetype.broad_rect(new_coord);
-        if self.hgrid.check_move(broad_rect, new_broad_rect) {
-            let value = EntitySpatialData {
-                collision_rect: archetype.collision_rect(new_coord),
-                hint_rect: archetype.hint_rect(new_coord),
-            };
-            self.hgrid.remove(broad_rect, id);
-            self.hgrid.insert(new_broad_rect, id, value);
-        }
+        let _ = self.get_archetype(entity.archetype_id)?;
 
         // move owner
         let chunk_coord = Self::find_chunk_coord_internal(entity.coord);
@@ -315,27 +282,25 @@ impl EntityField {
     // collision features
 
     #[inline]
-    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
+    pub fn find_with_collision_point(&self, point: Vec2) -> impl Iterator<Item = &EntityId> {
         self.find_with_collision_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
-        self.hgrid.find(rect.trunc_over().as_irect2())
-            .filter(move |(_, data)| data.collision_rect.map(|obj_rect| Intersects::intersects(&rect, &obj_rect)).unwrap_or(false))
+    pub fn find_with_collision_rect(&self, rect: Rect2) -> impl Iterator<Item = &EntityId> {
+        std::iter::empty()
     }
 
     // hint features
 
     #[inline]
-    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
+    pub fn find_with_hint_point(&self, point: Vec2) -> impl Iterator<Item = &EntityId> {
         self.find_with_hint_rect(Rect2::new(point, point))
     }
 
     #[inline]
-    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = (&EntityId, &EntitySpatialData)> {
-        self.hgrid.find(rect.trunc_over().as_irect2())
-            .filter(move |(_, data)| Intersects::intersects(&rect, &data.hint_rect))
+    pub fn find_with_hint_rect(&self, rect: Rect2) -> impl Iterator<Item = &EntityId> {
+        std::iter::empty()
     }
 }
 
@@ -547,12 +512,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_collision_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_collision_point(point).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_collision_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_collision_rect(rect).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }
@@ -584,12 +549,12 @@ mod tests {
             .unwrap();
 
         let point = Vec2::new(-1.0, 4.0);
-        let vec = field.find_with_hint_point(point).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_hint_point(point).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
 
         let rect = Rect2::new(Vec2::new(-1.0, 3.0), Vec2::new(-1.0, 4.0));
-        let vec = field.find_with_hint_rect(rect).map(|(id, _)| *id).collect::<Vec<_>>();
+        let vec = field.find_with_hint_rect(rect).map(|id| *id).collect::<Vec<_>>();
         assert!(vec.contains(&id0));
         assert!(vec.contains(&id1));
     }
