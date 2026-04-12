@@ -136,14 +136,14 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn find_tile_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.tile_field.find_chunk_coord(point)
+    pub fn find_tile_page_coord(point: Vec2) -> IVec2 {
+        TileField::find_page_coord(point)
     }
 
     #[inline]
-    pub fn get_tile_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, DataflowError> {
-        let chunk = self.tile_field.get_chunk(chunk_coord)?;
-        Ok(chunk)
+    pub fn get_tile_page(&self, page_coord: IVec2) -> Result<&TilePage, DataflowError> {
+        let page = self.tile_field.get_page(page_coord)?;
+        Ok(page)
     }
 
     #[inline]
@@ -220,14 +220,14 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn find_block_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.block_field.find_chunk_coord(point)
+    pub fn find_block_page_coord(point: Vec2) -> IVec2 {
+        BlockField::find_page_coord(point)
     }
 
     #[inline]
-    pub fn get_block_chunk(&self, chunk_coord: IVec2) -> Result<&BlockChunk, DataflowError> {
-        let chunk = self.block_field.get_chunk(chunk_coord)?;
-        Ok(chunk)
+    pub fn get_block_page(&self, page_coord: IVec2) -> Result<&BlockPage, DataflowError> {
+        let page = self.block_field.get_page(page_coord)?;
+        Ok(page)
     }
 
     #[inline]
@@ -316,13 +316,13 @@ impl Dataflow {
     }
 
     #[inline]
-    pub fn find_entity_chunk_coord(&self, point: Vec2) -> IVec2 {
-        self.entity_field.find_chunk_coord(point)
+    pub fn find_entity_page_coord(&self, point: Vec2) -> IVec2 {
+        EntityField::find_page_coord(point)
     }
 
     #[inline]
-    pub fn get_entity_chunk(&self, chunk_coord: IVec2) -> Result<&EntityChunk, DataflowError> {
-        let chunk = self.entity_field.get_chunk(chunk_coord)?;
+    pub fn get_entity_page(&self, page_coord: IVec2) -> Result<&EntityPage, DataflowError> {
+        let chunk = self.entity_field.get_page(page_coord)?;
         Ok(chunk)
     }
 

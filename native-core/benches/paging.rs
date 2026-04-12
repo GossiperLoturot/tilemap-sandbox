@@ -6,7 +6,7 @@ use native_core::*;
 pub fn benchmark_paging(c: &mut Criterion) {
     c.bench_function("paging grid add", |b| {
         b.iter_custom(|iters| {
-            let mut grid = PagingGrid::default();
+            let mut grid = SpatialIndex::default();
 
             for i in 0..iters {
                 let rect = IVec2::new(i as i32, 0) + IRect2::new(IVec2::ZERO, IVec2::ONE);
@@ -25,7 +25,7 @@ pub fn benchmark_paging(c: &mut Criterion) {
 
     c.bench_function("paging grid remove", |b| {
         b.iter_custom(|iters| {
-            let mut grid = PagingGrid::default();
+            let mut grid = SpatialIndex::default();
 
             for i in 0..iters {
                 let rect = IVec2::new(i as i32, 0) + IRect2::new(IVec2::ZERO, IVec2::ONE);

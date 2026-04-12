@@ -13,11 +13,11 @@ fn encode_coord(coord: IVec2) -> u64 {
 }
 
 #[derive(Debug, Default)]
-pub struct PagingGrid {
+pub struct SpatialIndex {
     pages: ahash::AHashMap<u64, [Option<Id>; BLOCK_LEN]>,
 }
 
-impl PagingGrid {
+impl SpatialIndex {
     pub fn insert(&mut self, rect: IRect2, value: Id) {
         let min = rect.min.div_euclid(IVec2::splat(BLOCK_SIZE));
         let max = rect.max.div_euclid(IVec2::splat(BLOCK_SIZE));

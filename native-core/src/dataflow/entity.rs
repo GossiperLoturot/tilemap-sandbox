@@ -5,8 +5,8 @@ use crate::geom::*;
 pub type EntityId = u64;
 
 #[inline]
-fn encode_address(chunk_id: u32, local_id: u32) -> u64 {
-    (chunk_id as u64) << 32 | local_id as u64
+fn encode_address(page_id: u32, local_id: u32) -> u64 {
+    (page_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
@@ -67,7 +67,7 @@ pub struct Entity {
 }
 
 #[derive(Debug)]
-pub struct EntityChunk {
+pub struct EntityPage {
     pub version: u64,
     pub entities: Vec<Entity>,
     pub ids: Vec<EntityId>,
@@ -76,13 +76,15 @@ pub struct EntityChunk {
 #[derive(Debug)]
 pub struct EntityField {
     archetypes: Vec<EntityArchetype>,
-    chunks: Vec<EntityChunk>,
-    coord_index: ahash::AHashMap<u64, u32>,
+
     id_index: slab::Slab<u64>,
+    pages: Vec<EntityPage>,
+
+    coord_index: ahash::AHashMap<u64, u32>,
 }
 
 impl EntityField {
-    const CHUNK_SIZE: u32 = 32;
+    const PAGE_SIZE: u32 = 32;
 
     pub fn new(info: EntityFieldInfo) -> Self {
         let mut archetypes = vec![];
@@ -113,94 +115,94 @@ impl EntityField {
 
         Self {
             archetypes,
-            chunks: Default::default(),
+            pages: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),
         }
     }
 
     #[inline]
-    fn alloc_chunk(&mut self, coord: Vec2) -> u32 {
-        let chunk_coord = Self::find_chunk_coord_internal(coord);
-        let chunk_coord_ = encode_coord(chunk_coord);
+    fn alloc_page(&mut self, coord: Vec2) -> u32 {
+        let page_coord = Self::find_page_coord(coord);
+        let page_key = encode_coord(page_coord);
 
-        if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
-            *chunk_id
+        if let Some(page_id) = self.coord_index.get(&page_key) {
+            *page_id
         } else {
-            assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
-            let chunk_id = self.chunks.len() as u32;
-            self.chunks.push(EntityChunk {
+            assert!(self.pages.len() <= u32::MAX as usize, "capacity overflow");
+            let page_id = self.pages.len() as u32;
+            self.pages.push(EntityPage {
                 version: Default::default(),
                 entities: Default::default(),
                 ids: Default::default(),
             });
-            self.coord_index.insert(chunk_coord_, chunk_id);
-            chunk_id
+            self.coord_index.insert(page_key, page_id);
+            page_id
         }
     }
 
     pub fn insert(&mut self, entity: Entity) -> Result<EntityId, EntityError> {
-        let chunk_id = self.alloc_chunk(entity.coord);
+        let page_id = self.alloc_page(entity.coord);
 
         // check by spatial features
         let _ = self.archetypes.get(entity.archetype_id as usize).ok_or(EntityError::InvalidId)?;
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        assert!(chunk.entities.len() <= u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.entities.len() as u32;
-        let address = encode_address(chunk_id, local_id);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        assert!(page.entities.len() <= u32::MAX as usize, "capacity overflow");
+        let local_id = page.entities.len() as u32;
+        let address = encode_address(page_id, local_id);
         let id = self.id_index.insert(address) as u64;
 
-        chunk.entities.push(entity);
-        chunk.ids.push(id);
-        chunk.version += 1;
+        page.entities.push(entity);
+        page.ids.push(id);
+        page.version += 1;
         Ok(id)
     }
 
     pub fn remove(&mut self, id: EntityId) -> Result<Entity, EntityError> {
         let address = self.id_index.try_remove(id as usize).ok_or(EntityError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let entity = chunk.entities.swap_remove(local_id as usize);
-        let _ = chunk.ids.swap_remove(local_id as usize);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let entity = page.entities.swap_remove(local_id as usize);
+        let _ = page.ids.swap_remove(local_id as usize);
 
-        if let Some(id) = chunk.ids.get(local_id as usize) {
+        if let Some(id) = page.ids.get(local_id as usize) {
             *self.id_index.get_mut(*id as usize).unwrap() = address;
         }
 
-        chunk.version += 1;
+        page.version += 1;
         Ok(entity)
     }
 
     pub fn modify_variant(&mut self, id: EntityId, variant: u16) -> Result<(), EntityError> {
         let address = *self.id_index.get(id as usize).ok_or(EntityError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let entity = chunk.entities.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let entity = page.entities.get_mut(local_id as usize).unwrap();
         entity.variant = variant;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn modify_tick(&mut self, id: EntityId, tick: u32) -> Result<(), EntityError> {
         let address = *self.id_index.get(id as usize).ok_or(EntityError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let entity = chunk.entities.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let entity = page.entities.get_mut(local_id as usize).unwrap();
         entity.tick = tick;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn r#move(&mut self, id: EntityId, new_coord: Vec2) -> Result<EntityId, EntityError> {
         let address = *self.id_index.get(id as usize).ok_or(EntityError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let entity = chunk.entities.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let entity = page.entities.get(local_id as usize).unwrap();
         if entity.coord == new_coord {
             return Ok(id);
         }
@@ -209,34 +211,34 @@ impl EntityField {
         let _ = self.get_archetype(entity.archetype_id)?;
 
         // move owner
-        let chunk_coord = Self::find_chunk_coord_internal(entity.coord);
-        let new_chunk_coord = Self::find_chunk_coord_internal(new_coord);
-        if chunk_coord != new_chunk_coord {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let entity = chunk.entities.swap_remove(local_id as usize);
-            let _ = chunk.ids.swap_remove(local_id as usize);
+        let page_coord = Self::find_page_coord(entity.coord);
+        let new_page_coord = Self::find_page_coord(new_coord);
+        if page_coord != new_page_coord {
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let entity = page.entities.swap_remove(local_id as usize);
+            let _ = page.ids.swap_remove(local_id as usize);
 
-            if let Some(id) = chunk.ids.get(local_id as usize) {
+            if let Some(id) = page.ids.get(local_id as usize) {
                 *self.id_index.get_mut(*id as usize).unwrap() = address;
             }
-            chunk.version += 1;
+            page.version += 1;
 
-            let new_chunk_id = self.alloc_chunk(new_coord);
+            let new_page_id = self.alloc_page(new_coord);
 
-            let new_chunk = self.chunks.get_mut(new_chunk_id as usize).unwrap();
-            assert!(new_chunk.entities.len() <= u32::MAX as usize, "capacity overflow");
-            let new_local_id = new_chunk.entities.len() as u32;
-            let new_address = encode_address(new_chunk_id, new_local_id);
+            let new_page = self.pages.get_mut(new_page_id as usize).unwrap();
+            assert!(new_page.entities.len() <= u32::MAX as usize, "capacity overflow");
+            let new_local_id = new_page.entities.len() as u32;
+            let new_address = encode_address(new_page_id, new_local_id);
             *self.id_index.get_mut(id as usize).unwrap() = new_address;
 
-            new_chunk.entities.push(Entity { coord: new_coord, ..entity });
-            new_chunk.ids.push(id);
-            new_chunk.version += 1;
+            new_page.entities.push(Entity { coord: new_coord, ..entity });
+            new_page.ids.push(id);
+            new_page.version += 1;
         } else {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let entity = chunk.entities.get_mut(local_id as usize).unwrap();
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let entity = page.entities.get_mut(local_id as usize).unwrap();
             entity.coord = new_coord;
-            chunk.version += 1;
+            page.version += 1;
         }
         Ok(id)
     }
@@ -244,10 +246,10 @@ impl EntityField {
     #[inline]
     pub fn get(&self, id: EntityId) -> Result<&Entity, EntityError> {
         let address = *self.id_index.get(id as usize).ok_or(EntityError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let entity = chunk.entities.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let entity = page.entities.get(local_id as usize).unwrap();
 
         Ok(entity)
     }
@@ -259,24 +261,19 @@ impl EntityField {
         self.archetypes.get(archetype_id as usize).ok_or(EntityError::InvalidId)
     }
 
-    // transfer chunk data
+    // transfer page data
 
     #[inline]
-    pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
-        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
+    pub fn find_page_coord(coord: Vec2) -> IVec2 {
+        coord.div_euclid(Vec2::splat(Self::PAGE_SIZE as f32)).as_ivec2()
     }
 
     #[inline]
-    fn find_chunk_coord_internal(coord: Vec2) -> IVec2 {
-        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
-    }
-
-    #[inline]
-    pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&EntityChunk, EntityError> {
-        let chunk_coord_ = encode_coord(chunk_coord);
-        let chunk_id = *self.coord_index.get(&chunk_coord_).ok_or(EntityError::NotFound)?;
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        Ok(chunk)
+    pub fn get_page(&self, page_coord: IVec2) -> Result<&EntityPage, EntityError> {
+        let page_key = encode_coord(page_coord);
+        let page_id = *self.coord_index.get(&page_key).ok_or(EntityError::NotFound)?;
+        let page = self.pages.get(page_id as usize).unwrap();
+        Ok(page)
     }
 
     // collision features
@@ -560,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn entity_chunk() {
+    fn entity_page() {
         let mut field = make_entity_field();
 
         let _ = field
@@ -585,9 +582,9 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_chunk(IVec2::new(0, 0)).is_err());
+        assert!(field.get_page(IVec2::new(0, 0)).is_err());
 
-        let chunk = field.get_chunk(IVec2::new(-1, 0)).unwrap();
-        assert_eq!(chunk.entities.len(), 3);
+        let page = field.get_page(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(page.entities.len(), 3);
     }
 }

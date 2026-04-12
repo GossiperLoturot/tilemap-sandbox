@@ -34,15 +34,15 @@ struct RenderLayout {
     rendering_offset: Vec2,
 }
 
-struct DeadChunk {
+struct DeadPage {
     materials: Vec<godot::builtin::Rid>,
     multimesh: godot::builtin::Rid,
     instance: godot::builtin::Rid,
 }
 
-impl DeadChunk {
-    fn spawn(self) -> LiveChunk {
-        LiveChunk {
+impl DeadPage {
+    fn spawn(self) -> LivePage {
+        LivePage {
             version: Default::default(),
             materials: self.materials,
             multimesh: self.multimesh,
@@ -51,16 +51,16 @@ impl DeadChunk {
     }
 }
 
-struct LiveChunk {
+struct LivePage {
     version: u64,
     materials: Vec<godot::builtin::Rid>,
     multimesh: godot::builtin::Rid,
     instance: godot::builtin::Rid,
 }
 
-impl LiveChunk {
-    fn despawn(self) -> DeadChunk {
-        DeadChunk {
+impl LivePage {
+    fn despawn(self) -> DeadPage {
+        DeadPage {
             materials: self.materials,
             multimesh: self.multimesh,
             instance: self.instance,
@@ -71,8 +71,8 @@ impl LiveChunk {
 pub struct BlockField {
     layouts: Vec<RenderLayout>,
     sprite_addrs: Vec<Vec<ImageAddress>>,
-    dead_chunks: Vec<DeadChunk>,
-    live_chunks: ahash::AHashMap<IVec2, LiveChunk>,
+    dead_pages: Vec<DeadPage>,
+    live_pages: ahash::AHashMap<IVec2, LivePage>,
     free_handles: Vec<godot::builtin::Rid>,
     rect: Option<IRect2>,
     instance_buffer: Vec<f32>,
@@ -80,7 +80,7 @@ pub struct BlockField {
 }
 
 impl BlockField {
-    const CHUNK_CAPACITY: usize = 512;
+    const PAGE_CAPACITY: usize = 512;
     const ATLAS_WIDTH: usize = 1024;
     const ATLAS_PAGE: usize = 8;
     const COORD_BUFFER_WIDTH: usize = 1024;
@@ -229,8 +229,8 @@ impl BlockField {
             &godot::meta::ToGodot::to_variant(&godot::builtin::PackedInt32Array::from(&[0, 1, 2, 0, 2, 3])),
         );
 
-        let mut dead_chunks = vec![];
-        for _ in 0..Self::CHUNK_CAPACITY {
+        let mut dead_pages = vec![];
+        for _ in 0..Self::PAGE_CAPACITY {
             let mut materials = vec![];
             for shader in &info.shaders {
                 let material = rendering_server.material_create();
@@ -262,7 +262,7 @@ impl BlockField {
             rendering_server.instance_set_visible(instance, false);
             free_handles.push(instance);
 
-            dead_chunks.push(DeadChunk {
+            dead_pages.push(DeadPage {
                 materials,
                 multimesh,
                 instance,
@@ -272,8 +272,8 @@ impl BlockField {
         Self {
             layouts,
             sprite_addrs,
-            dead_chunks,
-            live_chunks: Default::default(),
+            dead_pages,
+            live_pages: Default::default(),
             free_handles,
             rect: None,
             instance_buffer: vec![0.0; Self::BUFFER_LEN * 12],
@@ -287,68 +287,68 @@ impl BlockField {
         let mut rendering_server = <godot::classes::RenderingServer as godot::obj::Singleton>::singleton();
 
         let rect = IRect2::new(
-            dataflow.find_block_chunk_coord(rect.min),
-            dataflow.find_block_chunk_coord(rect.max),
+            dataflow::Dataflow::find_block_page_coord(rect.min),
+            dataflow::Dataflow::find_block_page_coord(rect.max),
         );
 
-        // remove / insert view chunk
+        // remove / insert view page
 
         if Some(rect) != self.rect {
-            let mut chunk_coords = vec![];
-            for (chunk_coord, _) in &self.live_chunks {
-                if !Intersects::intersects(chunk_coord, &rect) {
-                    chunk_coords.push(*chunk_coord);
+            let mut page_coords = vec![];
+            for (page_coord, _) in &self.live_pages {
+                if !Intersects::intersects(page_coord, &rect) {
+                    page_coords.push(*page_coord);
                 }
             }
-            for chunk_coord in chunk_coords {
-                let live_chunk = self.live_chunks.remove(&chunk_coord).unwrap();
+            for page_coord in page_coords {
+                let live_page = self.live_pages.remove(&page_coord).unwrap();
 
-                rendering_server.instance_set_visible(live_chunk.instance, false);
+                rendering_server.instance_set_visible(live_page.instance, false);
 
-                self.dead_chunks.push(live_chunk.despawn());
+                self.dead_pages.push(live_page.despawn());
             }
 
             for y in rect[0].y..=rect[1].y {
                 for x in rect[0].x..=rect[1].x {
-                    let chunk_coord = IVec2::new(x, y);
+                    let page_coord = IVec2::new(x, y);
 
-                    if self.live_chunks.contains_key(&chunk_coord) {
+                    if self.live_pages.contains_key(&page_coord) {
                         continue;
                     }
 
-                    let Some(dead_chunk) = self.dead_chunks.pop() else {
-                        let live_count = self.live_chunks.len();
-                        let dead_count = self.dead_chunks.len();
-                        panic!("no chunk available in pool (live:{}, dead:{})", live_count, dead_count);
+                    let Some(dead_page) = self.dead_pages.pop() else {
+                        let live_count = self.live_pages.len();
+                        let dead_count = self.dead_pages.len();
+                        panic!("no page available in pool (live:{}, dead:{})", live_count, dead_count);
                     };
 
-                    rendering_server.instance_set_visible(dead_chunk.instance, true);
+                    rendering_server.instance_set_visible(dead_page.instance, true);
 
-                    self.live_chunks.insert(chunk_coord, dead_chunk.spawn());
+                    self.live_pages.insert(page_coord, dead_page.spawn());
                 }
             }
 
             self.rect = Some(rect);
         }
 
-        // update view chunk
+        // update view page
 
-        for (chunk_coord, live_chunk) in &mut self.live_chunks {
-            let Ok(chunk) = dataflow.get_block_chunk(*chunk_coord) else {
+        for (page_coord, live_page) in &mut self.live_pages {
+            let Ok(page) = dataflow.get_block_page(*page_coord) else {
                 continue;
             };
 
-            for material in &live_chunk.materials {
+            for material in &live_page.materials {
                 let tick = dataflow.get_tick() as i32;
                 rendering_server.material_set_param(*material, "tick", &godot::meta::ToGodot::to_variant(&tick));
             }
 
-            if chunk.version <= live_chunk.version {
+            if page.version <= live_page.version {
                 continue;
             }
 
             let mut count = 0;
-            for (i, block) in chunk.blocks.iter().take(Self::BUFFER_LEN).enumerate() {
+            for (i, block) in page.blocks.iter().take(Self::BUFFER_LEN).enumerate() {
                 let layout = &self.layouts[block.archetype_id as usize];
 
                 self.instance_buffer[i * 12] = layout.rendering_size.x;
@@ -377,16 +377,16 @@ impl BlockField {
             }
 
             let instance_buffer = godot::builtin::PackedFloat32Array::from(self.instance_buffer.as_slice());
-            rendering_server.multimesh_set_buffer(live_chunk.multimesh, &instance_buffer);
-            rendering_server.multimesh_set_visible_instances(live_chunk.multimesh, count);
+            rendering_server.multimesh_set_buffer(live_page.multimesh, &instance_buffer);
+            rendering_server.multimesh_set_visible_instances(live_page.multimesh, count);
 
             let address_buffer = bytemuck::cast_slice::<_, i32>(self.address_buffer.as_slice());
             let address_buffer = godot::builtin::PackedInt32Array::from(address_buffer);
-            for material in &live_chunk.materials {
+            for material in &live_page.materials {
                 rendering_server.material_set_param(*material, "head_buffer", &godot::meta::ToGodot::to_variant(&address_buffer));
             }
 
-            live_chunk.version = chunk.version;
+            live_page.version = page.version;
         }
     }
 }

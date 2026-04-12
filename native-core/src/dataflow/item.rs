@@ -30,7 +30,7 @@ pub struct Inventory {
 }
 
 #[derive(Debug)]
-pub struct ItemChunk {
+pub struct ItemPage {
     pub version: u64,
     pub id: InventoryId,
     pub items: Vec<Item>,
@@ -39,9 +39,10 @@ pub struct ItemChunk {
 #[derive(Debug)]
 pub struct ItemStorage {
     archetypes: Vec<ItemArchetype>,
-    chunks: Vec<ItemChunk>,
-    inventories: Vec<Inventory>,
+
     id_index: slab::Slab<u32>,
+    pages: Vec<ItemPage>,
+    inventories: Vec<Inventory>,
 }
 
 impl ItemStorage {
@@ -57,9 +58,9 @@ impl ItemStorage {
 
         Self {
             archetypes,
-            chunks: Default::default(),
-            inventories: Default::default(),
             id_index: Default::default(),
+            pages: Default::default(),
+            inventories: Default::default(),
         }
     }
 
@@ -68,27 +69,27 @@ impl ItemStorage {
     pub fn insert_inventory(&mut self, inventory: Inventory) -> Result<InventoryId, ItemError> {
         let inventory_id = self.id_index.vacant_key() as u64;
 
-        assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
-        let chunk_id = self.chunks.len() as u32;
-        self.chunks.push(ItemChunk {
+        assert!(self.pages.len() <= u32::MAX as usize, "capacity overflow");
+        let page_id = self.pages.len() as u32;
+        self.pages.push(ItemPage {
             version: Default::default(),
             id: inventory_id,
             items: Default::default(),
         });
         self.inventories.push(inventory);
-        self.id_index.insert(chunk_id);
+        self.id_index.insert(page_id);
 
         Ok(inventory_id)
     }
 
     pub fn remove_inventory(&mut self, inventory_id: InventoryId) -> Result<Inventory, ItemError> {
-        let chunk_id = self.id_index.try_remove(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
+        let page_id = self.id_index.try_remove(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
 
-        let _ = self.chunks.swap_remove(chunk_id as usize);
-        let inventory = self.inventories.swap_remove(chunk_id as usize);
+        let _ = self.pages.swap_remove(page_id as usize);
+        let inventory = self.inventories.swap_remove(page_id as usize);
 
-        if let Some(chunk) = self.chunks.get(chunk_id as usize) {
-            *self.id_index.get_mut(chunk.id as usize).unwrap() = chunk_id;
+        if let Some(page) = self.pages.get(page_id as usize) {
+            *self.id_index.get_mut(page.id as usize).unwrap() = page_id;
         }
 
         Ok(inventory)
@@ -96,9 +97,9 @@ impl ItemStorage {
 
     #[inline]
     pub fn get_inventory(&mut self, inventory_id: InventoryId) -> Result<&Inventory, ItemError> {
-        let chunk_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
+        let page_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
 
-        let inventory = self.inventories.get(chunk_id as usize).unwrap();
+        let inventory = self.inventories.get(page_id as usize).unwrap();
 
         Ok(inventory)
     }
@@ -107,48 +108,48 @@ impl ItemStorage {
 
     pub fn insert(&mut self, inventory_id: InventoryId, item: Item) -> Result<(), ItemError> {
         self.archetypes.get(item.archetype_id as usize).ok_or(ItemError::ItemInvalidId)?;
-        let chunk_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
+        let page_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
 
-        let inventory = self.inventories.get(chunk_id as usize).unwrap();
+        let inventory = self.inventories.get(page_id as usize).unwrap();
         if item.amount > inventory.max_stack {
             return Err(ItemError::ItemConflict);
         }
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        if let Some(item_) = chunk.items.iter_mut().find(|v| v.archetype_id == item.archetype_id) {
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        if let Some(item_) = page.items.iter_mut().find(|v| v.archetype_id == item.archetype_id) {
             if item_.amount + item.amount > inventory.max_stack {
                 return Err(ItemError::ItemConflict);
             }
             item_.amount += item.amount;
         } else {
-            if (chunk.items.len() as u32) + 1 > inventory.max_variety {
+            if (page.items.len() as u32) + 1 > inventory.max_variety {
                 return Err(ItemError::ItemConflict);
             }
-            chunk.items.push(item);
+            page.items.push(item);
         }
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn remove(&mut self, inventory_id: InventoryId, item: Item) -> Result<(), ItemError> {
         self.archetypes.get(item.archetype_id as usize).ok_or(ItemError::ItemInvalidId)?;
-        let chunk_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
+        let page_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        if let Some(local_id) = chunk.items.iter().position(|v| v.archetype_id == item.archetype_id) {
-            let item_ = chunk.items.get_mut(local_id).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        if let Some(local_id) = page.items.iter().position(|v| v.archetype_id == item.archetype_id) {
+            let item_ = page.items.get_mut(local_id).unwrap();
             if item_.amount < item.amount {
                 return Err(ItemError::ItemConflict);
             }
             item_.amount -= item.amount;
             if item_.amount == 0 {
-                chunk.items.swap_remove(local_id);
+                page.items.swap_remove(local_id);
             }
         } else {
             return Err(ItemError::ItemConflict);
         }
 
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
@@ -159,13 +160,13 @@ impl ItemStorage {
         self.archetypes.get(archetype_id as usize).ok_or(ItemError::ItemInvalidId)
     }
 
-    // transfer chunk data
+    // transfer page data
 
     #[inline]
-    pub fn get_chunk(&self, inventory_id: InventoryId) -> Result<&ItemChunk, ItemError> {
-        let chunk_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        Ok(chunk)
+    pub fn get_page(&self, inventory_id: InventoryId) -> Result<&ItemPage, ItemError> {
+        let page_id = *self.id_index.get(inventory_id as usize).ok_or(ItemError::InventoryNotFound)?;
+        let page = self.pages.get(page_id as usize).unwrap();
+        Ok(page)
     }
 }
 

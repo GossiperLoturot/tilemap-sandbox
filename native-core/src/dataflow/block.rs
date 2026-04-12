@@ -5,8 +5,8 @@ use crate::geom::*;
 pub type BlockId = u64;
 
 #[inline]
-fn encode_address(chunk_id: u32, local_id: u32) -> u64 {
-    (chunk_id as u64) << 32 | local_id as u64
+fn encode_address(page_id: u32, local_id: u32) -> u64 {
+    (page_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
@@ -74,7 +74,7 @@ pub struct Block {
 }
 
 #[derive(Debug)]
-pub struct BlockChunk {
+pub struct BlockPage {
     pub version: u64,
     pub blocks: Vec<Block>,
     pub ids: Vec<BlockId>,
@@ -83,14 +83,16 @@ pub struct BlockChunk {
 #[derive(Debug)]
 pub struct BlockField {
     archetypes: Vec<BlockArchetype>,
-    chunks: Vec<BlockChunk>,
-    coord_index: ahash::AHashMap<u64, u32>,
+
     id_index: slab::Slab<u64>,
-    grid: PagingGrid,
+    pages: Vec<BlockPage>,
+
+    coord_index: ahash::AHashMap<u64, u32>,
+    spatial_index: SpatialIndex,
 }
 
 impl BlockField {
-    const CHUNK_SIZE: u32 = 32;
+    const PAGE_SIZE: u32 = 32;
 
     pub fn new(info: BlockFieldInfo) -> Self {
         let mut archetypes = vec![];
@@ -125,35 +127,35 @@ impl BlockField {
 
         Self {
             archetypes,
-            chunks: Default::default(),
+            pages: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),
-            grid: Default::default(),
+            spatial_index: Default::default(),
         }
     }
 
     #[inline]
-    fn alloc_chunk(&mut self, coord: IVec2) -> u32 {
-        let chunk_coord = Self::find_chunk_coord_internal(coord);
-        let chunk_coord_ = encode_coord(chunk_coord);
+    fn alloc_page(&mut self, coord: IVec2) -> u32 {
+        let page_coord = Self::find_page_coord_ivec2(coord);
+        let page_key = encode_coord(page_coord);
 
-        if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
-            *chunk_id
+        if let Some(page_id) = self.coord_index.get(&page_key) {
+            *page_id
         } else {
-            assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
-            let chunk_id = self.chunks.len() as u32;
-            self.chunks.push(BlockChunk {
+            assert!(self.pages.len() <= u32::MAX as usize, "capacity overflow");
+            let page_id = self.pages.len() as u32;
+            self.pages.push(BlockPage {
                 version: Default::default(),
                 blocks: Default::default(),
                 ids: Default::default(),
             });
-            self.coord_index.insert(chunk_coord_, chunk_id);
-            chunk_id
+            self.coord_index.insert(page_key, page_id);
+            page_id
         }
     }
 
     pub fn insert(&mut self, block: Block) -> Result<BlockId, BlockError> {
-        let chunk_id = self.alloc_chunk(block.coord);
+        let page_id = self.alloc_page(block.coord);
 
         // check by spatial features
         let archetype = self.archetypes.get(block.archetype_id as usize).ok_or(BlockError::InvalidId)?;
@@ -161,71 +163,71 @@ impl BlockField {
             return Err(BlockError::Conflict);
         }
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        assert!(chunk.blocks.len() <= u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.blocks.len() as u32;
-        let address = encode_address(chunk_id, local_id);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        assert!(page.blocks.len() <= u32::MAX as usize, "capacity overflow");
+        let local_id = page.blocks.len() as u32;
+        let address = encode_address(page_id, local_id);
         let id = self.id_index.insert(address) as u64;
 
         // register spatial index
         let rect = archetype.rect(block.coord);
-        self.grid.insert(rect, id);
+        self.spatial_index.insert(rect, id);
 
-        chunk.blocks.push(block);
-        chunk.ids.push(id);
-        chunk.version += 1;
+        page.blocks.push(block);
+        page.ids.push(id);
+        page.version += 1;
         Ok(id)
     }
 
     pub fn remove(&mut self, id: BlockId) -> Result<Block, BlockError> {
         let address = self.id_index.try_remove(id as usize).ok_or(BlockError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let block = chunk.blocks.swap_remove(local_id as usize);
-        let _ = chunk.ids.swap_remove(local_id as usize);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let block = page.blocks.swap_remove(local_id as usize);
+        let _ = page.ids.swap_remove(local_id as usize);
 
-        if let Some(id) = chunk.ids.get(local_id as usize) {
+        if let Some(id) = page.ids.get(local_id as usize) {
             *self.id_index.get_mut(*id as usize).unwrap() = address;
         }
 
         // unregister spatial index
         let archetype = self.archetypes.get(block.archetype_id as usize).unwrap();
         let rect = archetype.rect(block.coord);
-        self.grid.remove(rect);
+        self.spatial_index.remove(rect);
 
-        chunk.version += 1;
+        page.version += 1;
         Ok(block)
     }
 
     pub fn modify_variant(&mut self, id: BlockId, variant: u16) -> Result<(), BlockError> {
         let address = *self.id_index.get(id as usize).ok_or(BlockError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let block = chunk.blocks.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let block = page.blocks.get_mut(local_id as usize).unwrap();
         block.variant = variant;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn modify_tick(&mut self, id: BlockId, tick: u32) -> Result<(), BlockError> {
         let address = *self.id_index.get(id as usize).ok_or(BlockError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let block = chunk.blocks.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let block = page.blocks.get_mut(local_id as usize).unwrap();
         block.tick = tick;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn r#move(&mut self, id: BlockId, new_coord: IVec2) -> Result<(), BlockError> {
         let address = *self.id_index.get(id as usize).ok_or(BlockError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let block = chunk.blocks.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let block = page.blocks.get(local_id as usize).unwrap();
         if block.coord == new_coord {
             return Ok(());
         }
@@ -239,38 +241,38 @@ impl BlockField {
         // update spatial index
         let rect = archetype.rect(block.coord);
         let new_rect = archetype.rect(new_coord);
-        self.grid.remove(rect);
-        self.grid.insert(new_rect, id);
+        self.spatial_index.remove(rect);
+        self.spatial_index.insert(new_rect, id);
 
         // move owner
-        let chunk_coord = Self::find_chunk_coord_internal(block.coord);
-        let new_chunk_coord = Self::find_chunk_coord_internal(new_coord);
-        if chunk_coord != new_chunk_coord {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let block = chunk.blocks.swap_remove(local_id as usize);
-            let _ = chunk.ids.swap_remove(local_id as usize);
+        let page_coord = Self::find_page_coord_ivec2(block.coord);
+        let new_page_coord = Self::find_page_coord_ivec2(new_coord);
+        if page_coord != new_page_coord {
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let block = page.blocks.swap_remove(local_id as usize);
+            let _ = page.ids.swap_remove(local_id as usize);
 
-            if let Some(id) = chunk.ids.get(local_id as usize) {
+            if let Some(id) = page.ids.get(local_id as usize) {
                 *self.id_index.get_mut(*id as usize).unwrap() = address;
             }
-            chunk.version += 1;
+            page.version += 1;
 
-            let new_chunk_id = self.alloc_chunk(new_coord);
+            let new_page_id = self.alloc_page(new_coord);
 
-            let new_chunk = self.chunks.get_mut(new_chunk_id as usize).unwrap();
-            assert!(new_chunk.blocks.len() <= u32::MAX as usize, "capacity overflow");
-            let new_local_id = new_chunk.blocks.len() as u32;
-            let new_address = encode_address(new_chunk_id, new_local_id);
+            let new_page = self.pages.get_mut(new_page_id as usize).unwrap();
+            assert!(new_page.blocks.len() <= u32::MAX as usize, "capacity overflow");
+            let new_local_id = new_page.blocks.len() as u32;
+            let new_address = encode_address(new_page_id, new_local_id);
             *self.id_index.get_mut(id as usize).unwrap() = new_address;
 
-            new_chunk.blocks.push(Block { coord: new_coord, ..block });
-            new_chunk.ids.push(id);
-            new_chunk.version += 1;
+            new_page.blocks.push(Block { coord: new_coord, ..block });
+            new_page.ids.push(id);
+            new_page.version += 1;
         } else {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let block = chunk.blocks.get_mut(local_id as usize).unwrap();
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let block = page.blocks.get_mut(local_id as usize).unwrap();
             block.coord = new_coord;
-            chunk.version += 1;
+            page.version += 1;
         }
         Ok(())
     }
@@ -278,10 +280,10 @@ impl BlockField {
     #[inline]
     pub fn get(&self, id: BlockId) -> Result<&Block, BlockError> {
         let address = *self.id_index.get(id as usize).ok_or(BlockError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let block = chunk.blocks.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let block = page.blocks.get(local_id as usize).unwrap();
 
         Ok(block)
     }
@@ -293,36 +295,36 @@ impl BlockField {
         self.archetypes.get(archetype_id as usize).ok_or(BlockError::InvalidId)
     }
 
-    // transfer chunk data
+    // transfer page data
 
     #[inline]
-    pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
-        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
+    pub fn find_page_coord(coord: Vec2) -> IVec2 {
+        coord.div_euclid(Vec2::splat(Self::PAGE_SIZE as f32)).as_ivec2()
     }
 
     #[inline]
-    fn find_chunk_coord_internal(coord: IVec2) -> IVec2 {
-        coord.div_euclid(IVec2::splat(Self::CHUNK_SIZE as i32))
+    fn find_page_coord_ivec2(coord: IVec2) -> IVec2 {
+        coord.div_euclid(IVec2::splat(Self::PAGE_SIZE as i32))
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&BlockChunk, BlockError> {
-        let chunk_coord_ = encode_coord(chunk_coord);
-        let chunk_id = *self.coord_index.get(&chunk_coord_).ok_or(BlockError::NotFound)?;
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        Ok(chunk)
+    pub fn get_page(&self, page_coord: IVec2) -> Result<&BlockPage, BlockError> {
+        let page_key = encode_coord(page_coord);
+        let page_id = *self.coord_index.get(&page_key).ok_or(BlockError::NotFound)?;
+        let page = self.pages.get(page_id as usize).unwrap();
+        Ok(page)
     }
 
     // spatial features
 
     #[inline]
     pub fn find_with_point(&self, point: IVec2) -> Option<&BlockId> {
-        self.grid.find_point(point)
+        self.spatial_index.find_point(point)
     }
 
     #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &BlockId> {
-        self.grid.find_rect(rect)
+        self.spatial_index.find_rect(rect)
     }
 
     // collision features
@@ -671,7 +673,7 @@ mod tests {
     }
 
     #[test]
-    fn block_chunk() {
+    fn block_page() {
         let mut field = make_block_field();
 
         let _= field
@@ -696,9 +698,9 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_chunk(IVec2::new(0, 0)).is_err());
+        assert!(field.get_page(IVec2::new(0, 0)).is_err());
 
-        let chunk = field.get_chunk(IVec2::new(-1, 0)).unwrap();
-        assert_eq!(chunk.blocks.len(), 3);
+        let page = field.get_page(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(page.blocks.len(), 3);
     }
 }

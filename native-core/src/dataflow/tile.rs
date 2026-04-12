@@ -5,8 +5,8 @@ use crate::geom::*;
 pub type TileId = u64;
 
 #[inline]
-fn encode_address(chunk_id: u32, local_id: u32) -> u64 {
-    (chunk_id as u64) << 32 | local_id as u64
+fn encode_address(page_id: u32, local_id: u32) -> u64 {
+    (page_id as u64) << 32 | local_id as u64
 }
 
 #[inline]
@@ -66,7 +66,7 @@ pub struct Tile {
 }
 
 #[derive(Debug)]
-pub struct TileChunk {
+pub struct TilePage {
     pub version: u64,
     pub tiles: Vec<Tile>,
     pub ids: Vec<TileId>,
@@ -75,56 +75,56 @@ pub struct TileChunk {
 #[derive(Debug)]
 pub struct TileField {
     archetypes: Vec<TileArchetype>,
-    chunks: Vec<TileChunk>,
-    coord_index: ahash::AHashMap<u64, u32>,
+
     id_index: slab::Slab<u64>,
-    grid: PagingGrid,
+    pages: Vec<TilePage>,
+
+    coord_index: ahash::AHashMap<u64, u32>,
+    spatial_index: SpatialIndex,
 }
 
 impl TileField {
-    const CHUNK_SIZE: u32 = 32;
+    const PAGE_SIZE: u32 = 32;
 
     pub fn new(info: TileFieldInfo) -> Self {
         let mut archetypes = vec![];
 
         assert!(info.tiles.len() <= u16::MAX as usize, "capacity overflow");
         for tile in info.tiles {
-            archetypes.push(TileArchetype {
-                collision: tile.collision,
-            });
+            archetypes.push(TileArchetype { collision: tile.collision });
         }
 
         Self {
             archetypes,
-            chunks: Default::default(),
+            pages: Default::default(),
             coord_index: Default::default(),
             id_index: Default::default(),
-            grid: Default::default(),
+            spatial_index: Default::default(),
         }
     }
 
     #[inline]
-    fn alloc_chunk(&mut self, coord: IVec2) -> u32 {
-        let chunk_coord = Self::find_chunk_coord_internal(coord);
-        let chunk_coord_ = encode_coord(chunk_coord);
+    fn alloc_page(&mut self, coord: IVec2) -> u32 {
+        let page_coord = Self::find_page_coord_ivec2(coord);
+        let page_key = encode_coord(page_coord);
 
-        if let Some(chunk_id) = self.coord_index.get(&chunk_coord_) {
-            *chunk_id
+        if let Some(page_id) = self.coord_index.get(&page_key) {
+            *page_id
         } else {
-            assert!(self.chunks.len() <= u32::MAX as usize, "capacity overflow");
-            let chunk_id = self.chunks.len() as u32;
-            self.chunks.push(TileChunk {
+            assert!(self.pages.len() <= u32::MAX as usize, "capacity overflow");
+            let page_id = self.pages.len() as u32;
+            self.pages.push(TilePage {
                 version: Default::default(),
                 tiles: Default::default(),
                 ids: Default::default(),
             });
-            self.coord_index.insert(chunk_coord_, chunk_id);
-            chunk_id
+            self.coord_index.insert(page_key, page_id);
+            page_id
         }
     }
 
     pub fn insert(&mut self, tile: Tile) -> Result<TileId, TileError> {
-        let chunk_id = self.alloc_chunk(tile.coord);
+        let page_id = self.alloc_page(tile.coord);
 
         // check by spatial features
         let _ = self.archetypes.get(tile.archetype_id as usize).ok_or(TileError::InvalidId)?;
@@ -132,70 +132,70 @@ impl TileField {
             return Err(TileError::Conflict);
         }
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        assert!(chunk.tiles.len() <= u32::MAX as usize, "capacity overflow");
-        let local_id = chunk.tiles.len() as u32;
-        let address = encode_address(chunk_id, local_id);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        assert!(page.tiles.len() <= u32::MAX as usize, "capacity overflow");
+        let local_id = page.tiles.len() as u32;
+        let address = encode_address(page_id, local_id);
         let id = self.id_index.insert(address) as u64;
 
         // register spatial index
         let rect = TileArchetype::rect(tile.coord);
-        self.grid.insert(rect, id);
+        self.spatial_index.insert(rect, id);
 
-        chunk.tiles.push(tile);
-        chunk.ids.push(id);
-        chunk.version += 1;
+        page.tiles.push(tile);
+        page.ids.push(id);
+        page.version += 1;
         Ok(id)
     }
 
     pub fn remove(&mut self, id: TileId) -> Result<Tile, TileError> {
         let address = self.id_index.try_remove(id as usize).ok_or(TileError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.swap_remove(local_id as usize);
-        let _ = chunk.ids.swap_remove(local_id as usize);
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let tile = page.tiles.swap_remove(local_id as usize);
+        let _ = page.ids.swap_remove(local_id as usize);
 
-        if let Some(id) = chunk.ids.get(local_id as usize) {
+        if let Some(id) = page.ids.get(local_id as usize) {
             *self.id_index.get_mut(*id as usize).unwrap() = address;
         }
 
         // unregister spatial index
         let rect = TileArchetype::rect(tile.coord);
-        self.grid.remove(rect);
+        self.spatial_index.remove(rect);
 
-        chunk.version += 1;
+        page.version += 1;
         Ok(tile)
     }
 
     pub fn modify_variant(&mut self, id: TileId, variant: u16) -> Result<(), TileError> {
         let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let tile = page.tiles.get_mut(local_id as usize).unwrap();
         tile.variant = variant;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn modify_tick(&mut self, id: TileId, tick: u32) -> Result<(), TileError> {
         let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+        let page = self.pages.get_mut(page_id as usize).unwrap();
+        let tile = page.tiles.get_mut(local_id as usize).unwrap();
         tile.tick = tick;
-        chunk.version += 1;
+        page.version += 1;
         Ok(())
     }
 
     pub fn r#move(&mut self, id: TileId, new_coord: IVec2) -> Result<(), TileError> {
         let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let tile = page.tiles.get(local_id as usize).unwrap();
         if tile.coord == new_coord {
             return Ok(());
         }
@@ -209,38 +209,38 @@ impl TileField {
         // update spatial index
         let rect = TileArchetype::rect(tile.coord);
         let new_rect = TileArchetype::rect(new_coord);
-        self.grid.remove(rect);
-        self.grid.insert(new_rect, id);
+        self.spatial_index.remove(rect);
+        self.spatial_index.insert(new_rect, id);
 
         // move owner
-        let chunk_coord = Self::find_chunk_coord_internal(tile.coord);
-        let new_chunk_coord = Self::find_chunk_coord_internal(new_coord);
-        if new_chunk_coord != chunk_coord {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let tile = chunk.tiles.swap_remove(local_id as usize);
-            let _ = chunk.ids.swap_remove(local_id as usize);
+        let page_coord = Self::find_page_coord_ivec2(tile.coord);
+        let new_page_coord = Self::find_page_coord_ivec2(new_coord);
+        if new_page_coord != page_coord {
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let tile = page.tiles.swap_remove(local_id as usize);
+            let _ = page.ids.swap_remove(local_id as usize);
 
-            if let Some(id) = chunk.ids.get(local_id as usize) {
+            if let Some(id) = page.ids.get(local_id as usize) {
                 *self.id_index.get_mut(*id as usize).unwrap() = address;
             }
-            chunk.version += 1;
+            page.version += 1;
 
-            let new_chunk_id = self.alloc_chunk(new_coord);
+            let new_page_id = self.alloc_page(new_coord);
 
-            let new_chunk = self.chunks.get_mut(new_chunk_id as usize).unwrap();
-            assert!(new_chunk.tiles.len() <= u32::MAX as usize, "capacity overflow");
-            let new_local_id = new_chunk.tiles.len() as u32;
-            let new_address = encode_address(new_chunk_id, new_local_id);
+            let new_page = self.pages.get_mut(new_page_id as usize).unwrap();
+            assert!(new_page.tiles.len() <= u32::MAX as usize, "capacity overflow");
+            let new_local_id = new_page.tiles.len() as u32;
+            let new_address = encode_address(new_page_id, new_local_id);
             *self.id_index.get_mut(id as usize).unwrap() = new_address;
 
-            new_chunk.tiles.push(Tile { coord: new_coord, ..tile });
-            new_chunk.ids.push(id);
-            new_chunk.version += 1;
+            new_page.tiles.push(Tile { coord: new_coord, ..tile });
+            new_page.ids.push(id);
+            new_page.version += 1;
         } else {
-            let chunk = self.chunks.get_mut(chunk_id as usize).unwrap();
-            let tile = chunk.tiles.get_mut(local_id as usize).unwrap();
+            let page = self.pages.get_mut(page_id as usize).unwrap();
+            let tile = page.tiles.get_mut(local_id as usize).unwrap();
             tile.coord = new_coord;
-            chunk.version += 1;
+            page.version += 1;
         }
         Ok(())
     }
@@ -248,10 +248,10 @@ impl TileField {
     #[inline]
     pub fn get(&self, id: TileId) -> Result<&Tile, TileError> {
         let address = *self.id_index.get(id as usize).ok_or(TileError::NotFound)?;
-        let (chunk_id, local_id) = decode_address(address);
+        let (page_id, local_id) = decode_address(address);
 
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        let tile = chunk.tiles.get(local_id as usize).unwrap();
+        let page = self.pages.get(page_id as usize).unwrap();
+        let tile = page.tiles.get(local_id as usize).unwrap();
 
         Ok(tile)
     }
@@ -263,36 +263,36 @@ impl TileField {
         self.archetypes.get(archetype_id as usize).ok_or(TileError::InvalidId)
     }
 
-    // transfer chunk data
+    // transfer page data
 
     #[inline]
-    pub fn find_chunk_coord(&self, coord: Vec2) -> IVec2 {
-        coord.div_euclid(Vec2::splat(Self::CHUNK_SIZE as f32)).as_ivec2()
+    pub fn find_page_coord(coord: Vec2) -> IVec2 {
+        coord.div_euclid(Vec2::splat(Self::PAGE_SIZE as f32)).as_ivec2()
     }
 
     #[inline]
-    fn find_chunk_coord_internal(coord: IVec2) -> IVec2 {
-        coord.div_euclid(IVec2::splat(Self::CHUNK_SIZE as i32))
+    fn find_page_coord_ivec2(coord: IVec2) -> IVec2 {
+        coord.div_euclid(IVec2::splat(Self::PAGE_SIZE as i32))
     }
 
     #[inline]
-    pub fn get_chunk(&self, chunk_coord: IVec2) -> Result<&TileChunk, TileError> {
-        let chunk_coord_ = encode_coord(chunk_coord);
-        let chunk_id = *self.coord_index.get(&chunk_coord_).ok_or(TileError::NotFound)?;
-        let chunk = self.chunks.get(chunk_id as usize).unwrap();
-        Ok(chunk)
+    pub fn get_page(&self, page_coord: IVec2) -> Result<&TilePage, TileError> {
+        let page_key = encode_coord(page_coord);
+        let page_id = *self.coord_index.get(&page_key).ok_or(TileError::NotFound)?;
+        let page = self.pages.get(page_id as usize).unwrap();
+        Ok(page)
     }
 
     // spatial features
 
     #[inline]
     pub fn find_with_point(&self, point: IVec2) -> Option<&TileId> {
-        self.grid.find_point(point)
+        self.spatial_index.find_point(point)
     }
 
     #[inline]
     pub fn find_with_rect(&self, rect: IRect2) -> impl Iterator<Item = &TileId> {
-        self.grid.find_rect(rect)
+        self.spatial_index.find_rect(rect)
     }
 
     // collision features
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn tile_chunk() {
+    fn tile_page() {
         let mut field = make_tile_field();
 
         let _ = field
@@ -566,9 +566,9 @@ mod tests {
             })
             .unwrap();
 
-        assert!(field.get_chunk(IVec2::new(0, 0)).is_err());
+        assert!(field.get_page(IVec2::new(0, 0)).is_err());
 
-        let chunk = field.get_chunk(IVec2::new(-1, 0)).unwrap();
-        assert_eq!(chunk.tiles.len(), 3);
+        let page = field.get_page(IVec2::new(-1, 0)).unwrap();
+        assert_eq!(page.tiles.len(), 3);
     }
 }
