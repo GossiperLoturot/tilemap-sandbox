@@ -14,13 +14,13 @@ pub struct DiscreteGenerator<F> where F: Fn(&mut dataflow::Dataflow, IVec2) {
 
 impl<F> Generator for DiscreteGenerator<F> where F: Fn(&mut dataflow::Dataflow, IVec2)  {
     fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
 
         for y in broad_rect.min.y..broad_rect.max.y {
             for x in broad_rect.min.x..broad_rect.max.x {
                 let coord = IVec2::new(x, y);
 
-                let value = rand::Rng::gen_range(rng, 0.0..1.0);
+                let value = rand::RngExt::random_range(rng, 0.0..1.0);
                 if self.probability < value {
                     continue;
                 }
@@ -38,12 +38,12 @@ pub struct RandomGenerator<F> where F: Fn(&mut dataflow::Dataflow, Vec2) {
 
 impl<F> Generator for RandomGenerator<F> where F: Fn(&mut dataflow::Dataflow, Vec2) {
     fn generate(&self, dataflow: &mut dataflow::Dataflow, broad_rect: IRect2) {
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
 
         let generate_count = (broad_rect.volume() as f32 * self.probability) as i32;
         for _ in 0..generate_count {
-            let x = rand::Rng::gen_range(rng, broad_rect.min.x as f32..broad_rect.max.x as f32);
-            let y = rand::Rng::gen_range(rng, broad_rect.min.y as f32..broad_rect.max.y as f32);
+            let x = rand::RngExt::random_range(rng, broad_rect.min.x as f32..broad_rect.max.x as f32);
+            let y = rand::RngExt::random_range(rng, broad_rect.min.y as f32..broad_rect.max.y as f32);
             let coord = Vec2::new(x, y);
 
             (self.sample_fn)(dataflow, coord)

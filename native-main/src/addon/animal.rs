@@ -76,7 +76,7 @@ impl AnimalSystem {
         let resource = dataflow.find_resources::<AnimalResource>()?;
         let mut resource = resource.borrow_mut().map_err(dataflow::DataflowError::from)?;
 
-        let mut rng = rand::thread_rng();
+        let rng = &mut rand::rng();
         for data in resource.storage.iter_mut() {
             let entity = dataflow.get_entity(data.entity_id).unwrap().clone();
 
@@ -87,7 +87,7 @@ impl AnimalSystem {
                 AnimalDataState::WaitStart => {
                     dataflow.modify_entity_variant(data.entity_id, IDLE_VARIANT).unwrap();
                     dataflow.modify_entity_tick(data.entity_id, dataflow.get_tick() as u32).unwrap();
-                    let wait_secs = rand::Rng::gen_range(&mut rng, data.min_rest_secs..data.max_rest_secs);
+                    let wait_secs = rand::RngExt::random_range(rng, data.min_rest_secs..data.max_rest_secs);
                     data.state = AnimalDataState::Wait(wait_secs);
                 }
                 AnimalDataState::Wait(wait_secs) => {
@@ -101,8 +101,8 @@ impl AnimalSystem {
                 AnimalDataState::TripStart => {
                     dataflow.modify_entity_variant(data.entity_id, WALK_VARIANT).unwrap();
                     dataflow.modify_entity_tick(data.entity_id, dataflow.get_tick() as u32).unwrap();
-                    let angle = rand::Rng::gen_range(&mut rng, 0.0..std::f32::consts::PI * 2.0);
-                    let distance = rand::Rng::gen_range(&mut rng, data.min_distance..data.max_distance);
+                    let angle = rand::RngExt::random_range(rng, 0.0..std::f32::consts::PI * 2.0);
+                    let distance = rand::RngExt::random_range(rng, data.min_distance..data.max_distance);
                     let destination = entity.coord + Vec2::from_angle(angle) * distance;
                     data.state = AnimalDataState::Trip(destination);
                 }

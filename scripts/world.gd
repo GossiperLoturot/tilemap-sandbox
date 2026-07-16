@@ -11,8 +11,6 @@ func _enter_tree() -> void:
 	Context.open(self.get_viewport(), _callback)
 	# spawn player
 	Context.spawn_player()
-	# spawn 65,536 animal for load-test
-	Context.spawn_bulk_animal()
 
 
 func _process(delta: float) -> void:

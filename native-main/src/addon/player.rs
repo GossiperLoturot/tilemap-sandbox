@@ -65,13 +65,18 @@ impl dataflow::EventHandler<dataflow::EntityId> for PlayerEventHandler {
         dataflow.remove_inventory(inventory_id).unwrap();
     }
 
-    fn on_use(&self, dataflow: &mut dataflow::Dataflow, id: dataflow::EntityId) {
+    fn on_use(&self, dataflow: &mut dataflow::Dataflow, _: dataflow::EntityId) {
         let resource = dataflow.find_resources::<PlayerResource>().unwrap();
         let resource = resource.borrow().map_err(dataflow::DataflowError::from).unwrap();
 
+        if resource.current.is_none() {
+            panic!("player is already no exist.");
+        }
+        let inventory_id = resource.inventory_id.unwrap();
+
         let callback = dataflow.find_resources::<CallbackResource>().unwrap();
         let callback = callback.borrow().map_err(dataflow::DataflowError::from).unwrap();
-        callback.callback.call(&[]);
+        callback.callback.call(&[godot::builtin::Variant::from("use_player"), godot::builtin::Variant::from(inventory_id as u32)]);
     }
 }
 

@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ahash = "0.8"
-glam = "0.30"
-godot = "0.4"
+glam = "0.32"
+godot = "0.5"
 native-core = { path = "../native-core" }
-rand = "0.8"
+rand = "0.10"

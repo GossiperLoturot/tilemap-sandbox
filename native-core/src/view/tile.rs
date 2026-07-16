@@ -73,7 +73,6 @@ pub struct TileField {
 impl TileField {
     const PAGE_CAPACITY: usize = 512;
     const ATLAS_WIDTH: usize = 1024;
-    const ATLAS_PAGE: usize = 8;
     const COORD_BUFFER_WIDTH: usize = 1024;
     const BUFFER_LEN: usize = 1024;
 
@@ -121,18 +120,18 @@ impl TileField {
             sprite_addrs.push(sprite_addr);
         }
 
-        let mut atlas_input = vec![];
+        let mut atlas_inputs = vec![];
         for image in images {
-            atlas_input.push(image_atlas::AtlasEntry {
+            atlas_inputs.push(image_atlas::image::AtlasEntry {
                 texture: image,
-                mip: image_atlas::AtlasEntryMipOption::Clamp,
+                mip: image_atlas::image::AtlasEntryMipOption::Clamp,
             });
         }
-        let atlas_output = image_atlas::create_atlas(&image_atlas::AtlasDescriptor {
+        let atlas_output = image_atlas::image::create_atlas(&image_atlas::image::AtlasDescriptor {
             size: Self::ATLAS_WIDTH as u32,
-            max_page_count: Self::ATLAS_PAGE as u32,
-            mip: image_atlas::AtlasMipOption::NoMipWithPadding(1),
-            entries: &atlas_input,
+            mip: image_atlas::image::AtlasMipOption::NoMip(image_atlas::image::AtlasPadding::Padding(1)),
+            entries: &atlas_inputs,
+            algorithm: image_atlas::image::AtlasAlgorithm::Offline,
         })
         .unwrap();
 
@@ -168,7 +167,7 @@ impl TileField {
             coord_buffer[i * 8 + 1] = coord.min_y;
             coord_buffer[i * 8 + 2] = coord.max_x - coord.min_x;
             coord_buffer[i * 8 + 3] = coord.max_y - coord.min_y;
-            coord_buffer[i * 8 + 4] = coord.page as f32;
+            coord_buffer[i * 8 + 4] = coord.page_id as f32;
             coord_buffer[i * 8 + 5] = 0.0;
             coord_buffer[i * 8 + 6] = 0.0;
             coord_buffer[i * 8 + 7] = 0.0;

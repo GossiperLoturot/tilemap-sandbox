@@ -10,10 +10,10 @@ harness = false
 [dependencies]
 ahash = "0.8"
 bytemuck = "1"
-glam = "0.30"
-godot = "0.4"
+glam = "0.32"
+godot = "0.5"
 image = { version = "0.25", default-features = false }
-image-atlas = "0.4"
+image-atlas = "0.5"
 slab = "0.4"
 
 [dev-dependencies]

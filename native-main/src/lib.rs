@@ -8,8 +8,8 @@ struct Extension;
 
 #[gdextension]
 unsafe impl ExtensionLibrary for Extension {
-    fn on_level_init(level: InitLevel) {
-        if level == InitLevel::Scene {
+    fn on_stage_init(stage: InitStage) {
+        if stage == InitStage::Scene {
             let mut engine = godot::classes::Engine::singleton();
 
             // Register the Context singleton
@@ -17,8 +17,8 @@ unsafe impl ExtensionLibrary for Extension {
         }
     }
 
-    fn on_level_deinit(level: InitLevel) {
-        if level == InitLevel::Scene {
+    fn on_stage_deinit(stage: InitStage) {
+        if stage == InitStage::Scene {
             let mut engine = godot::classes::Engine::singleton();
 
             // Unregister the Context singleton
