@@ -3,6 +3,3 @@
 
 # Cargo
 /target/
-
-# cdynlib
-/native_main.dll

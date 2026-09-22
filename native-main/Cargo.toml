@@ -12,3 +12,6 @@ glam = "0.32"
 godot = "0.5"
 native-core = { path = "../native-core" }
 rand = "0.10"
+
+[lints]
+workspace = true

@@ -4,5 +4,7 @@ compatibility_minimum = 4.2
 reloadable = true
 
 [libraries]
-windows.debug.x86_64 = "res://native_main.dll"
-windows.release.x86_64 = "res://native_main.dll"
+linux.debug.x86_64 = "res://target/debug/libnative_main.so"
+linux.release.x86_64 = "res://target/release/libnative_main.so"
+windows.debug.x86_64 = "res://target/debug/native_main.dll"
+windows.release.x86_64 = "res://target/release/native_main.dll"

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  check:
+    ignore_error: true
+    cmds:
+      - cargo fmt --all --check
+      - cargo clippy --all-targets
+
+  fix:
+    ignore_error: true
+    cmds:
+      - cargo fmt --all
+      - cargo clippy --all-targets --fix
+
+  build:
+    cmds:
+      - cargo build
